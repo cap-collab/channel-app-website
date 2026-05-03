@@ -256,7 +256,7 @@ Thanks for understanding.
 
   const formatSlotTime = (slot: TimeSlot) => {
     const djTimezone = application.timezone || 'America/New_York';
-    const adminTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const adminTimezone = 'America/Los_Angeles';
 
     // Show in DJ's timezone
     const djStart = formatTimeInTimezone(slot.start, djTimezone, { hour: 'numeric', minute: '2-digit' });
@@ -264,13 +264,13 @@ Thanks for understanding.
     const djDate = formatTimeInTimezone(slot.start, djTimezone, { weekday: 'short', month: 'short', day: 'numeric' });
     const djTz = getTimezoneAbbr(djTimezone, slot.start);
 
-    // Show in admin's timezone if different
+    // Show in PT (admin time) if DJ isn't already in PT
     if (djTimezone !== adminTimezone) {
       const adminStart = formatTimeInTimezone(slot.start, adminTimezone, { hour: 'numeric', minute: '2-digit' });
       const adminEnd = formatTimeInTimezone(slot.end, adminTimezone, { hour: 'numeric', minute: '2-digit' });
       const adminDate = formatTimeInTimezone(slot.start, adminTimezone, { weekday: 'short', month: 'short', day: 'numeric' });
       const adminTz = getTimezoneAbbr(adminTimezone, slot.start);
-      return `${djDate} ${djStart} - ${djEnd} ${djTz} (DJ) / ${adminDate} ${adminStart} - ${adminEnd} ${adminTz} (you)`;
+      return `${djDate} ${djStart} - ${djEnd} ${djTz} (DJ) / ${adminDate} ${adminStart} - ${adminEnd} ${adminTz} (PT)`;
     }
 
     return `${djDate} ${djStart} - ${djEnd} ${djTz}`;
