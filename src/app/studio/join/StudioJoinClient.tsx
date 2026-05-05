@@ -11,6 +11,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { extractInstagramHandle } from '@/lib/genres';
 import { trackLeadConversion } from '@/lib/gtag';
+import { Checkbox } from '@/components/Checkbox';
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -106,11 +107,6 @@ export function StudioJoinClient() {
 
   const handleSlotsChange = (slots: TimeSlot[]) => {
     setFormData((prev) => ({ ...prev, preferredSlots: slots }));
-  };
-
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: checked }));
   };
 
   const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -368,12 +364,10 @@ export function StudioJoinClient() {
               {/* Setup Support Checkbox */}
               <div className="pt-4">
                 <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="needsSetupSupport"
-                    checked={formData.needsSetupSupport}
-                    onChange={handleCheckboxChange}
-                    className="mt-1 w-5 h-5 rounded border-gray-700 bg-[#1a1a1a] text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  <Checkbox
+                    checked={!!formData.needsSetupSupport}
+                    onChange={(v) => setFormData((prev) => ({ ...prev, needsSetupSupport: v }))}
+                    className="mt-0.5"
                   />
                   <span className="text-sm text-gray-300">
                     I need help setting up my livestream
@@ -543,11 +537,10 @@ export function StudioJoinClient() {
               {/* Terms Agreement */}
               <div className="pt-6 border-t border-gray-800">
                 <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={agreedToTerms}
-                    onChange={(e) => setAgreedToTerms(e.target.checked)}
-                    className="mt-1 w-5 h-5 rounded border-gray-700 bg-[#1a1a1a] text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                    onChange={setAgreedToTerms}
+                    className="mt-0.5"
                   />
                   <span className="text-sm text-gray-300">
                     I have read and agree to the{' '}

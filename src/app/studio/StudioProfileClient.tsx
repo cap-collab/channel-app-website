@@ -17,6 +17,7 @@ import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { getStationById } from "@/lib/stations";
 import { parseGenresInput, extractInstagramHandle } from "@/lib/genres";
 import { ShareableShowCardStory } from "@/components/studio/ShareableShowCardStory";
+import { Checkbox } from "@/components/Checkbox";
 
 // Word boundary matching for DJ/show names
 // e.g. "PAC" matches "PAC" or "Night PAC" but NOT "pace" or "space"
@@ -2105,11 +2106,10 @@ export function StudioProfileClient() {
 
               <div className="bg-[#1e1e1e] rounded-lg p-6">
                 <label className="flex items-start gap-3 cursor-pointer mb-4">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={agreedToDJTerms}
-                    onChange={(e) => setAgreedToDJTerms(e.target.checked)}
-                    className="mt-1 w-5 h-5 rounded border-gray-600 bg-gray-800 text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                    onChange={setAgreedToDJTerms}
+                    className="mt-0.5"
                   />
                   <span className="text-sm text-gray-300">
                     I have read and agree to the{" "}
@@ -2750,29 +2750,26 @@ export function StudioProfileClient() {
                 I&apos;m OK with my shows&apos; audio and visuals being used
               </p>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
+                  size="sm"
                   checked={djProfile.youtubeOptIn !== false}
-                  onChange={(e) => saveSharingConsent('youtubeOptIn', e.target.checked)}
-                  className="w-4 h-4 flex-shrink-0 accent-white"
+                  onChange={(v) => saveSharingConsent('youtubeOptIn', v)}
                 />
                 <span className="text-sm text-white">on YouTube and Google platforms</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
+                  size="sm"
                   checked={djProfile.soundcloudOptIn !== false}
-                  onChange={(e) => saveSharingConsent('soundcloudOptIn', e.target.checked)}
-                  className="w-4 h-4 flex-shrink-0 accent-white"
+                  onChange={(v) => saveSharingConsent('soundcloudOptIn', v)}
                 />
                 <span className="text-sm text-white">on SoundCloud</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
+                  size="sm"
                   checked={djProfile.metaOptIn !== false}
-                  onChange={(e) => saveSharingConsent('metaOptIn', e.target.checked)}
-                  className="w-4 h-4 flex-shrink-0 accent-white"
+                  onChange={(v) => saveSharingConsent('metaOptIn', v)}
                 />
                 <span className="text-sm text-white">on Instagram and Meta platforms</span>
               </label>
@@ -3753,12 +3750,12 @@ export function StudioProfileClient() {
                 <li>• All artists featured in this recording are aware of and consent to its use on Channel.</li>
               </ul>
               <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
+                  size="sm"
                   checked={uploadTermsConfirmed}
-                  onChange={(e) => setUploadTermsConfirmed(e.target.checked)}
+                  onChange={setUploadTermsConfirmed}
                   disabled={uploading}
-                  className="mt-0.5 w-4 h-4 rounded border-gray-600 bg-gray-800 text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  className="mt-0.5"
                 />
                 <span className="text-gray-300 text-sm">
                   I confirm and agree to the{' '}
