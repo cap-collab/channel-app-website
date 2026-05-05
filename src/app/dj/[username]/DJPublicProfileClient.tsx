@@ -1420,8 +1420,8 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     return { upcomingShows: upcoming, pastActivities: past };
   }, [upcomingBroadcasts, pastExternalShows, pastBroadcastShows, djProfile, djUpcomingEvents, djPastEvents]);
 
-  const hasScheduleContent = upcomingShows.length > 0 || pastActivities.length > 0;
-  const hasUpcomingShows = upcomingShows.length > 0;
+  const hasScheduleContent = upcomingShows.length > 0 || pastActivities.length > 0 || !!currentLiveShow;
+  const hasUpcomingShows = upcomingShows.length > 0 || !!currentLiveShow;
 
   // Default to the schedule tab only when there are upcoming shows; DJs with
   // only past activity (or nothing) land on chat where conversation lives.
