@@ -221,9 +221,11 @@ export function DJImageOverlay({
   const descriptionRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [needsScroll, setNeedsScroll] = useState(false);
-  const [contentHeight, setContentHeight] = useState(0);
+  const [loopDistance, setLoopDistance] = useState(0);
 
-  // Measure whether description overflows 2 lines and capture full content height for marquee loop
+  // Measure whether description overflows 2 lines. The seamless-loop distance is the
+  // first copy's height plus the gap before the duplicate, so when the animation ends
+  // the duplicate sits exactly where the original started — no visual jump.
   useEffect(() => {
     const desc = descriptionRef.current;
     const container = containerRef.current;
@@ -231,7 +233,8 @@ export function DJImageOverlay({
     const overflow = desc.scrollHeight > container.clientHeight;
     setNeedsScroll(overflow);
     if (overflow) {
-      setContentHeight(desc.scrollHeight);
+      const lineHeightPx = parseFloat(getComputedStyle(desc).lineHeight);
+      setLoopDistance(desc.scrollHeight + lineHeightPx);
     }
   }, [djDescription]);
 
@@ -263,8 +266,8 @@ export function DJImageOverlay({
           <div
             className={needsScroll ? 'animate-desc-scroll' : ''}
             style={needsScroll ? {
-              '--scroll-distance': `-${contentHeight}px`,
-              '--scroll-duration': `${contentHeight * 0.25}s`,
+              '--scroll-distance': `-${loopDistance}px`,
+              '--scroll-duration': `${loopDistance * 0.25}s`,
             } as React.CSSProperties : undefined}
           >
             <div
