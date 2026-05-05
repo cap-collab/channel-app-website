@@ -2275,7 +2275,7 @@ export function StudioProfileClient() {
               )}
               {djNameAvailable && djNameInput.trim() && (
                 <p className="text-gray-500 text-sm">
-                  Your profile URL will be: <span className="text-purple-400">/dj/{djNameInput.trim().replace(/\s+/g, '').toLowerCase()}</span>
+                  Your profile URL will be: <span className="text-purple-400">/dj/{djNameInput.trim().replace(/[\s-]+/g, '').toLowerCase()}</span>
                 </p>
               )}
             </div>

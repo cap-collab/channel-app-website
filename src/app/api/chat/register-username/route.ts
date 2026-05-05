@@ -5,7 +5,9 @@ import { FieldValue } from 'firebase-admin/firestore';
 // Reserved usernames that cannot be registered (case-insensitive)
 const RESERVED_USERNAMES = ['channel', 'admin', 'system', 'moderator', 'mod'];
 
-// Validate username format (same rules as iOS app)
+// Validate username format (same rules as iOS app, plus hyphens for display).
+// Hyphens are allowed in the display name but stripped from the handle (same
+// treatment as spaces) so the @mention key stays alphanumeric.
 function isValidUsername(username: string): boolean {
   const trimmed = username.trim();
 
@@ -14,8 +16,8 @@ function isValidUsername(username: string): boolean {
     return false;
   }
 
-  // Must contain at least 2 alphanumeric characters (when spaces removed)
-  const handle = trimmed.replace(/\s+/g, '');
+  // Must contain at least 2 alphanumeric characters (when separators removed)
+  const handle = trimmed.replace(/[\s-]+/g, '');
   if (handle.length < 2) {
     return false;
   }
@@ -25,8 +27,8 @@ function isValidUsername(username: string): boolean {
     return false;
   }
 
-  // Alphanumeric and single spaces only - handles are used for @mentions
-  return /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed);
+  // Alphanumeric tokens separated by single spaces or hyphens
+  return /^[A-Za-z0-9]+(?:[ -][A-Za-z0-9]+)*$/.test(trimmed);
 }
 
 // POST - Register a unique chat username
@@ -73,8 +75,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Generate normalized handle (remove spaces, lowercase) for uniqueness and @mentions
-    const handle = trimmedUsername.replace(/\s+/g, '').toLowerCase();
+    // Generate normalized handle (strip spaces and hyphens, lowercase) for uniqueness and @mentions
+    const handle = trimmedUsername.replace(/[\s-]+/g, '').toLowerCase();
     const usernameDocRef = db.collection('usernames').doc(handle);
     const userDocRef = db.collection('users').doc(userId);
 
