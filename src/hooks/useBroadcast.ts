@@ -253,9 +253,11 @@ export function useBroadcast(
       // Bound publishTrack with a timeout — if the SFU is still holding the
       // previous DJ's publish slot, this can otherwise hang indefinitely and
       // leave the UI stuck on "Connecting…".
+      const useRed = process.env.NEXT_PUBLIC_OPUS_RED_ENABLED === 'true';
       const publishPromise = roomRef.current.localParticipant.publishTrack(audioTrack, {
         name: 'dj-audio',
         source: Track.Source.Microphone,
+        ...(useRed ? { red: true } : {}),
       });
       const publication = await Promise.race([
         publishPromise,
