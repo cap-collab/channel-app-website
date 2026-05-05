@@ -254,6 +254,7 @@ export function useBroadcast(
       // previous DJ's publish slot, this can otherwise hang indefinitely and
       // leave the UI stuck on "Connecting…".
       const useRed = process.env.NEXT_PUBLIC_OPUS_RED_ENABLED === 'true';
+      console.log('📡 Publishing audio — Opus RED enabled:', useRed);
       const publishPromise = roomRef.current.localParticipant.publishTrack(audioTrack, {
         name: 'dj-audio',
         source: Track.Source.Microphone,
