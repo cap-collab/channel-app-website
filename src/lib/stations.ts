@@ -123,7 +123,7 @@ const STATION_LOGOS: Record<string, string> = {
   "rinse-fm": "/stations/rinsefm-logo.png",
   "rinse-fr": "/stations/rinsefr-logo.png",
   "subtle": "/stations/subtle-logo.png",
-  "sutro": "/stations/sutro-logo.png",
+  "sutro": "/stations/sutro-logo.jpg",
   "dublab": "/stations/dublab-logo.png",
 };
 
