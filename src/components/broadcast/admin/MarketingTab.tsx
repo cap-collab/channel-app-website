@@ -163,6 +163,18 @@ function CopyLinkButton({ link }: { link: string }) {
   );
 }
 
+// Mon..Sun week containing the given date.
+function getWeekRange(date: Date = new Date()): { start: Date; end: Date } {
+  const start = new Date(date);
+  const day = start.getDay(); // 0=Sun..6=Sat
+  const offsetToMonday = day === 0 ? -6 : 1 - day;
+  start.setDate(start.getDate() + offsetToMonday);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 7);
+  return { start, end };
+}
+
 export function MarketingTab({ slots }: MarketingTabProps) {
   const [djInfoCache, setDjInfoCache] = useState<DJInfoCache>({});
   const [slotIgCache, setSlotIgCache] = useState<SlotInstagramCache>({});
@@ -181,6 +193,18 @@ export function MarketingTab({ slots }: MarketingTabProps) {
       })
       .sort((a, b) => a.startTime - b.startTime);
   }, [slots]);
+
+  // Mon-Sun for the current week (the week that contains today)
+  const weekRange = useMemo(() => getWeekRange(), []);
+  const weekSlots = useMemo(() => {
+    return slots
+      .filter(s => {
+        if (s.status === 'missed') return false;
+        if (s.broadcastType === 'restream') return false;
+        return s.startTime >= weekRange.start.getTime() && s.startTime < weekRange.end.getTime();
+      })
+      .sort((a, b) => a.startTime - b.startTime);
+  }, [slots, weekRange]);
 
   // Group by day
   const groupedByDay = useMemo(() => {
@@ -207,9 +231,16 @@ export function MarketingTab({ slots }: MarketingTabProps) {
   useEffect(() => {
     if (!db) return;
 
+    // Lookup covers both the 3-day card grid and the weekly summary above it
+    const lookupSlots = [...upcomingSlots];
+    const seen = new Set(upcomingSlots.map(s => s.id));
+    for (const s of weekSlots) {
+      if (!seen.has(s.id)) lookupSlots.push(s);
+    }
+
     // Deduplicate by normalized name
     const normalizedToSlotIds: Record<string, string[]> = {};
-    for (const s of upcomingSlots) {
+    for (const s of lookupSlots) {
       if (djInfoCache[s.id]) continue;
       const name = s.djName;
       if (!name) continue;
@@ -257,17 +288,23 @@ export function MarketingTab({ slots }: MarketingTabProps) {
         setDjInfoCache(prev => ({ ...prev, ...newCache }));
       }
     });
-  }, [upcomingSlots, djInfoCache]);
+  }, [upcomingSlots, weekSlots, djInfoCache]);
 
   // Per-DJ IG lookup for venue shows where djSlots[].djSocialLinks.instagram may be missing.
   useEffect(() => {
     if (!db) return;
     const firestore = db;
 
+    const lookupSlots = [...upcomingSlots];
+    const seen = new Set(upcomingSlots.map(s => s.id));
+    for (const s of weekSlots) {
+      if (!seen.has(s.id)) lookupSlots.push(s);
+    }
+
     // Map: slotId -> { normalizedName -> djName } for DJs missing slot-level IG.
     const needed: Record<string, Record<string, string>> = {};
     const normalizedNames = new Set<string>();
-    for (const s of upcomingSlots) {
+    for (const s of lookupSlots) {
       if (s.broadcastType !== 'venue' || !s.djSlots?.length) continue;
       for (const ds of s.djSlots) {
         if (!ds.djName) continue;
@@ -312,9 +349,46 @@ export function MarketingTab({ slots }: MarketingTabProps) {
         return next;
       });
     })();
-  }, [upcomingSlots, slotIgCache]);
+  }, [upcomingSlots, weekSlots, slotIgCache]);
 
-  if (upcomingSlots.length === 0) {
+  // Build the week summary: one row per DJ per slot, in schedule order across the whole week.
+  const weekSummary = useMemo(() => {
+    const rows: Array<{
+      key: string;
+      djName: string;
+      handle: string;
+      sharingEnabled: boolean;
+    }> = [];
+    for (const s of weekSlots) {
+      const handles = getInstagramHandles(s, slotIgCache, djInfoCache);
+      const sharingEnabled = djInfoCache[s.id]?.metaOptIn !== false;
+      if (s.broadcastType === 'venue' && s.djSlots?.length) {
+        for (const ds of s.djSlots) {
+          const djName = ds.djName || '';
+          if (!djName) continue;
+          const found = handles.find(h => h.djName === djName);
+          rows.push({
+            key: `${s.id}-${djName}`,
+            djName,
+            handle: found?.handle || '',
+            sharingEnabled,
+          });
+        }
+      } else {
+        const djName = s.djName || '';
+        if (!djName) continue;
+        rows.push({
+          key: s.id,
+          djName,
+          handle: handles[0]?.handle || '',
+          sharingEnabled,
+        });
+      }
+    }
+    return rows;
+  }, [weekSlots, slotIgCache, djInfoCache]);
+
+  if (upcomingSlots.length === 0 && weekSlots.length === 0) {
     return (
       <div className="text-center py-20 text-gray-500">
         No upcoming scheduled shows.
@@ -322,8 +396,57 @@ export function MarketingTab({ slots }: MarketingTabProps) {
     );
   }
 
+  const weekRangeLabel = `${weekRange.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(weekRange.end.getTime() - 1).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+
   return (
     <div>
+      <div className="mb-10 border border-gray-800 rounded p-4 bg-gray-900/40">
+        <h2 className="text-lg font-bold text-white mb-1">
+          This week&apos;s DJs &amp; IG sharing
+        </h2>
+        <p className="text-xs text-gray-500 mb-4">{weekRangeLabel} (Mon–Sun)</p>
+        {weekSummary.length === 0 ? (
+          <p className="text-xs text-gray-600 italic">No shows scheduled this week</p>
+        ) : (
+          <ul className="text-xs space-y-1">
+            {weekSummary.map(r => (
+              <li
+                key={r.key}
+                className="grid grid-cols-[1fr_auto_auto] gap-3 items-center"
+              >
+                <span className="text-gray-300 truncate">{r.djName}</span>
+                {r.handle ? (
+                  <a
+                    href={`https://instagram.com/${r.handle}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-gray-300 hover:text-white font-mono"
+                  >
+                    @{r.handle}
+                  </a>
+                ) : (
+                  <span className="text-gray-600 italic">no IG</span>
+                )}
+                <span
+                  className={
+                    r.sharingEnabled
+                      ? 'text-green-400/80'
+                      : 'text-yellow-400/80'
+                  }
+                  title={
+                    r.sharingEnabled
+                      ? 'IG/Meta sharing enabled'
+                      : 'DJ opted out of IG/Meta sharing'
+                  }
+                >
+                  {r.sharingEnabled ? 'sharing on' : 'opted out'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {groupedByDay.map(([dayLabel, daySlots]) => {
         // List DJs in this day's slots who opted out of Instagram/Meta
         // sharing. Surface a heads-up at the top of the day so admin
