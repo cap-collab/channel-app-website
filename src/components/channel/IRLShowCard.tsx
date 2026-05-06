@@ -109,9 +109,19 @@ export function IRLShowCard({
           {show.eventName}
         </h3>
         {show.venueName ? (
-          <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
-            {show.venueName}
-          </p>
+          show.venueSlug ? (
+            <Link
+              href={`/venue/${show.venueSlug}`}
+              className="text-[10px] text-zinc-500 hover:text-white mt-0.5 uppercase block w-fit"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {show.venueName}
+            </Link>
+          ) : (
+            <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
+              {show.venueName}
+            </p>
+          )
         ) : (
           <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
             in {show.location}

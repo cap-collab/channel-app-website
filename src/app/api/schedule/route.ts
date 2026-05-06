@@ -361,6 +361,8 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
 
     // Venue display name: first linked venue, or legacy venueName
     const venueName = data.linkedVenues?.[0]?.venueName || data.venueName || undefined;
+    const venueIdForSlug = data.linkedVenues?.[0]?.venueId || data.venueId;
+    const venueSlug = venueIdForSlug ? venueSlugMap.get(venueIdForSlug) : undefined;
 
     // Build allDjs array for watchlist matching across all DJs in the lineup
     const allDjs = (data.djs || [])
@@ -382,6 +384,7 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
       date: dateStr,
       eventPhotoUrl: data.photo || undefined,
       venueName,
+      venueSlug,
       linkUrl,
       allDjs: allDjs.length > 1 ? allDjs : undefined,
     });
