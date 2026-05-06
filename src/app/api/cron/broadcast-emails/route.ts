@@ -205,6 +205,46 @@ function formatDate(timestamp: number, timezone: string): string {
   });
 }
 
+// YYYY-MM-DD key for the start day, in the given timezone. Used to dedupe
+// reminders so rescheduling within the same day doesn't re-fire, but moving
+// the show to a different day does.
+function startDayKey(timestamp: number, timezone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric', month: '2-digit', day: '2-digit', timeZone: timezone,
+  }).formatToParts(new Date(timestamp));
+  const y = parts.find(p => p.type === 'year')?.value ?? '0000';
+  const m = parts.find(p => p.type === 'month')?.value ?? '01';
+  const d = parts.find(p => p.type === 'day')?.value ?? '01';
+  return `${y}-${m}-${d}`;
+}
+
+// Decide whether a reminder phase should be skipped. Skip when:
+//   - the slot was already stamped for the current start day, OR
+//   - it was stamped before this change shipped (no day key) — treat as
+//     already-sent for the current day so we don't spam in-flight shows.
+async function shouldSkipForDay(
+  db: FirebaseFirestore.Firestore,
+  slot: FirebaseFirestore.DocumentData,
+  sentAtField: string,
+  sentForDayField: string,
+): Promise<{ skip: boolean; currentDay: string }> {
+  const slotStart = toMillis(slot.startTime);
+  // Use the first email target's timezone as the slot's reference TZ. Falls
+  // back to default if no targets / no DJ profile yet.
+  const targets = await getDjEmailTargets(db, slot);
+  let tz = DEFAULT_TIMEZONE;
+  if (targets.length > 0) {
+    const info = await lookupDjInfo(db, targets[0].email);
+    tz = info.timezone;
+  }
+  const currentDay = startDayKey(slotStart, tz);
+  const sentForDay = slot[sentForDayField] as string | undefined;
+  if (sentForDay) return { skip: sentForDay === currentDay, currentDay };
+  // Legacy: stamped before the day-key existed — treat as sent for today.
+  if (slot[sentAtField]) return { skip: true, currentDay };
+  return { skip: false, currentDay };
+}
+
 // Format time range for email display
 function formatTimeRange(startTime: number, endTime: number, timezone: string): string {
   const opts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', timeZone: timezone };
@@ -298,7 +338,8 @@ async function run1WeekReminders(db: FirebaseFirestore.Firestore, now: number): 
     const slot = doc.data();
 
     if (slot.broadcastType === 'restream') { result.skipped++; continue; }
-    if (slot.reminder1WeekEmailSentAt) { result.skipped++; continue; }
+    const dedup = await shouldSkipForDay(db, slot, 'reminder1WeekEmailSentAt', 'reminder1WeekEmailSentForDay');
+    if (dedup.skip) { result.skipped++; continue; }
 
     const showName = slot.showName || 'Your show';
     const targets = await getDjEmailTargets(db, slot);
@@ -324,7 +365,10 @@ async function run1WeekReminders(db: FirebaseFirestore.Firestore, now: number): 
       }
     }
 
-    await doc.ref.update({ reminder1WeekEmailSentAt: now });
+    await doc.ref.update({
+      reminder1WeekEmailSentAt: now,
+      reminder1WeekEmailSentForDay: dedup.currentDay,
+    });
   }
 
   return result;
@@ -350,7 +394,8 @@ async function run48hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
     const slot = doc.data();
 
     if (slot.broadcastType === 'restream') { result.skipped++; continue; }
-    if (slot.reminder48hEmailSentAt) { result.skipped++; continue; }
+    const dedup = await shouldSkipForDay(db, slot, 'reminder48hEmailSentAt', 'reminder48hEmailSentForDay');
+    if (dedup.skip) { result.skipped++; continue; }
 
     const showName = slot.showName || 'Your show';
     const targets = await getDjEmailTargets(db, slot);
@@ -377,7 +422,10 @@ async function run48hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
       }
     }
 
-    await doc.ref.update({ reminder48hEmailSentAt: now });
+    await doc.ref.update({
+      reminder48hEmailSentAt: now,
+      reminder48hEmailSentForDay: dedup.currentDay,
+    });
   }
 
   return result;
@@ -458,7 +506,8 @@ async function run2hReminders(db: FirebaseFirestore.Firestore, now: number): Pro
     const slot = doc.data();
 
     if (slot.broadcastType === 'restream') { result.skipped++; continue; }
-    if (slot.reminder2hEmailSentAt) { result.skipped++; continue; }
+    const dedup = await shouldSkipForDay(db, slot, 'reminder2hEmailSentAt', 'reminder2hEmailSentForDay');
+    if (dedup.skip) { result.skipped++; continue; }
 
     // Refresh liveDj* fields from the DJ's current profile before sending the
     // 2h reminder, so the live hero and emails both see the latest photo/bio.
@@ -496,7 +545,10 @@ async function run2hReminders(db: FirebaseFirestore.Firestore, now: number): Pro
       }
     }
 
-    await doc.ref.update({ reminder2hEmailSentAt: now });
+    await doc.ref.update({
+      reminder2hEmailSentAt: now,
+      reminder2hEmailSentForDay: dedup.currentDay,
+    });
   }
 
   return result;
