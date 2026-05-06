@@ -22,7 +22,6 @@ import { getStationById, getMetadataKeyByStationId } from "@/lib/stations";
 import { useBPM } from "@/contexts/BPMContext";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { Venue, Collective, Event as ChannelEvent, EventDJRef, EventVenueRef, CollectiveRef } from "@/types/events";
-import { generateSlug } from "@/lib/slug";
 // Icon components (inline SVGs to avoid external dependencies)
 
 
@@ -446,6 +445,9 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   const [djCollectives, setDjCollectives] = useState<Collective[]>([]);
   const [djUpcomingEvents, setDjUpcomingEvents] = useState<ChannelEvent[]>([]);
   const [djPastEvents, setDjPastEvents] = useState<ChannelEvent[]>([]);
+  // Map venueId → slug, populated alongside djVenues so event cards can link
+  // to the actual /venue/[slug] page instead of a derived-from-name slug.
+  const [venueSlugById, setVenueSlugById] = useState<Record<string, string>>({});
 
   // Broadcast stream context for synced play/pause
   const { isPlaying, isLoading: streamLoading, toggle: toggleStream, isStreaming, isLive: broadcastIsLive, tipLink: liveTipLink } = useBroadcastStreamContext();
@@ -1104,12 +1106,14 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           getDocs(collection(db, "events")),
         ]);
 
-        // Build venue photo lookup (all venues, for event fallback)
+        // Build venue photo + slug lookups (all venues, for event link/photo fallback)
         const venuePhotoMap: Record<string, string> = {};
+        const slugMap: Record<string, string> = {};
         const matchedVenues: Venue[] = [];
         venuesSnapshot.forEach((doc) => {
           const data = doc.data();
           if (data.photo) venuePhotoMap[doc.id] = data.photo;
+          if (data.slug) slugMap[doc.id] = data.slug;
           if (matchesDJ(data.residentDJs)) {
             matchedVenues.push({
               id: doc.id,
@@ -1127,6 +1131,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           }
         });
         setDjVenues(matchedVenues);
+        setVenueSlugById(slugMap);
 
         const matchedCollectives: Collective[] = [];
         collectivesSnapshot.forEach((doc) => {
@@ -1985,6 +1990,8 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                 if (item.feedType === "event") {
                   const event = item as ChannelEvent & { feedType: "event"; feedStatus: "upcoming" };
                   const headerVenue = event.linkedVenues?.[0]?.venueName || event.venueName || null;
+                  const headerVenueId = event.linkedVenues?.[0]?.venueId || event.venueId || null;
+                  const headerVenueSlug = headerVenueId ? venueSlugById[headerVenueId] : undefined;
                   const headerLabel = headerVenue || event.location || "";
                   return (
                     <div
@@ -2001,7 +2008,16 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                           {headerLabel && (
                             <>
                               <span className="text-zinc-500">·</span>
-                              <span className="truncate">{headerLabel}</span>
+                              {headerVenue && headerVenueSlug ? (
+                                <Link
+                                  href={`/venue/${headerVenueSlug}`}
+                                  className="truncate hover:text-white transition-colors"
+                                >
+                                  {headerLabel}
+                                </Link>
+                              ) : (
+                                <span className="truncate">{headerLabel}</span>
+                              )}
                             </>
                           )}
                         </span>
@@ -2420,12 +2436,19 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                                   <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
                                 </svg>
                                 {event.linkedVenues && event.linkedVenues.length > 0
-                                  ? event.linkedVenues.map((v: EventVenueRef, vi: number) => (
-                                      <span key={v.venueId}>
-                                        <Link href={`/venue/${generateSlug(v.venueName)}`} className="hover:text-white transition-colors">{v.venueName}</Link>
-                                        {vi < event.linkedVenues!.length - 1 && ", "}
-                                      </span>
-                                    ))
+                                  ? event.linkedVenues.map((v: EventVenueRef, vi: number) => {
+                                      const slug = venueSlugById[v.venueId];
+                                      return (
+                                        <span key={v.venueId}>
+                                          {slug ? (
+                                            <Link href={`/venue/${slug}`} className="hover:text-white transition-colors">{v.venueName}</Link>
+                                          ) : (
+                                            v.venueName
+                                          )}
+                                          {vi < event.linkedVenues!.length - 1 && ", "}
+                                        </span>
+                                      );
+                                    })
                                   : event.venueName
                                 }
                               </p>
