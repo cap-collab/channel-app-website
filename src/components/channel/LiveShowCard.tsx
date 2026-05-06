@@ -29,7 +29,9 @@ export function LiveShowCard({
   bpm,
 }: LiveShowCardProps) {
   const [imageError, setImageError] = useState(false);
-  const photoUrl = show.djPhotoUrl;
+  // Channel shows (broadcast / dj-radio) prefer the show image, then DJ photo.
+  const isChannelShow = station.id === 'broadcast' || station.id === 'dj-radio';
+  const photoUrl = isChannelShow ? (show.imageUrl || show.djPhotoUrl) : show.djPhotoUrl;
   const hasPhoto = photoUrl && !imageError;
   const djName = show.dj || show.name;
   const textColor = hasPhoto ? '#ffffff' : getContrastTextColor(station.accentColor);
