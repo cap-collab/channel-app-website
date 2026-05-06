@@ -76,7 +76,6 @@ export const FIRST_NAME_OVERRIDES: Record<string, string> = {
   "notjoshua@gmail.com": "heckadecimal",
   "omar41309@yahoo.com": "Omar",
   "thinkabtrecords@proton.me": "Ava",
-  "grok.tunes@gmail.com": "Myles",
 };
 
 export const EXCLUDE_EMAILS = new Set<string>([
