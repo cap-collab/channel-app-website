@@ -26,6 +26,8 @@ export interface Show {
   djLocation?: string; // DJ's city/location from profile
   imageUrl?: string;
   stationId: string;
+  // External radio station name for dj-radio shows entered manually in /studio
+  externalRadioName?: string;
   type?: string; // weekly, monthly, restream, playlist
   broadcastType?: string; // venue, remote, restream, recording (broadcast shows only)
   // For tipping (broadcast shows only)

@@ -165,7 +165,7 @@ export function TicketCard({
           )}
         </h3>
         <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
-          Selected by {station.name}
+          Selected by {show.externalRadioName || station.name}
         </p>
         {show.djGenres && show.djGenres.length > 0 && (
           <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
