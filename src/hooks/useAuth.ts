@@ -21,6 +21,16 @@ import { getDefaultCity } from "@/lib/city-detection";
 const EMAIL_FOR_SIGN_IN_KEY = "emailForSignIn";
 const NOTIFICATIONS_PREF_KEY = "notificationsPref";
 
+// chatUsername and chatUsernameNormalized must always be written together —
+// /dj/<username> looks up by chatUsernameNormalized, so a user with one but not
+// the other is unreachable. Mirrors the normalization in src/app/dj/[username]/page.tsx.
+function chatUsernameFields(name: string) {
+  return {
+    chatUsername: name,
+    chatUsernameNormalized: name.replace(/[\s-]+/g, "").toLowerCase(),
+  };
+}
+
 interface AuthState {
   user: User | null;
   loading: boolean;
@@ -216,7 +226,7 @@ export function useAuth() {
             watchlistMatch: enableNotifications,
           },
           // Set chatUsername from DJ broadcast flow if provided (matches iOS app field name)
-          ...(djUsername && { chatUsername: djUsername }),
+          ...(djUsername && chatUsernameFields(djUsername)),
         });
 
         // Reconcile any pending broadcast slots or tips by email
@@ -247,7 +257,7 @@ export function useAuth() {
         // Set chatUsername if provided and user doesn't already have one
         const existingData = userSnap.data();
         if (djUsername && !existingData.chatUsername) {
-          updateData.chatUsername = djUsername;
+          Object.assign(updateData, chatUsernameFields(djUsername));
         }
         await setDoc(userRef, updateData, { merge: true });
       }
@@ -313,7 +323,7 @@ export function useAuth() {
             watchlistMatch: enableNotifications,
           },
           // Set chatUsername from DJ broadcast flow if provided (matches iOS app field name)
-          ...(djUsername && { chatUsername: djUsername }),
+          ...(djUsername && chatUsernameFields(djUsername)),
         });
 
         // Reconcile any pending broadcast slots or tips by email
@@ -343,7 +353,7 @@ export function useAuth() {
         // Set chatUsername if provided and user doesn't already have one
         const existingData = userSnap.data();
         if (djUsername && !existingData.chatUsername) {
-          updateData.chatUsername = djUsername;
+          Object.assign(updateData, chatUsernameFields(djUsername));
         }
         await setDoc(userRef, updateData, { merge: true });
       }

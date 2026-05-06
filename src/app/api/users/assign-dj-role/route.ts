@@ -85,12 +85,14 @@ export async function POST(request: NextRequest) {
         const pendingData = pendingDoc.data();
         console.log(`[assign-dj-role] Processing pending profile ${pendingDoc.id}: chatUsername=${pendingData.chatUsername}, status=${pendingData.status}`);
 
-        // Transfer profile data to user document
+        // Transfer profile data to user document.
+        // chatUsername and chatUsernameNormalized must always be written together —
+        // a user with chatUsername but no chatUsernameNormalized is unreachable at /dj/<username>.
         if (pendingData.chatUsername) {
           updateData.chatUsername = pendingData.chatUsername;
-        }
-        if (pendingData.chatUsernameNormalized) {
-          updateData.chatUsernameNormalized = pendingData.chatUsernameNormalized;
+          updateData.chatUsernameNormalized =
+            pendingData.chatUsernameNormalized ||
+            pendingData.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
         }
         if (pendingData.djProfile) {
           updateData.djProfile = pendingData.djProfile;
