@@ -185,6 +185,7 @@ export function StudioProfileClient() {
 
   // Profile data
   const [chatUsername, setChatUsername] = useState<string | null>(null);
+  const [isResident, setIsResident] = useState(false);
   const [djProfile, setDjProfile] = useState<DJProfile>({
     bio: null,
     tipButtonLink: null,
@@ -580,6 +581,7 @@ export function StudioProfileClient() {
       const data = snapshot.data();
       if (data) {
         setChatUsername(data.chatUsername || null);
+        setIsResident(!!data.djProfile?.residency?.cadence);
         if (data.djProfile) {
           setDjProfile({
             bio: data.djProfile.bio || null,
@@ -2324,12 +2326,14 @@ export function StudioProfileClient() {
               >
                 Test audio capture
               </Link>
-              <Link
-                href="/studio/livestream"
-                className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
-              >
-                Book your next show
-              </Link>
+              {isResident && !upcomingShows.some(s => !s.isExternal) && (
+                <Link
+                  href="/studio/livestream"
+                  className="flex-1 block bg-green-600 text-white text-center py-3 rounded font-medium hover:bg-green-500 transition-colors border border-green-500"
+                >
+                  Book your next show
+                </Link>
+              )}
             </div>
           </section>
 
