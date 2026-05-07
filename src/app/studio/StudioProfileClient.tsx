@@ -2322,7 +2322,11 @@ export function StudioProfileClient() {
               </button>
               <Link
                 href="/record"
-                className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
+                className={`flex-1 block text-white text-center py-3 rounded font-medium transition-colors border ${
+                  upcomingShows.some(s => !s.isExternal)
+                    ? "bg-green-600 hover:bg-green-500 border-green-500"
+                    : "bg-gray-800 hover:bg-gray-700 border-gray-700"
+                }`}
               >
                 Test audio capture
               </Link>

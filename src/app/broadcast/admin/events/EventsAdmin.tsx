@@ -227,8 +227,8 @@ export function EventsAdmin() {
           createdBy: data.createdBy,
         });
       });
-      // Sort by date descending (newest first)
-      eventsList.sort((a, b) => b.date - a.date);
+      // Sort by createdAt descending (most recently created on top)
+      eventsList.sort((a, b) => b.createdAt - a.createdAt);
       setEvents(eventsList);
     } catch (err) {
       console.error('Error fetching events:', err);
@@ -1107,10 +1107,26 @@ export function EventsAdmin() {
                           ? <> &middot; {event.venueName}</>
                           : event.location && <> &middot; {event.location}</>
                       }
-                      {event.djs.length > 0 && (
-                        <> &middot; {event.djs.length} DJ{event.djs.length !== 1 ? 's' : ''}</>
-                      )}
                     </p>
+                    {event.djs.length > 0 && (
+                      <p className="text-gray-400 text-sm truncate mt-1">
+                        {event.djs.map((dj, i) => (
+                          <span key={`${dj.djUsername || dj.djName}-${i}`}>
+                            {i > 0 && ', '}
+                            {dj.djUsername ? (
+                              <Link
+                                href={`/dj/${dj.djUsername}`}
+                                className="text-gray-300 hover:text-white underline"
+                              >
+                                {dj.djName}
+                              </Link>
+                            ) : (
+                              <span>{dj.djName}</span>
+                            )}
+                          </span>
+                        ))}
+                      </p>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <button
