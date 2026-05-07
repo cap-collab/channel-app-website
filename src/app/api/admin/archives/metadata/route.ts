@@ -28,6 +28,26 @@ export async function PATCH(request: NextRequest) {
     if (body.showName !== undefined) updates.showName = body.showName;
     if (body.showImageUrl !== undefined) updates.showImageUrl = body.showImageUrl || null;
     if (body.slug !== undefined) updates.slug = body.slug;
+    // Venue attribution. Setting venueId to '' (or null) clears the
+    // attribution; otherwise look up the venue to denormalize name + slug
+    // so consumers don't need a second query.
+    if (body.venueId !== undefined) {
+      const trimmed = typeof body.venueId === 'string' ? body.venueId.trim() : '';
+      if (!trimmed) {
+        updates.venueId = null;
+        updates.venueName = null;
+        updates.venueSlug = null;
+      } else {
+        const venueDoc = await db.collection('venues').doc(trimmed).get();
+        if (!venueDoc.exists) {
+          return NextResponse.json({ error: 'Venue not found' }, { status: 404 });
+        }
+        const v = venueDoc.data() || {};
+        updates.venueId = trimmed;
+        updates.venueName = v.name || null;
+        updates.venueSlug = v.slug || null;
+      }
+    }
     // Scene assignment override (null → inherit from DJs; [] → no scene; [ids] → pinned)
     if (body.sceneIdsOverride !== undefined) {
       if (body.sceneIdsOverride === null) {

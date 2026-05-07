@@ -2,12 +2,20 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { ArchiveSerialized, ArchivePriority } from '@/types/broadcast';
 import { uploadArchiveImage, validatePhoto } from '@/lib/photo-upload';
 import { ShareableArchiveCard } from './ShareableArchiveCard';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
 import { ScenePillEditor } from './ScenePillEditor';
 import type { SceneSerialized } from '@/types/scenes';
+
+interface VenueOption {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 interface ArchivesTabProps {
   onArchiveCountChange: (count: number) => void;
@@ -73,6 +81,31 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
     archiveName: string;
   } | null>(null);
   const [socialArchive, setSocialArchive] = useState<ArchiveSerialized | null>(null);
+  const [venues, setVenues] = useState<VenueOption[]>([]);
+
+  // Fetch venues once for the edit-form dropdown. Public read; no auth needed.
+  useEffect(() => {
+    if (!db) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'venues'));
+        const list: VenueOption[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (!data.name || !data.slug) return;
+          list.push({ id: doc.id, name: data.name, slug: data.slug });
+        });
+        list.sort((a, b) => a.name.localeCompare(b.name));
+        if (!cancelled) setVenues(list);
+      } catch (err) {
+        console.error('[ArchivesTab] failed to load venues:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchArchives = useCallback(async () => {
     try {
@@ -361,6 +394,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
                 key={archive.id}
                 archive={archive}
                 scenes={scenes}
+                venues={venues}
                 inheritedSceneIds={inheritedScenes}
                 onToggleScene={(sceneId) => handleToggleScene(archive.id, sceneId, inheritedScenes)}
                 onResetSceneOverride={() => handleResetSceneOverride(archive.id)}
@@ -478,6 +512,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
 function ArchiveCard({
   archive,
   scenes,
+  venues,
   inheritedSceneIds,
   onToggleScene,
   onResetSceneOverride,
@@ -489,6 +524,7 @@ function ArchiveCard({
 }: {
   archive: ArchiveSerialized;
   scenes: SceneSerialized[];
+  venues: VenueOption[];
   inheritedSceneIds: string[];
   onToggleScene: (sceneId: string) => void;
   onResetSceneOverride: () => void;
@@ -512,6 +548,7 @@ function ArchiveCard({
   const [djUsernameInput, setDjUsernameInput] = useState(primaryDj?.username || '');
   const [genreInput, setGenreInput] = useState(primaryDj?.genres?.join(', ') || '');
   const [locationInput, setLocationInput] = useState(primaryDj?.location || '');
+  const [venueIdInput, setVenueIdInput] = useState(archive.venueId || '');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -527,6 +564,7 @@ function ArchiveCard({
       djUsername: djUsernameInput,
       genres,
       location: locationInput.trim(),
+      venueId: venueIdInput,
     });
     setIsSaving(false);
     setIsEditing(false);
@@ -565,6 +603,7 @@ function ArchiveCard({
     setDjUsernameInput(primaryDj?.username || '');
     setGenreInput(primaryDj?.genres?.join(', ') || '');
     setLocationInput(primaryDj?.location || '');
+    setVenueIdInput(archive.venueId || '');
     setIsEditing(true);
   };
 
@@ -646,6 +685,20 @@ function ArchiveCard({
                   className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
                 />
               </div>
+              <div>
+                <select
+                  value={venueIdInput}
+                  onChange={(e) => setVenueIdInput(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                >
+                  <option value="">No venue attribution</option>
+                  {venues.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="flex items-center gap-2 justify-end">
                 <button
                   onClick={() => setIsEditing(false)}
@@ -696,6 +749,11 @@ function ArchiveCard({
                   {primaryDj?.genres?.join(', ')}
                   {primaryDj?.genres?.length && primaryDj?.location ? ' · ' : ''}
                   {primaryDj?.location}
+                </p>
+              )}
+              {archive.venueName && (
+                <p className="text-xs text-gray-500 mb-1">
+                  Venue: <span className="text-gray-400">{archive.venueName}</span>
                 </p>
               )}
               {/* Scene pills — admin-only assignment. Inherited from DJs unless overridden. */}

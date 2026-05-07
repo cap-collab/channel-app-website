@@ -312,6 +312,13 @@ export interface Archive {
   publishedAt?: number;          // When recording was published (Unix ms)
   priority?: ArchivePriority;    // Admin-only: high, medium, or low (default medium)
   sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
+  // Venue attribution (admin-set on /broadcast/admin → Archives). Surfaces
+  // recordings on /venue/[slug] alongside events, and links the
+  // "Recording from <venue>" header on DJ profile cards. Denormalized
+  // venueName + venueSlug let consumers render without a join.
+  venueId?: string | null;
+  venueName?: string | null;
+  venueSlug?: string | null;
 }
 
 // Serialized version for API responses (same as Archive since all fields are already serialized)

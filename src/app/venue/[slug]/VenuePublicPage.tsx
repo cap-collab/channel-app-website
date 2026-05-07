@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -8,6 +8,19 @@ import { Header } from "@/components/Header";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
 import { Venue, Event, EventDJRef, CollectiveRef } from "@/types/events";
+import { Archive } from "@/types/broadcast";
+import { useArchivePlayer } from "@/contexts/ArchivePlayerContext";
+
+function formatDuration(seconds: number): string {
+  if (!seconds || !Number.isFinite(seconds)) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+// Shared section header style — matches DJ profile "Past Activities".
+const SECTION_TITLE_CLASS =
+  "text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2";
 
 // Icon components (same as DJPublicProfileClient)
 const InstagramIcon = ({ size = 14 }: { size?: number }) => (
@@ -42,8 +55,27 @@ export function VenuePublicPage({ slug }: Props) {
   const [venue, setVenue] = useState<Venue | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [pastEvents, setPastEvents] = useState<Event[]>([]);
+  const [recordings, setRecordings] = useState<Archive[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  const archivePlayer = useArchivePlayer();
+  const handlePlayPause = useCallback(
+    (archive: Archive) => {
+      if (archivePlayer.currentArchive?.id === archive.id && archivePlayer.isPlaying) {
+        archivePlayer.pause();
+      } else {
+        archivePlayer.play(archive);
+      }
+    },
+    [archivePlayer]
+  );
+  const handleSeek = useCallback(
+    (_archiveId: string, time: number) => {
+      archivePlayer.seek(time);
+    },
+    [archivePlayer]
+  );
 
   // Fetch venue by slug
   useEffect(() => {
@@ -147,6 +179,55 @@ export function VenuePublicPage({ slug }: Props) {
 
     fetchVenue();
   }, [slug]);
+
+  // Fetch archives attributed to this venue. Filters out priority='hidden'.
+  useEffect(() => {
+    if (!venue?.id || !db) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const archivesRef = collection(db, "archives");
+        const q = query(archivesRef, where("venueId", "==", venue.id));
+        const snapshot = await getDocs(q);
+        const list: Archive[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.priority === "hidden") return;
+          if (data.isPublic === false) return;
+          if (data.uploadStatus === "uploading") return;
+          list.push({
+            id: doc.id,
+            slug: data.slug,
+            broadcastSlotId: data.broadcastSlotId,
+            showName: data.showName,
+            djs: data.djs || [],
+            recordingUrl: data.recordingUrl,
+            duration: data.duration || 0,
+            recordedAt: data.recordedAt,
+            createdAt: data.createdAt,
+            stationId: data.stationId || "channel-main",
+            showImageUrl: data.showImageUrl,
+            streamCount: data.streamCount,
+            isPublic: data.isPublic,
+            sourceType: data.sourceType,
+            publishedAt: data.publishedAt,
+            priority: data.priority || "medium",
+            sceneIdsOverride: data.sceneIdsOverride ?? null,
+            venueId: data.venueId ?? null,
+            venueName: data.venueName ?? null,
+            venueSlug: data.venueSlug ?? null,
+          });
+        });
+        list.sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0));
+        if (!cancelled) setRecordings(list);
+      } catch (err) {
+        console.error("Error fetching venue archives:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [venue?.id]);
 
   const formatEventDate = (ms: number) => {
     return new Date(ms).toLocaleDateString("en-US", {
@@ -296,39 +377,39 @@ export function VenuePublicPage({ slug }: Props) {
 
         {/* SECTION B: RESIDENT DJs */}
         {venue.residentDJs && venue.residentDJs.length > 0 && venue.residentDJs.some(dj => dj.djName) && (
-          <section className="mb-8">
-            <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
-              Resident DJs
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          <section className="mb-6">
+            <h2 className={SECTION_TITLE_CLASS}>Residents</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {venue.residentDJs
                 .filter((dj: EventDJRef) => dj.djName)
                 .map((dj: EventDJRef, i: number) => {
                   const content = (
-                    <div className="flex items-center gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors">
-                      {dj.djPhotoUrl ? (
-                        <Image
-                          src={dj.djPhotoUrl}
-                          alt={dj.djName}
-                          width={40}
-                          height={40}
-                          className="w-10 h-10 rounded-full object-cover"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
-                          <svg className="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-full">
+                      <div className="w-14 h-14 bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {dj.djPhotoUrl ? (
+                          <Image
+                            src={dj.djPhotoUrl}
+                            alt={dj.djName}
+                            width={56}
+                            height={56}
+                            className="w-full h-full object-cover"
+                            unoptimized
+                          />
+                        ) : (
+                          <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
-                        </div>
-                      )}
-                      <span className="text-sm text-white font-medium truncate">{dj.djName}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-white font-medium text-sm truncate">{dj.djName}</p>
+                      </div>
                     </div>
                   );
 
                   if (dj.djUsername) {
                     return (
-                      <Link key={i} href={`/dj/${dj.djUsername}`}>
+                      <Link key={i} href={`/dj/${dj.djUsername}`} className="block">
                         {content}
                       </Link>
                     );
@@ -341,10 +422,8 @@ export function VenuePublicPage({ slug }: Props) {
 
         {/* SECTION C: UPCOMING EVENTS */}
         {upcomingEvents.length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
-              Upcoming Events
-            </h2>
+          <section className="mb-6">
+            <h2 className={SECTION_TITLE_CLASS}>Upcoming Events</h2>
             <div className="space-y-3">
               {upcomingEvents.map((event) => (
                 <div
@@ -439,12 +518,137 @@ export function VenuePublicPage({ slug }: Props) {
           </section>
         )}
 
+        {/* RECORDINGS — archives admin-attributed to this venue */}
+        {recordings.length > 0 && (
+          <section className="mb-6">
+            <h2 className={SECTION_TITLE_CLASS}>Recordings</h2>
+            <div className="space-y-3">
+              {recordings.map((archive) => {
+                const isThisArchive = archivePlayer.currentArchive?.id === archive.id;
+                const isPlayingArchive = isThisArchive && archivePlayer.isPlaying;
+                const currentTime = isThisArchive ? archivePlayer.currentTime : 0;
+                const showImage = archive.showImageUrl;
+                const recordingDate = new Date(archive.recordedAt).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                });
+                const archiveGenres = archive.djs?.[0]?.genres;
+                const genreText = archiveGenres?.length
+                  ? archiveGenres.map((g) => g.toUpperCase()).join(" · ")
+                  : null;
+                const primaryDj = archive.djs?.[0];
+
+                return (
+                  <div key={archive.id} className="bg-black border border-[#333] rounded-none overflow-hidden">
+                    {/* Header: Live Recording / Recording, optional from <venue>, date */}
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-[#333] font-mono">
+                      <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
+                        {archive.sourceType === "live" ? (
+                          <>
+                            <span className="inline-flex rounded-full h-2 w-2 bg-red-600 flex-shrink-0" />
+                            Live Recording
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-3 h-3 text-zinc-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                            </svg>
+                            Recording
+                          </>
+                        )}
+                        <span className="text-zinc-500">from</span>
+                        <span className="truncate text-zinc-400">{venue.name}</span>
+                      </span>
+                      <span className="text-zinc-500 text-xs flex-shrink-0 ml-2">{recordingDate}</span>
+                    </div>
+
+                    {/* Body: image left + info right */}
+                    <div className="p-3 flex items-start gap-3">
+                      {showImage && (
+                        <div className="w-24 h-24 bg-zinc-800 flex-shrink-0 overflow-hidden">
+                          <Image
+                            src={showImage}
+                            alt={archive.showName}
+                            width={96}
+                            height={96}
+                            className="w-full h-full object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      )}
+                      <div
+                        className="flex-1 min-w-0 flex flex-col"
+                        style={showImage ? { minHeight: "96px" } : undefined}
+                      >
+                        <div>
+                          <p className="text-sm font-bold text-white uppercase tracking-wide">
+                            {archive.showName}
+                          </p>
+                          {primaryDj && (
+                            <p className="text-[11px] text-zinc-400 mt-0.5">
+                              {primaryDj.username ? (
+                                <Link
+                                  href={`/dj/${primaryDj.username}`}
+                                  className="hover:text-white transition-colors"
+                                >
+                                  {primaryDj.name}
+                                </Link>
+                              ) : (
+                                primaryDj.name
+                              )}
+                            </p>
+                          )}
+                          {genreText && (
+                            <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-400 mt-0.5">
+                              {genreText}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Player */}
+                        <div className="mt-auto mb-2">
+                          <div className="flex items-center">
+                            <button
+                              onClick={() => handlePlayPause(archive)}
+                              className="w-7 h-7 flex items-center justify-center transition-colors flex-shrink-0 text-white"
+                            >
+                              {isPlayingArchive ? (
+                                <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M6 3h4v18H6V3zm8 0h4v18h-4V3z" />
+                                </svg>
+                              ) : (
+                                <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M5 3v18l15-9z" />
+                                </svg>
+                              )}
+                            </button>
+                            <input
+                              type="range"
+                              min={0}
+                              max={archive.duration || 100}
+                              value={currentTime}
+                              onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
+                              className="flex-1 min-w-0 h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                            />
+                          </div>
+                          <div className="mt-1 pl-7 flex justify-between text-[10px] text-zinc-500 leading-none">
+                            <span>{formatDuration(currentTime)}</span>
+                            <span>{formatDuration(archive.duration)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* PAST EVENTS */}
         {pastEvents.length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
-              Past Events
-            </h2>
+          <section className="mb-6">
+            <h2 className={SECTION_TITLE_CLASS}>Past Events</h2>
             <div className="space-y-3">
               {pastEvents.map((event) => (
                 <div

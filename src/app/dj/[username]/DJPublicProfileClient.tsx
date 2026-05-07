@@ -385,7 +385,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
   // Resolved owner display info (only used when profileType === 'collective')
-  const [ownersResolved, setOwnersResolved] = useState<{ uid: string; chatUsername: string }[]>([]);
+  const [ownersResolved, setOwnersResolved] = useState<{ uid: string; chatUsername: string; photoUrl?: string; bio?: string }[]>([]);
   // Resolved resident display info — bios fetched from users / pending-dj-profiles
   // so the cards can show a truncated bio under each resident's name.
   const [residentsResolved, setResidentsResolved] = useState<{
@@ -600,7 +600,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     (async () => {
       if (!db) return;
       const ownerUids = djProfile.owners || [];
-      const resolved: { uid: string; chatUsername: string }[] = [];
+      const resolved: { uid: string; chatUsername: string; photoUrl?: string; bio?: string }[] = [];
       // Firestore "in" supports up to 10 — chunk if needed.
       for (let i = 0; i < ownerUids.length; i += 10) {
         const chunk = ownerUids.slice(i, i + 10);
@@ -612,7 +612,14 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           snapshot.forEach(docSnap => {
             const data = docSnap.data();
             const cu = data.chatUsername || data.displayName;
-            if (cu) resolved.push({ uid: docSnap.id, chatUsername: cu });
+            if (cu) {
+              resolved.push({
+                uid: docSnap.id,
+                chatUsername: cu,
+                photoUrl: data.djProfile?.photoUrl || undefined,
+                bio: data.djProfile?.bio || undefined,
+              });
+            }
           });
         } catch (err) {
           console.error("Error resolving owners:", err);
@@ -1550,38 +1557,6 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               )}
             </div>
 
-            {/* Collective-only: Owners line (hidden when owners == residents) */}
-            {profile.profileType === 'collective' && (() => {
-              const ownerUids = (profile.owners || []);
-              const residentUids = (profile.residentDJs || []).map(r => r.djUserId).filter((u): u is string => !!u);
-              const residentUidSet = new Set(residentUids);
-              const ownersEqualResidents =
-                ownerUids.length > 0 &&
-                ownerUids.length === residentUids.length &&
-                ownerUids.every(u => residentUidSet.has(u));
-
-              return (
-                <>
-                  {!ownersEqualResidents && ownersResolved.length > 0 && (
-                    <p className="text-zinc-400 text-sm mb-6">
-                      <span className="text-zinc-500 uppercase tracking-[0.2em] text-xs mr-2">Owners</span>
-                      {ownersResolved.map((o, i) => (
-                        <span key={o.uid}>
-                          {i > 0 && ' · '}
-                          <Link
-                            href={`/dj/${normalizeUsername(o.chatUsername)}`}
-                            className="hover:text-white transition-colors"
-                          >
-                            {o.chatUsername}
-                          </Link>
-                        </span>
-                      ))}
-                    </p>
-                  )}
-                </>
-              );
-            })()}
-
             {/* Medium: Bio */}
             <div className="max-w-xl space-y-4">
               {profile.djProfile.bio && (
@@ -1621,15 +1596,74 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           </div>
         </section>
 
+        {/* COLLECTIVE OWNERS — same card style as Residents. Hidden when owners == residents. */}
+        {profile.profileType === 'collective' && ownersResolved.length > 0 && (() => {
+          const ownerUids = profile.owners || [];
+          const residentUids = (profile.residentDJs || [])
+            .map((r) => r.djUserId)
+            .filter((u): u is string => !!u);
+          const residentUidSet = new Set(residentUids);
+          const ownersEqualResidents =
+            ownerUids.length > 0 &&
+            ownerUids.length === residentUids.length &&
+            ownerUids.every((u) => residentUidSet.has(u));
+          if (ownersEqualResidents) return null;
+
+          return (
+            <section className="mb-6">
+              <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">Owners</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {ownersResolved.map((o, i) => {
+                  const inner = (
+                    <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-full">
+                      <div className="w-14 h-14 bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {o.photoUrl ? (
+                          <Image
+                            src={o.photoUrl}
+                            alt={o.chatUsername}
+                            width={56}
+                            height={56}
+                            className="w-full h-full object-cover"
+                            unoptimized
+                          />
+                        ) : (
+                          <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-white font-medium text-sm truncate">{o.chatUsername}</p>
+                        {o.bio && (
+                          <p className="text-zinc-400 text-xs mt-1 line-clamp-2">{o.bio}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                  return (
+                    <Link
+                      key={`${o.uid}-${i}`}
+                      href={`/dj/${normalizeUsername(o.chatUsername)}`}
+                      className="block"
+                    >
+                      {inner}
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })()}
+
         {/* COLLECTIVE RESIDENTS — cards with photo, name, truncated bio (2 per row on desktop) */}
         {profile.profileType === 'collective' && residentsResolved.length > 0 && (
           <section className="mb-6">
-            <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">Residents</h2>
+            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">Residents</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {residentsResolved.map((r, i) => {
                 const inner = (
                   <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-full">
-                    <div className="w-14 h-14 rounded-lg bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <div className="w-14 h-14 bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
                       {r.djPhotoUrl ? (
                         <Image
                           src={r.djPhotoUrl}
@@ -1837,7 +1871,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
               return (
                 <div key={archive.id} className="bg-black border border-[#333] rounded-none overflow-hidden">
-                  {/* Header: Live Recording / Recording + date */}
+                  {/* Header: Live Recording / Recording + optional venue + date */}
                   <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-[#333] font-mono">
                     <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
                       {archive.sourceType === 'live' ? (
@@ -1851,6 +1885,21 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                             <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
                           </svg>
                           Recording
+                        </>
+                      )}
+                      {archive.venueName && (
+                        <>
+                          <span className="text-zinc-500">from</span>
+                          {archive.venueSlug ? (
+                            <Link
+                              href={`/venue/${archive.venueSlug}`}
+                              className="truncate hover:text-white transition-colors"
+                            >
+                              {archive.venueName}
+                            </Link>
+                          ) : (
+                            <span className="truncate">{archive.venueName}</span>
+                          )}
                         </>
                       )}
                     </span>
