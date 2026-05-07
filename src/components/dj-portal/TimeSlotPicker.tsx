@@ -386,7 +386,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                     className="flex items-start justify-end pr-2 pt-1 border-b border-gray-700"
                     style={{ height: HOUR_HEIGHT }}
                   >
-                    <span className="text-base font-medium text-gray-100 tabular-nums">{formatHour(hour)}</span>
+                    <span className="text-sm font-medium text-gray-100 tabular-nums">{formatHour(hour)}</span>
                   </div>
                 ))}
               </div>
