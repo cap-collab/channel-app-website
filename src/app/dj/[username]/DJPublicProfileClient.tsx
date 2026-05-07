@@ -1864,7 +1864,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               const isThisArchive = archivePlayer.currentArchive?.id === archive.id;
               const isPlayingArchive = isThisArchive && archivePlayer.isPlaying;
               const currentTime = isThisArchive ? archivePlayer.currentTime : 0;
-              const showImage = archive.showImageUrl || profile.djProfile.photoUrl;
+              const showImage = archive.showImageUrl || archive.djs?.[0]?.photoUrl || profile.djProfile.photoUrl;
               const recordingDate = new Date(archive.recordedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
               const archiveGenres = archive.djs?.[0]?.genres;
               const genreText = archiveGenres?.length ? archiveGenres.map(g => g.toUpperCase()).join(' · ') : null;

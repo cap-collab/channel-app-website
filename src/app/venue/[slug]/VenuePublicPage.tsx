@@ -527,7 +527,7 @@ export function VenuePublicPage({ slug }: Props) {
                 const isThisArchive = archivePlayer.currentArchive?.id === archive.id;
                 const isPlayingArchive = isThisArchive && archivePlayer.isPlaying;
                 const currentTime = isThisArchive ? archivePlayer.currentTime : 0;
-                const showImage = archive.showImageUrl;
+                const showImage = archive.showImageUrl || archive.djs?.[0]?.photoUrl;
                 const recordingDate = new Date(archive.recordedAt).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
