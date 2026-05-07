@@ -490,7 +490,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     <path d="M3 3v5h5" />
                   </svg>
                   <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
-                    Restream
+                    Restream{liveBPM ? <span className="md:hidden"> {liveBPM} BPM</span> : null}
                   </span>
                 </>
               ) : (
@@ -500,7 +500,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
                   </span>
                   <span className="text-xs font-mono uppercase tracking-tighter font-bold text-red-500">
-                    Live
+                    Live{liveBPM ? <span className="md:hidden"> {liveBPM} BPM</span> : null}
                   </span>
                 </>
               )
@@ -633,7 +633,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
                   </span>
                   {liveBPM && (
-                    <span className="text-xs font-mono uppercase tracking-tighter font-bold text-red-500">
+                    <span className="hidden md:inline text-xs font-mono uppercase tracking-tighter font-bold text-red-500">
                       {liveBPM} BPM
                     </span>
                   )}
