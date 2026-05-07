@@ -104,11 +104,11 @@ export function useDJProfileChat({
       if (cancelled) return;
       // Use chatUsernameNormalized as the stationId for per-DJ chat rooms
       const messagesRef = collection(db, 'chats', chatUsernameNormalized, 'messages');
-      // No time filtering - just get last 100 messages
+      // No time filtering - just get last 500 messages
       const q = query(
         messagesRef,
         orderBy('timestamp', 'desc'),
-        limit(100)
+        limit(500)
       );
 
       unsubscribe = onSnapshot(

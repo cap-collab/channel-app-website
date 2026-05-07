@@ -94,8 +94,19 @@ export function FloatingChat() {
     isArchivePlayback: writeIsArchive,
   });
 
-  // Count regular chat messages (exclude love, lockedin, tip)
-  const messageCount = messages.filter(m => !m.messageType || m.messageType === 'chat').length;
+  // Count all messages (chat, love, lockedin, tip) since the daily 7am PT reset.
+  // Mirrors the love-count cutoff in useDJProfileChat so the displayed number
+  // resets each day at 7am PT instead of plateauing at the 100-message limit.
+  const dailyResetCutoff = (() => {
+    const now = new Date();
+    const ptToUtcOffset = now.getTime() - new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })).getTime();
+    const ptNow = new Date(now.getTime() - ptToUtcOffset);
+    const resetPT = new Date(ptNow);
+    resetPT.setHours(7, 0, 0, 0);
+    if (ptNow < resetPT) resetPT.setDate(resetPT.getDate() - 1);
+    return resetPT.getTime() + ptToUtcOffset;
+  })();
+  const messageCount = messages.filter(m => m.timestamp >= dailyResetCutoff).length;
 
   // Auto-scroll chat
   useEffect(() => {
