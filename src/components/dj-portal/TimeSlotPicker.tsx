@@ -18,7 +18,7 @@ const DEFAULT_VIEW_START = 9;
 const VISIBLE_HOUR_COUNT = 9;
 const VISIBLE_HEIGHT = VISIBLE_HOUR_COUNT * HOUR_HEIGHT;
 
-// Check if a timestamp falls in nighttime hours (10 PM – 7 AM PT)
+// Check if a timestamp falls in nighttime hours (9 PM – 10 AM PT)
 function isNighttimePT(timestamp: number): boolean {
   const ptHour = parseInt(
     new Date(timestamp).toLocaleString('en-US', {
@@ -27,7 +27,7 @@ function isNighttimePT(timestamp: number): boolean {
       timeZone: 'America/Los_Angeles',
     })
   );
-  return ptHour >= 22 || ptHour < 7;
+  return ptHour >= 21 || ptHour < 10;
 }
 
 // Hard cutoff: everything up to and including April 22nd is blocked (midnight PT = 7am UTC)
@@ -47,10 +47,10 @@ function isWeekendPT(timestamp: number): boolean {
 }
 
 function formatHour(hour: number): string {
-  if (hour === 0) return '12a';
-  if (hour < 12) return `${hour}a`;
-  if (hour === 12) return '12p';
-  return `${hour - 12}p`;
+  if (hour === 0) return '12 AM';
+  if (hour < 12) return `${hour} AM`;
+  if (hour === 12) return '12 PM';
+  return `${hour - 12} PM`;
 }
 
 function getSunday(date: Date): Date {
@@ -371,8 +371,9 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
       {/* Calendar grid */}
         <div className="flex">
           {/* Fixed time column */}
-          <div className="flex-shrink-0 w-[50px] bg-[#0a0a0a] z-10">
-            <div className="border-b border-gray-800" style={{ height: DAY_HEADER_HEIGHT }} />
+          <div className="flex-shrink-0 w-[72px] bg-[#0a0a0a] z-10">
+            <div className="border-b border-gray-700" style={{ height: DAY_HEADER_HEIGHT }} />
+
             <div
               ref={timeColumnRef}
               className="overflow-hidden"
@@ -382,10 +383,10 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                 {ALL_HOURS.map((hour) => (
                   <div
                     key={hour}
-                    className="flex items-start justify-end pr-2 pt-1 border-b border-gray-800/50"
+                    className="flex items-start justify-end pr-2 pt-1 border-b border-gray-700"
                     style={{ height: HOUR_HEIGHT }}
                   >
-                    <span className="text-xs text-gray-600">{formatHour(hour)}</span>
+                    <span className="text-base font-medium text-gray-100 tabular-nums">{formatHour(hour)}</span>
                   </div>
                 ))}
               </div>
@@ -425,7 +426,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                 {ALL_HOURS.map((hour) => (
                   <div
                     key={hour}
-                    className="grid grid-cols-7 border-b border-gray-800/50"
+                    className="grid grid-cols-7 border-b border-gray-700"
                     style={{ height: HOUR_HEIGHT }}
                   >
                     {days.map((_, dayIndex) => {
@@ -439,7 +440,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
                         <div
                           key={dayIndex}
                           className={`
-                            border-l border-gray-800/50 transition-colors
+                            border-l border-gray-700 transition-colors
                             ${selected ? 'bg-green-600/40 border-l-green-700 cursor-pointer' : ''}
                             ${inPreview && !selected ? 'bg-green-700/30 cursor-pointer' : ''}
                             ${unavailable && !selected ? 'bg-red-900/40 cursor-not-allowed' : ''}
