@@ -39,11 +39,16 @@ function computeSpan(durationSec: number): number {
   return Math.max(1, Math.round(durationSec / SLOT_SEC));
 }
 
-function formatHour(slotIndex: number): string {
-  const h = slotIndex % 24;
-  const ampm = h < 12 ? 'AM' : 'PM';
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12} ${ampm}`;
+// Convert a UTC schedule day + hour offset into a Pacific-Time clock label
+// (e.g. "5 PM"). The schedule is keyed by UTC date because storage spans
+// timezones, but the admin UI shows PT so it matches what the admin sees.
+function formatHour(slotIndex: number, dayId: string): string {
+  const utcMoment = new Date(`${dayId}T${String(slotIndex % 24).padStart(2, '0')}:00:00.000Z`);
+  return utcMoment.toLocaleTimeString('en-US', {
+    timeZone: 'America/Los_Angeles',
+    hour: 'numeric',
+    hour12: true,
+  });
 }
 
 function formatDuration(sec: number): string {
@@ -58,8 +63,16 @@ function buildDayOptions(): { id: string; label: string }[] {
   const today = todayUtcId();
   return [0, 1, 2, 3, 4, 5, 6].map((delta) => {
     const id = offsetUtcId(today, delta);
-    const label = delta === 0 ? `Today (UTC) · ${id}` : delta === 1 ? `Tomorrow · ${id}` : id;
-    return { id, label };
+    // Day labels are keyed by UTC date (storage truth), but show the PT
+    // calendar date alongside so the admin doesn't have to mentally convert.
+    const ptDate = new Date(`${id}T12:00:00.000Z`).toLocaleDateString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+    const prefix = delta === 0 ? 'Today (PT)' : delta === 1 ? 'Tomorrow (PT)' : ptDate;
+    return { id, label: `${prefix} · ${id} UTC` };
   });
 }
 
@@ -449,10 +462,10 @@ export function ArchiveRadioTab() {
                         rowSpan={span}
                         className="w-20 px-3 py-3 text-xs font-mono text-zinc-400 border-r border-white/10 align-top"
                       >
-                        {formatHour(slotIndex)}
+                        {formatHour(slotIndex, selectedDate)}
                         {span > 1 && (
                           <span className="block text-[10px] text-zinc-600 mt-0.5">
-                            → {formatHour(slotIndex + span)}
+                            → {formatHour(slotIndex + span, selectedDate)}
                           </span>
                         )}
                       </td>
@@ -503,7 +516,7 @@ export function ArchiveRadioTab() {
                 return (
                   <tr key={slotIndex} className="border-b border-white/5">
                     <td className="w-20 px-3 py-3 text-xs font-mono text-zinc-500 border-r border-white/10">
-                      {formatHour(slotIndex)}
+                      {formatHour(slotIndex, selectedDate)}
                     </td>
                     <td className="px-3 py-3">
                       <button
