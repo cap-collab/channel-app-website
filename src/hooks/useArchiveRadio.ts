@@ -34,6 +34,8 @@ interface UseArchiveRadioResult {
   nextItem: ScheduleItem | null;
   itemSeekSec: number;
   itemDurationSec: number;
+  itemStartMs: number | null;
+  itemEndMs: number | null;
   play: () => Promise<void>;
   pause: () => void;
   toggle: () => Promise<void>;
@@ -480,6 +482,13 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     };
   }, []);
 
+  const itemStartMs = current
+    ? current.day.startTimeMs + current.item.startOffsetSec * 1000
+    : null;
+  const itemEndMs = current && itemStartMs !== null
+    ? itemStartMs + current.item.durationSec * 1000
+    : null;
+
   return {
     ready: !scheduleLoading,
     isPlaying,
@@ -491,6 +500,8 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       ? Math.max(0, (nowMs - current.day.startTimeMs) / 1000 - current.item.startOffsetSec)
       : 0,
     itemDurationSec: current?.item.durationSec ?? 0,
+    itemStartMs,
+    itemEndMs,
     play,
     pause,
     toggle,

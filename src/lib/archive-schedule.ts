@@ -75,8 +75,9 @@ export interface EligibleArchive {
   durationSec: number;
   priority: 'high' | 'medium';
   title: string;
-  djs: { name: string; photoUrl?: string }[];
+  djs: { name: string; username?: string; photoUrl?: string }[];
   artworkUrl?: string;
+  sceneSlugs?: string[];
 }
 
 export interface BuildQueueOptions {
@@ -200,6 +201,7 @@ export function buildQueue(opts: BuildQueueOptions): BuildQueueResult {
       title: picked.title,
       djs: picked.djs,
       artworkUrl: picked.artworkUrl,
+      sceneSlugs: picked.sceneSlugs,
     };
     items.push(archiveItem);
     lastOffsetById.set(picked.id, cursor);

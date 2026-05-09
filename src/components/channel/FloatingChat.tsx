@@ -7,6 +7,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
+import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 import { computeDJChatRoom } from '@/lib/broadcast-utils';
 import { HeroChatMessage } from './LiveBroadcastHero';
 import { AuthModal } from '@/components/AuthModal';
@@ -17,6 +18,7 @@ export function FloatingChat() {
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
   const { isLive, isStreaming, isPlaying, currentShow, currentDJ } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
+  const radioCtx = useArchiveRadioContext();
 
   const [isOpen, setIsOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -49,6 +51,14 @@ export function FloatingChat() {
   const archiveDjRoom = archivePrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
   const archiveDjName = archiveForWrite?.djs.map(d => d.name).join(', ') || '';
 
+  // Archive radio's currently-playing item (the auto-scheduled stream). Same
+  // username→room mapping as regular archives — every DJ room cross-posts to
+  // channelbroadcast in useDJProfileChat, so loves still surface globally.
+  const radioPrimaryDj = radioCtx?.currentItem?.djs?.[0];
+  const radioDjRoom = radioPrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
+  const radioDjName = radioCtx?.currentItem?.djs?.map(d => d.name).join(', ') || '';
+  const isRadioPlaying = !!radioCtx?.isPlaying || !!radioCtx?.isLoading;
+
   // Route writes to whatever the listener is actively consuming. Same priority
   // as GlobalBroadcastBar's barMode so loves/locked-in and messages agree.
   let writeChatRoom = 'channelbroadcast';
@@ -63,6 +73,11 @@ export function FloatingChat() {
     writeDJLabel = archiveDjName || 'Channel Radio';
     writeIsArchive = true;
     writeDjPhotoUrl = archivePrimaryDj?.photoUrl;
+  } else if (isRadioPlaying && radioDjRoom) {
+    writeChatRoom = radioDjRoom;
+    writeDJLabel = radioDjName || 'Channel Radio';
+    writeIsArchive = true;
+    writeDjPhotoUrl = radioPrimaryDj?.photoUrl;
   } else if (isLiveReady && liveDJChatRoom) {
     writeChatRoom = liveDJChatRoom;
     writeDJLabel = liveDjName || 'Channel Radio';
@@ -71,6 +86,13 @@ export function FloatingChat() {
     writeDJLabel = archiveDjName || 'Channel Radio';
     writeIsArchive = true;
     writeDjPhotoUrl = archivePrimaryDj?.photoUrl;
+  } else if (radioCtx?.enabled && radioDjRoom) {
+    // Radio is the page default (offline /demo) — write to the current
+    // radio DJ even before the listener presses play.
+    writeChatRoom = radioDjRoom;
+    writeDJLabel = radioDjName || 'Channel Radio';
+    writeIsArchive = true;
+    writeDjPhotoUrl = radioPrimaryDj?.photoUrl;
   }
 
   // Displayed chat is always the unified channelbroadcast feed. All DJ-room

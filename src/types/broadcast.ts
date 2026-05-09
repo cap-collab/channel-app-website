@@ -343,8 +343,14 @@ export interface ScheduleItem {
   durationSec: number;           // item duration
   startOffsetSec: number;        // cumulative offset from day start (00:00 UTC)
   title?: string;
-  djs?: { name: string; photoUrl?: string }[];
+  // username is the chatUsernameNormalized key — used by FloatingChat to
+  // route messages/loves to the right DJ chat room when the radio plays.
+  djs?: { name: string; username?: string; photoUrl?: string }[];
   artworkUrl?: string;
+  // Denormalized scene slugs (e.g. ['spiral']). Stored at write time so the
+  // bar/hero don't need to resolve the underlying archive doc to render the
+  // scene glyph.
+  sceneSlugs?: string[];
 }
 
 export interface ArchiveScheduleDay {

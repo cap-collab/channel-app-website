@@ -81,8 +81,12 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ date: strin
             .filter((d) => typeof d?.name === 'string')
             .map((d) => ({
               name: String(d.name),
+              username: typeof d.username === 'string' ? d.username : undefined,
               photoUrl: typeof d.photoUrl === 'string' ? d.photoUrl : undefined,
             }))
+        : undefined,
+      sceneSlugs: Array.isArray(raw.sceneSlugs)
+        ? (raw.sceneSlugs as unknown[]).filter((s): s is string => typeof s === 'string')
         : undefined,
       archiveId: typeof raw.archiveId === 'string' ? raw.archiveId : undefined,
       interstitialId: typeof raw.interstitialId === 'string' ? raw.interstitialId : undefined,
@@ -106,10 +110,12 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ date: strin
     if (it.title) obj.title = it.title;
     if (it.djs?.length) obj.djs = it.djs.map((dj) => {
       const o: Record<string, unknown> = { name: dj.name };
+      if (dj.username) o.username = dj.username;
       if (dj.photoUrl) o.photoUrl = dj.photoUrl;
       return o;
     });
     if (it.artworkUrl) obj.artworkUrl = it.artworkUrl;
+    if (it.sceneSlugs?.length) obj.sceneSlugs = it.sceneSlugs;
     return obj;
   });
 

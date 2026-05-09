@@ -284,6 +284,27 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // changes.
   const radioCtx = useArchiveRadioContext();
   const radioCurrentArchiveId = demoMode ? (radioCtx?.currentItem?.archiveId ?? null) : null;
+  // Radio DJ → tip + love wiring for the inline player bar.
+  const radioPrimaryDj = radioCtx?.currentItem?.djs?.[0];
+  const radioDjUsername = radioPrimaryDj?.username || '';
+  const radioDjUsernameNormalized = radioDjUsername.replace(/\s+/g, '').toLowerCase();
+  const radioDjProfile = useDJProfileInfo(radioDjUsername || undefined);
+  const radioTipLink = radioDjProfile.tipButtonLink;
+  const { sendLove: radioSendLove } = useDJProfileChat({
+    chatUsernameNormalized: radioDjUsernameNormalized,
+    djUsername: radioCtx?.currentItem?.djs?.map(d => d.name).join(', ') || '',
+    username: chatUsername || undefined,
+    enabled: false,
+    userId: user?.uid,
+    djPhotoUrl: radioPrimaryDj?.photoUrl,
+    isArchivePlayback: true,
+  });
+  const [radioHeartTrigger, setRadioHeartTrigger] = useState(0);
+  const handleRadioLove = useCallback(async () => {
+    setRadioHeartTrigger((prev) => prev + 1);
+    try { await radioSendLove(); } catch (err) { console.error('radio love failed', err); }
+  }, [radioSendLove]);
+  const radioSceneSlug = radioCtx?.currentItem?.sceneSlugs?.find((s) => s !== 'grid') || null;
 
 
   // When a scene filter is actively narrowing the set (shared `?scene=` link or
@@ -548,7 +569,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             <span />
           )}
           <div className="flex items-center gap-1.5">
-            {showLiveInHero && (
+            {showLiveInHero ? (
               isRestream ? (
                 <>
                   <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -570,7 +591,33 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   </span>
                 </>
               )
-            )}
+            ) : demoMode ? (
+              heroIndex === 0 ? (
+                // Slide 0 = continuous radio. Same restream pill as live-restream.
+                <>
+                  <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                  </svg>
+                  <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
+                    Restream
+                  </span>
+                </>
+              ) : (
+                // Slide 1 = an archive (listener-picked or alternative).
+                // Same pill styling as Restream, with a box/archive icon.
+                <>
+                  <svg className="w-3 h-3 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="5" rx="1" />
+                    <path d="M5 8v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
+                    <path d="M10 12h4" />
+                  </svg>
+                  <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
+                    Archive
+                  </span>
+                </>
+              )
+            ) : null}
           </div>
         </div>
 
@@ -729,28 +776,37 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         <div ref={stickyBarRef} className="bg-black relative">
           {demoMode && radioCtx && !showLiveInHero && heroIndex === 0 && !archivePlayer.currentArchive ? (
             <>
-              {/* Radio player bar — mirrors the live/restream bar visually */}
+              {/* Radio player bar — same chrome as the archive bar (scene
+                  glyph, play, scrolling text, profile, love, tip), but driven
+                  by the radio context. The progress is non-seekable because
+                  the radio is a synced schedule, not a single audio file. */}
               <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
-                <button
-                  onClick={() => { void radioCtx.toggle(); }}
-                  className="w-8 h-8 ml-1 flex items-center justify-center transition-colors flex-shrink-0"
-                  aria-label={radioCtx.isPlaying ? 'Pause' : 'Play'}
-                >
-                  {radioCtx.isLoading ? (
-                    <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                  ) : radioCtx.isPlaying ? (
-                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
+                <div className="flex items-center ml-1 flex-shrink-0">
+                  {radioSceneSlug && (
+                    <div className="w-[27px] h-[27px] flex items-center justify-center bg-white text-black flex-shrink-0">
+                      <SceneGlyph slug={radioSceneSlug} className="!w-5 !h-5" />
+                    </div>
                   )}
-                </button>
+                  <button
+                    onClick={() => { void radioCtx.toggle(); }}
+                    className="h-[27px] pl-2 pr-1 flex items-center justify-center transition-colors"
+                  >
+                    {radioCtx.isLoading ? (
+                      <svg className="w-8 h-8 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : radioCtx.isPlaying ? (
+                      <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 3h4v18H6V3zm8 0h4v18h-4V3z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M5 3v18l15-9z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
                 <div className="flex-1 min-w-0">
                   <ScrollingShowName
                     text={radioCtx.currentItem?.title || (radioCtx.ready ? 'No archive scheduled' : 'Loading…')}
@@ -763,30 +819,43 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     />
                   ) : null}
                 </div>
-                {/* Restream-style indicator (circular arrow + label, zinc-400) */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                    <path d="M3 3v5h5" />
-                  </svg>
-                  <span className="hidden md:inline text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
-                    Restream
-                  </span>
+                {radioDjUsernameNormalized && (
+                  <Link href={`/dj/${radioDjUsernameNormalized}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  </Link>
+                )}
+                <div className="relative flex-shrink-0">
+                  <button
+                    onClick={() => { void handleRadioLove(); }}
+                    className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                    </svg>
+                  </button>
+                  <FloatingHearts trigger={radioHeartTrigger} />
                 </div>
+                {radioTipLink && (
+                  <TipButton
+                    djUsername={radioCtx.currentItem?.djs?.[0]?.name || 'DJ'}
+                    tipLink={radioTipLink}
+                    className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
+                  />
+                )}
               </div>
               {radioCtx.error && (
                 <p className="text-red-400 text-xs pb-2 px-2">{radioCtx.error}</p>
               )}
-              {/* Item progress — analogous to ShowProgressBar but per-archive */}
-              {radioCtx.currentItem && radioCtx.itemDurationSec > 0 ? (
-                <div className="relative w-full h-[3px] bg-white/10">
-                  <div
-                    className="absolute inset-y-0 left-0 bg-white"
-                    style={{ width: `${Math.min(100, (radioCtx.itemSeekSec / radioCtx.itemDurationSec) * 100)}%` }}
-                  />
-                </div>
-              ) : (
-                <div className="relative w-full h-[3px] bg-white/10" />
+              {/* Same shape as the live bar: clock-time start/end + a
+                  non-seekable progress bar driven by the schedule. */}
+              {radioCtx.itemStartMs !== null && radioCtx.itemEndMs !== null && (
+                <>
+                  <div className="flex justify-between text-[10px] text-zinc-600 px-2 pb-0.5">
+                    <span>{formatClockTime(radioCtx.itemStartMs)}</span>
+                    <span>{formatClockTime(radioCtx.itemEndMs)}</span>
+                  </div>
+                  <ShowProgressBar startTime={radioCtx.itemStartMs} endTime={radioCtx.itemEndMs} />
+                </>
               )}
             </>
           ) : showLiveInHero ? (

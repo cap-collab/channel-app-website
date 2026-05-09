@@ -16,6 +16,11 @@ interface ArchiveRadioContextValue {
   nextItem: ScheduleItem | null;
   itemSeekSec: number;
   itemDurationSec: number;
+  // Absolute Unix-ms timestamps for the current item's slot, derived from
+  // the day's startTimeMs + item.startOffsetSec. Lets the player bar render
+  // clock-time start/end (e.g. "9 PM → 10 PM") just like the live bar.
+  itemStartMs: number | null;
+  itemEndMs: number | null;
   toggle: () => Promise<void>;
   play: () => Promise<void>;
   pause: () => void;
@@ -58,13 +63,15 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     nextItem: radio.nextItem,
     itemSeekSec: radio.itemSeekSec,
     itemDurationSec: radio.itemDurationSec,
+    itemStartMs: radio.itemStartMs,
+    itemEndMs: radio.itemEndMs,
     toggle,
     play,
     pause: radio.pause,
   }), [
     enabled, radio.ready, radio.isPlaying, radio.isLoading, radio.error,
     radio.currentItem, radio.nextItem, radio.itemSeekSec, radio.itemDurationSec,
-    radio.pause, toggle, play,
+    radio.itemStartMs, radio.itemEndMs, radio.pause, toggle, play,
   ]);
 
   return (

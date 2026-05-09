@@ -126,6 +126,33 @@ export function GlobalBroadcastBar() {
     }
   }, [archiveSendLove]);
 
+  // Radio (continuous archive radio) DJ wiring — mirrors archive's love/tip
+  // setup so the radio bar gets the same icons as live.
+  const radioPrimaryDj = radioCtx?.currentItem?.djs?.[0];
+  const radioDjProfileUsername = radioPrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
+  const radioDjProfile = useDJProfileInfo(radioPrimaryDj?.username);
+  const radioTipLink = radioDjProfile.tipButtonLink;
+  const { sendLove: radioSendLove } = useDJProfileChat({
+    chatUsernameNormalized: radioDjProfileUsername,
+    djUsername: radioCtx?.currentItem?.djs?.map(d => d.name).join(', ') || '',
+    username: chatUsername || undefined,
+    enabled: false,
+    lockedInMessagesEnabled: showLockedInMessages,
+    userId: user?.uid,
+    djPhotoUrl: radioPrimaryDj?.photoUrl,
+    isArchivePlayback: true,
+  });
+  const [radioHeartTrigger, setRadioHeartTrigger] = useState(0);
+  const handleRadioSendLove = useCallback(async () => {
+    setHeartNudgeDismissed(true);
+    setRadioHeartTrigger((prev) => prev + 1);
+    try {
+      await radioSendLove();
+    } catch (err) {
+      console.error('Failed to send radio love:', err);
+    }
+  }, [radioSendLove]);
+
   // Wire "locked in" callbacks to the timer refs in stream contexts
   useEffect(() => {
     broadcastLockedInRef.current = sendLockedIn;
@@ -276,51 +303,99 @@ export function GlobalBroadcastBar() {
     );
   }
 
-  // Archive radio bar — same chrome as live, but with the restream-style
-  // indicator (circular arrow + zinc-400 label) instead of the live red dot.
+  // Archive radio bar — visually identical to the live bar except: no BPM,
+  // and the live red dot is swapped for the restream pill (circular arrow +
+  // zinc-400 "Restream" label). Same play, scrolling text, profile link,
+  // love button, tip widgets.
   if (barMode === 'radio' && radioCtx) {
     const item = radioCtx.currentItem;
     const radioTitle = item?.title || 'Archive radio';
     const radioDjs = item?.djs?.map((d) => d.name).join(', ') || '';
+    const profileSlug = radioPrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
+    // Scene glyph — read from the denormalized sceneSlugs on the schedule
+    // item (cron writes them on every doc; backfill script handles archives).
+    const radioSceneSlug = item?.sceneSlugs ? pickSceneSlug(item.sceneSlugs) : null;
     return (
       <div className={`z-[99] bg-black border-b border-white/10 overflow-hidden transition-all duration-200 ${hiddenOnRadio ? 'opacity-0 -translate-y-full h-0 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
         <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
-          <button
-            onClick={() => { void radioCtx.toggle(); }}
-            className="w-8 h-8 ml-1 flex items-center justify-center transition-colors flex-shrink-0"
-            aria-label={radioCtx.isPlaying ? 'Pause' : 'Play'}
-          >
-            {radioCtx.isLoading ? (
-              <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-            ) : radioCtx.isPlaying ? (
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
+          <div className="flex items-center ml-1 flex-shrink-0">
+            {radioSceneSlug && (
+              <div className="w-[27px] h-[27px] flex items-center justify-center bg-white text-black flex-shrink-0">
+                <SceneGlyph slug={radioSceneSlug} className="!w-5 !h-5" />
+              </div>
             )}
-          </button>
+            <button
+              onClick={() => { void radioCtx.toggle(); }}
+              className="h-[27px] pl-2 pr-1 flex items-center justify-center transition-colors"
+              aria-label={radioCtx.isPlaying ? 'Pause' : 'Play'}
+            >
+              {radioCtx.isLoading ? (
+                <svg className="w-8 h-8 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              ) : radioCtx.isPlaying ? (
+                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 3h4v18H6V3zm8 0h4v18h-4V3z" />
+                </svg>
+              ) : (
+                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M5 3v18l15-9z" />
+                </svg>
+              )}
+            </button>
+          </div>
+
           <Link href="/radio/demo" className="flex-1 min-w-0">
             <ScrollingShowName text={radioTitle} className="text-sm font-bold leading-tight text-white" />
             {radioDjs && (
               <ScrollingDJName text={radioDjs} className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]" />
             )}
           </Link>
-          <div className="flex items-center gap-1.5 flex-shrink-0 pr-2">
-            <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-              <path d="M3 3v5h5" />
-            </svg>
-            <span className="hidden md:inline text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
-              Restream
-            </span>
+
+          {/* DJ profile link */}
+          {profileSlug && (
+            <Link href={`/dj/${profileSlug}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            </Link>
+          )}
+
+          {/* Love button */}
+          <div className="relative flex-shrink-0">
+            <button
+              onClick={() => handleRadioSendLove()}
+              className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
+            >
+              <svg key={`r-${nudgeKey}`} className={`w-5 h-5 ${radioCtx.isPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+            </button>
+            <FloatingHearts trigger={radioHeartTrigger} />
           </div>
+
+          {/* Tip — only when the current radio DJ has a tip link */}
+          {radioTipLink && (
+            <a
+              href={radioTipLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z" />
+              </svg>
+            </a>
+          )}
         </div>
+        {/* Non-seekable progress bar — radio is a synced stream. */}
+        {radioCtx.itemDurationSec > 0 && (
+          <div className="relative w-full h-[2px] bg-white/10">
+            <div
+              className="absolute inset-y-0 left-0 bg-white"
+              style={{ width: `${Math.min(100, (radioCtx.itemSeekSec / radioCtx.itemDurationSec) * 100)}%` }}
+            />
+          </div>
+        )}
       </div>
     );
   }

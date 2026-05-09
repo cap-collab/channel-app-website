@@ -44,6 +44,32 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
     }
   }
 
+  // Build a DJ→scenes map from the users collection (mirrors useScenesData on
+  // the client). We denormalize the scene slug onto each schedule item so the
+  // sticky bar / hero can render the scene glyph without re-resolving.
+  // Map by chatUsernameNormalized AND userId so we can match either form
+  // present in the archive doc.
+  const sceneByUserId = new Map<string, string[]>();
+  const sceneByUsername = new Map<string, string[]>();
+  try {
+    const usersSnap = await db.collection('users').where('role', 'in', ['dj', 'broadcaster', 'admin']).get();
+    for (const doc of usersSnap.docs) {
+      const data = doc.data();
+      const sceneIds: string[] = data?.djProfile?.sceneIds ?? [];
+      if (!Array.isArray(sceneIds) || sceneIds.length === 0) continue;
+      sceneByUserId.set(doc.id, sceneIds);
+      const normalized =
+        typeof data?.chatUsernameNormalized === 'string'
+          ? data.chatUsernameNormalized
+          : typeof data?.chatUsername === 'string'
+            ? data.chatUsername.toLowerCase().replace(/\s+/g, '')
+            : null;
+      if (normalized) sceneByUsername.set(normalized, sceneIds);
+    }
+  } catch (err) {
+    console.warn('[archive-schedule-server] scene map fetch failed; items will have no sceneSlugs', err);
+  }
+
   // Eligible archives: high + medium priority, public, fully uploaded.
   // Single collection.get() + in-code filter (matches /api/archives — keeps
   // us from needing a new composite index).
@@ -58,10 +84,33 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
     const recordingUrl: string | undefined = d.recordingUrl;
     const durationSec: number = Number(d.duration || 0);
     if (!recordingUrl || !durationSec || durationSec < 30) continue;
-    const djsRaw: Array<{ name?: string; photoUrl?: string }> = Array.isArray(d.djs) ? d.djs : [];
+    const djsRaw: Array<{ name?: string; username?: string; userId?: string; photoUrl?: string }> = Array.isArray(d.djs) ? d.djs : [];
     const djs = djsRaw
-      .filter((dj): dj is { name: string; photoUrl?: string } => typeof dj?.name === 'string' && dj.name.length > 0)
-      .map((dj) => ({ name: dj.name, photoUrl: dj.photoUrl }));
+      .filter((dj): dj is { name: string; username?: string; userId?: string; photoUrl?: string } => typeof dj?.name === 'string' && dj.name.length > 0)
+      .map((dj) => ({ name: dj.name, username: dj.username, photoUrl: dj.photoUrl }));
+
+    // Resolve scene slugs the same way the client does in resolveArchiveScenes.
+    // - explicit sceneIdsOverride wins
+    // - else: union of scenes from any matching DJ (by userId or username)
+    let sceneSlugs: string[] | undefined;
+    if (Array.isArray(d.sceneIdsOverride)) {
+      sceneSlugs = d.sceneIdsOverride.length > 0 ? d.sceneIdsOverride : undefined;
+    } else {
+      const set = new Set<string>();
+      for (const dj of djsRaw) {
+        if (dj.userId) {
+          const ids = sceneByUserId.get(dj.userId);
+          if (ids) ids.forEach((id) => set.add(id));
+        }
+        if (dj.username) {
+          const key = dj.username.toLowerCase().replace(/\s+/g, '');
+          const ids = sceneByUsername.get(key);
+          if (ids) ids.forEach((id) => set.add(id));
+        }
+      }
+      if (set.size > 0) sceneSlugs = Array.from(set);
+    }
+
     archives.push({
       id: doc.id,
       recordingUrl,
@@ -70,6 +119,7 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
       title: (d.showName as string) || (d.slug as string) || 'Archive',
       djs,
       artworkUrl: d.showImageUrl,
+      sceneSlugs,
     });
   }
 
@@ -130,10 +180,12 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
     if (it.title) obj.title = it.title;
     if (it.djs?.length) obj.djs = it.djs.map((dj) => {
       const o: Record<string, unknown> = { name: dj.name };
+      if (dj.username) o.username = dj.username;
       if (dj.photoUrl) o.photoUrl = dj.photoUrl;
       return o;
     });
     if (it.artworkUrl) obj.artworkUrl = it.artworkUrl;
+    if (it.sceneSlugs?.length) obj.sceneSlugs = it.sceneSlugs;
     return obj;
   });
 

@@ -15,7 +15,8 @@ interface UIItem {
   durationSec: number;
   startOffsetSec: number;
   title?: string;
-  djs?: { name: string; photoUrl?: string }[];
+  // username is the chat-room key (chatUsernameNormalized).
+  djs?: { name: string; username?: string; photoUrl?: string }[];
   artworkUrl?: string;
   archiveId?: string;
   // Computed: how many hourly slots this item should occupy.
@@ -312,7 +313,7 @@ export function ArchiveRadioTab() {
         durationSec: archive.duration || 0,
         startOffsetSec: 0, // reflow will recompute
         title: archive.showName || archive.slug,
-        djs: archive.djs?.map((d) => ({ name: d.name, photoUrl: d.photoUrl })),
+        djs: archive.djs?.map((d) => ({ name: d.name, username: d.username, photoUrl: d.photoUrl })),
         artworkUrl: archive.showImageUrl,
         archiveId: archive.id,
         span: computeSpan(archive.duration || 0),
@@ -333,7 +334,7 @@ export function ArchiveRadioTab() {
         durationSec: archive.duration || 0,
         startOffsetSec: 0,
         title: archive.showName || archive.slug,
-        djs: archive.djs?.map((d) => ({ name: d.name, photoUrl: d.photoUrl })),
+        djs: archive.djs?.map((d) => ({ name: d.name, username: d.username, photoUrl: d.photoUrl })),
         artworkUrl: archive.showImageUrl,
         archiveId: archive.id,
         span: computeSpan(archive.duration || 0),
