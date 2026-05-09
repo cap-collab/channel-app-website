@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Room, RoomEvent, Track, LocalTrack, DisconnectReason, TrackEvent } from 'livekit-client';
 import { BroadcastState, ROOM_NAME, RoomStatus } from '@/types/broadcast';
+import { usePublisherStats } from './usePublisherStats';
 
 const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
 
@@ -83,6 +84,10 @@ export function useBroadcast(
 
   const slotEndTimeRef = useRef(slotEndTime);
   slotEndTimeRef.current = slotEndTime;
+
+  // Telemetry — polls WebRTC stats during broadcast, no-op when flag disabled.
+  // Wrapped in its own hook with try/catch — cannot affect publish.
+  const publisherStats = usePublisherStats(roomRef.current, state.isLive);
 
   // Update state.roomName when prop changes (for consumers to check readiness)
   useEffect(() => {
@@ -532,6 +537,12 @@ export function useBroadcast(
   // End broadcast completely
   // keepHlsEgress: when true, leave HLS egress running for seamless DJ transitions
   const endBroadcast = useCallback(async (options?: { keepHlsEgress?: boolean }) => {
+    // Snapshot stats payload BEFORE the room is torn down (sender becomes
+    // unavailable after disconnect). Send is fire-and-forget AFTER critical
+    // path so it can never block complete-slot / unpublish / disconnect.
+    let statsPayload: ReturnType<typeof publisherStats.flush> = null;
+    try { statsPayload = publisherStats.flush(); } catch { /* swallow */ }
+
     await stopEgress(options);
     await unpublishAudio();
     disconnect();
@@ -542,7 +553,18 @@ export function useBroadcast(
       recordingEgressId: null,
       hlsUrl: null,
     }));
-  }, [stopEgress, unpublishAudio, disconnect]);
+
+    // Fire-and-forget telemetry write. Never throws, never blocks.
+    const currentSlotId = slotIdRef.current;
+    if (statsPayload && currentSlotId) {
+      void fetch('/api/broadcast/log-stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slotId: currentSlotId, stats: statsPayload }),
+        keepalive: true,
+      }).catch(() => { /* telemetry failure is non-fatal */ });
+    }
+  }, [stopEgress, unpublishAudio, disconnect, publisherStats]);
 
   // Set input method
   const setInputMethod = useCallback((method: BroadcastState['inputMethod']) => {
