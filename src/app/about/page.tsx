@@ -1,8 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 import ScrollReveal from "@/components/ScrollReveal";
 import FAQAccordion from "@/components/FAQAccordion";
 import { Header } from "@/components/Header";
+import { AboutEmailSignup } from "@/components/AboutEmailSignup";
 
 const faqItems = [
   {
@@ -32,13 +32,12 @@ export default function About() {
         <ScrollReveal>
           <div className="max-w-3xl mx-auto">
             <div className="flex justify-center mb-8">
-              <Image
-                src="/logo-white.svg"
-                alt="Channel"
-                width={120}
-                height={24}
-                priority
-              />
+              <Link
+                href="/radio"
+                className="inline-block bg-white text-black hover:bg-gray-200 transition-colors text-sm font-medium px-6 py-3 rounded"
+              >
+                Dig in
+              </Link>
             </div>
 
             <div className="space-y-6 text-zinc-400 leading-relaxed">
@@ -60,6 +59,10 @@ export default function About() {
             </div>
 
             <div className="mt-10 flex justify-center">
+              <AboutEmailSignup />
+            </div>
+
+            <div className="mt-6 flex justify-center">
               <a
                 href="https://instagram.com/channelrad.io"
                 target="_blank"
