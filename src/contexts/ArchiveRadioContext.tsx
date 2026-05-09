@@ -42,11 +42,14 @@ const ArchiveRadioContext = createContext<ArchiveRadioContextValue | null>(null)
 export function ArchiveRadioProvider({ children, enabled }: { children: ReactNode; enabled: boolean }) {
   const archivePlayer = useArchivePlayer();
   const broadcast = useBroadcastStreamContext();
-  // Live broadcast (or restream) wins; a regular archive picked by the
-  // listener also pre-empts the radio. Otherwise the radio is active.
+  // Live broadcast wins (we don't run two streams at once). The radio stays
+  // "alive" even if a regular archive is loaded — we don't want the audio
+  // elements to be torn down, otherwise the play button breaks after the
+  // listener comes back from playing an archive. Coexistence (pause the
+  // other side on play) is handled by the toggle/play callbacks below.
   const showLive = broadcast.isLive && broadcast.isStreaming;
   const radio = useArchiveRadio({
-    active: enabled && !showLive && !archivePlayer.currentArchive,
+    active: enabled && !showLive,
   });
   const toggle = useCallback(async () => {
     const willPlay = !radio.isPlaying;

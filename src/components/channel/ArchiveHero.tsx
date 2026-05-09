@@ -618,32 +618,33 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               the legacy "Next live at" copy for a "Back to Live/Radio"
               action that pauses the archive and resumes the page default. */}
           {(() => {
+            // /demo, archive bar visible (slide 1 OR a listener archive is
+            // playing): show a switch action to either live (red, with BPM,
+            // matching legacy 'Switch to Live Radio') or archive radio (grey,
+            // no BPM, matching the same pattern but for the radio).
             const demoArchiveContext = demoMode && (heroIndex >= 1 || archivePlayer.isPlaying || !!archivePlayer.currentArchive);
             if (demoArchiveContext) {
-              const goLive = isLive;
-              return (
-                <button
-                  onClick={() => {
-                    if (archivePlayer.isPlaying) archivePlayer.pause();
-                    setHeroIndex(0);
-                    if (goLive) {
-                      setUserSelectedMode('live');
-                      playLive();
-                    } else {
-                      void radioCtx?.play();
-                    }
-                  }}
-                  className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
-                    goLive ? 'text-red-500 hover:text-red-400' : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  ← Back to {goLive ? 'Live' : 'Radio'}
-                  {goLive ? (
+              if (isLive) {
+                return (
+                  <button
+                    onClick={() => { archivePlayer.pause(); setHeroIndex(0); setUserSelectedMode('live'); playLive(); }}
+                    className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors text-red-500 hover:text-red-400"
+                  >
+                    Switch to Live Radio
                     <span className="relative flex h-1.5 w-1.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
                     </span>
-                  ) : null}
+                    {liveBPM ? `${liveBPM} BPM` : ''}
+                  </button>
+                );
+              }
+              return (
+                <button
+                  onClick={() => { archivePlayer.pause(); setHeroIndex(0); void radioCtx?.play(); }}
+                  className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors text-zinc-400 hover:text-white"
+                >
+                  Switch to Radio
                 </button>
               );
             }
@@ -805,32 +806,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                       })()}
                     </div>
                     {secondHeroArchive && (
-                      archivePlayer.currentArchive?.id === secondHeroArchive.id ? (
-                        <ListenerArchiveSlide
-                          key={`listener-${secondHeroArchive.id}`}
-                          archive={secondHeroArchive}
-                          sceneSlugs={resolveArchiveScenes(secondHeroArchive, djSceneMap)}
-                          isLive={!!isLive}
-                          onSwitchToLive={() => {
-                            archivePlayer.pause();
-                            setUserSelectedMode('live');
-                          }}
-                          onSwitchToRadio={() => {
-                            archivePlayer.pause();
-                            setHeroIndex(0);
-                          }}
-                        />
-                      ) : (
-                        <HeroSlide
-                          key={secondHeroArchive.id}
-                          archive={secondHeroArchive}
-                          sceneSlugs={resolveArchiveScenes(secondHeroArchive, djSceneMap)}
-                          onPlay={() => {
-                            setUserSelectedMode('archive');
-                            archivePlayer.play(secondHeroArchive);
-                          }}
-                        />
-                      )
+                      <HeroSlide
+                        key={secondHeroArchive.id}
+                        archive={secondHeroArchive}
+                        sceneSlugs={resolveArchiveScenes(secondHeroArchive, djSceneMap)}
+                        onPlay={() => {
+                          setUserSelectedMode('archive');
+                          archivePlayer.play(secondHeroArchive);
+                        }}
+                      />
                     )}
                   </>
                 ) : (
@@ -1363,80 +1347,6 @@ function HeroSlide({
         </div>
       )}
     </button>
-  );
-}
-
-// Slide variant shown when the listener has clicked play on a regular archive.
-// Same visual as HeroSlide, plus a top-right action button:
-//   - "Switch to live" if a broadcast is on
-//   - "Switch to radio" otherwise (resumes the auto-scheduled archive radio)
-function ListenerArchiveSlide({
-  archive,
-  sceneSlugs,
-  isLive,
-  onSwitchToLive,
-  onSwitchToRadio,
-}: {
-  archive: ArchiveSerialized;
-  sceneSlugs?: string[];
-  isLive: boolean;
-  onSwitchToLive: () => void;
-  onSwitchToRadio: () => void;
-}) {
-  const primaryDj = archive.djs[0];
-  const djName = archive.djs.map(d => d.name).join(', ');
-  const photoUrl = archive.showImageUrl || primaryDj?.photoUrl;
-  const djProfile = useDJProfileInfo(primaryDj?.username);
-  const djGenres = (primaryDj?.genres?.length ? primaryDj.genres : djProfile.genres) || [];
-  const djDescription = djProfile.bio;
-  const [imgError, setImgError] = useState(false);
-  const hasPhoto = photoUrl && !imgError;
-
-  return (
-    <div className="relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10 flex-shrink-0">
-      {hasPhoto ? (
-        <>
-          <Image
-            src={photoUrl!}
-            alt={djName || 'DJ'}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 768px"
-            priority
-            onError={() => setImgError(true)}
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
-          <div className="absolute top-2 left-2 drop-shadow-lg">
-            <span className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</span>
-          </div>
-          {sceneSlugs && sceneSlugs.some((s) => s !== 'grid') && (
-            <div className="absolute top-2 right-2 flex items-center gap-1.5 drop-shadow-lg text-white">
-              {sceneSlugs.filter((s) => s !== 'grid').map((slug) => (
-                <span key={slug} className="text-lg leading-none inline-flex items-center">
-                  <SceneGlyph slug={slug} />
-                </span>
-              ))}
-            </div>
-          )}
-          <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
-        </>
-      ) : (
-        <div className="w-full h-full relative flex items-center justify-center bg-white/5">
-          <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4 text-white">
-            {djName || archive.showName}
-          </h2>
-        </div>
-      )}
-
-      {/* Switch action — bottom-center, sits above the gradient. */}
-      <button
-        onClick={isLive ? onSwitchToLive : onSwitchToRadio}
-        className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 py-2 bg-white text-black text-xs font-bold uppercase tracking-wide hover:bg-zinc-200 transition-colors shadow-lg"
-      >
-        {isLive ? '→ Switch to live' : '→ Switch to radio'}
-      </button>
-    </div>
   );
 }
 
