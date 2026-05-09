@@ -368,15 +368,22 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     return picks;
   }, [archives, archivePlayer.currentArchive, demoMode, maxHeroSlides, scenes, sceneFilter, djSceneMap, preferredHeroSeed]);
 
-  // The second slide of the carousel (slide 1, since slide 0 is the radio).
+  // The second slide of the carousel (slide 1).
   // Demo-mode only: returns null on /radio so the legacy carousel rendering
   // stays exactly as before.
-  // - If the listener picked an archive: that archive (with switch actions).
-  // - Else: the opposite-scene archive vs whatever's playing on the radio.
+  // Priority:
+  //   1. listener-picked archive → that archive (with switch actions)
+  //   2. live is on → the radio's currently-playing archive (so slide 1
+  //      offers something to listen to alongside live)
+  //   3. else → opposite-scene high-priority archive vs the radio's current
   const secondHeroArchive = useMemo<ArchiveSerialized | null>(() => {
     if (!demoMode) return null;
     if (maxHeroSlides === 1) return null;
     if (archivePlayer.currentArchive) return archivePlayer.currentArchive;
+    if (showLiveInHero && radioCurrentArchiveId) {
+      const radioArchive = archives.find((a) => a.id === radioCurrentArchiveId);
+      if (radioArchive) return radioArchive;
+    }
 
     // Determine the radio's current scene (spiral / star / neither).
     const radioArchive = radioCurrentArchiveId
@@ -401,7 +408,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       if (match) return match;
     }
     return candidates[1] ?? candidates[0] ?? null;
-  }, [archivePlayer.currentArchive, archives, demoMode, djSceneMap, heroArchives, maxHeroSlides, radioCurrentArchiveId]);
+  }, [archivePlayer.currentArchive, archives, demoMode, djSceneMap, heroArchives, maxHeroSlides, radioCurrentArchiveId, showLiveInHero]);
 
   const [heroIndex, setHeroIndex] = useState(0);
   const heroTouchRef = useRef<{ startX: number; startY: number } | null>(null);
@@ -423,12 +430,65 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     if (heroIndex >= carouselSlideCount) setHeroIndex(0);
   }, [carouselSlideCount, heroIndex]);
 
-  // The currently displayed archive used by downstream UI (player bar, share,
-  // etc). On /radio this matches the original behaviour; on /demo it falls
-  // through to slide 1's archive (the radio slide has no archive).
+  // The currently displayed archive used by downstream UI (share button etc).
+  // - /radio: legacy = whatever's playing or the visible slide.
+  // - /demo: prefer the listener-played archive, then slide-1 alternative,
+  //   then fallbacks. Slide 0 (radio/live) doesn't surface here.
   const displayedArchive = demoMode
-    ? (archivePlayer.currentArchive || secondHeroArchive || heroArchives[0] || featuredArchive)
+    ? (archivePlayer.currentArchive ?? secondHeroArchive ?? heroArchives[0] ?? featuredArchive)
     : (archivePlayer.currentArchive || heroArchives[heroIndex] || featuredArchive);
+
+  // Player bar mode (demo only). Rule: what's actively playing wins; if
+  // nothing is playing, follow the visible slide.
+  //   • archivePlayer playing → 'archive'
+  //   • live broadcast on (and playing) → 'live'
+  //   • radio playing → 'radio'
+  //   • nothing playing + slide 0 visible + live on → 'live' (paused live)
+  //   • nothing playing + slide 0 visible → 'radio'
+  //   • nothing playing + slide 1 visible → 'archive' (paused archive)
+  type DemoBarMode = 'live' | 'radio' | 'archive';
+  const demoBarMode: DemoBarMode = (() => {
+    if (!demoMode) return 'archive'; // unused on /radio path
+    if (archivePlayer.isPlaying || archivePlayer.isLoading) return 'archive';
+    if (isLive && isLivePlaying) return 'live';
+    if (radioCtx?.isPlaying || radioCtx?.isLoading) return 'radio';
+    if (heroIndex >= 1) return 'archive';
+    if (isLive) return 'live';
+    return 'radio';
+  })();
+
+  // /demo: when the visible slide changes, pause the source that doesn't
+  // belong to the now-visible slide so we don't double-play. We don't touch
+  // live — when live is on slide 0, swiping to slide 1 doesn't stop it; the
+  // bar keeps showing the live audio per demoBarMode.
+  useEffect(() => {
+    if (!demoMode) return;
+    if (heroIndex === 0) {
+      // Slide 0 visible: pause any listener archive that was on slide 1.
+      if (archivePlayer.isPlaying) archivePlayer.pause();
+    } else {
+      // Slide 1 visible: pause radio (live keeps going).
+      if (radioCtx?.isPlaying) radioCtx.pause();
+    }
+    // Only depend on heroIndex (the swipe trigger). Reading archivePlayer/
+    // radioCtx as deps would cause feedback loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heroIndex, demoMode]);
+
+  // /demo: when the listener starts a regular archive (e.g. clicked a card
+  // from the grid below), auto-swipe the hero to slide 1 so what they see
+  // matches what's playing.
+  const lastPlayedArchiveIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!demoMode || showLiveInHero) return;
+    const currentId = archivePlayer.currentArchive?.id ?? null;
+    if (currentId && currentId !== lastPlayedArchiveIdRef.current) {
+      lastPlayedArchiveIdRef.current = currentId;
+      if (heroIndex !== 1) setHeroIndex(1);
+    }
+    if (!currentId) lastPlayedArchiveIdRef.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [archivePlayer.currentArchive?.id, demoMode, showLiveInHero]);
 
   // Publish what the hero is showing so GlobalBroadcastBar can mirror it.
   useEffect(() => {
@@ -630,10 +690,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
         {/* Hero Image Carousel.
             - /radio (default): legacy [spiral, star] slides via heroArchives.
-            - /radio/demo (demoMode=true): slide 0 is the continuous archive
-              radio, slide 1 is either the listener-played archive (with
-              "Switch to live/radio") or an opposite-scene pick. */}
-        {!showLiveInHero && (
+              Live takes over the whole hero (no carousel) — see further below.
+            - /radio/demo (demoMode=true): always shows the carousel.
+              • Slide 0 = live (when on) OR archive radio (when offline)
+              • Slide 1 = listener-picked archive, or the radio's current
+                archive when live is on, or an opposite-scene alternative. */}
+        {(demoMode || !showLiveInHero) && (
           <div
             className="relative"
             onTouchStart={(e) => { heroTouchRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY }; }}
@@ -654,11 +716,42 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               >
                 {demoMode ? (
                   <>
-                    <div key="radio-slide" className="w-full flex-shrink-0">
-                      {(() => {
-                        // Prefer a real ArchiveSerialized so the slide reuses
-                        // HeroSlide's exact layout (DJ overlay, scene glyphs,
-                        // etc.) — same look as /radio's regular hero card.
+                    <div key="slide-0" className="w-full flex-shrink-0">
+                      {/* Slide 0: live image when a broadcast is on (regardless
+                          of userSelectedMode), else the radio slide. */}
+                      {isLive ? (
+                        // Slide 0 = live image (mirrors the legacy takeover
+                        // block but inside the carousel slot).
+                        <div className="relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10">
+                          {hasPhoto ? (
+                            <>
+                              <Image
+                                src={djPhotoUrl!}
+                                alt={djName || 'DJ'}
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 768px) 100vw, 768px"
+                                priority
+                                onError={() => setImageError(true)}
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+                              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
+                              <div className="absolute top-2 left-2 drop-shadow-lg">
+                                <span className="text-sm font-bold text-white uppercase tracking-wide">{showName}</span>
+                              </div>
+                              <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
+                            </>
+                          ) : (
+                            <div className="w-full h-full relative flex items-center justify-center bg-white/5">
+                              <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-center px-4 text-white">
+                                {djName || showName}
+                              </h2>
+                            </div>
+                          )}
+                        </div>
+                      ) : (() => {
+                        // Slide 0 = archive radio. Prefer a real
+                        // ArchiveSerialized so it reuses HeroSlide's layout.
                         const radioArchive = radioCtx?.currentItem?.archiveId
                           ? archives.find((a) => a.id === radioCtx.currentItem!.archiveId)
                           : null;
@@ -671,9 +764,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                             />
                           );
                         }
-                        // Fallback: minimal slide built from the schedule item
-                        // alone (e.g. interstitial, or the parent archive doc
-                        // hasn't loaded yet).
                         return <ContinuousArchiveSlide currentItem={radioCtx?.currentItem ?? null} />;
                       })()}
                     </div>
@@ -745,7 +835,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             )}
           </div>
         )}
-        {showLiveInHero && (
+        {showLiveInHero && !demoMode && (
           <div className="relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10">
             {hasPhoto ? (
               <>
@@ -776,12 +866,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         )}
 
 
-        {/* Player bar — three modes:
-            • live broadcast (showLiveInHero) → live controls
-            • slide 0 + offline + listener hasn't picked an archive → radio controls
-            • otherwise → regular archive controls (existing behaviour) */}
+        {/* Player bar.
+            /radio (legacy): showLiveInHero ? live bar : archive bar.
+            /demo: demoBarMode ('live' | 'radio' | 'archive') — what's playing
+            wins, otherwise follows the visible slide. */}
         <div ref={stickyBarRef} className="bg-black relative">
-          {demoMode && radioCtx && !showLiveInHero && heroIndex === 0 && !archivePlayer.currentArchive ? (
+          {demoMode && radioCtx && demoBarMode === 'radio' ? (
             <>
               {/* Radio player bar — same chrome as the archive bar (scene
                   glyph, play, scrolling text, profile, love, tip), but driven
@@ -865,7 +955,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </>
               )}
             </>
-          ) : showLiveInHero ? (
+          ) : (demoMode ? demoBarMode === 'live' : showLiveInHero) ? (
             <>
               {/* Live player bar — uses the archive-bar play size (h-[27px]
                   wrapper, w-8 icon) so swiping between cards doesn't change
