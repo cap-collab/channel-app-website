@@ -89,12 +89,17 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
       .filter((dj): dj is { name: string; username?: string; userId?: string; photoUrl?: string } => typeof dj?.name === 'string' && dj.name.length > 0)
       .map((dj) => ({ name: dj.name, username: dj.username, photoUrl: dj.photoUrl }));
 
-    // Resolve scene slugs the same way the client does in resolveArchiveScenes.
-    // - explicit sceneIdsOverride wins
-    // - else: union of scenes from any matching DJ (by userId or username)
+    // Resolve scene slugs. Priority:
+    //   1. explicit sceneIdsOverride (admin-pinned)
+    //   2. denormalized sceneSlugs on the archive doc (set by the backfill
+    //      script + future archive uploads)
+    //   3. live lookup from each DJ's djProfile.sceneIds (backstop for
+    //      archives that haven't been backfilled yet)
     let sceneSlugs: string[] | undefined;
     if (Array.isArray(d.sceneIdsOverride)) {
       sceneSlugs = d.sceneIdsOverride.length > 0 ? d.sceneIdsOverride : undefined;
+    } else if (Array.isArray(d.sceneSlugs) && d.sceneSlugs.length > 0) {
+      sceneSlugs = d.sceneSlugs as string[];
     } else {
       const set = new Set<string>();
       for (const dj of djsRaw) {
