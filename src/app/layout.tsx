@@ -18,7 +18,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "channel",
+  title: "Channel – Creative Communities",
   description: "For the music. And the people behind it.",
   metadataBase: new URL("https://channel-app.com"),
   openGraph: {
