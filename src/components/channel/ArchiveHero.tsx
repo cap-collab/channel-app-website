@@ -175,9 +175,16 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
   const totalDuration = endTime - startTime;
   const elapsed = now - startTime;
   const progress = totalDuration > 0 ? Math.max(0, Math.min(1, elapsed / totalDuration)) : 0;
+  // Wrapping py-2 mirrors ArchiveSeekBar's outer container so the player bar
+  // has the same total height across live / radio / archive cards. Without
+  // it, swiping between cards bumps the layout by ~16px.
   return (
-    <div className="relative w-full h-[3px] bg-white/10">
-      <div className="absolute inset-y-0 left-0 bg-white" style={{ width: `${progress * 100}%` }} />
+    <div className="relative w-full select-none">
+      <div className="py-2">
+        <div className="relative w-full h-[3px] bg-white/10 rounded-full">
+          <div className="absolute inset-y-0 left-0 bg-white rounded-full" style={{ width: `${progress * 100}%` }} />
+        </div>
+      </div>
     </div>
   );
 }

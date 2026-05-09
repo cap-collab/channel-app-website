@@ -62,8 +62,11 @@ function deserializeDay(id: string, data: Record<string, unknown> | undefined): 
       durationSec,
       startOffsetSec,
       title: r.title as string | undefined,
-      djs: Array.isArray(r.djs) ? (r.djs as { name: string; photoUrl?: string }[]) : undefined,
+      djs: Array.isArray(r.djs) ? (r.djs as { name: string; username?: string; photoUrl?: string }[]) : undefined,
       artworkUrl: r.artworkUrl as string | undefined,
+      sceneSlugs: Array.isArray(r.sceneSlugs)
+        ? (r.sceneSlugs as unknown[]).filter((s): s is string => typeof s === 'string')
+        : undefined,
     });
   }
   return {
