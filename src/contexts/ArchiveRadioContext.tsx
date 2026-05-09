@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchiveRadio } from '@/hooks/useArchiveRadio';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
@@ -24,6 +24,11 @@ interface ArchiveRadioContextValue {
   toggle: () => Promise<void>;
   play: () => Promise<void>;
   pause: () => void;
+  // Which carousel slide the listener is looking at on /demo. Used by the
+  // sticky bar to mirror the visible slide when nothing's actively playing.
+  // 0 = slide 0 (live or radio), 1 = slide 1 (archive). Set by ArchiveHero.
+  visibleSlide: 0 | 1;
+  setVisibleSlide: (slide: 0 | 1) => void;
 }
 
 const ArchiveRadioContext = createContext<ArchiveRadioContextValue | null>(null);
@@ -53,6 +58,8 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     await radio.play();
   }, [radio, archivePlayer]);
 
+  const [visibleSlide, setVisibleSlide] = useState<0 | 1>(0);
+
   const value = useMemo<ArchiveRadioContextValue>(() => ({
     enabled,
     ready: radio.ready,
@@ -68,10 +75,12 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     toggle,
     play,
     pause: radio.pause,
+    visibleSlide,
+    setVisibleSlide,
   }), [
     enabled, radio.ready, radio.isPlaying, radio.isLoading, radio.error,
     radio.currentItem, radio.nextItem, radio.itemSeekSec, radio.itemDurationSec,
-    radio.itemStartMs, radio.itemEndMs, radio.pause, toggle, play,
+    radio.itemStartMs, radio.itemEndMs, radio.pause, toggle, play, visibleSlide,
   ]);
 
   return (

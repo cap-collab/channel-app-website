@@ -413,10 +413,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const [heroIndex, setHeroIndex] = useState(0);
   const heroTouchRef = useRef<{ startX: number; startY: number } | null>(null);
 
-  // When playback changes, snap to first slide
+  // When playback changes, snap to first slide (legacy /radio behaviour:
+  // playing an archive pins the hero to it). On /demo we want the opposite —
+  // a listener-picked archive lives on slide 1, so don't snap.
   useEffect(() => {
+    if (demoMode) return;
     setHeroIndex(0);
-  }, [archivePlayer.currentArchive?.id]);
+  }, [archivePlayer.currentArchive?.id, demoMode]);
 
   // When the filter pool shifts (user toggles a chip), clamp heroIndex so we
   // never land past the new array length — otherwise the hero shows `undefined`
@@ -457,6 +460,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     return 'radio';
   })();
 
+  // /demo: publish the visible slide so the sticky bar can mirror it when
+  // nothing's actively playing.
+  useEffect(() => {
+    if (!demoMode || !radioCtx) return;
+    radioCtx.setVisibleSlide(heroIndex >= 1 ? 1 : 0);
+  }, [demoMode, heroIndex, radioCtx]);
+
   // /demo: when the visible slide changes, pause the source that doesn't
   // belong to the now-visible slide so we don't double-play. We don't touch
   // live — when live is on slide 0, swiping to slide 1 doesn't stop it; the
@@ -475,20 +485,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heroIndex, demoMode]);
 
-  // /demo: when the listener starts a regular archive (e.g. clicked a card
-  // from the grid below), auto-swipe the hero to slide 1 so what they see
-  // matches what's playing.
-  const lastPlayedArchiveIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!demoMode || showLiveInHero) return;
-    const currentId = archivePlayer.currentArchive?.id ?? null;
-    if (currentId && currentId !== lastPlayedArchiveIdRef.current) {
-      lastPlayedArchiveIdRef.current = currentId;
-      if (heroIndex !== 1) setHeroIndex(1);
-    }
-    if (!currentId) lastPlayedArchiveIdRef.current = null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [archivePlayer.currentArchive?.id, demoMode, showLiveInHero]);
+  // (No auto-swipe on listener play — hero composition is stable. The bar
+  // follows what's playing via demoBarMode; the hero only moves when the
+  // listener manually swipes or clicks a dot/arrow.)
 
   // Publish what the hero is showing so GlobalBroadcastBar can mirror it.
   useEffect(() => {
