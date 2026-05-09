@@ -137,7 +137,9 @@ function useScheduleDays(): {
 
 // Compute "what should be playing right now" given today + tomorrow. Crossing
 // midnight transparently picks tomorrow's first item once it's the current UTC
-// day. Returns null if nothing is scheduled.
+// day. If today's doc is missing or empty (e.g. admin only scheduled tomorrow,
+// or the cron hasn't run yet), fall back to tomorrow's first item so the
+// player still has something to play.
 function resolveCurrent(
   today: ArchiveScheduleDay | null,
   tomorrow: ArchiveScheduleDay | null,
@@ -147,6 +149,13 @@ function resolveCurrent(
     if (!day) continue;
     const hit = findCurrentItem(day, nowMs);
     if (hit) return { day, ...hit };
+  }
+  // Nothing matches "now" in either doc. Fall back to the first item of any
+  // non-empty day we have, starting from offset 0.
+  for (const day of [today, tomorrow]) {
+    if (day && day.items.length > 0) {
+      return { day, index: 0, item: day.items[0], seekSec: 0 };
+    }
   }
   return null;
 }

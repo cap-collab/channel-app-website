@@ -155,6 +155,22 @@ service cloud.firestore {
         && resource.data.sourceType != 'live';
     }
 
+    // Continuous archive radio schedule. Public read so /radio/demo can
+    // subscribe and play back the day's queue. Writes only go through the
+    // admin SDK (cron + admin endpoints), so client writes stay denied.
+    match /archive-schedule/{date} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Interstitial audio metadata for the archive radio (pool of station
+    // idents). Public read so the player can resolve interstitial titles;
+    // writes go through admin SDK.
+    match /interstitials/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Tips - anyone can read tips (needed for DJ dashboard to show tip totals)
     // Tips are created only by the server via Stripe webhook
     match /tips/{tipId} {
