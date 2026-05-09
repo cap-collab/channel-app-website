@@ -34,7 +34,7 @@ function DemoToggle() {
 export function DemoClient() {
   return (
     <DemoBroadcastStreamProvider>
-      <ChannelClient hidePastShows />
+      <ChannelClient demoMode hidePastShows />
       <DemoToggle />
     </DemoBroadcastStreamProvider>
   );
