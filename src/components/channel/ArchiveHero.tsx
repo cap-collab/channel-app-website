@@ -613,27 +613,65 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
         {/* Status line above image — reflects what the hero is showing */}
         <div className="flex items-center justify-between mb-2 relative">
-          {showLiveInHero ? (
-            <span />
-          ) : isLive ? (
-            <button
-              onClick={() => { setUserSelectedMode('live'); playLive(); }}
-              className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors text-red-500 hover:text-red-400"
-            >
-              Switch to Live Radio
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
-              </span>
-              {liveBPM ? `${liveBPM} BPM` : ''}
-            </button>
-          ) : nextShowTime ? (
-            <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">
-              Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
-            </span>
-          ) : (
-            <span />
-          )}
+          {/* Left side of the strip above the hero. /demo: when the archive
+              bar is showing (slide 1 or a listener-played archive), swap
+              the legacy "Next live at" copy for a "Back to Live/Radio"
+              action that pauses the archive and resumes the page default. */}
+          {(() => {
+            const demoArchiveContext = demoMode && (heroIndex >= 1 || archivePlayer.isPlaying || !!archivePlayer.currentArchive);
+            if (demoArchiveContext) {
+              const goLive = isLive;
+              return (
+                <button
+                  onClick={() => {
+                    if (archivePlayer.isPlaying) archivePlayer.pause();
+                    setHeroIndex(0);
+                    if (goLive) {
+                      setUserSelectedMode('live');
+                      playLive();
+                    } else {
+                      void radioCtx?.play();
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors ${
+                    goLive ? 'text-red-500 hover:text-red-400' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  ← Back to {goLive ? 'Live' : 'Radio'}
+                  {goLive ? (
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+                    </span>
+                  ) : null}
+                </button>
+              );
+            }
+            if (showLiveInHero) return <span />;
+            if (isLive) {
+              return (
+                <button
+                  onClick={() => { setUserSelectedMode('live'); playLive(); }}
+                  className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors text-red-500 hover:text-red-400"
+                >
+                  Switch to Live Radio
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+                  </span>
+                  {liveBPM ? `${liveBPM} BPM` : ''}
+                </button>
+              );
+            }
+            if (nextShowTime) {
+              return (
+                <span className="text-xs font-mono text-gray-400 uppercase tracking-tighter font-bold">
+                  Next <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block" /> live at {nextShowTime}
+                </span>
+              );
+            }
+            return <span />;
+          })()}
           <div className="flex items-center gap-1.5">
             {showLiveInHero ? (
               isRestream ? (
@@ -814,22 +852,28 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             {/* Desktop arrows — same style as watchlist carousel, loops */}
             {carouselSlideCount > 1 && (
               <>
-                <button
-                  onClick={() => setHeroIndex(heroIndex === 0 ? carouselSlideCount - 1 : heroIndex - 1)}
-                  className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-5 w-10 h-10 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-                >
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setHeroIndex(heroIndex === carouselSlideCount - 1 ? 0 : heroIndex + 1)}
-                  className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-5 w-10 h-10 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-                >
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+                {/* Left arrow only when there's somewhere to go back to. */}
+                {heroIndex > 0 && (
+                  <button
+                    onClick={() => setHeroIndex(heroIndex - 1)}
+                    className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-5 w-10 h-10 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                )}
+                {/* Right arrow only when there's a next slide. */}
+                {heroIndex < carouselSlideCount - 1 && (
+                  <button
+                    onClick={() => setHeroIndex(heroIndex + 1)}
+                    className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-5 w-10 h-10 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                )}
               </>
             )}
           </div>
