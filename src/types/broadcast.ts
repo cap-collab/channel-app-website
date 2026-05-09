@@ -327,3 +327,39 @@ export type ArchiveSerialized = Archive;
 // Constants
 export const ROOM_NAME = 'channel-radio';
 export const STATION_ID = 'channel-main';  // Default station for now
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Continuous archive radio (auto-scheduled archive playback on /radio/demo).
+// One Firestore doc per UTC day in `archive-schedule`, doc id = YYYY-MM-DD.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ScheduleItemKind = 'archive' | 'interstitial';
+
+export interface ScheduleItem {
+  kind: ScheduleItemKind;
+  archiveId?: string;            // for kind='archive'
+  interstitialId?: string;       // for kind='interstitial'
+  recordingUrl: string;          // resolved playback URL
+  durationSec: number;           // item duration
+  startOffsetSec: number;        // cumulative offset from day start (00:00 UTC)
+  title?: string;
+  djs?: { name: string; photoUrl?: string }[];
+  artworkUrl?: string;
+}
+
+export interface ArchiveScheduleDay {
+  date: string;                  // 'YYYY-MM-DD' (UTC)
+  startTimeMs: number;           // 00:00 UTC of that day, Unix ms
+  generatedAtMs: number;
+  generatedBy: 'cron' | 'admin';
+  locked: boolean;               // admin-locked: cron will skip
+  items: ScheduleItem[];
+}
+
+export interface Interstitial {
+  id: string;
+  url: string;
+  durationSec: number;
+  label?: string;
+  uploadedAtMs: number;
+}

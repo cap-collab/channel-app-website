@@ -22,6 +22,7 @@ import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
 import { AuthModal } from '@/components/AuthModal';
 import { ArchiveSerialized } from '@/types/broadcast';
+import { ContinuousArchivePlayerCard } from './ContinuousArchivePlayerCard';
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -144,6 +145,10 @@ interface ArchiveHeroProps {
     spiral: ArchiveSerialized | null;
     star: ArchiveSerialized | null;
   };
+  // /radio/demo: render the ContinuousArchivePlayerCard in the first hero
+  // slide, and (optionally via hidePastShows) skip the bottom Past shows grid.
+  demoMode?: boolean;
+  hidePastShows?: boolean;
 }
 
 function formatClockTime(timestampMs: number): string {
@@ -171,7 +176,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
   );
 }
 
-export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle, preferredHeroSeed }: ArchiveHeroProps) {
+export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle, preferredHeroSeed, demoMode, hidePastShows }: ArchiveHeroProps) {
   const { user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
   const {
@@ -528,17 +533,35 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 className="flex transition-transform duration-300 ease-out"
                 style={{ transform: `translateX(-${heroIndex * 100}%)` }}
               >
-                {heroArchives.map((ha) => (
-                  <HeroSlide
-                    key={ha.id}
-                    archive={ha}
-                    sceneSlugs={resolveArchiveScenes(ha, djSceneMap)}
-                    onPlay={() => {
-                      setUserSelectedMode('archive');
-                      archivePlayer.play(ha);
-                    }}
-                  />
-                ))}
+                {heroArchives.map((ha, idx) => {
+                  // /radio/demo: replace the first slide with the continuous
+                  // archive radio player. Other slides keep the regular hero.
+                  if (demoMode && idx === 0) {
+                    return (
+                      <div key={`demo-radio-${ha.id}`} className="w-full flex-shrink-0">
+                        <ContinuousArchivePlayerCard
+                          active={!showLiveInHero}
+                          onPlayStarted={() => {
+                            // Pause the regular archive player if it was running,
+                            // so the demo radio is the only audio source.
+                            if (archivePlayer.isPlaying) archivePlayer.pause();
+                          }}
+                        />
+                      </div>
+                    );
+                  }
+                  return (
+                    <HeroSlide
+                      key={ha.id}
+                      archive={ha}
+                      sceneSlugs={resolveArchiveScenes(ha, djSceneMap)}
+                      onPlay={() => {
+                        setUserSelectedMode('archive');
+                        archivePlayer.play(ha);
+                      }}
+                    />
+                  );
+                })}
               </div>
             </div>
             {/* Desktop arrows — same style as watchlist carousel, loops */}
@@ -776,7 +799,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       </div>
 
       {/* Past shows — full-width cards */}
-      {(() => {
+      {!hidePastShows && (() => {
         const heroFirstId = heroArchives[0]?.id;
         const priorityRank = (p: ArchiveSerialized['priority']) =>
           p === 'high' ? 0 : p === 'low' ? 2 : 1;
