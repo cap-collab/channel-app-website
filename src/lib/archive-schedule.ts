@@ -84,6 +84,11 @@ export interface BuildQueueOptions {
   interstitials: Interstitial[];        // may be empty (v1 default)
   recentPlayCounts: Map<string, number>; // archiveId -> # appearances in prior days window
   targetDurationSec?: number;           // default 24h
+  // 'slotted' (default): one archive per hour, multi-hour archives consume
+  // adjacent slots. 'continuous': pack archives back-to-back without slot
+  // alignment.
+  layout?: 'slotted' | 'continuous';
+  slotDurationSec?: number;             // default 3600 (1h); used only in 'slotted'
   rng?: () => number;                   // injectable for tests
 }
 
@@ -125,14 +130,31 @@ function pickArchive(
   return pool[pool.length - 1];
 }
 
-// Build a 24h queue. Inserts an interstitial between every archive when the
-// pool is non-empty; otherwise chains archives back-to-back.
+// Compute how many hourly slots an archive should occupy. We round to the
+// nearest whole slot with a generous threshold so a 65-minute show fills one
+// slot, not two. Minimum 1 slot regardless of duration.
+export function slotSpanFor(durationSec: number, slotDurationSec: number): number {
+  if (!Number.isFinite(durationSec) || durationSec <= 0) return 1;
+  // Round up only when the archive overruns the slot by more than 25%.
+  const ratio = durationSec / slotDurationSec;
+  return Math.max(1, Math.round(ratio));
+}
+
+// Build a 24h schedule. Two layouts:
+// - 'slotted' (default): one archive per hourly slot, multi-hour archives
+//   consume adjacent slots. Archive starts on the slot boundary; the next
+//   pick happens at boundary + (span * slotDurationSec). Interstitials are
+//   skipped in slotted mode (they'd break boundary alignment).
+// - 'continuous': pack archives back-to-back, optional interstitial between
+//   each, schedule rolls past the day target if the last archive overruns.
 //
 // Same-day repeat avoidance: an archive that just played can't be picked again
 // until 6h have elapsed in the queue (relaxes to 3h, then 1h, then anything-
 // goes if the catalog can't fill the day otherwise).
 export function buildQueue(opts: BuildQueueOptions): BuildQueueResult {
   const target = opts.targetDurationSec ?? DAY_SECONDS;
+  const layout = opts.layout ?? 'slotted';
+  const slotDurationSec = opts.slotDurationSec ?? 3600;
   const rng = opts.rng ?? Math.random;
   const items: ScheduleItem[] = [];
   const warnings: string[] = [];
@@ -141,10 +163,9 @@ export function buildQueue(opts: BuildQueueOptions): BuildQueueResult {
     return { items, totalDurationSec: 0, warnings };
   }
 
-  // Track per-archive last-scheduled offset for the same-day window check.
   const lastOffsetById = new Map<string, number>();
-  let cursor = 0;
   const repeatWindows = [6 * 3600, 3 * 3600, 1 * 3600, 0];
+  let cursor = 0;
 
   while (cursor < target) {
     let picked: EligibleArchive | null = null;
@@ -182,20 +203,24 @@ export function buildQueue(opts: BuildQueueOptions): BuildQueueResult {
     };
     items.push(archiveItem);
     lastOffsetById.set(picked.id, cursor);
-    cursor += picked.durationSec;
-    if (cursor >= target) break;
 
-    if (opts.interstitials.length > 0) {
-      const ix = opts.interstitials[Math.floor(rng() * opts.interstitials.length)];
-      items.push({
-        kind: 'interstitial',
-        interstitialId: ix.id,
-        recordingUrl: ix.url,
-        durationSec: ix.durationSec,
-        startOffsetSec: cursor,
-        title: ix.label,
-      });
-      cursor += ix.durationSec;
+    if (layout === 'slotted') {
+      const span = slotSpanFor(picked.durationSec, slotDurationSec);
+      cursor += span * slotDurationSec;
+    } else {
+      cursor += picked.durationSec;
+      if (cursor < target && opts.interstitials.length > 0) {
+        const ix = opts.interstitials[Math.floor(rng() * opts.interstitials.length)];
+        items.push({
+          kind: 'interstitial',
+          interstitialId: ix.id,
+          recordingUrl: ix.url,
+          durationSec: ix.durationSec,
+          startOffsetSec: cursor,
+          title: ix.label,
+        });
+        cursor += ix.durationSec;
+      }
     }
   }
 

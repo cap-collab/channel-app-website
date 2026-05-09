@@ -15,8 +15,9 @@ import { ArchivesTab } from '@/components/broadcast/admin/ArchivesTab';
 import { MarketingTab } from '@/components/broadcast/admin/MarketingTab';
 import { ScenesTab } from '@/components/broadcast/admin/ScenesTab';
 import { SocialRenderTab } from '@/components/broadcast/admin/SocialRenderTab';
+import { ArchiveRadioTab } from '@/components/broadcast/admin/ArchiveRadioTab';
 
-type AdminTab = 'schedule' | 'applications' | 'archives' | 'marketing' | 'scenes' | 'social-render';
+type AdminTab = 'schedule' | 'applications' | 'archives' | 'archive-radio' | 'marketing' | 'scenes' | 'social-render';
 
 // Get start of current week (Sunday)
 function getWeekStart(date: Date = new Date()): Date {
@@ -365,6 +366,16 @@ export function AdminDashboard() {
               )}
             </button>
             <button
+              onClick={() => setActiveTab('archive-radio')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === 'archive-radio'
+                  ? 'bg-white text-black'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              Archive radio
+            </button>
+            <button
               onClick={() => setActiveTab('marketing')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 activeTab === 'marketing'
@@ -454,6 +465,8 @@ export function AdminDashboard() {
             <ArchivesTab
               onArchiveCountChange={setArchiveCount}
             />
+          ) : activeTab === 'archive-radio' ? (
+            <ArchiveRadioTab />
           ) : activeTab === 'marketing' ? (
             <MarketingTab slots={slots} />
           ) : activeTab === 'scenes' ? (
