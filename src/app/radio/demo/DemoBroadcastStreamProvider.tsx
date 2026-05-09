@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useCallback, useMemo, useRef, useE
 import { BroadcastStreamContext, BroadcastStreamContextValue } from '@/contexts/BroadcastStreamContext';
 import { BPMContext } from '@/contexts/BPMContext';
 import { ArchivePlayerProvider } from '@/contexts/ArchivePlayerContext';
+import { ArchiveRadioProvider } from '@/contexts/ArchiveRadioContext';
 import { BroadcastSlotSerialized, ArchiveSerialized } from '@/types/broadcast';
 
 export type DemoMode = 'offline' | 'live' | 'restream';
@@ -265,7 +266,9 @@ export function DemoBroadcastStreamProvider({ children }: { children: ReactNode 
       <BPMContext.Provider value={demoBPM}>
         <BroadcastStreamContext.Provider value={value}>
           <ArchivePlayerProvider>
-            {children}
+            <ArchiveRadioProvider enabled>
+              {children}
+            </ArchiveRadioProvider>
           </ArchivePlayerProvider>
         </BroadcastStreamContext.Provider>
       </BPMContext.Provider>

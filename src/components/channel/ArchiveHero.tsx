@@ -23,7 +23,7 @@ import { TipButton } from './TipButton';
 import { AuthModal } from '@/components/AuthModal';
 import { ArchiveSerialized } from '@/types/broadcast';
 import { ContinuousArchiveSlide } from './ContinuousArchivePlayerCard';
-import { useArchiveRadio } from '@/hooks/useArchiveRadio';
+import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -278,19 +278,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // Show live in hero when user chose live and broadcast is actually live
   const showLiveInHero = isLive && userSelectedMode === 'live';
 
-  // Continuous archive radio — only mounted when this hero is in demo mode.
-  // Driving the existing player bar with the radio's controls is what makes
-  // slide 0 (the radio) feel like a single integrated player instead of a
-  // bolted-on second player.
-  const radio = useArchiveRadio({
-    active: !!demoMode && !showLiveInHero && !archivePlayer.currentArchive,
-  });
-  const radioToggle = useCallback(async () => {
-    const willPlay = !radio.isPlaying;
-    if (willPlay && archivePlayer.isPlaying) archivePlayer.pause();
-    await radio.toggle();
-  }, [radio, archivePlayer]);
-  const radioCurrentArchiveId = demoMode ? (radio.currentItem?.archiveId ?? null) : null;
+  // Continuous archive radio — driven by ArchiveRadioContext (mounted by
+  // DemoBroadcastStreamProvider in /radio/demo). On /radio the provider isn't
+  // present, so the context returns null and demoMode is also false; nothing
+  // changes.
+  const radioCtx = useArchiveRadioContext();
+  const radioCurrentArchiveId = demoMode ? (radioCtx?.currentItem?.archiveId ?? null) : null;
 
 
   // When a scene filter is actively narrowing the set (shared `?scene=` link or
@@ -608,7 +601,27 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 {demoMode ? (
                   <>
                     <div key="radio-slide" className="w-full flex-shrink-0">
-                      <ContinuousArchiveSlide currentItem={radio.currentItem} />
+                      {(() => {
+                        // Prefer a real ArchiveSerialized so the slide reuses
+                        // HeroSlide's exact layout (DJ overlay, scene glyphs,
+                        // etc.) — same look as /radio's regular hero card.
+                        const radioArchive = radioCtx?.currentItem?.archiveId
+                          ? archives.find((a) => a.id === radioCtx.currentItem!.archiveId)
+                          : null;
+                        if (radioArchive) {
+                          return (
+                            <HeroSlide
+                              archive={radioArchive}
+                              sceneSlugs={resolveArchiveScenes(radioArchive, djSceneMap)}
+                              onPlay={() => { void radioCtx?.toggle(); }}
+                            />
+                          );
+                        }
+                        // Fallback: minimal slide built from the schedule item
+                        // alone (e.g. interstitial, or the parent archive doc
+                        // hasn't loaded yet).
+                        return <ContinuousArchiveSlide currentItem={radioCtx?.currentItem ?? null} />;
+                      })()}
                     </div>
                     {secondHeroArchive && (
                       archivePlayer.currentArchive?.id === secondHeroArchive.id ? (
@@ -714,21 +727,21 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             • slide 0 + offline + listener hasn't picked an archive → radio controls
             • otherwise → regular archive controls (existing behaviour) */}
         <div ref={stickyBarRef} className="bg-black relative">
-          {demoMode && !showLiveInHero && heroIndex === 0 && !archivePlayer.currentArchive ? (
+          {demoMode && radioCtx && !showLiveInHero && heroIndex === 0 && !archivePlayer.currentArchive ? (
             <>
               {/* Radio player bar — mirrors the live/restream bar visually */}
               <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
                 <button
-                  onClick={() => { void radioToggle(); }}
+                  onClick={() => { void radioCtx.toggle(); }}
                   className="w-8 h-8 ml-1 flex items-center justify-center transition-colors flex-shrink-0"
-                  aria-label={radio.isPlaying ? 'Pause' : 'Play'}
+                  aria-label={radioCtx.isPlaying ? 'Pause' : 'Play'}
                 >
-                  {radio.isLoading ? (
+                  {radioCtx.isLoading ? (
                     <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                  ) : radio.isPlaying ? (
+                  ) : radioCtx.isPlaying ? (
                     <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
                     </svg>
@@ -740,12 +753,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </button>
                 <div className="flex-1 min-w-0">
                   <ScrollingShowName
-                    text={radio.currentItem?.title || (radio.ready ? 'No archive scheduled' : 'Loading…')}
+                    text={radioCtx.currentItem?.title || (radioCtx.ready ? 'No archive scheduled' : 'Loading…')}
                     className="text-sm font-bold leading-tight text-white"
                   />
-                  {radio.currentItem?.djs?.length ? (
+                  {radioCtx.currentItem?.djs?.length ? (
                     <ScrollingDJName
-                      text={radio.currentItem.djs.map((d) => d.name).join(', ')}
+                      text={radioCtx.currentItem.djs.map((d) => d.name).join(', ')}
                       className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]"
                     />
                   ) : null}
@@ -761,15 +774,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   </span>
                 </div>
               </div>
-              {radio.error && (
-                <p className="text-red-400 text-xs pb-2 px-2">{radio.error}</p>
+              {radioCtx.error && (
+                <p className="text-red-400 text-xs pb-2 px-2">{radioCtx.error}</p>
               )}
               {/* Item progress — analogous to ShowProgressBar but per-archive */}
-              {radio.currentItem && radio.itemDurationSec > 0 ? (
+              {radioCtx.currentItem && radioCtx.itemDurationSec > 0 ? (
                 <div className="relative w-full h-[3px] bg-white/10">
                   <div
                     className="absolute inset-y-0 left-0 bg-white"
-                    style={{ width: `${Math.min(100, (radio.itemSeekSec / radio.itemDurationSec) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (radioCtx.itemSeekSec / radioCtx.itemDurationSec) * 100)}%` }}
                   />
                 </div>
               ) : (

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
+import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 import { useBPM } from '@/contexts/BPMContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -36,6 +37,7 @@ export function GlobalBroadcastBar() {
     onListenMilestoneRef: broadcastListenMilestoneRef,
   } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
+  const radioCtx = useArchiveRadioContext();
   const { djSceneMap } = useScenesData();
   const { stationBPM } = useBPM();
   const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
@@ -156,22 +158,30 @@ export function GlobalBroadcastBar() {
   const isLiveReady = isLive && isStreaming;
   const isArchivePlaying = archivePlayer.isPlaying || archivePlayer.isLoading;
   const isLivePlaying = isLiveReady && isPlaying;
+  const isRadioPlaying = !!radioCtx?.isPlaying || !!radioCtx?.isLoading;
+  const radioAvailable = !!radioCtx?.enabled && !!radioCtx?.currentItem;
   const displayArchive = archivePlayer.currentArchive || archivePlayer.heroDisplayedArchive || archivePlayer.featuredArchive;
 
-  // Unified priority: 1) what's playing, 2) what's live, 3) top archive
-  let barMode: 'live' | 'archive' | null;
+  // Unified priority:
+  // 1) something is actively playing → mirror that
+  // 2) live broadcast is on → show it
+  // 3) archive radio (when available)
+  // 4) top archive fallback
+  let barMode: 'live' | 'archive' | 'radio' | null;
   if (isLivePlaying) barMode = 'live';
   else if (isArchivePlaying) barMode = 'archive';
+  else if (isRadioPlaying) barMode = 'radio';
   else if (isLiveReady) barMode = 'live';
+  else if (radioAvailable) barMode = 'radio';
   else if (displayArchive) barMode = 'archive';
   else barMode = null;
 
   if (!barMode) return null;
 
-  // On /radio, hide while the hero's inline player bar is in view.
-  // Before the observer initializes, default to hidden to prevent a flash on load.
-  // Uses CSS transition instead of unmounting to avoid flicker during scroll.
-  const hiddenOnRadio = pathname === '/radio' && (heroBarVisible || !heroBarObserverReady);
+  // On /radio (and /radio/demo), hide while the hero's inline player bar is
+  // in view. Before the observer initializes, default to hidden to prevent a
+  // flash on load. CSS transition instead of unmounting to avoid flicker.
+  const hiddenOnRadio = (pathname === '/radio' || pathname === '/radio/demo') && (heroBarVisible || !heroBarObserverReady);
 
   const showLiveBar = barMode === 'live';
 
@@ -261,6 +271,55 @@ export function GlobalBroadcastBar() {
               </svg>
             </a>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  // Archive radio bar — same chrome as live, but with the restream-style
+  // indicator (circular arrow + zinc-400 label) instead of the live red dot.
+  if (barMode === 'radio' && radioCtx) {
+    const item = radioCtx.currentItem;
+    const radioTitle = item?.title || 'Archive radio';
+    const radioDjs = item?.djs?.map((d) => d.name).join(', ') || '';
+    return (
+      <div className={`z-[99] bg-black border-b border-white/10 overflow-hidden transition-all duration-200 ${hiddenOnRadio ? 'opacity-0 -translate-y-full h-0 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
+        <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
+          <button
+            onClick={() => { void radioCtx.toggle(); }}
+            className="w-8 h-8 ml-1 flex items-center justify-center transition-colors flex-shrink-0"
+            aria-label={radioCtx.isPlaying ? 'Pause' : 'Play'}
+          >
+            {radioCtx.isLoading ? (
+              <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            ) : radioCtx.isPlaying ? (
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            )}
+          </button>
+          <Link href="/radio/demo" className="flex-1 min-w-0">
+            <ScrollingShowName text={radioTitle} className="text-sm font-bold leading-tight text-white" />
+            {radioDjs && (
+              <ScrollingDJName text={radioDjs} className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]" />
+            )}
+          </Link>
+          <div className="flex items-center gap-1.5 flex-shrink-0 pr-2">
+            <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+            <span className="hidden md:inline text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
+              Restream
+            </span>
+          </div>
         </div>
       </div>
     );
