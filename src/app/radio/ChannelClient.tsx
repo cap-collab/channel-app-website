@@ -36,7 +36,7 @@ type RecommendedItem =
   | MatchedItem
   | { type: 'curator'; data: CuratorRec };
 
-export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives, initialPreferredHero, demoMode, hidePastShows }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode; initialHeroArchives?: import('@/types/broadcast').ArchiveSerialized[]; initialPreferredHero?: { spiral: import('@/types/broadcast').ArchiveSerialized | null; star: import('@/types/broadcast').ArchiveSerialized | null }; demoMode?: boolean; hidePastShows?: boolean } = {}) {
+export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives, initialPreferredHero, hidePastShows }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode; initialHeroArchives?: import('@/types/broadcast').ArchiveSerialized[]; initialPreferredHero?: { spiral: import('@/types/broadcast').ArchiveSerialized | null; star: import('@/types/broadcast').ArchiveSerialized | null }; hidePastShows?: boolean } = {}) {
   const { user, isAuthenticated } = useAuthContext();
   const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentShow } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
@@ -806,7 +806,6 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
               liveBPM={stationBPM['broadcast']?.bpm ?? null}
               liveDJChatRoom={currentDJChatRoom}
               preferredHeroSeed={initialPreferredHero}
-              demoMode={demoMode}
               hidePastShows={hidePastShows}
             />
           ) : null}

@@ -2,10 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  collection,
+  doc,
   onSnapshot,
-  query,
-  where,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
@@ -103,26 +101,35 @@ function useScheduleDays(): {
     setLoading(true);
     const tId = todayId;
     const tomId = tomorrowUtcId();
-    const colRef = collection(db, SCHEDULE_COLLECTION);
-    // Listen to both docs via a where(__name__ in [...]) — single subscription.
-    const q = query(colRef, where('__name__', 'in', [tId, tomId]));
-    const unsub = onSnapshot(q, (snap) => {
-      let t: ArchiveScheduleDay | null = null;
-      let n: ArchiveScheduleDay | null = null;
-      for (const docSnap of snap.docs) {
-        const day = deserializeDay(docSnap.id, docSnap.data());
-        if (!day) continue;
-        if (docSnap.id === tId) t = day;
-        if (docSnap.id === tomId) n = day;
-      }
-      setTodayDoc(t);
-      setTomorrowDoc(n);
-      setLoading(false);
+    // Two parallel doc subscriptions. (where('__name__','in',…) needs full
+    // DocumentReferences, not strings; cleaner to just use doc() directly.)
+    let todayLoaded = false;
+    let tomorrowLoaded = false;
+    const settle = () => {
+      if (todayLoaded && tomorrowLoaded) setLoading(false);
+    };
+    const unsubT = onSnapshot(doc(db, SCHEDULE_COLLECTION, tId), (snap) => {
+      setTodayDoc(snap.exists() ? deserializeDay(snap.id, snap.data()) : null);
+      todayLoaded = true;
+      settle();
     }, (err) => {
-      console.error('[useArchiveRadio] schedule subscribe error', err);
-      setLoading(false);
+      console.error('[useArchiveRadio] today subscribe error', err);
+      todayLoaded = true;
+      settle();
     });
-    return () => unsub();
+    const unsubN = onSnapshot(doc(db, SCHEDULE_COLLECTION, tomId), (snap) => {
+      setTomorrowDoc(snap.exists() ? deserializeDay(snap.id, snap.data()) : null);
+      tomorrowLoaded = true;
+      settle();
+    }, (err) => {
+      console.error('[useArchiveRadio] tomorrow subscribe error', err);
+      tomorrowLoaded = true;
+      settle();
+    });
+    return () => {
+      unsubT();
+      unsubN();
+    };
   }, [todayId]);
 
   return { today: todayDoc, tomorrow: tomorrowDoc, loading };
