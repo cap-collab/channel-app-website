@@ -423,23 +423,34 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   //      radio's current archive, never the same archive id as the radio.
   //      Searches the full archives pool (not just heroArchives) so we
   //      always find a real cross-scene pick.
-  const secondHeroArchive = useMemo<ArchiveSerialized | null>(() => {
-    if (!demoMode) return null;
-    if (maxHeroSlides === 1) return null;
-    // Listener archive ONLY when it's currently engaged with (playing or
-    // explicitly paused while still the active focus). If live starts or
-    // the radio is playing and the archive has been silently superseded,
-    // slide 1 should reflect the new context — not stick to a stale
-    // archive id from earlier in the session.
+  // Slide 1 identity — drives both the picker (which archive to show) and
+  // the surface labels (pill + inline bar). Three possibilities:
+  //   - 'archive-engaged': listener is actively engaged with their own
+  //     archive (playing OR loaded-and-paused while live/radio idle).
+  //     Pill = "Archive", inline bar = archive bar.
+  //   - 'radio': live is on with no listener archive engaged. Slide 1
+  //     shows the radio's current archive so the listener still has the
+  //     radio image alongside live. Pill = "Restream", inline = radio bar.
+  //   - 'archive-alt': everything else. Show an opposite-scene high-
+  //     priority archive. Pill = "Archive", inline = archive bar.
+  type Slide1Identity = 'archive-engaged' | 'radio' | 'archive-alt';
+  const slide1Identity: Slide1Identity = useMemo(() => {
+    if (!demoMode) return 'archive-alt';
     const archiveEngaged =
       archivePlayer.isPlaying ||
       (!!archivePlayer.currentArchive && !isLivePlaying && !radioCtx?.isPlaying);
-    if (archiveEngaged && archivePlayer.currentArchive) {
+    if (archiveEngaged) return 'archive-engaged';
+    if (isLive && radioCurrentArchiveId) return 'radio';
+    return 'archive-alt';
+  }, [archivePlayer.currentArchive, archivePlayer.isPlaying, demoMode, isLive, isLivePlaying, radioCtx?.isPlaying, radioCurrentArchiveId]);
+
+  const secondHeroArchive = useMemo<ArchiveSerialized | null>(() => {
+    if (!demoMode) return null;
+    if (maxHeroSlides === 1) return null;
+    if (slide1Identity === 'archive-engaged' && archivePlayer.currentArchive) {
       return archivePlayer.currentArchive;
     }
-    // Live is on → slide 1 = radio's currently-playing archive (so the
-    // listener can see + switch back to the radio image easily).
-    if (isLive && radioCurrentArchiveId) {
+    if (slide1Identity === 'radio') {
       const radioArchive = archives.find((a) => a.id === radioCurrentArchiveId);
       if (radioArchive) return radioArchive;
     }
@@ -502,7 +513,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     // Last resort: heroArchives picks (legacy seed) excluding the radio.
     const legacy = heroArchives.filter((a) => a.id !== radioCurrentArchiveId);
     return legacy[1] ?? legacy[0] ?? null;
-  }, [archivePlayer.currentArchive, archivePlayer.isPlaying, archives, demoMode, djSceneMap, heroArchives, isLive, isLivePlaying, maxHeroSlides, radioCtx?.isPlaying, radioCurrentArchiveId]);
+  }, [archivePlayer.currentArchive, archives, demoMode, djSceneMap, heroArchives, maxHeroSlides, radioCurrentArchiveId, slide1Identity]);
 
   const [heroIndex, setHeroIndex] = useState(0);
   const heroTouchRef = useRef<{ startX: number; startY: number } | null>(null);
@@ -850,7 +861,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     Restream
                   </span>
                 </>
-              ) : secondHeroArchive && secondHeroArchive.id === radioCurrentArchiveId ? (
+              ) : slide1Identity === 'radio' ? (
                 // Slide 1 = the radio's currently-playing archive (live is
                 // on, listener hasn't picked their own archive). It's the
                 // radio card visually, so use the Restream pill.
@@ -1123,12 +1134,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         <div ref={stickyBarRef} className="bg-black relative">
           {/* Inline bar = radio bar when:
                 - slide 0 visible AND not live, OR
-                - slide 1 visible AND showing the radio's current archive
-                  (live is on, no listener-archive engaged). The card is
-                  visually the radio archive, so the bar should be too. */}
+                - slide 1 visible AND its identity is 'radio' (the radio's
+                  currently-playing archive, shown when live is on and no
+                  listener-archive is engaged). */}
           {demoMode && radioCtx && (
             (heroIndex === 0 && !isLive) ||
-            (heroIndex >= 1 && secondHeroArchive?.id === radioCurrentArchiveId)
+            (heroIndex >= 1 && slide1Identity === 'radio')
           ) ? (
             <>
               {/* Radio player bar — same chrome as the archive bar (scene
