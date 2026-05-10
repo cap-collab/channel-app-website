@@ -449,9 +449,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     // longer in their attention.
     const archiveEngaged = archivePlayer.isPlaying || archivePlayer.isLoading;
     if (archiveEngaged) return 'archive-engaged';
-    if (isLive && radioCurrentArchiveId) return 'radio';
+    // When live is on (and nothing else is engaged), slide 1 is always
+    // the radio identity — even if radioCurrentArchiveId hasn't loaded
+    // yet. This avoids a transient 'archive-alt' identity that would
+    // render the seekable archive bar and mis-route any tap on the play
+    // button to archivePlayer.play, accidentally marking that archive
+    // as the listener's selection.
+    if (isLive) return 'radio';
     return 'archive-alt';
-  }, [archivePlayer.isPlaying, archivePlayer.isLoading, demoMode, isLive, radioCurrentArchiveId]);
+  }, [archivePlayer.isPlaying, archivePlayer.isLoading, demoMode, isLive]);
 
   const secondHeroArchive = useMemo<ArchiveSerialized | null>(() => {
     if (!demoMode) return null;
@@ -1027,28 +1033,44 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                           archive={secondHeroArchive}
                           sceneSlugs={resolveArchiveScenes(secondHeroArchive, djSceneMap)}
                           onPlay={() => {
-                            setUserSelectedMode('archive');
-                            playArchive(secondHeroArchive);
+                            // When slide 1 IS the radio archive (live is on,
+                            // listener hasn't picked their own archive),
+                            // tapping the image must toggle the radio — NOT
+                            // register the archive as a listener selection
+                            // via archivePlayer.play (which would then
+                            // permanently switch the bar to the seekable
+                            // archive bar).
+                            if (slide1Identity === 'radio') {
+                              void radioCtx?.toggle();
+                            } else {
+                              setUserSelectedMode('archive');
+                              playArchive(secondHeroArchive);
+                            }
                           }}
                         />
                         {/* Overlay play/pause button — always shown on /demo.
                             Pause icon when this archive is currently playing,
-                            play icon otherwise. Click toggles. */}
+                            play icon otherwise. Click toggles. Same identity-
+                            aware routing as the HeroSlide above. */}
                         {(() => {
-                          const slideIsPlaying =
-                            archivePlayer.isPlaying &&
-                            archivePlayer.currentArchive?.id === secondHeroArchive.id;
+                          const slideIsRadio = slide1Identity === 'radio';
+                          const slideIsPlaying = slideIsRadio
+                            ? !!radioCtx?.isPlaying
+                            : (archivePlayer.isPlaying &&
+                               archivePlayer.currentArchive?.id === secondHeroArchive.id);
                           return (
                             <button
                               onClick={() => {
-                                if (slideIsPlaying) {
+                                if (slideIsRadio) {
+                                  void radioCtx?.toggle();
+                                } else if (slideIsPlaying) {
                                   archivePlayer.toggle();
                                 } else {
                                   setUserSelectedMode('archive');
                                   playArchive(secondHeroArchive);
                                 }
                               }}
-                              aria-label={slideIsPlaying ? 'Pause' : 'Play this archive'}
+                              aria-label={slideIsPlaying ? 'Pause' : (slideIsRadio ? 'Play radio' : 'Play this archive')}
                               className="absolute inset-0 flex items-center justify-center transition-opacity hover:bg-black/30"
                             >
                               <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
