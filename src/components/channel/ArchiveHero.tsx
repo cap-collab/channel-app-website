@@ -478,13 +478,23 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       : radioIsStar && !radioIsSpiral ? 'spiral'
       : null;
 
-    // Full pool: high-priority archives, exclude the radio's own archive id
-    // so slide 1 is never a duplicate of slide 0. Sort by recordedAt so we
-    // surface fresh shows (cap to 5 most recent in the matching scene).
+    // Full pool: high-priority archives, exclude:
+    //   - the radio's own archive id (so slide 1 is never a literal
+    //     duplicate of slide 0).
+    //   - any archive whose primary DJ matches the radio's primary DJ
+    //     (so slide 1 doesn't end up being a different show by the same
+    //     DJ — visually it would look like the same image).
     const PER_SCENE_LIMIT = 5;
-    const pool = archives.filter((a) =>
-      a.priority === 'high' && a.id !== radioCurrentArchiveId
-    );
+    const radioPrimaryDjUsername = radioArchive?.djs?.[0]?.username?.toLowerCase().trim() || null;
+    const pool = archives.filter((a) => {
+      if (a.priority !== 'high') return false;
+      if (radioCurrentArchiveId && a.id === radioCurrentArchiveId) return false;
+      if (radioPrimaryDjUsername) {
+        const aPrimary = a.djs?.[0]?.username?.toLowerCase().trim();
+        if (aPrimary && aPrimary === radioPrimaryDjUsername) return false;
+      }
+      return true;
+    });
 
     if (oppositeSlug) {
       const inScene = pool
