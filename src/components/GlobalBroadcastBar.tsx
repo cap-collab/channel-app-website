@@ -32,7 +32,7 @@ export function GlobalBroadcastBar() {
   const [mounted, setMounted] = useState(false);
   const {
     isLive, isStreaming, isPlaying, isLoading, toggle,
-    showName, djName, heroBarVisible, heroBarObserverReady, tipLink, currentShow,
+    showName, djName, tipLink, currentShow,
     onLockedInRef: broadcastLockedInRef,
     onListenMilestoneRef: broadcastListenMilestoneRef,
   } = useBroadcastStreamContext();
@@ -227,19 +227,10 @@ export function GlobalBroadcastBar() {
 
   if (!barMode) return null;
 
-  // On /radio (and /radio/demo), hide while the hero's inline player bar is
-  // in view. Before the observer initializes, default to hidden to prevent a
-  // flash on load. CSS transition instead of unmounting to avoid flicker.
-  // Sticky bar visibility:
-  // - /radio (legacy): hidden while the inline bar is on screen, visible
-  //   on scroll. Existing behaviour preserved.
-  // - /radio/demo: ALWAYS visible. Listeners need a persistent
-  //   "what's playing / what's the page default" reference at the top of
-  //   the page regardless of carousel state.
-  const onRadioPath = pathname === '/radio' || pathname === '/radio/demo';
-  const onDemoPath = pathname === '/radio/demo';
-  const inlineHidesSticky = heroBarVisible || !heroBarObserverReady;
-  const hiddenOnRadio = onRadioPath && !onDemoPath && inlineHidesSticky;
+  // Sticky bar is always visible on /radio (and /radio/demo). Listeners
+  // need a persistent "what's playing / what's the page default" reference
+  // at the top of the page regardless of carousel state.
+  const hiddenOnRadio = false;
 
   const showLiveBar = barMode === 'live';
 
@@ -379,7 +370,7 @@ export function GlobalBroadcastBar() {
             </button>
           </div>
 
-          <Link href="/radio/demo" className="flex-1 min-w-0">
+          <Link href="/radio" className="flex-1 min-w-0">
             <ScrollingShowName text={radioTitle} className="text-sm font-bold leading-tight text-white" />
             {radioDjs && (
               <ScrollingDJName text={radioDjs} className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]" />

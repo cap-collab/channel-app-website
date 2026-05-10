@@ -1,13 +1,12 @@
 'use client';
 
 import { ChannelClient } from '@/app/radio/ChannelClient';
-import { ArchiveRadioProvider } from '@/contexts/ArchiveRadioContext';
 import type { ArchiveSerialized } from '@/types/broadcast';
 
-// /radio/demo: same data + providers as /radio, plus the ArchiveRadioProvider
-// so the new continuous-archive radio is mounted. Live state, archives, BPM,
-// etc. all come from the app-level providers — /demo reflects production
-// reality so the auto-switch-to-live behaviour fires the same as /radio.
+// /radio/demo: kept around as an alternative entry point during the
+// migration. Identical to /radio now — both render ChannelClient. The
+// ArchiveRadioProvider lives at the app root so radio audio follows the
+// listener across pages (matching live broadcast behavior).
 export function DemoClient({
   initialHeroArchives,
   initialPreferredHero,
@@ -16,13 +15,9 @@ export function DemoClient({
   initialPreferredHero?: { spiral: ArchiveSerialized | null; star: ArchiveSerialized | null };
 } = {}) {
   return (
-    <ArchiveRadioProvider enabled>
-      <ChannelClient
-        demoMode
-        hidePastShows
-        initialHeroArchives={initialHeroArchives}
-        initialPreferredHero={initialPreferredHero}
-      />
-    </ArchiveRadioProvider>
+    <ChannelClient
+      initialHeroArchives={initialHeroArchives}
+      initialPreferredHero={initialPreferredHero}
+    />
   );
 }

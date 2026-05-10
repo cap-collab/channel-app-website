@@ -7,6 +7,7 @@ import { BPMProvider } from "@/contexts/BPMContext";
 import { ScheduleProvider } from "@/contexts/ScheduleContext";
 import { BroadcastStreamProvider } from "@/contexts/BroadcastStreamContext";
 import { ArchivePlayerProvider } from "@/contexts/ArchivePlayerContext";
+import { ArchiveRadioProvider } from "@/contexts/ArchiveRadioContext";
 import { FilterProvider } from "@/contexts/FilterContext";
 import { HeartNudgeProvider } from "@/contexts/HeartNudgeContext";
 import { initPostHog } from "@/lib/posthog";
@@ -31,11 +32,13 @@ export function Providers({ children }: { children: ReactNode }) {
         <ScheduleProvider>
           <BroadcastStreamProvider>
             <ArchivePlayerProvider>
-              <HeartNudgeProvider>
-                <FilterProvider>
-                  {children}
-                </FilterProvider>
-              </HeartNudgeProvider>
+              <ArchiveRadioProvider enabled>
+                <HeartNudgeProvider>
+                  <FilterProvider>
+                    {children}
+                  </FilterProvider>
+                </HeartNudgeProvider>
+              </ArchiveRadioProvider>
             </ArchivePlayerProvider>
           </BroadcastStreamProvider>
         </ScheduleProvider>
