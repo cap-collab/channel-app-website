@@ -422,10 +422,19 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const secondHeroArchive = useMemo<ArchiveSerialized | null>(() => {
     if (!demoMode) return null;
     if (maxHeroSlides === 1) return null;
-    if (archivePlayer.currentArchive) return archivePlayer.currentArchive;
-    // When live is on (regardless of userSelectedMode), slide 1 falls back
-    // to the radio's currently-playing archive so the listener still has
-    // access to the radio image alongside live.
+    // Listener archive ONLY when it's currently engaged with (playing or
+    // explicitly paused while still the active focus). If live starts or
+    // the radio is playing and the archive has been silently superseded,
+    // slide 1 should reflect the new context — not stick to a stale
+    // archive id from earlier in the session.
+    const archiveEngaged =
+      archivePlayer.isPlaying ||
+      (!!archivePlayer.currentArchive && !isLivePlaying && !radioCtx?.isPlaying);
+    if (archiveEngaged && archivePlayer.currentArchive) {
+      return archivePlayer.currentArchive;
+    }
+    // Live is on → slide 1 = radio's currently-playing archive (so the
+    // listener can see + switch back to the radio image easily).
     if (isLive && radioCurrentArchiveId) {
       const radioArchive = archives.find((a) => a.id === radioCurrentArchiveId);
       if (radioArchive) return radioArchive;
@@ -489,7 +498,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     // Last resort: heroArchives picks (legacy seed) excluding the radio.
     const legacy = heroArchives.filter((a) => a.id !== radioCurrentArchiveId);
     return legacy[1] ?? legacy[0] ?? null;
-  }, [archivePlayer.currentArchive, archives, demoMode, djSceneMap, heroArchives, isLive, maxHeroSlides, radioCurrentArchiveId]);
+  }, [archivePlayer.currentArchive, archivePlayer.isPlaying, archives, demoMode, djSceneMap, heroArchives, isLive, isLivePlaying, maxHeroSlides, radioCtx?.isPlaying, radioCurrentArchiveId]);
 
   const [heroIndex, setHeroIndex] = useState(0);
   const heroTouchRef = useRef<{ startX: number; startY: number } | null>(null);
