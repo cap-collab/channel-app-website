@@ -362,6 +362,24 @@ export interface ArchiveScheduleDay {
   items: ScheduleItem[];
 }
 
+// Catalog-loop model (replaces ArchiveScheduleDay long-term). Each loop is
+// one full pass through the eligible catalog: each medium-priority archive
+// plays once, each high-priority archive plays twice. Doc id = `loop-NNNN`.
+export interface ArchiveRadioLoop {
+  loopNumber: number;            // 1-indexed; doc id = loop-NNNN (4-digit pad)
+  startTimeMs: number;           // when this loop starts playing, Unix ms
+  totalDurationSec: number;      // sum of all item durations
+  generatedAtMs: number;
+  generatedBy: 'cron' | 'admin';
+  locked: boolean;
+  catalogStats: {
+    highCount: number;           // # high archives included (each contributes 2 items)
+    mediumCount: number;         // # medium archives (each contributes 1 item)
+    totalItems: number;          // = highCount * 2 + mediumCount
+  };
+  items: ScheduleItem[];
+}
+
 export interface Interstitial {
   id: string;
   url: string;

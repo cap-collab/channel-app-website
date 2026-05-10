@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
+import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { ArchiveSerialized } from '@/types/broadcast';
-import { offsetUtcId, todayUtcId } from '@/lib/archive-schedule';
+import { LOOP_COLLECTION } from '@/lib/archive-schedule';
 
-// A single editable item in the schedule. Mirrors ScheduleItem but only the
-// fields the admin UI needs to show/save.
+// A single editable item in the loop. Mirrors ScheduleItem but only the fields
+// the admin UI needs to show/save.
 interface UIItem {
   recordingUrl: string;
   durationSec: number;
@@ -18,24 +20,41 @@ interface UIItem {
   archiveId?: string;
 }
 
-interface DayDoc {
+interface LoopDoc {
   exists: boolean;
-  date: string;
+  loopNumber: number;
   startTimeMs?: number;
+  totalDurationSec?: number;
   generatedAtMs?: number;
   generatedBy?: 'cron' | 'admin';
   locked?: boolean;
+  catalogStats?: { highCount: number; mediumCount: number; totalItems: number } | null;
   items?: Array<UIItem>;
-  eligibleArchiveCount?: number | null;
 }
 
-// Convert a UTC schedule day + offset-in-seconds into a Pacific-Time clock
-// label (e.g. "5:42 PM"). The schedule is keyed by UTC date because storage
-// spans timezones, but the admin UI shows PT to match what the admin sees.
-function formatClockOffset(offsetSec: number, dayId: string): string {
-  const utcMoment = new Date(`${dayId}T00:00:00.000Z`);
-  utcMoment.setUTCSeconds(utcMoment.getUTCSeconds() + offsetSec);
-  return utcMoment.toLocaleTimeString('en-US', {
+// Loop summary used by the picker — derived from the live loops snapshot.
+interface LoopSummary {
+  loopNumber: number;
+  startTimeMs: number;
+  totalDurationSec: number;
+  catalogStats?: { highCount: number; mediumCount: number; totalItems: number } | null;
+  locked: boolean;
+}
+
+function formatPtClock(ms: number): string {
+  return new Date(ms).toLocaleString('en-US', {
+    timeZone: 'America/Los_Angeles',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+function formatPtTime(ms: number): string {
+  return new Date(ms).toLocaleTimeString('en-US', {
     timeZone: 'America/Los_Angeles',
     hour: 'numeric',
     minute: '2-digit',
@@ -50,24 +69,6 @@ function formatDuration(sec: number): string {
   const mm = m % 60;
   return mm ? `${h}h ${mm}m` : `${h}h`;
 }
-
-function buildDayOptions(): { id: string; label: string }[] {
-  const today = todayUtcId();
-  return [0, 1, 2, 3, 4, 5, 6].map((delta) => {
-    const id = offsetUtcId(today, delta);
-    // Day labels are keyed by UTC date (storage truth), but show the PT
-    // calendar date alongside so the admin doesn't have to mentally convert.
-    const ptDate = new Date(`${id}T12:00:00.000Z`).toLocaleDateString('en-US', {
-      timeZone: 'America/Los_Angeles',
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-    const prefix = delta === 0 ? 'Today (PT)' : delta === 1 ? 'Tomorrow (PT)' : ptDate;
-    return { id, label: `${prefix} · ${id} UTC` };
-  });
-}
-
 
 interface ArchivePickerProps {
   archives: ArchiveSerialized[];
@@ -142,17 +143,58 @@ function ArchivePicker({ archives, onPick, onClose }: ArchivePickerProps) {
 }
 
 export function ArchiveRadioTab() {
-  const dayOptions = useMemo(buildDayOptions, []);
-  const [selectedDate, setSelectedDate] = useState(dayOptions[1]?.id ?? dayOptions[0].id); // default tomorrow
-  const [day, setDay] = useState<DayDoc | null>(null);
+  const [loops, setLoops] = useState<LoopSummary[]>([]);
+  const [selectedLoopNumber, setSelectedLoopNumber] = useState<number | null>(null);
+  const [loopDoc, setLoopDoc] = useState<LoopDoc | null>(null);
   const [items, setItems] = useState<UIItem[]>([]);
   const [archives, setArchives] = useState<ArchiveSerialized[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [ensuring, setEnsuring] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pickerSlot, setPickerSlot] = useState<number | null>(null);
+  // Tick once a minute so the "currently playing" highlight advances when a
+  // loop boundary crosses without a new doc landing.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Live subscription to the latest 5 loops by loopNumber.
+  useEffect(() => {
+    if (!db) return;
+    const q = query(
+      collection(db, LOOP_COLLECTION),
+      orderBy('loopNumber', 'desc'),
+      limit(5),
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const next: LoopSummary[] = [];
+      for (const d of snap.docs) {
+        const data = d.data();
+        next.push({
+          loopNumber: Number(data.loopNumber ?? 0),
+          startTimeMs: Number(data.startTimeMs ?? 0),
+          totalDurationSec: Number(data.totalDurationSec ?? 0),
+          catalogStats: (data.catalogStats as LoopSummary['catalogStats']) ?? null,
+          locked: Boolean(data.locked),
+        });
+      }
+      setLoops(next);
+      // Default selection: the loop currently playing.
+      setSelectedLoopNumber((prev) => {
+        if (prev != null && next.some((l) => l.loopNumber === prev)) return prev;
+        const playing = next.find((l) => l.startTimeMs <= Date.now()) ?? next[0];
+        return playing ? playing.loopNumber : null;
+      });
+    }, (err) => {
+      console.error('[ArchiveRadioTab] loops subscribe error', err);
+    });
+    return unsub;
+  }, []);
 
   // Fetch archives once; the picker reuses the list.
   useEffect(() => {
@@ -162,7 +204,6 @@ export function ArchiveRadioTab() {
       .then((data) => {
         if (cancelled) return;
         const all: ArchiveSerialized[] = data.archives ?? [];
-        // Match the cron's eligibility: high + medium only, has a recording.
         const eligible = all.filter((a) => {
           if (!a.recordingUrl || !(a.duration && a.duration >= 30 * 60)) return false;
           const p = a.priority || 'medium';
@@ -176,14 +217,14 @@ export function ArchiveRadioTab() {
     return () => { cancelled = true; };
   }, []);
 
-  const loadDay = useCallback(async (date: string) => {
+  const loadLoop = useCallback(async (loopNumber: number) => {
     setLoading(true);
     setError(null);
     setDirty(false);
     try {
-      const res = await fetch(`/api/admin/archive-schedule/${date}`);
-      const data: DayDoc = await res.json();
-      setDay(data);
+      const res = await fetch(`/api/admin/archive-radio-loop/${loopNumber}`);
+      const data: LoopDoc = await res.json();
+      setLoopDoc(data);
       const itemsRaw = data.items ?? [];
       setItems(itemsRaw.map((it) => ({
         recordingUrl: it.recordingUrl,
@@ -195,20 +236,19 @@ export function ArchiveRadioTab() {
         archiveId: it.archiveId,
       })));
     } catch (err) {
-      console.error('[ArchiveRadioTab] load day', err);
-      setError(err instanceof Error ? err.message : 'Failed to load day');
+      console.error('[ArchiveRadioTab] load loop', err);
+      setError(err instanceof Error ? err.message : 'Failed to load loop');
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadDay(selectedDate);
-  }, [selectedDate, loadDay]);
+    if (selectedLoopNumber != null) void loadLoop(selectedLoopNumber);
+  }, [selectedLoopNumber, loadLoop]);
 
   // Recompute startOffsetSec from current item order whenever the items list
-  // mutates. Back-to-back packing: each item starts when the previous one
-  // ends. No hourly alignment — matches what the cron writes.
+  // mutates. Back-to-back packing.
   const reflow = useCallback((arr: UIItem[]): UIItem[] => {
     let cursor = 0;
     return arr.map((it) => {
@@ -218,15 +258,16 @@ export function ArchiveRadioTab() {
     });
   }, []);
 
-  const handleAutoFill = async () => {
+  const handleRegenerate = async () => {
+    if (selectedLoopNumber == null) return;
     setRegenerating(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/archive-schedule/${selectedDate}/regenerate`, {
+      const res = await fetch(`/api/admin/archive-radio-loop/${selectedLoopNumber}/regenerate`, {
         method: 'POST',
       });
       if (!res.ok) throw new Error((await res.json()).error || 'Regenerate failed');
-      await loadDay(selectedDate);
+      await loadLoop(selectedLoopNumber);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to regenerate');
     } finally {
@@ -234,7 +275,22 @@ export function ArchiveRadioTab() {
     }
   };
 
+  const handleEnsureNext = async () => {
+    setEnsuring(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/archive-radio-loop/ensure-next', { method: 'POST' });
+      if (!res.ok) throw new Error((await res.json()).error || 'Ensure-next failed');
+      // The latest-loops subscription will pick up the new loop automatically.
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to ensure next loop');
+    } finally {
+      setEnsuring(false);
+    }
+  };
+
   const handleSave = async () => {
+    if (selectedLoopNumber == null) return;
     setSaving(true);
     setError(null);
     try {
@@ -249,15 +305,15 @@ export function ArchiveRadioTab() {
           artworkUrl: it.artworkUrl,
           archiveId: it.archiveId,
         })),
-        locked: day?.locked ?? false,
+        locked: loopDoc?.locked ?? false,
       };
-      const res = await fetch(`/api/admin/archive-schedule/${selectedDate}`, {
+      const res = await fetch(`/api/admin/archive-radio-loop/${selectedLoopNumber}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error((await res.json()).error || 'Save failed');
-      await loadDay(selectedDate);
+      await loadLoop(selectedLoopNumber);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save');
     } finally {
@@ -266,14 +322,15 @@ export function ArchiveRadioTab() {
   };
 
   const handleToggleLock = async () => {
-    const next = !(day?.locked ?? false);
+    if (selectedLoopNumber == null) return;
+    const next = !(loopDoc?.locked ?? false);
     try {
-      await fetch(`/api/admin/archive-schedule/${selectedDate}`, {
+      await fetch(`/api/admin/archive-radio-loop/${selectedLoopNumber}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: items.map((it) => ({ ...it, kind: 'archive' })), locked: next }),
       });
-      setDay((prev) => (prev ? { ...prev, locked: next } : prev));
+      setLoopDoc((prev) => (prev ? { ...prev, locked: next } : prev));
     } catch (err) {
       console.error('[ArchiveRadioTab] toggle lock', err);
     }
@@ -301,7 +358,7 @@ export function ArchiveRadioTab() {
       next[index] = {
         recordingUrl: archive.recordingUrl,
         durationSec: archive.duration || 0,
-        startOffsetSec: 0, // reflow will recompute
+        startOffsetSec: 0,
         title: archive.showName || archive.slug,
         djs: archive.djs?.map((d) => ({ name: d.name, username: d.username, photoUrl: d.photoUrl })),
         artworkUrl: archive.showImageUrl,
@@ -314,9 +371,6 @@ export function ArchiveRadioTab() {
   };
 
   const handleInsert = (insertIndex: number, archive: ArchiveSerialized) => {
-    // Insert at the given item index (end of list when called from the
-    // "+ add archive" footer). reflow() then recomputes startOffsetSec
-    // back-to-back.
     setItems((prev) => {
       const next = [...prev];
       const newItem: UIItem = {
@@ -336,33 +390,68 @@ export function ArchiveRadioTab() {
     setDirty(true);
   };
 
+  // Loops sorted ascending by loopNumber for display.
+  const loopList = useMemo(() => loops.slice().sort((a, b) => a.loopNumber - b.loopNumber), [loops]);
+  const selectedLoop = useMemo(
+    () => loopList.find((l) => l.loopNumber === selectedLoopNumber),
+    [loopList, selectedLoopNumber],
+  );
+  const selectedStartMs = selectedLoop?.startTimeMs ?? 0;
+
   return (
     <div className="text-white">
-      {/* Day picker */}
+      {/* Loop picker */}
       <div className="flex flex-wrap gap-2 mb-4">
-        {dayOptions.map((opt) => (
-          <button
-            key={opt.id}
-            onClick={() => setSelectedDate(opt.id)}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-              selectedDate === opt.id
-                ? 'bg-white text-black'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+        {loopList.length === 0 && (
+          <div className="text-sm text-zinc-500">No loops yet. Generate one with “Ensure next loop”.</div>
+        )}
+        {loopList.map((l) => {
+          const isPlaying = l.startTimeMs <= now && now < l.startTimeMs + l.totalDurationSec * 1000;
+          const isSelected = selectedLoopNumber === l.loopNumber;
+          const stats = l.catalogStats;
+          const summary = stats
+            ? `${stats.highCount}H · ${stats.mediumCount}M`
+            : '—';
+          return (
+            <button
+              key={l.loopNumber}
+              onClick={() => setSelectedLoopNumber(l.loopNumber)}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors text-left ${
+                isSelected
+                  ? 'bg-white text-black'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              <div className="font-semibold">
+                Loop #{l.loopNumber}
+                {isPlaying && (
+                  <span className={`ml-2 text-[10px] uppercase tracking-wide ${isSelected ? 'text-red-700' : 'text-red-400'}`}>● playing</span>
+                )}
+              </div>
+              <div className={`text-[11px] ${isSelected ? 'text-zinc-700' : 'text-zinc-400'}`}>
+                {formatPtClock(l.startTimeMs)} · {formatDuration(l.totalDurationSec)} · {summary}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-zinc-900 border border-white/10">
         <button
-          onClick={handleAutoFill}
-          disabled={regenerating || loading}
+          onClick={handleEnsureNext}
+          disabled={ensuring}
+          className="px-3 py-1.5 text-sm bg-zinc-700 hover:bg-zinc-600 text-white rounded disabled:opacity-50"
+          title="Generate the next loop if none is queued"
+        >
+          {ensuring ? 'Ensuring…' : 'Ensure next loop'}
+        </button>
+        <button
+          onClick={handleRegenerate}
+          disabled={regenerating || loading || selectedLoopNumber == null}
           className="px-3 py-1.5 text-sm bg-zinc-700 hover:bg-zinc-600 text-white rounded disabled:opacity-50"
         >
-          {regenerating ? 'Auto-filling…' : 'Auto-fill day'}
+          {regenerating ? 'Regenerating…' : 'Regenerate this loop'}
         </button>
         <button
           onClick={handleSave}
@@ -374,15 +463,18 @@ export function ArchiveRadioTab() {
         <label className="flex items-center gap-2 text-sm text-zinc-300 ml-2">
           <input
             type="checkbox"
-            checked={day?.locked ?? false}
+            checked={loopDoc?.locked ?? false}
             onChange={handleToggleLock}
+            disabled={selectedLoopNumber == null}
           />
-          Lock day (cron will skip)
+          Lock loop (cron will skip)
         </label>
         <div className="ml-auto text-xs text-zinc-500">
-          {day?.exists
-            ? `Generated by ${day.generatedBy ?? 'cron'} · ${day.eligibleArchiveCount ?? '?'} eligible archives`
-            : 'No schedule yet — click "Auto-fill day" to generate one.'}
+          {loopDoc?.exists
+            ? `Generated by ${loopDoc.generatedBy ?? 'cron'} · ${loopDoc.catalogStats?.totalItems ?? items.length} items · ${formatDuration(loopDoc.totalDurationSec ?? 0)}`
+            : selectedLoopNumber != null
+              ? 'Loop not found. Use “Regenerate this loop” to create it.'
+              : ''}
         </div>
       </div>
 
@@ -403,13 +495,13 @@ export function ArchiveRadioTab() {
               {items.map((item, itemIndex) => {
                 const photo = item.artworkUrl || item.djs?.[0]?.photoUrl;
                 const djs = item.djs?.map((d) => d.name).join(', ') || '';
-                const startClock = formatClockOffset(item.startOffsetSec, selectedDate);
-                const endClock = formatClockOffset(item.startOffsetSec + item.durationSec, selectedDate);
+                const startMs = selectedStartMs + item.startOffsetSec * 1000;
+                const endMs = startMs + item.durationSec * 1000;
                 return (
                   <tr key={`${item.archiveId}-${itemIndex}`} className="border-b border-white/5 align-top">
                     <td className="w-28 px-3 py-3 text-xs font-mono text-zinc-400 border-r border-white/10 align-top">
-                      {startClock}
-                      <span className="block text-[10px] text-zinc-600 mt-0.5">→ {endClock}</span>
+                      {formatPtTime(startMs)}
+                      <span className="block text-[10px] text-zinc-600 mt-0.5">→ {formatPtTime(endMs)}</span>
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-3">
@@ -452,7 +544,6 @@ export function ArchiveRadioTab() {
                   </tr>
                 );
               })}
-              {/* Append-at-end action */}
               <tr>
                 <td colSpan={2} className="px-3 py-3 text-center">
                   <button
@@ -472,8 +563,6 @@ export function ArchiveRadioTab() {
         <ArchivePicker
           archives={archives}
           onPick={(a) => {
-            // pickerSlot is now an itemIndex. If it points at an existing
-            // item, swap; if it's past the end, append (insert at end).
             if (pickerSlot < items.length) handleSwap(pickerSlot, a);
             else handleInsert(items.length, a);
           }}

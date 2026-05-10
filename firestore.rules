@@ -163,6 +163,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Catalog-loop variant of the archive radio. Replaces archive-schedule
+    // long-term: doc id = `loop-NNNN`, each doc is one full pass through the
+    // catalog. Public read so /radio/demo can subscribe; writes through admin.
+    match /archive-radio-loop/{loopId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Interstitial audio metadata for the archive radio (pool of station
     // idents). Public read so the player can resolve interstitial titles;
     // writes go through admin SDK.

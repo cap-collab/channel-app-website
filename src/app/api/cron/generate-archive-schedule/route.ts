@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateScheduleForDate } from '@/lib/archive-schedule-server';
-import { tomorrowUtcId } from '@/lib/archive-schedule';
+import { ensureNextLoop } from '@/lib/archive-schedule-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,29 +10,22 @@ function verifyCronRequest(request: NextRequest): boolean {
   return isVercelCron || hasValidSecret;
 }
 
-// Daily cron: builds tomorrow's archive-radio schedule.
-// Optional ?date=YYYY-MM-DD overrides the target day; ?force=true bypasses
-// the locked check (used by the future admin "Regenerate" button).
+// Daily cron: ensures the next archive-radio loop exists. Idempotent — does
+// nothing if a future-starting loop is already queued. Path kept as
+// `/api/cron/generate-archive-schedule` so the existing vercel.json cron entry
+// (0 23 * * *) doesn't need to be re-registered; the implementation now writes
+// to the catalog-loop collection instead of the daily-schedule one.
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   try {
-    const { searchParams } = new URL(request.url);
-    const requestedDate = searchParams.get('date');
-    const force = searchParams.get('force') === 'true';
-    const dateId = requestedDate ?? tomorrowUtcId();
-
-    const result = await generateScheduleForDate({
-      dateId,
-      force,
-      generatedBy: 'cron',
-    });
+    const result = await ensureNextLoop({ generatedBy: 'cron' });
     return NextResponse.json({ success: true, ...result });
   } catch (err) {
-    console.error('[generate-archive-schedule] error', err);
+    console.error('[ensure-next-loop cron] error', err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to generate schedule' },
+      { error: err instanceof Error ? err.message : 'Failed to ensure next loop' },
       { status: 500 },
     );
   }

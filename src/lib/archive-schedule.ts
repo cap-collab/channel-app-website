@@ -1,11 +1,19 @@
 import type {
+  ArchiveRadioLoop,
   ArchiveScheduleDay,
   Interstitial,
   ScheduleItem,
 } from '@/types/broadcast';
 
 export const SCHEDULE_COLLECTION = 'archive-schedule';
+export const LOOP_COLLECTION = 'archive-radio-loop';
 export const INTERSTITIALS_COLLECTION = 'interstitials';
+
+// Doc id for a loop: 'loop-0001', 'loop-0042', etc. Padded to 4 digits so
+// Firestore's lexicographic sort matches numeric order up to loop 9999.
+export function loopDocId(n: number): string {
+  return `loop-${String(n).padStart(4, '0')}`;
+}
 
 const DAY_SECONDS = 24 * 60 * 60;
 const SECONDS_MS = 1000;
@@ -246,4 +254,232 @@ export function tallyRecentPlays(days: ArchiveScheduleDay[]): Map<string, number
     }
   }
   return counts;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Catalog-loop builder. Replaces buildQueue for production use. Each loop is
+// one full pass through the eligible catalog: every medium archive plays once,
+// every high archive plays twice with the two plays placed roughly half a loop
+// apart so the listener doesn't hear the same show twice in quick succession.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface BuildLoopOptions {
+  archives: EligibleArchive[];
+  rng?: () => number;
+}
+
+export interface BuildLoopResult {
+  items: ScheduleItem[];
+  totalDurationSec: number;
+  highCount: number;
+  mediumCount: number;
+  warnings: string[];
+}
+
+// Fisher-Yates shuffle using the supplied rng; returns a new array.
+function shuffle<T>(arr: T[], rng: () => number): T[] {
+  const out = arr.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// Primary DJ identifier for adjacency comparison. Prefer username; fall back to
+// name. Returns null when no DJ is present so we don't treat two empty-DJ
+// items as "same DJ".
+function primaryDjKey(item: ScheduleItem): string | null {
+  const dj = item.djs?.[0];
+  if (!dj) return null;
+  if (dj.username) return `u:${dj.username.toLowerCase()}`;
+  if (dj.name) return `n:${dj.name.toLowerCase()}`;
+  return null;
+}
+
+// Walk the sequence; for each pair of adjacent items that share a primary DJ,
+// try to swap one of them with a nearby item that breaks the adjacency on both
+// sides. Bounded by maxPasses so a small catalog (where same-DJ adjacency may
+// be unavoidable) doesn't loop forever.
+function spaceSameDj(items: ScheduleItem[], maxPasses = 2): ScheduleItem[] {
+  const out = items.slice();
+  for (let pass = 0; pass < maxPasses; pass++) {
+    let swaps = 0;
+    for (let i = 0; i < out.length - 1; i++) {
+      const a = primaryDjKey(out[i]);
+      const b = primaryDjKey(out[i + 1]);
+      if (!a || a !== b) continue;
+      // Find a swap candidate j (j != i, j != i+1) such that placing out[j]
+      // at i+1 doesn't create a new same-DJ adjacency at j-1/j or j/j+1, and
+      // doesn't reintroduce one at i/i+1.
+      let swapped = false;
+      for (let j = i + 2; j < out.length; j++) {
+        const cand = primaryDjKey(out[j]);
+        if (!cand || cand === a) continue;
+        const prevAtJ = j > 0 ? primaryDjKey(out[j - 1]) : null;
+        const nextAtJ = j < out.length - 1 ? primaryDjKey(out[j + 1]) : null;
+        // After swap, position j holds out[i+1] (key = a). Check it doesn't
+        // collide with j's neighbours.
+        if (prevAtJ === a || nextAtJ === a) continue;
+        // After swap, position i+1 holds out[j] (key = cand). It must differ
+        // from out[i] (key = a) — already true since cand !== a.
+        [out[i + 1], out[j]] = [out[j], out[i + 1]];
+        swapped = true;
+        swaps++;
+        break;
+      }
+      if (!swapped) {
+        // Try earlier positions too.
+        for (let j = i - 1; j >= 0; j--) {
+          const cand = primaryDjKey(out[j]);
+          if (!cand || cand === a) continue;
+          const prevAtJ = j > 0 ? primaryDjKey(out[j - 1]) : null;
+          const nextAtJ = j < out.length - 1 ? primaryDjKey(out[j + 1]) : null;
+          if (prevAtJ === a || nextAtJ === a) continue;
+          [out[i + 1], out[j]] = [out[j], out[i + 1]];
+          swaps++;
+          break;
+        }
+      }
+    }
+    if (swaps === 0) break;
+  }
+  return out;
+}
+
+// Build a single catalog loop. Each medium archive contributes one
+// ScheduleItem; each high archive contributes two, with the second play placed
+// roughly half-loop after the first. Same-DJ adjacency is reduced by a
+// post-pass swap. Items are written back-to-back; total duration = sum of all
+// included archive durations (high archives counted twice).
+export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
+  const rng = opts.rng ?? Math.random;
+  const warnings: string[] = [];
+  const highs = opts.archives.filter((a) => a.priority === 'high');
+  const mediums = opts.archives.filter((a) => a.priority === 'medium');
+  const highCount = highs.length;
+  const mediumCount = mediums.length;
+  const totalEntries = highCount * 2 + mediumCount;
+
+  if (totalEntries === 0) {
+    warnings.push('no eligible archives');
+    return { items: [], totalDurationSec: 0, highCount: 0, mediumCount: 0, warnings };
+  }
+
+  const archiveToItem = (a: EligibleArchive, startOffsetSec: number): ScheduleItem => ({
+    kind: 'archive',
+    archiveId: a.id,
+    recordingUrl: a.recordingUrl,
+    durationSec: a.durationSec,
+    startOffsetSec,
+    title: a.title,
+    djs: a.djs,
+    artworkUrl: a.artworkUrl,
+    sceneSlugs: a.sceneSlugs,
+  });
+
+  // Sequence step 1: shuffle mediums into a base sequence with empty slots
+  // reserved for high plays. We work in entry-space first (no durations yet),
+  // then compute startOffsetSec at the end.
+  const shuffledHighs = shuffle(highs, rng);
+  const shuffledMediums = shuffle(mediums, rng);
+
+  // Build the sequence as an array of EligibleArchive references. Strategy:
+  // 1. Allocate `totalEntries` slots. For each high i, target firstPos = round(i * spacing)
+  //    and secondPos = firstPos + floor(totalEntries / 2), where
+  //    spacing = totalEntries / (highCount * 2). This evenly distributes the
+  //    2*highCount high entries through the loop while keeping each high's
+  //    two plays roughly half-loop apart.
+  // 2. Fill remaining slots with shuffled mediums in order.
+  // 3. Run a same-DJ adjacency pass.
+  const sequence: (EligibleArchive | null)[] = new Array(totalEntries).fill(null);
+
+  if (highCount > 0) {
+    const spacing = totalEntries / (highCount * 2);
+    const halfShift = Math.floor(totalEntries / 2);
+    for (let i = 0; i < highCount; i++) {
+      const high = shuffledHighs[i];
+      let firstPos = Math.floor(i * spacing);
+      let secondPos = (firstPos + halfShift) % totalEntries;
+      // Resolve collisions: if a slot is already taken, walk forward to the
+      // next free slot. This can happen when totalEntries is small and the
+      // computed positions collide.
+      while (sequence[firstPos] !== null) {
+        firstPos = (firstPos + 1) % totalEntries;
+      }
+      sequence[firstPos] = high;
+      while (sequence[secondPos] !== null) {
+        secondPos = (secondPos + 1) % totalEntries;
+      }
+      sequence[secondPos] = high;
+    }
+  }
+
+  // Fill remaining slots with mediums in shuffled order.
+  let mediumIdx = 0;
+  for (let i = 0; i < totalEntries; i++) {
+    if (sequence[i] !== null) continue;
+    if (mediumIdx >= shuffledMediums.length) {
+      warnings.push(`ran out of mediums at slot ${i}`);
+      break;
+    }
+    sequence[i] = shuffledMediums[mediumIdx++];
+  }
+
+  // Convert to ScheduleItem[] (offsets recomputed after the spacing pass).
+  let items: ScheduleItem[] = sequence
+    .filter((a): a is EligibleArchive => a !== null)
+    .map((a) => archiveToItem(a, 0));
+
+  // Same-DJ adjacency pass.
+  items = spaceSameDj(items);
+
+  // Recompute startOffsetSec cumulatively now that order is final.
+  let cursor = 0;
+  for (const it of items) {
+    it.startOffsetSec = cursor;
+    cursor += it.durationSec;
+  }
+
+  return {
+    items,
+    totalDurationSec: cursor,
+    highCount,
+    mediumCount,
+    warnings,
+  };
+}
+
+// Find the item playing at `nowMs` inside a loop. Returns null when nowMs is
+// before the loop starts or after it ends (caller should advance to next loop).
+export function findCurrentItemInLoop(
+  loop: ArchiveRadioLoop,
+  nowMs: number,
+): { index: number; item: ScheduleItem; seekSec: number } | null {
+  if (!loop.items.length) return null;
+  const elapsedSec = (nowMs - loop.startTimeMs) / SECONDS_MS;
+  if (elapsedSec < 0) return null;
+  if (elapsedSec >= loop.totalDurationSec) return null;
+  let lo = 0;
+  let hi = loop.items.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const it = loop.items[mid];
+    const start = it.startOffsetSec;
+    const end = start + it.durationSec;
+    if (elapsedSec < start) {
+      hi = mid - 1;
+    } else if (elapsedSec >= end) {
+      lo = mid + 1;
+    } else {
+      return { index: mid, item: it, seekSec: elapsedSec - start };
+    }
+  }
+  return null;
+}
+
+// End time of a loop in Unix ms. Convenience helper for "is this loop done?"
+// and "should we ensure the next loop?" checks.
+export function loopEndMs(loop: ArchiveRadioLoop): number {
+  return loop.startTimeMs + loop.totalDurationSec * SECONDS_MS;
 }
