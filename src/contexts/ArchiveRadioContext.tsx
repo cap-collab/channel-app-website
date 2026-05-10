@@ -62,16 +62,19 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     await radio.toggle();
   }, [radio, archivePlayer]);
 
-  // Single-source rule: when a regular archive starts playing or live becomes
-  // active, pause the radio. Mirrors the existing /radio coordination where
-  // archivePlayer.play already pauses the live broadcast — radio joins the
-  // same dance, so we never have two streams playing.
+  // Single-source rule: when a regular archive *actually starts playing*,
+  // pause the radio. Mirrors archivePlayer.play→pauseBroadcast on /radio.
+  //
+  // Important: we do NOT auto-pause when live merely becomes available
+  // (broadcast.isLive flips true). Live starting must NOT interrupt the
+  // listener's current radio stream — they switch to live manually. We only
+  // pause the radio when something else *actively* plays.
   useEffect(() => {
     if (radio.isPlaying && archivePlayer.isPlaying) radio.pause();
   }, [archivePlayer.isPlaying, radio]);
   useEffect(() => {
-    if (radio.isPlaying && showLive) radio.pause();
-  }, [showLive, radio]);
+    if (radio.isPlaying && broadcast.isPlaying) radio.pause();
+  }, [broadcast.isPlaying, radio]);
 
   const play = useCallback(async () => {
     if (archivePlayer.isPlaying) archivePlayer.pause();
