@@ -361,13 +361,43 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         // Browser doesn't support these actions
       }
 
-      // Disable skip/seek buttons
-      const disableActions: MediaSessionAction[] = ['seekforward', 'seekbackward', 'previoustrack', 'nexttrack'];
-      for (const action of disableActions) {
-        try { navigator.mediaSession.setActionHandler(action, null); } catch {}
-      }
+      // Archive recordings are scrubbable in the control center: enable
+      // seek-forward/back (10s default) + seek-to (drag the scrubber).
+      // Also enable previoustrack as "back to start" (jump to 0). nexttrack
+      // stays disabled — there's no "next archive" concept here.
+      try {
+        navigator.mediaSession.setActionHandler('seekforward', (details) => {
+          const audio = audioRef.current;
+          if (!audio) return;
+          const offset = details.seekOffset ?? 10;
+          audio.currentTime = Math.min(duration || audio.duration || 0, audio.currentTime + offset);
+        });
+      } catch {}
+      try {
+        navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+          const audio = audioRef.current;
+          if (!audio) return;
+          const offset = details.seekOffset ?? 10;
+          audio.currentTime = Math.max(0, audio.currentTime - offset);
+        });
+      } catch {}
+      try {
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+          const audio = audioRef.current;
+          if (!audio || details.seekTime === undefined || details.seekTime === null) return;
+          audio.currentTime = details.seekTime;
+        });
+      } catch {}
+      try { navigator.mediaSession.setActionHandler('previoustrack', () => {
+        const audio = audioRef.current;
+        if (audio) audio.currentTime = 0;
+      }); } catch {}
+      try { navigator.mediaSession.setActionHandler('nexttrack', null); } catch {}
 
-      // Update position state periodically for lock screen progress bar
+      // Update position state periodically for lock screen progress bar.
+      // Tightened from 30s → 5s now that the scrubber is interactive — the
+      // lock-screen position needs to track audio playback for the drag
+      // handle to land in the right spot.
       const updatePosition = () => {
         if (duration > 0 && audioRef.current) {
           try {
@@ -380,7 +410,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         }
       };
       updatePosition();
-      const posInterval = setInterval(updatePosition, 30_000);
+      const posInterval = setInterval(updatePosition, 5_000);
       return () => clearInterval(posInterval);
     } else {
       navigator.mediaSession.playbackState = 'paused';

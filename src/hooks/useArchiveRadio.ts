@@ -433,9 +433,13 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     };
   }, [opts.active]);
 
-  // MediaSession metadata + control-center actions. Same iOS rules as
-  // useBroadcastStream: ≤128x128 artwork via /_next/image, single entry,
-  // disable skip/seek so listeners can't scrub through a synced stream.
+  // MediaSession metadata + control-center actions. Mirrors the live
+  // broadcast's setup (useBroadcastStream lines 880-924): ≤128x128 artwork
+  // via /_next/image, single entry, all skip/seek actions nulled (radio is
+  // a synced stream, not scrubbable), and a position state published from
+  // the schedule so the lock screen shows the current item's progress
+  // through its own duration (just like live shows the show-startTime →
+  // endTime progress).
   useEffect(() => {
     if (!opts.active) return;
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
@@ -461,7 +465,27 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     try { navigator.mediaSession.setActionHandler('seekto', () => {}); } catch { /* ignore */ }
     try { navigator.mediaSession.setActionHandler('play', () => { void play(); }); } catch { /* ignore */ }
     try { navigator.mediaSession.setActionHandler('pause', () => { pause(); }); } catch { /* ignore */ }
-  }, [current, isPlaying, opts.active, play, pause]);
+
+    // Position state — same shape as live: a clock-time progress bar that
+    // ticks through the current item's slot. Update every 2 minutes (live's
+    // cadence) since the scrubber is read-only anyway.
+    if (current.item.durationSec > 0) {
+      const updatePosition = () => {
+        const live = resolveCurrent(today, tomorrow, Date.now());
+        if (!live) return;
+        try {
+          navigator.mediaSession.setPositionState({
+            duration: live.item.durationSec,
+            position: Math.min(live.seekSec, live.item.durationSec),
+            playbackRate: 1,
+          });
+        } catch { /* ignore */ }
+      };
+      updatePosition();
+      const interval = setInterval(updatePosition, 120_000);
+      return () => clearInterval(interval);
+    }
+  }, [current, isPlaying, opts.active, play, pause, today, tomorrow]);
 
   // When this player goes inactive (parent toggles `active=false`, e.g. live
   // mode took over the demo), pause cleanly so audio doesn't double up.
