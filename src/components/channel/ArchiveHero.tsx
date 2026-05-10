@@ -1395,7 +1395,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     if (archivePlayer.currentArchive?.id === archive.id && archivePlayer.isPlaying) {
                       archivePlayer.pause();
                     } else {
-                      setUserSelectedMode('archive'); playArchive(archive);
+                      setUserSelectedMode('archive');
+                      playArchive(archive);
+                      // Snap the carousel to slide 1 — that's where the
+                      // listener-played archive renders. Without this the
+                      // listener stays on slide 0 (radio/live) while their
+                      // archive is what's actually playing.
+                      setHeroIndex(1);
                     }
                   }}
                 />
