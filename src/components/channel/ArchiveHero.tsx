@@ -472,6 +472,22 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     return 'radio';
   })();
 
+  // /demo: which slide does the currently-active source belong to?
+  // Slide 0 owns: live + radio. Slide 1 owns: the listener-played archive.
+  // When nothing's playing we treat slide 0 as the "default active" so the
+  // inline bar still shows next to the radio image.
+  const demoActiveSlide: 0 | 1 = (() => {
+    if (!demoMode) return 0;
+    if (archivePlayer.isPlaying || archivePlayer.isLoading) return 1;
+    if (radioCtx?.isPlaying || radioCtx?.isLoading) return 0;
+    if (isLive && isLivePlaying) return 0;
+    return 0;
+  })();
+  // Whether the currently visible slide is showing the active audio source.
+  // Drives both the play overlay (shown when false) and the inline-vs-sticky
+  // bar swap.
+  const demoSlideShowsActive = !demoMode || heroIndex === demoActiveSlide;
+
   // /demo: publish the visible slide so the sticky bar can mirror it when
   // nothing's actively playing.
   useEffect(() => {
@@ -487,27 +503,22 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     radioCtx.setArchives(archives);
   }, [demoMode, archives, radioCtx]);
 
-  // /demo: when the visible slide changes, pause the source that doesn't
-  // belong to the now-visible slide so we don't double-play. We don't touch
-  // live — when live is on slide 0, swiping to slide 1 doesn't stop it; the
-  // bar keeps showing the live audio per demoBarMode.
-  useEffect(() => {
-    if (!demoMode) return;
-    if (heroIndex === 0) {
-      // Slide 0 visible: pause any listener archive that was on slide 1.
-      if (archivePlayer.isPlaying) archivePlayer.pause();
-    } else {
-      // Slide 1 visible: pause radio (live keeps going).
-      if (radioCtx?.isPlaying) radioCtx.pause();
-    }
-    // Only depend on heroIndex (the swipe trigger). Reading archivePlayer/
-    // radioCtx as deps would cause feedback loops.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heroIndex, demoMode]);
-
+  // (Swipe never touches playback. Audio keeps playing whatever it was
+  // playing when the listener swipes; each slide just shows an overlay
+  // play button if its content isn't the active source. The single-source
+  // rule is enforced by ArchiveRadioContext.toggle/play and archivePlayer
+  // when the listener actually clicks the overlay.)
   // (No auto-swipe on listener play — hero composition is stable. The bar
   // follows what's playing via demoBarMode; the hero only moves when the
   // listener manually swipes or clicks a dot/arrow.)
+
+  // /demo: when the visible slide doesn't show the active audio source,
+  // hide the inline bar and let GlobalBroadcastBar take over immediately
+  // (no scroll required). Flip heroBarVisible to false so the sticky shows.
+  useEffect(() => {
+    if (!demoMode) return;
+    setHeroBarVisible(demoSlideShowsActive);
+  }, [demoMode, demoSlideShowsActive, setHeroBarVisible]);
 
   // Publish what the hero is showing so GlobalBroadcastBar can mirror it.
   useEffect(() => {
@@ -774,7 +785,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               >
                 {demoMode ? (
                   <>
-                    <div key="slide-0" className="w-full flex-shrink-0">
+                    <div key="slide-0" className="relative w-full flex-shrink-0">
                       {/* Slide 0: live image when a broadcast is on (regardless
                           of userSelectedMode), else the radio slide. */}
                       {isLive ? (
@@ -824,17 +835,57 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                         }
                         return <ContinuousArchiveSlide currentItem={radioCtx?.currentItem ?? null} />;
                       })()}
+                      {/* Overlay play button — shown when slide 0 isn't the
+                          active source. Click triggers the slide's underlying
+                          onPlay (radio toggle / live play). Visual matches
+                          ArchiveGridCard's centered overlay. */}
+                      {demoActiveSlide !== 0 && (
+                        <button
+                          onClick={() => {
+                            if (isLive) { setUserSelectedMode('live'); playLive(); }
+                            else { void radioCtx?.toggle(); }
+                          }}
+                          aria-label="Play this"
+                          className="absolute inset-0 flex items-center justify-center transition-opacity hover:bg-black/30"
+                        >
+                          <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
+                            <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </div>
+                        </button>
+                      )}
                     </div>
                     {secondHeroArchive && (
-                      <HeroSlide
-                        key={secondHeroArchive.id}
-                        archive={secondHeroArchive}
-                        sceneSlugs={resolveArchiveScenes(secondHeroArchive, djSceneMap)}
-                        onPlay={() => {
-                          setUserSelectedMode('archive');
-                          archivePlayer.play(secondHeroArchive);
-                        }}
-                      />
+                      <div key={`slide-1-${secondHeroArchive.id}`} className="relative w-full flex-shrink-0">
+                        <HeroSlide
+                          archive={secondHeroArchive}
+                          sceneSlugs={resolveArchiveScenes(secondHeroArchive, djSceneMap)}
+                          onPlay={() => {
+                            setUserSelectedMode('archive');
+                            archivePlayer.play(secondHeroArchive);
+                          }}
+                        />
+                        {/* Overlay play button — shown when slide 1 isn't the
+                            active source (i.e. this archive isn't currently
+                            playing). Same visual as slide 0. */}
+                        {demoActiveSlide !== 1 && (
+                          <button
+                            onClick={() => {
+                              setUserSelectedMode('archive');
+                              archivePlayer.play(secondHeroArchive);
+                            }}
+                            aria-label="Play this archive"
+                            className="absolute inset-0 flex items-center justify-center transition-opacity hover:bg-black/30"
+                          >
+                            <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
+                              <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </div>
+                          </button>
+                        )}
+                      </div>
                     )}
                   </>
                 ) : (
@@ -916,7 +967,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         {/* Player bar.
             /radio (legacy): showLiveInHero ? live bar : archive bar.
             /demo: demoBarMode ('live' | 'radio' | 'archive') — what's playing
-            wins, otherwise follows the visible slide. */}
+            wins, otherwise follows the visible slide. On /demo the inline
+            bar is hidden when the visible slide isn't the active source —
+            the GlobalBroadcastBar takes over via the heroBarVisible flag
+            we flip in the effect above. */}
+        {demoSlideShowsActive && (
         <div ref={stickyBarRef} className="bg-black relative">
           {demoMode && radioCtx && demoBarMode === 'radio' ? (
             <>
@@ -1174,6 +1229,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             </>
           )}
         </div>
+        )}
 
         {/* Carousel dots — always reserve space below player bar to prevent layout shift */}
         {!showLiveInHero && (
