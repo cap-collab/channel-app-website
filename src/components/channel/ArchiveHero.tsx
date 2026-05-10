@@ -846,6 +846,19 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     Restream
                   </span>
                 </>
+              ) : secondHeroArchive && secondHeroArchive.id === radioCurrentArchiveId ? (
+                // Slide 1 = the radio's currently-playing archive (live is
+                // on, listener hasn't picked their own archive). It's the
+                // radio card visually, so use the Restream pill.
+                <>
+                  <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                  </svg>
+                  <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
+                    Restream
+                  </span>
+                </>
               ) : (
                 // Slide 1 → archive (listener-picked or alternative).
                 <>
@@ -1104,7 +1117,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             playing. The sticky bar takes over only when the visible slide's
             source isn't the active source. */}
         <div ref={stickyBarRef} className="bg-black relative">
-          {demoMode && radioCtx && heroIndex === 0 && !isLive ? (
+          {/* Inline bar = radio bar when:
+                - slide 0 visible AND not live, OR
+                - slide 1 visible AND showing the radio's current archive
+                  (live is on, no listener-archive engaged). The card is
+                  visually the radio archive, so the bar should be too. */}
+          {demoMode && radioCtx && (
+            (heroIndex === 0 && !isLive) ||
+            (heroIndex >= 1 && secondHeroArchive?.id === radioCurrentArchiveId)
+          ) ? (
             <>
               {/* Radio player bar — same chrome as the archive bar (scene
                   glyph, play, scrolling text, profile, love, tip), but driven
