@@ -475,23 +475,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     : (archivePlayer.currentArchive || heroArchives[heroIndex] || featuredArchive);
 
   // Player bar mode (demo only). Rule: what's actively playing wins; if
-  // nothing is playing, follow the visible slide.
-  //   • archivePlayer playing → 'archive'
-  //   • live broadcast on (and playing) → 'live'
-  //   • radio playing → 'radio'
-  //   • nothing playing + slide 0 visible + live on → 'live' (paused live)
-  //   • nothing playing + slide 0 visible → 'radio'
-  //   • nothing playing + slide 1 visible → 'archive' (paused archive)
-  type DemoBarMode = 'live' | 'radio' | 'archive';
-  const demoBarMode: DemoBarMode = (() => {
-    if (!demoMode) return 'archive'; // unused on /radio path
-    if (archivePlayer.isPlaying || archivePlayer.isLoading) return 'archive';
-    if (isLive && isLivePlaying) return 'live';
-    if (radioCtx?.isPlaying || radioCtx?.isLoading) return 'radio';
-    if (heroIndex >= 1) return 'archive';
-    if (isLive) return 'live';
-    return 'radio';
-  })();
+  // (Removed demoBarMode — bar selection is now driven by heroIndex (visible
+  // slide) directly, and each bar's play/pause icon reflects its own source's
+  // state. See the bar render block.)
 
   // /demo: which slide does the currently-active source belong to?
   // Slide 0 owns: live + radio. Slide 1 owns: the listener-played archive.
