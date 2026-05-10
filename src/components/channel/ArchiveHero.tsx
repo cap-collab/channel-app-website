@@ -948,9 +948,18 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                       {/* Slide 0: live image when a broadcast is on (regardless
                           of userSelectedMode), else the radio slide. */}
                       {isLive ? (
-                        // Slide 0 = live image (mirrors the legacy takeover
-                        // block but inside the carousel slot).
-                        <div className="relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10">
+                        // Slide 0 = live image. Wrapped in a <button> so a
+                        // tap on the image itself toggles live (matches the
+                        // overlay play/pause button beneath; both routes
+                        // drive the same broadcast.toggle).
+                        <button
+                          onClick={() => {
+                            if (isLivePlaying) toggleLive();
+                            else { setUserSelectedMode('live'); playLive(); }
+                          }}
+                          className="relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10 text-left"
+                          aria-label={isLivePlaying ? 'Pause live' : 'Play live'}
+                        >
                           {hasPhoto ? (
                             <>
                               <Image
@@ -976,7 +985,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                               </h2>
                             </div>
                           )}
-                        </div>
+                        </button>
                       ) : (() => {
                         // Slide 0 = archive radio. Prefer the resolved archive
                         // doc so we render a real HeroSlide (DJ overlay, scene
