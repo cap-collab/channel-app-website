@@ -30,6 +30,15 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// Tiny string→int hash. Used to pick a stable-but-rotating slide-1 archive
+// keyed off the radio's current archive id, so slide 1 changes naturally as
+// the radio rolls forward without re-rolling on every render.
+function hashStringToInt(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return h;
+}
+
 export function ArchiveSeekBar({ currentTime, duration, onSeek }: { currentTime: number; duration: number; onSeek: (time: number) => void }) {
   const barRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -281,15 +290,16 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     if (isLive && !wasLive && !archivePlayer.currentArchive) {
       if (!demoMode) setUserSelectedMode('live');
     }
-    // /demo: when live starts and the listener is currently hearing
-    // something (radio or archive), auto-swipe them to slide 1 so they keep
-    // seeing the image of what they're hearing. Slide 0 now shows the live
-    // image as an option, with the "Switch to Live Radio" red strip above
-    // slide 1 letting them swap if they want.
+    // /demo: when live starts, auto-position the carousel:
+    //   - If something is playing (radio or archive) → swipe to slide 1 so
+    //     the listener keeps seeing the image of what they're hearing.
+    //   - If nothing is playing → swipe to slide 0 so the listener sees
+    //     the new live broadcast and can press play.
+    // Either way, audio is uninterrupted; this is a pure UI shuffle.
     if (demoMode && isLive && !wasLive) {
       const somethingPlaying =
         !!radioCtx?.isPlaying || !!archivePlayer.isPlaying || !!archivePlayer.currentArchive;
-      if (somethingPlaying) setHeroIndex(1);
+      setHeroIndex(somethingPlaying ? 1 : 0);
     }
     // Broadcast ended
     if (!isLive && wasLive) {
@@ -405,7 +415,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   //   1. listener-picked archive → that archive (with switch actions)
   //   2. live is on → the radio's currently-playing archive (so slide 1
   //      offers something to listen to alongside live)
-  //   3. else → opposite-scene high-priority archive vs the radio's current
+  //   3. else → high-priority archive from the *opposite scene* of the
+  //      radio's current archive, never the same archive id as the radio.
+  //      Searches the full archives pool (not just heroArchives) so we
+  //      always find a real cross-scene pick.
   const secondHeroArchive = useMemo<ArchiveSerialized | null>(() => {
     if (!demoMode) return null;
     if (maxHeroSlides === 1) return null;
@@ -426,21 +439,56 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     const radioIsSpiral = radioScenes.includes('spiral');
     const radioIsStar = radioScenes.includes('star');
 
-    // Prefer the opposite scene; tie-break on the SSR seed when the radio's
-    // scene is unknown (still loading) or both scenes match.
+    // The "opposite scene" rule. If the radio is spiral, slide 1 should be
+    // a star archive; if the radio is star, slide 1 should be spiral. When
+    // the radio belongs to neither (or both), default to whichever scene
+    // the radio doesn't dominate — fall through to the broader picks.
     const oppositeSlug: 'spiral' | 'star' | null =
       radioIsSpiral && !radioIsStar ? 'star'
       : radioIsStar && !radioIsSpiral ? 'spiral'
       : null;
 
-    const candidates = [...heroArchives];
+    // Full pool: high-priority archives, exclude the radio's own archive id
+    // so slide 1 is never a duplicate of slide 0. Sort by recordedAt so we
+    // surface fresh shows (cap to 5 most recent in the matching scene).
+    const PER_SCENE_LIMIT = 5;
+    const pool = archives.filter((a) =>
+      a.priority === 'high' && a.id !== radioCurrentArchiveId
+    );
+
     if (oppositeSlug) {
-      const match = candidates.find((a) =>
-        resolveArchiveScenes(a, djSceneMap).includes(oppositeSlug)
-      );
-      if (match) return match;
+      const inScene = pool
+        .filter((a) => resolveArchiveScenes(a, djSceneMap).includes(oppositeSlug))
+        .sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0))
+        .slice(0, PER_SCENE_LIMIT);
+      if (inScene.length > 0) {
+        // Stable but rotating pick — index by radio archive id so the
+        // featured slot changes naturally as the radio rolls forward.
+        const seed = radioCurrentArchiveId
+          ? Math.abs(hashStringToInt(radioCurrentArchiveId)) % inScene.length
+          : 0;
+        return inScene[seed];
+      }
     }
-    return candidates[1] ?? candidates[0] ?? null;
+
+    // Fallback: any high-priority archive in either scene, excluding radio.
+    const sceneFallback = pool
+      .filter((a) => {
+        const s = resolveArchiveScenes(a, djSceneMap);
+        return s.includes('spiral') || s.includes('star');
+      })
+      .sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0))
+      .slice(0, PER_SCENE_LIMIT);
+    if (sceneFallback.length > 0) {
+      const seed = radioCurrentArchiveId
+        ? Math.abs(hashStringToInt(radioCurrentArchiveId)) % sceneFallback.length
+        : 0;
+      return sceneFallback[seed];
+    }
+
+    // Last resort: heroArchives picks (legacy seed) excluding the radio.
+    const legacy = heroArchives.filter((a) => a.id !== radioCurrentArchiveId);
+    return legacy[1] ?? legacy[0] ?? null;
   }, [archivePlayer.currentArchive, archives, demoMode, djSceneMap, heroArchives, isLive, maxHeroSlides, radioCurrentArchiveId]);
 
   const [heroIndex, setHeroIndex] = useState(0);

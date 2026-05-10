@@ -230,17 +230,16 @@ export function GlobalBroadcastBar() {
   // On /radio (and /radio/demo), hide while the hero's inline player bar is
   // in view. Before the observer initializes, default to hidden to prevent a
   // flash on load. CSS transition instead of unmounting to avoid flicker.
-  // Sticky bar visibility on /radio + /radio/demo:
-  // - Hidden while the inline player bar is on screen (existing scroll
-  //   behaviour driven by IntersectionObserver → heroBarVisible).
-  // - On /radio/demo, also force-shown when the inline player below the
-  //   visible slide doesn't represent the active source (the "preview a
-  //   different slide while something else plays" case). The radio context
-  //   publishes inlineCoversActive for that.
+  // Sticky bar visibility:
+  // - /radio (legacy): hidden while the inline bar is on screen, visible
+  //   on scroll. Existing behaviour preserved.
+  // - /radio/demo: ALWAYS visible. Listeners need a persistent
+  //   "what's playing / what's the page default" reference at the top of
+  //   the page regardless of carousel state.
   const onRadioPath = pathname === '/radio' || pathname === '/radio/demo';
+  const onDemoPath = pathname === '/radio/demo';
   const inlineHidesSticky = heroBarVisible || !heroBarObserverReady;
-  const demoOverridesSticky = pathname === '/radio/demo' && radioCtx?.enabled && !radioCtx.inlineCoversActive;
-  const hiddenOnRadio = onRadioPath && inlineHidesSticky && !demoOverridesSticky;
+  const hiddenOnRadio = onRadioPath && !onDemoPath && inlineHidesSticky;
 
   const showLiveBar = barMode === 'live';
 
