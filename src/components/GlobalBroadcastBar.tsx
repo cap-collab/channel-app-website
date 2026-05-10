@@ -268,8 +268,8 @@ export function GlobalBroadcastBar() {
             )}
           </button>
 
-          {/* Show info — clicking navigates to /radio */}
-          <Link href="/radio#live" className="flex-1 min-w-0">
+          {/* Show info — clicking navigates to home */}
+          <Link href="/#live" className="flex-1 min-w-0">
             <ScrollingShowName text={showName || 'Live Now'} className="text-sm font-bold leading-tight text-white" />
             {djName && (
               <ScrollingDJName text={djName} className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]" />
@@ -370,7 +370,7 @@ export function GlobalBroadcastBar() {
             </button>
           </div>
 
-          <Link href="/radio" className="flex-1 min-w-0">
+          <Link href="/" className="flex-1 min-w-0">
             <ScrollingShowName text={radioTitle} className="text-sm font-bold leading-tight text-white" />
             {radioDjs && (
               <ScrollingDJName text={radioDjs} className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]" />
@@ -474,7 +474,7 @@ export function GlobalBroadcastBar() {
         </div>
 
         {/* Archive show info */}
-        <Link href="/radio" className="flex-1 min-w-0">
+        <Link href="/" className="flex-1 min-w-0">
           <ScrollingShowName text={archiveShowName || 'Archive'} className="text-sm font-bold leading-tight text-white" />
           {archiveDjName && (
             <ScrollingDJName text={archiveDjName} className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]" />

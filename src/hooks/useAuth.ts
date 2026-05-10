@@ -396,7 +396,7 @@ export function useAuth() {
     }
 
     const actionCodeSettings = {
-      url: window.location.origin + "/radio",
+      url: window.location.origin + "/",
       handleCodeInApp: true,
     };
 

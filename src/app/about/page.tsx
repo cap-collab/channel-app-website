@@ -33,7 +33,7 @@ export default function About() {
           <div className="max-w-3xl mx-auto">
             <div className="flex justify-center mb-8">
               <Link
-                href="/radio"
+                href="/"
                 className="inline-block bg-white text-black hover:bg-gray-200 transition-colors text-sm font-medium px-6 py-3 rounded"
               >
                 Dig in

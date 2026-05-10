@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
           cohortParam === "dj"
             ? previewDjUsername
               ? `${NEWSLETTER_APP_URL}/dj/${encodeURIComponent(previewDjUsername)}`
-              : `${NEWSLETTER_APP_URL}/radio`
+              : `${NEWSLETTER_APP_URL}/`
             : undefined,
       });
     } catch (e) {
@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
           r.cohort === "dj"
             ? r.djUsername
               ? `${NEWSLETTER_APP_URL}/dj/${encodeURIComponent(r.djUsername)}`
-              : `${NEWSLETTER_APP_URL}/radio`
+              : `${NEWSLETTER_APP_URL}/`
             : undefined,
       })),
     });

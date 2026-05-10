@@ -1,29 +1,19 @@
-import { redirect } from "next/navigation";
+import { Suspense } from 'react';
+import { makeOG } from '@/lib/og';
+import { ChannelClient } from './radio/ChannelClient';
+import { getHeroArchives } from '@/lib/hero-archives';
 
-// Known scene slugs that can appear as bare query keys (e.g. /?spiral).
-// Matches the scene IDs rendered by SceneGlyph and seeded in Firestore.
-const SCENE_SLUGS = new Set(["spiral", "star", "grid"]);
+export const metadata = makeOG();
+export const dynamic = 'force-dynamic';
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const params = await searchParams;
-
-  // Support both /?scene=spiral and the shorter /?spiral
-  let scene: string | null = null;
-  const sceneParam = params.scene;
-  if (typeof sceneParam === "string" && SCENE_SLUGS.has(sceneParam)) {
-    scene = sceneParam;
-  } else {
-    for (const key of Object.keys(params)) {
-      if (SCENE_SLUGS.has(key)) {
-        scene = key;
-        break;
-      }
-    }
-  }
-
-  redirect(scene ? `/radio?scene=${scene}` : "/radio");
+export default async function Home() {
+  const heroSeed = await getHeroArchives();
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black" />}>
+      <ChannelClient
+        initialHeroArchives={heroSeed.archives}
+        initialPreferredHero={heroSeed.preferredHero}
+      />
+    </Suspense>
+  );
 }

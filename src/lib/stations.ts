@@ -6,7 +6,7 @@ export const STATIONS: Station[] = [
     name: "Channel Radio",
     metadataKey: "broadcast",
     streamUrl: "",
-    websiteUrl: "https://channel-app.com/radio",
+    websiteUrl: "https://channel-app.com/",
     backgroundColor: "#000000",
     textColor: "#FFFFFF",
     accentColor: "#D94099",

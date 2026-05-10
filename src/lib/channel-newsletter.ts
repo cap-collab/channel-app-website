@@ -93,7 +93,7 @@ const EXTRA_LISTENERS: Array<{ email: string; name: string; id: string }> = [
 
 // Extra DJs — approved applicants who have a show booked but haven't
 // created a `users` account yet. Receives the DJ email; djUsername left
-// undefined so the Channel link falls back to /radio.
+// undefined so the Channel link falls back to the site root.
 const EXTRA_DJS: Array<{ email: string; name: string; id: string; djUsername?: string }> = [
   { email: "jaketurpin@minimal.audio", name: "Jake", id: "applicant-jaketurpin", djUsername: "jaketurpin" },
 ];
@@ -332,16 +332,18 @@ export type AuditRow = {
   currentFirstName: string;
   displayNameFirstWord: string | null;
   // For DJ rows, the link Cap will include in the email — either the
-  // personalized /dj/<slug> URL or the /radio fallback if no slug exists.
+  // personalized /dj/<slug> URL or the site-root fallback if no slug exists.
   // null for non-DJ rows.
   djProfileUrl: string | null;
 };
+
+const FALLBACK_DJ_URL = `${NEWSLETTER_APP_URL}/`;
 
 function djProfileUrlFor(data: FirebaseFirestore.DocumentData): string {
   const slug = resolveDjUsername(data);
   return slug
     ? `${NEWSLETTER_APP_URL}/dj/${encodeURIComponent(slug)}`
-    : `${NEWSLETTER_APP_URL}/radio`;
+    : FALLBACK_DJ_URL;
 }
 
 function firstWord(s: string | null | undefined): string | null {
@@ -447,18 +449,18 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
     });
   }
 
-  // Group order: 1) DJs with profile URL, 2) DJs with /radio fallback,
+  // Group order: 1) DJs with profile URL, 2) DJs with site-root fallback,
   // 3) Users (listeners). Within each group: on-next-send first, then
   // alphabetical by email. Anyone not on next send (unsubbed/excluded)
   // sinks to the bottom of their group.
   const groupOrder = (r: AuditRow): number => {
     if (r.onNextSendCohort === "dj") {
-      const isFallback = r.djProfileUrl === `${NEWSLETTER_APP_URL}/radio`;
+      const isFallback = r.djProfileUrl === FALLBACK_DJ_URL;
       return isFallback ? 1 : 0;
     }
     if (r.source === "users-dj" || r.source === "pending-dj") {
       // DJ row but not on next send (unsubbed/excluded) — keep with DJ groups
-      const isFallback = r.djProfileUrl === `${NEWSLETTER_APP_URL}/radio`;
+      const isFallback = r.djProfileUrl === FALLBACK_DJ_URL;
       return isFallback ? 1 : 0;
     }
     return 2;
@@ -498,8 +500,8 @@ export function buildAuditHtml(rows: AuditRow[]): string {
     .map((h) => `<th style="text-align:left;padding:6px 8px;border:1px solid #ddd;font-size:12px;background:#f6f6f6;">${h}</th>`)
     .join("");
 
-  const djsWithProfile = rows.filter((r) => (r.source === "users-dj" || r.source === "pending-dj") && r.djProfileUrl && !r.djProfileUrl.endsWith("/radio"));
-  const djsWithRadio = rows.filter((r) => (r.source === "users-dj" || r.source === "pending-dj") && r.djProfileUrl && r.djProfileUrl.endsWith("/radio"));
+  const djsWithProfile = rows.filter((r) => (r.source === "users-dj" || r.source === "pending-dj") && r.djProfileUrl && r.djProfileUrl !== FALLBACK_DJ_URL);
+  const djsWithRadio = rows.filter((r) => (r.source === "users-dj" || r.source === "pending-dj") && r.djProfileUrl === FALLBACK_DJ_URL);
   const users = rows.filter((r) => r.source === "users-non-dj" || r.source === "waitlist");
 
   const renderRow = (r: AuditRow): string => {
@@ -536,7 +538,7 @@ export function buildAuditHtml(rows: AuditRow[]): string {
   const trs =
     sectionHeader("1 · DJs with profile URL", djsWithProfile.length) +
     djsWithProfile.map(renderRow).join("") +
-    sectionHeader("2 · DJs without profile (will use /radio)", djsWithRadio.length) +
+    sectionHeader("2 · DJs without profile (will use site root)", djsWithRadio.length) +
     djsWithRadio.map(renderRow).join("") +
     sectionHeader("3 · Users (listeners)", users.length) +
     users.map(renderRow).join("");

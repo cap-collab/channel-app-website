@@ -28,7 +28,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     const items: MobileMenuItem[] = [];
 
     // Home - always first
-    items.push({ label: "Home", href: "/radio", active: currentPage === "channel" });
+    items.push({ label: "Home", href: "/", active: currentPage === "channel" });
 
     // Explore - always shown
     items.push({ label: "Explore", href: "/explore", active: currentPage === "explore" });
@@ -58,7 +58,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
           {/* Left side: Logo */}
           <div className="flex items-center gap-3">
             <Link
-              href="/radio"
+              href="/"
               className="flex-shrink-0 cursor-pointer relative z-[1000]"
               style={{ pointerEvents: 'auto' }}
             >

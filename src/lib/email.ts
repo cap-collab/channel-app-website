@@ -39,7 +39,7 @@ function getStationWebsiteUrl(metadataStationId: string): string {
     subtle: "https://www.subtleradio.com/",
     sutro: "https://sutrofm.net/",
     newtown: "https://newtownradio.com",
-    broadcast: "https://channel-app.com/radio",
+    broadcast: "https://channel-app.com/",
   };
   return websiteUrls[metadataStationId] || getStationDeepLink(metadataStationId);
 }
@@ -242,11 +242,11 @@ export async function sendShowStartingEmail({
   // Prefer resolved DJ profile username (from p field), fall back to raw dj name
   const djDisplayName = djUsername || djName || showName;
 
-  // Channel Radio → "Tune In" → /radio
+  // Channel Radio → "Tune In" → home
   // External stations → "Tune In" → station website
   const isChannelRadio = stationId === "broadcast";
   const buttonUrl = isChannelRadio
-    ? "https://channel-app.com/radio"
+    ? "https://channel-app.com/"
     : getStationWebsiteUrl(stationId);
   const buttonText = "Tune In";
 

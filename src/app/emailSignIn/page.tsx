@@ -89,8 +89,8 @@ export default function EmailSignInPage() {
 
       setStatus("success");
 
-      // Redirect to stored destination or default to /radio
-      const redirectTo = window.localStorage.getItem('authRedirectTo') || (djTermsAccepted ? '/studio' : '/radio');
+      // Redirect to stored destination or default to home
+      const redirectTo = window.localStorage.getItem('authRedirectTo') || (djTermsAccepted ? '/studio' : '/');
       window.localStorage.removeItem('authRedirectTo');
       setTimeout(() => {
         window.location.href = redirectTo;
@@ -212,7 +212,7 @@ export default function EmailSignInPage() {
             {/* Go to Channel button hidden */}
             {false && (
               <a
-                href="/radio"
+                href="/"
                 className="inline-block mt-4 w-full py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-all"
               >
                 Go to Channel

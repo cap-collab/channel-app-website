@@ -27,7 +27,7 @@ function getFirebaseApp() {
 }
 
 // Channel app deep link for the broadcast station
-const CHANNEL_BROADCAST_URL = 'https://channel-app.com/radio';
+const CHANNEL_BROADCAST_URL = 'https://channel-app.com/';
 
 interface LiveIndicatorProps {
   slot: BroadcastSlotSerialized | null;
