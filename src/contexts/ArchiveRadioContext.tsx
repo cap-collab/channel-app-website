@@ -3,7 +3,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type MutableRefObject } from 'react';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchiveRadio } from '@/hooks/useArchiveRadio';
-import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import type { ArchiveSerialized, ScheduleItem } from '@/types/broadcast';
 
 interface ArchiveRadioContextValue {
@@ -58,15 +57,16 @@ const ArchiveRadioContext = createContext<ArchiveRadioContextValue | null>(null)
 // don't render the provider, so consumers see null and behave as before.
 export function ArchiveRadioProvider({ children, enabled }: { children: ReactNode; enabled: boolean }) {
   const archivePlayer = useArchivePlayer();
-  const broadcast = useBroadcastStreamContext();
-  // Live broadcast wins (we don't run two streams at once). The radio stays
-  // "alive" even if a regular archive is loaded — we don't want the audio
-  // elements to be torn down, otherwise the play button breaks after the
-  // listener comes back from playing an archive. Coexistence (pause the
-  // other side on play) is handled by the toggle/play callbacks below.
-  const showLive = broadcast.isLive && broadcast.isStreaming;
+  // Radio audio elements stay "alive" as long as the provider is mounted.
+  // Don't gate on live or archive state — tearing down the audio on
+  // showLive flips false would pause the radio when a live broadcast goes
+  // live, which contradicts the rule "live becoming live must NEVER
+  // interrupt the radio". Single-source coordination is handled by the
+  // explicit user-action paths (toggle/play in this context pause the
+  // others, and ArchivePlayer.play pauses the radio via the playArchive
+  // helper).
   const radio = useArchiveRadio({
-    active: enabled && !showLive,
+    active: enabled,
   });
   const toggle = useCallback(async () => {
     const willPlay = !radio.isPlaying;
