@@ -267,20 +267,30 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
   // Auto-switch to live only when a NEW broadcast starts and no archive is loaded
   // Auto-switch to archive when broadcast ends
+  // /demo: never auto-pauses or auto-snaps. If the listener is already
+  // listening to something (radio or a regular archive), live just becomes
+  // available — the slide 0 image shows live + the "Switch to Live Radio"
+  // button in the header strip lets the listener switch manually.
   const prevIsLiveRef = useRef(isLive);
   useEffect(() => {
     const wasLive = prevIsLiveRef.current;
     prevIsLiveRef.current = isLive;
 
-    // Broadcast just started — only switch to live if no archive is loaded
+    // Broadcast just started — only switch to live if no archive is loaded.
+    // On /demo, don't snap or pause; let the listener choose via the switch
+    // button.
     if (isLive && !wasLive && !archivePlayer.currentArchive) {
-      setUserSelectedMode('live');
-      // /demo: also snap the carousel to slide 0 (where live now lives) and
-      // pause the radio so the listener actually hears the new broadcast.
-      if (demoMode) {
-        setHeroIndex(0);
-        if (radioCtx?.isPlaying) radioCtx.pause();
-      }
+      if (!demoMode) setUserSelectedMode('live');
+    }
+    // /demo: when live starts and the listener is currently hearing
+    // something (radio or archive), auto-swipe them to slide 1 so they keep
+    // seeing the image of what they're hearing. Slide 0 now shows the live
+    // image as an option, with the "Switch to Live Radio" red strip above
+    // slide 1 letting them swap if they want.
+    if (demoMode && isLive && !wasLive) {
+      const somethingPlaying =
+        !!radioCtx?.isPlaying || !!archivePlayer.isPlaying || !!archivePlayer.currentArchive;
+      if (somethingPlaying) setHeroIndex(1);
     }
     // Broadcast ended
     if (!isLive && wasLive) {
@@ -392,7 +402,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     if (!demoMode) return null;
     if (maxHeroSlides === 1) return null;
     if (archivePlayer.currentArchive) return archivePlayer.currentArchive;
-    if (showLiveInHero && radioCurrentArchiveId) {
+    // When live is on (regardless of userSelectedMode), slide 1 falls back
+    // to the radio's currently-playing archive so the listener still has
+    // access to the radio image alongside live.
+    if (isLive && radioCurrentArchiveId) {
       const radioArchive = archives.find((a) => a.id === radioCurrentArchiveId);
       if (radioArchive) return radioArchive;
     }
@@ -420,7 +433,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       if (match) return match;
     }
     return candidates[1] ?? candidates[0] ?? null;
-  }, [archivePlayer.currentArchive, archives, demoMode, djSceneMap, heroArchives, maxHeroSlides, radioCurrentArchiveId, showLiveInHero]);
+  }, [archivePlayer.currentArchive, archives, demoMode, djSceneMap, heroArchives, isLive, maxHeroSlides, radioCurrentArchiveId]);
 
   const [heroIndex, setHeroIndex] = useState(0);
   const heroTouchRef = useRef<{ startX: number; startY: number } | null>(null);
