@@ -165,7 +165,9 @@ export function buildQueue(opts: BuildQueueOptions): BuildQueueResult {
   }
 
   const lastOffsetById = new Map<string, number>();
-  const repeatWindows = [6 * 3600, 3 * 3600, 1 * 3600, 0];
+  // Block the same archive id from repeating within this many seconds.
+  // Relaxes step-by-step if the catalog is too small to fill 24h otherwise.
+  const repeatWindows = [8 * 3600, 4 * 3600, 1 * 3600, 0];
   let cursor = 0;
 
   while (cursor < target) {
