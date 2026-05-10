@@ -304,10 +304,16 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     // Broadcast ended
     if (!isLive && wasLive) {
       setUserSelectedMode('archive');
-      // /demo: snap the carousel back to slide 0 — slide 0 is now the
-      // radio archive again (live image is gone). Slide 1 will recompute
-      // to an opposite-scene alternative on its own.
-      if (demoMode) setHeroIndex(0);
+      // /demo: snap the carousel to whichever slide the playing source is
+      // on, so the listener visually lands on what they're hearing
+      // (audio uninterrupted in all cases).
+      //   - Nothing playing → slide 0 (radio archive image, page default).
+      //   - Radio playing → slide 0 (radio is now the slide 0 image).
+      //   - Archive playing → slide 1 (the archive lives there).
+      if (demoMode) {
+        const archivePlaying = !!archivePlayer.isPlaying;
+        setHeroIndex(archivePlaying ? 1 : 0);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLive, archivePlayer.currentArchive]);
