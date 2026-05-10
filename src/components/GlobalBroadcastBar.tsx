@@ -359,6 +359,15 @@ export function GlobalBroadcastBar() {
             )}
           </Link>
 
+          {/* Pulsing red dot — same as live, marks the radio as a synced
+              stream. No BPM. */}
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+            </span>
+          </div>
+
           {/* DJ profile link */}
           {profileSlug && (
             <Link href={`/dj/${profileSlug}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">

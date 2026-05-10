@@ -950,6 +950,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     />
                   ) : null}
                 </div>
+                {/* Pulsing red dot — same as live, marks "live audio" feel
+                    on the radio (it's a synced stream, not a static archive). */}
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                  </span>
+                </div>
                 {radioDjUsernameNormalized && (
                   <Link href={`/dj/${radioDjUsernameNormalized}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
