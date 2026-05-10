@@ -713,9 +713,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             // /demo: switch button only shows on slide 1 AND only when
             // slide 0's source isn't already playing (no point telling the
             // listener to switch to what they're already hearing).
+            // Also suppress when live just started and nothing else is
+            // playing — the auto-snap-to-slide-0 effect will move the
+            // listener to slide 0 in the next tick; showing a switch here
+            // would flash for a frame.
             if (demoMode && heroIndex >= 1) {
               const slide0IsPlaying = isLive ? isLivePlaying : !!radioCtx?.isPlaying;
               if (slide0IsPlaying) return <span />;
+              const nothingPlaying = !radioCtx?.isPlaying && !archivePlayer.isPlaying && !archivePlayer.currentArchive && !isLivePlaying;
+              if (isLive && nothingPlaying) return <span />;
               if (isLive) {
                 return (
                   <button
