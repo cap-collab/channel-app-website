@@ -710,9 +710,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               the legacy "Next live at" copy for a "Back to Live/Radio"
               action that pauses the archive and resumes the page default. */}
           {(() => {
-            // /demo, slide 1 (archive) visible: show a switch action that
-            // returns the listener to slide 0 (live or radio).
+            // /demo: switch button only shows on slide 1 AND only when
+            // slide 0's source isn't already playing (no point telling the
+            // listener to switch to what they're already hearing).
             if (demoMode && heroIndex >= 1) {
+              const slide0IsPlaying = isLive ? isLivePlaying : !!radioCtx?.isPlaying;
+              if (slide0IsPlaying) return <span />;
               if (isLive) {
                 return (
                   <button
@@ -737,9 +740,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </button>
               );
             }
-            // Slide 0 (live or radio). Same as /radio's existing strip:
-            // next-live hint when offline, switch-to-live when an archive is
-            // playing (legacy fallback), nothing while live is playing.
+            // /demo slide 0: never show a switch (you're already on it).
+            if (demoMode) return <span />;
+            // /radio (legacy) slide 0: existing "next live at" + "switch to
+            // live when an archive is playing" hint behaviour.
             if (showLiveInHero) return <span />;
             if (isLive) {
               return (
