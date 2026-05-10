@@ -128,13 +128,17 @@ export function GlobalBroadcastBar() {
 
   // Radio (continuous archive radio) DJ wiring — mirrors archive's love/tip
   // setup so the radio bar gets the same icons as live.
-  const radioPrimaryDj = radioCtx?.currentItem?.djs?.[0];
+  // Single source of truth: resolve the radio's current archive doc and read
+  // username/scene/tip/photo from there (not from denormalized fields on
+  // the schedule item).
+  const radioArchive = radioCtx?.currentArchive ?? null;
+  const radioPrimaryDj = radioArchive?.djs?.[0];
   const radioDjProfileUsername = radioPrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
   const radioDjProfile = useDJProfileInfo(radioPrimaryDj?.username);
   const radioTipLink = radioDjProfile.tipButtonLink;
   const { sendLove: radioSendLove } = useDJProfileChat({
     chatUsernameNormalized: radioDjProfileUsername,
-    djUsername: radioCtx?.currentItem?.djs?.map(d => d.name).join(', ') || '',
+    djUsername: radioArchive?.djs?.map(d => d.name).join(', ') || '',
     username: chatUsername || undefined,
     enabled: false,
     lockedInMessagesEnabled: showLockedInMessages,
@@ -314,13 +318,13 @@ export function GlobalBroadcastBar() {
   // zinc-400 "Restream" label). Same play, scrolling text, profile link,
   // love button, tip widgets.
   if (barMode === 'radio' && radioCtx) {
-    const item = radioCtx.currentItem;
-    const radioTitle = item?.title || 'Archive radio';
-    const radioDjs = item?.djs?.map((d) => d.name).join(', ') || '';
-    const profileSlug = radioPrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
-    // Scene glyph — read from the denormalized sceneSlugs on the schedule
-    // item (cron writes them on every doc; backfill script handles archives).
-    const radioSceneSlug = item?.sceneSlugs ? pickSceneSlug(item.sceneSlugs) : null;
+    const radioTitle = radioArchive?.showName || radioCtx.currentItem?.title || 'Archive radio';
+    const radioDjs = radioArchive?.djs?.map((d) => d.name).join(', ') || '';
+    const profileSlug = radioDjProfileUsername;
+    // Scene glyph — resolved live from the archive doc.
+    const radioSceneSlug = radioArchive
+      ? pickSceneSlug(resolveArchiveScenes(radioArchive, djSceneMap))
+      : null;
     return (
       <div className={`z-[99] bg-black border-b border-white/10 overflow-hidden transition-all duration-200 ${hiddenOnRadio ? 'opacity-0 -translate-y-full h-0 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
         <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">

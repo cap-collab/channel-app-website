@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchiveRadio } from '@/hooks/useArchiveRadio';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
-import type { ScheduleItem } from '@/types/broadcast';
+import type { ArchiveSerialized, ScheduleItem } from '@/types/broadcast';
 
 interface ArchiveRadioContextValue {
   enabled: boolean;
@@ -29,6 +29,11 @@ interface ArchiveRadioContextValue {
   // 0 = slide 0 (live or radio), 1 = slide 1 (archive). Set by ArchiveHero.
   visibleSlide: 0 | 1;
   setVisibleSlide: (slide: 0 | 1) => void;
+  // Resolved archive doc for the currently-playing radio item — looked up in
+  // the archives list set by ArchiveHero. Single source of truth: scene,
+  // username, photo, tip-link all come from here, no denormalization.
+  currentArchive: ArchiveSerialized | null;
+  setArchives: (archives: ArchiveSerialized[]) => void;
 }
 
 const ArchiveRadioContext = createContext<ArchiveRadioContextValue | null>(null);
@@ -62,6 +67,17 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   }, [radio, archivePlayer]);
 
   const [visibleSlide, setVisibleSlide] = useState<0 | 1>(0);
+  const [archives, setArchives] = useState<ArchiveSerialized[]>([]);
+
+  // Resolve the current archive doc from the schedule item's id. This is the
+  // single source of truth for scene/username/photo/tip — same data the rest
+  // of the hero uses, so when an admin edits a DJ profile the radio bar
+  // picks it up without a schedule regen.
+  const currentArchive = useMemo<ArchiveSerialized | null>(() => {
+    const id = radio.currentItem?.archiveId;
+    if (!id) return null;
+    return archives.find((a) => a.id === id) ?? null;
+  }, [radio.currentItem?.archiveId, archives]);
 
   const value = useMemo<ArchiveRadioContextValue>(() => ({
     enabled,
@@ -80,10 +96,13 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     pause: radio.pause,
     visibleSlide,
     setVisibleSlide,
+    currentArchive,
+    setArchives,
   }), [
     enabled, radio.ready, radio.isPlaying, radio.isLoading, radio.error,
     radio.currentItem, radio.nextItem, radio.itemSeekSec, radio.itemDurationSec,
     radio.itemStartMs, radio.itemEndMs, radio.pause, toggle, play, visibleSlide,
+    currentArchive,
   ]);
 
   return (

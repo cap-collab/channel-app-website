@@ -298,15 +298,18 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // changes.
   const radioCtx = useArchiveRadioContext();
   const radioCurrentArchiveId = demoMode ? (radioCtx?.currentItem?.archiveId ?? null) : null;
-  // Radio DJ → tip + love wiring for the inline player bar.
-  const radioPrimaryDj = radioCtx?.currentItem?.djs?.[0];
+  // Single source of truth: radioCtx resolves the archive doc from the
+  // schedule item's id. All bar metadata (scene, username, tip, photo) reads
+  // from there — same data the rest of the hero uses.
+  const radioArchive = radioCtx?.currentArchive ?? null;
+  const radioPrimaryDj = radioArchive?.djs?.[0];
   const radioDjUsername = radioPrimaryDj?.username || '';
   const radioDjUsernameNormalized = radioDjUsername.replace(/\s+/g, '').toLowerCase();
   const radioDjProfile = useDJProfileInfo(radioDjUsername || undefined);
   const radioTipLink = radioDjProfile.tipButtonLink;
   const { sendLove: radioSendLove } = useDJProfileChat({
     chatUsernameNormalized: radioDjUsernameNormalized,
-    djUsername: radioCtx?.currentItem?.djs?.map(d => d.name).join(', ') || '',
+    djUsername: radioArchive?.djs?.map(d => d.name).join(', ') || '',
     username: chatUsername || undefined,
     enabled: false,
     userId: user?.uid,
@@ -318,7 +321,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     setRadioHeartTrigger((prev) => prev + 1);
     try { await radioSendLove(); } catch (err) { console.error('radio love failed', err); }
   }, [radioSendLove]);
-  const radioSceneSlug = radioCtx?.currentItem?.sceneSlugs?.find((s) => s !== 'grid') || null;
+  const radioSceneSlug = radioArchive
+    ? resolveArchiveScenes(radioArchive, djSceneMap).find((s) => s !== 'grid') || null
+    : null;
 
 
   // When a scene filter is actively narrowing the set (shared `?scene=` link or
@@ -473,6 +478,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     if (!demoMode || !radioCtx) return;
     radioCtx.setVisibleSlide(heroIndex >= 1 ? 1 : 0);
   }, [demoMode, heroIndex, radioCtx]);
+
+  // /demo: hand the archives list to the radio context so it can resolve
+  // currentArchive from currentItem.archiveId. Single source of truth — no
+  // denormalized scene/username on schedule items needed.
+  useEffect(() => {
+    if (!demoMode || !radioCtx) return;
+    radioCtx.setArchives(archives);
+  }, [demoMode, archives, radioCtx]);
 
   // /demo: when the visible slide changes, pause the source that doesn't
   // belong to the now-visible slide so we don't double-play. We don't touch
@@ -940,12 +953,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </div>
                 <div className="flex-1 min-w-0">
                   <ScrollingShowName
-                    text={radioCtx.currentItem?.title || (radioCtx.ready ? 'No archive scheduled' : 'Loading…')}
+                    text={radioArchive?.showName || radioCtx.currentItem?.title || (radioCtx.ready ? 'No archive scheduled' : 'Loading…')}
                     className="text-sm font-bold leading-tight text-white"
                   />
-                  {radioCtx.currentItem?.djs?.length ? (
+                  {radioArchive?.djs?.length ? (
                     <ScrollingDJName
-                      text={radioCtx.currentItem.djs.map((d) => d.name).join(', ')}
+                      text={radioArchive.djs.map((d) => d.name).join(', ')}
                       className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]"
                     />
                   ) : null}
@@ -976,7 +989,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </div>
                 {radioTipLink && (
                   <TipButton
-                    djUsername={radioCtx.currentItem?.djs?.[0]?.name || 'DJ'}
+                    djUsername={radioPrimaryDj?.name || 'DJ'}
                     tipLink={radioTipLink}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
                   />
