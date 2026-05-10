@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchiveRadio } from '@/hooks/useArchiveRadio';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
@@ -61,6 +61,18 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     if (willPlay && archivePlayer.isPlaying) archivePlayer.pause();
     await radio.toggle();
   }, [radio, archivePlayer]);
+
+  // Single-source rule: when a regular archive starts playing or live becomes
+  // active, pause the radio. Mirrors the existing /radio coordination where
+  // archivePlayer.play already pauses the live broadcast — radio joins the
+  // same dance, so we never have two streams playing.
+  useEffect(() => {
+    if (radio.isPlaying && archivePlayer.isPlaying) radio.pause();
+  }, [archivePlayer.isPlaying, radio]);
+  useEffect(() => {
+    if (radio.isPlaying && showLive) radio.pause();
+  }, [showLive, radio]);
+
   const play = useCallback(async () => {
     if (archivePlayer.isPlaying) archivePlayer.pause();
     await radio.play();

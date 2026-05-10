@@ -436,6 +436,7 @@ export function GlobalBroadcastBar() {
               if (archivePlayer.currentArchive) {
                 archivePlayer.toggle();
               } else if (displayArchive) {
+                if (radioCtx?.isPlaying) radioCtx.pause();
                 archivePlayer.play(displayArchive);
               }
             }}

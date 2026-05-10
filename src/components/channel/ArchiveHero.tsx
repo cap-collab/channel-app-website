@@ -22,7 +22,6 @@ import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
 import { AuthModal } from '@/components/AuthModal';
 import { ArchiveSerialized } from '@/types/broadcast';
-import { ContinuousArchiveSlide } from './ContinuousArchivePlayerCard';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 
 function formatTime(seconds: number): string {
@@ -334,6 +333,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const radioSceneSlug = radioArchive
     ? resolveArchiveScenes(radioArchive, djSceneMap).find((s) => s !== 'grid') || null
     : null;
+
+  // Single-source rule: starting a regular archive must pause the radio
+  // (archivePlayer.play already pauses the live broadcast). Mirrors the
+  // existing live↔archive pattern. Used everywhere archivePlayer.play is
+  // called on /radio + /demo, so the radio coordinates the same way.
+  const playArchive = useCallback((archive: ArchiveSerialized) => {
+    if (radioCtx?.isPlaying) radioCtx.pause();
+    archivePlayer.play(archive);
+  }, [archivePlayer, radioCtx]);
 
 
   // When a scene filter is actively narrowing the set (shared `?scene=` link or
@@ -798,7 +806,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               >
                 {demoMode ? (
                   <>
-                    <div key="slide-0" className="relative w-full flex-shrink-0">
+                    <div key="slide-0" className="relative w-full flex-shrink-0 flex flex-col">
                       {/* Slide 0: live image when a broadcast is on (regardless
                           of userSelectedMode), else the radio slide. */}
                       {isLive ? (
@@ -832,21 +840,21 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                           )}
                         </div>
                       ) : (() => {
-                        // Slide 0 = archive radio. Prefer a real
-                        // ArchiveSerialized so it reuses HeroSlide's layout.
-                        const radioArchive = radioCtx?.currentItem?.archiveId
+                        // Slide 0 = archive radio. Prefer the resolved archive
+                        // doc so we render a real HeroSlide (DJ overlay, scene
+                        // glyphs, photo). While the schedule loads, fall back
+                        // to the featured archive so the slot isn't an ugly
+                        // placeholder — same trick /radio uses below.
+                        const radioArchive = (radioCtx?.currentItem?.archiveId
                           ? archives.find((a) => a.id === radioCtx.currentItem!.archiveId)
-                          : null;
-                        if (radioArchive) {
-                          return (
-                            <HeroSlide
-                              archive={radioArchive}
-                              sceneSlugs={resolveArchiveScenes(radioArchive, djSceneMap)}
-                              onPlay={() => { void radioCtx?.toggle(); }}
-                            />
-                          );
-                        }
-                        return <ContinuousArchiveSlide currentItem={radioCtx?.currentItem ?? null} />;
+                          : null) ?? featuredArchive;
+                        return (
+                          <HeroSlide
+                            archive={radioArchive}
+                            sceneSlugs={resolveArchiveScenes(radioArchive, djSceneMap)}
+                            onPlay={() => { void radioCtx?.toggle(); }}
+                          />
+                        );
                       })()}
                       {/* Overlay play button — shown when slide 0 isn't the
                           active source. Click triggers the slide's underlying
@@ -870,13 +878,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                       )}
                     </div>
                     {secondHeroArchive && (
-                      <div key={`slide-1-${secondHeroArchive.id}`} className="relative w-full flex-shrink-0">
+                      <div key={`slide-1-${secondHeroArchive.id}`} className="relative w-full flex-shrink-0 flex flex-col">
                         <HeroSlide
                           archive={secondHeroArchive}
                           sceneSlugs={resolveArchiveScenes(secondHeroArchive, djSceneMap)}
                           onPlay={() => {
                             setUserSelectedMode('archive');
-                            archivePlayer.play(secondHeroArchive);
+                            playArchive(secondHeroArchive);
                           }}
                         />
                         {/* Overlay play button — shown when slide 1 isn't the
@@ -886,7 +894,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                           <button
                             onClick={() => {
                               setUserSelectedMode('archive');
-                              archivePlayer.play(secondHeroArchive);
+                              playArchive(secondHeroArchive);
                             }}
                             aria-label="Play this archive"
                             className="absolute inset-0 flex items-center justify-center transition-opacity hover:bg-black/30"
@@ -910,7 +918,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                       sceneSlugs={resolveArchiveScenes(ha, djSceneMap)}
                       onPlay={() => {
                         setUserSelectedMode('archive');
-                        archivePlayer.play(ha);
+                        playArchive(ha);
                       }}
                     />
                   ))
@@ -1176,7 +1184,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                       if (archivePlayer.currentArchive) {
                         archivePlayer.toggle();
                       } else {
-                        archivePlayer.play(displayedArchive);
+                        playArchive(displayedArchive);
                       }
                     }}
                     className="h-[27px] pl-2 pr-1 flex items-center justify-center transition-colors"
@@ -1362,7 +1370,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     if (archivePlayer.currentArchive?.id === archive.id && archivePlayer.isPlaying) {
                       archivePlayer.pause();
                     } else {
-                      setUserSelectedMode('archive'); archivePlayer.play(archive);
+                      setUserSelectedMode('archive'); playArchive(archive);
                     }
                   }}
                 />
