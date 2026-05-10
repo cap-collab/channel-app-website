@@ -1,41 +1,28 @@
 'use client';
 
 import { ChannelClient } from '@/app/radio/ChannelClient';
-import { DemoBroadcastStreamProvider, useDemoMode, DemoMode } from './DemoBroadcastStreamProvider';
+import { ArchiveRadioProvider } from '@/contexts/ArchiveRadioContext';
+import type { ArchiveSerialized } from '@/types/broadcast';
 
-const MODES: { value: DemoMode; label: string }[] = [
-  { value: 'offline', label: 'Offline' },
-  { value: 'live', label: 'Live' },
-  { value: 'restream', label: 'Restream' },
-];
-
-function DemoToggle() {
-  const { mode, setMode } = useDemoMode();
-
+// /radio/demo: same data + providers as /radio, plus the ArchiveRadioProvider
+// so the new continuous-archive radio is mounted. Live state, archives, BPM,
+// etc. all come from the app-level providers — /demo reflects production
+// reality so the auto-switch-to-live behaviour fires the same as /radio.
+export function DemoClient({
+  initialHeroArchives,
+  initialPreferredHero,
+}: {
+  initialHeroArchives?: ArchiveSerialized[];
+  initialPreferredHero?: { spiral: ArchiveSerialized | null; star: ArchiveSerialized | null };
+} = {}) {
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[110]">
-      <div className="inline-flex bg-black/80 backdrop-blur border border-white/20 rounded-full p-0.5 shadow-lg">
-        {MODES.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => setMode(value)}
-            className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-colors ${
-              mode === value ? 'bg-white text-black' : 'text-zinc-300 hover:text-white'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function DemoClient() {
-  return (
-    <DemoBroadcastStreamProvider>
-      <ChannelClient demoMode hidePastShows />
-      <DemoToggle />
-    </DemoBroadcastStreamProvider>
+    <ArchiveRadioProvider enabled>
+      <ChannelClient
+        demoMode
+        hidePastShows
+        initialHeroArchives={initialHeroArchives}
+        initialPreferredHero={initialPreferredHero}
+      />
+    </ArchiveRadioProvider>
   );
 }

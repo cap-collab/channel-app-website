@@ -275,11 +275,18 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     // Broadcast just started — only switch to live if no archive is loaded
     if (isLive && !wasLive && !archivePlayer.currentArchive) {
       setUserSelectedMode('live');
+      // /demo: also snap the carousel to slide 0 (where live now lives) and
+      // pause the radio so the listener actually hears the new broadcast.
+      if (demoMode) {
+        setHeroIndex(0);
+        if (radioCtx?.isPlaying) radioCtx.pause();
+      }
     }
     // Broadcast ended
     if (!isLive && wasLive) {
       setUserSelectedMode('archive');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLive, archivePlayer.currentArchive]);
 
   // Show live in hero when user chose live and broadcast is actually live
@@ -618,12 +625,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               the legacy "Next live at" copy for a "Back to Live/Radio"
               action that pauses the archive and resumes the page default. */}
           {(() => {
-            // /demo, archive bar visible (slide 1 OR a listener archive is
-            // playing): show a switch action to either live (red, with BPM,
-            // matching legacy 'Switch to Live Radio') or archive radio (grey,
-            // no BPM, matching the same pattern but for the radio).
-            const demoArchiveContext = demoMode && (heroIndex >= 1 || archivePlayer.isPlaying || !!archivePlayer.currentArchive);
-            if (demoArchiveContext) {
+            // /demo, slide 1 (archive) visible: show a switch action that
+            // returns the listener to slide 0 (live or radio).
+            if (demoMode && heroIndex >= 1) {
               if (isLive) {
                 return (
                   <button
@@ -648,6 +652,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </button>
               );
             }
+            // Slide 0 (live or radio). Same as /radio's existing strip:
+            // next-live hint when offline, switch-to-live when an archive is
+            // playing (legacy fallback), nothing while live is playing.
             if (showLiveInHero) return <span />;
             if (isLive) {
               return (
