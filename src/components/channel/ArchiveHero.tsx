@@ -616,17 +616,21 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     return currentShow.liveDjUsername || currentShow.djUsername || null;
   })();
 
-  // Primary DJ info — live or archive based
+  // Primary DJ info — live or archive based.
+  // On /demo, slide 0 always renders the live image when isLive (regardless
+  // of userSelectedMode), so the live data must be sourced whenever isLive
+  // is true on demo, not just when showLiveInHero is true.
+  const useLiveData = showLiveInHero || (demoMode && isLive);
   const primaryDJ = displayedArchive.djs[0];
-  const djUsername = showLiveInHero ? (liveDjProfileUsername || primaryDJ?.username) : primaryDJ?.username;
-  const djName = showLiveInHero ? (liveDjName || displayedArchive.djs.map((d) => d.name).join(', ')) : displayedArchive.djs.map((d) => d.name).join(', ');
-  const djPhotoUrl = showLiveInHero ? liveDjPhotoUrl : (displayedArchive.showImageUrl || primaryDJ?.photoUrl);
+  const djUsername = useLiveData ? (liveDjProfileUsername || primaryDJ?.username) : primaryDJ?.username;
+  const djName = useLiveData ? (liveDjName || displayedArchive.djs.map((d) => d.name).join(', ')) : displayedArchive.djs.map((d) => d.name).join(', ');
+  const djPhotoUrl = useLiveData ? liveDjPhotoUrl : (displayedArchive.showImageUrl || primaryDJ?.photoUrl);
 
   // Fetch DJ profile for genres, tip link, and bio (used for live hero)
   const djProfile = useDJProfileInfo(djUsername);
-  const djGenres = showLiveInHero ? liveDjGenres : djProfile.genres;
-  const tipLink = showLiveInHero ? liveTipLink : djProfile.tipButtonLink;
-  const djDescription = showLiveInHero ? liveDjDescription : djProfile.bio;
+  const djGenres = useLiveData ? liveDjGenres : djProfile.genres;
+  const tipLink = useLiveData ? liveTipLink : djProfile.tipButtonLink;
+  const djDescription = useLiveData ? liveDjDescription : djProfile.bio;
 
   // Image error state (for live hero)
   const [imageError, setImageError] = useState(false);
@@ -666,7 +670,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   });
 
 
-  const showName = showLiveInHero ? liveShowName : displayedArchive.showName;
+  const showName = useLiveData ? liveShowName : displayedArchive.showName;
 
   // Next scheduled show within 23 hours (check today + tomorrow)
   const tomorrow = useMemo(() => {
@@ -785,8 +789,35 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </>
               )
             ) : demoMode ? (
-              heroIndex === 0 ? (
-                // Slide 0 = continuous radio. Same restream pill as live-restream.
+              // Pill matches what the visible slide is showing:
+              //   Slide 0 + isLive → Live (red dot, BPM if available)
+              //   Slide 0 + !isLive → Restream (radio archive playing on
+              //     the schedule)
+              //   Slide 1 → Archive (a recorded archive, not live)
+              heroIndex === 0 && isLive ? (
+                isRestream ? (
+                  <>
+                    <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                      <path d="M3 3v5h5" />
+                    </svg>
+                    <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
+                      Restream{liveBPM ? <span className="md:hidden"> {liveBPM} BPM</span> : null}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                    </span>
+                    <span className="text-xs font-mono uppercase tracking-tighter font-bold text-red-500">
+                      Live{liveBPM ? <span className="md:hidden"> {liveBPM} BPM</span> : null}
+                    </span>
+                  </>
+                )
+              ) : heroIndex === 0 ? (
+                // Slide 0 + offline → archive radio. Restream pill (zinc).
                 <>
                   <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -797,8 +828,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   </span>
                 </>
               ) : (
-                // Slide 1 = an archive (listener-picked or alternative).
-                // Same pill styling as Restream, with a box/archive icon.
+                // Slide 1 → archive (listener-picked or alternative).
                 <>
                   <svg className="w-3 h-3 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="3" width="18" height="5" rx="1" />
