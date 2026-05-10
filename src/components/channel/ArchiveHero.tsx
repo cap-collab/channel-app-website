@@ -442,13 +442,16 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   type Slide1Identity = 'archive-engaged' | 'radio' | 'archive-alt';
   const slide1Identity: Slide1Identity = useMemo(() => {
     if (!demoMode) return 'archive-alt';
-    const archiveEngaged =
-      archivePlayer.isPlaying ||
-      (!!archivePlayer.currentArchive && !isLivePlaying && !radioCtx?.isPlaying);
+    // Archive is "engaged" only when it's actively playing or loading.
+    // A merely *loaded* (paused) archive from earlier in the session is
+    // NOT engaged — it would otherwise stick to a stale archive when the
+    // listener moves on to the radio or live and that archive is no
+    // longer in their attention.
+    const archiveEngaged = archivePlayer.isPlaying || archivePlayer.isLoading;
     if (archiveEngaged) return 'archive-engaged';
     if (isLive && radioCurrentArchiveId) return 'radio';
     return 'archive-alt';
-  }, [archivePlayer.currentArchive, archivePlayer.isPlaying, demoMode, isLive, isLivePlaying, radioCtx?.isPlaying, radioCurrentArchiveId]);
+  }, [archivePlayer.isPlaying, archivePlayer.isLoading, demoMode, isLive, radioCurrentArchiveId]);
 
   const secondHeroArchive = useMemo<ArchiveSerialized | null>(() => {
     if (!demoMode) return null;
