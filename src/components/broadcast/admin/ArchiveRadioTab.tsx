@@ -164,7 +164,7 @@ export function ArchiveRadioTab() {
         const all: ArchiveSerialized[] = data.archives ?? [];
         // Match the cron's eligibility: high + medium only, has a recording.
         const eligible = all.filter((a) => {
-          if (!a.recordingUrl || !(a.duration && a.duration >= 30)) return false;
+          if (!a.recordingUrl || !(a.duration && a.duration >= 30 * 60)) return false;
           const p = a.priority || 'medium';
           return p === 'high' || p === 'medium';
         });

@@ -83,7 +83,9 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
     if (priority !== 'high' && priority !== 'medium') continue;
     const recordingUrl: string | undefined = d.recordingUrl;
     const durationSec: number = Number(d.duration || 0);
-    if (!recordingUrl || !durationSec || durationSec < 30) continue;
+    // Skip stubs and short archives — anything under 30 minutes isn't worth
+    // scheduling (would clutter the day with rapid-fire short items).
+    if (!recordingUrl || !durationSec || durationSec < 30 * 60) continue;
     const djsRaw: Array<{ name?: string; username?: string; userId?: string; photoUrl?: string }> = Array.isArray(d.djs) ? d.djs : [];
     const djs = djsRaw
       .filter((dj): dj is { name: string; username?: string; userId?: string; photoUrl?: string } => typeof dj?.name === 'string' && dj.name.length > 0)
