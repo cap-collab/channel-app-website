@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type MutableRefObject } from 'react';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchiveRadio } from '@/hooks/useArchiveRadio';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
@@ -34,6 +34,12 @@ interface ArchiveRadioContextValue {
   // username, photo, tip-link all come from here, no denormalization.
   currentArchive: ArchiveSerialized | null;
   setArchives: (archives: ArchiveSerialized[]) => void;
+  // Listen-milestone refs — same shape as ArchivePlayerContext +
+  // BroadcastStreamContext. GlobalBroadcastBar populates these with the
+  // radio DJ's chat handlers; the context fires them at 5 min (nudge) and
+  // 15 min (locked-in) of cumulative listen time on each radio archive.
+  onLockedInRef: MutableRefObject<(() => void) | null>;
+  onListenMilestoneRef: MutableRefObject<(() => void) | null>;
 }
 
 const ArchiveRadioContext = createContext<ArchiveRadioContextValue | null>(null);
@@ -94,6 +100,43 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     return archives.find((a) => a.id === id) ?? null;
   }, [radio.currentItem?.archiveId, archives]);
 
+  // Listen-milestone tracking — mirrors ArchivePlayerContext's per-archive
+  // cumulative timer. Each radio archive ticks while the radio is playing;
+  // at 5 min fire the heart-nudge, at 15 min fire the locked-in message.
+  // Counters reset whenever the schedule rolls to a new archive.
+  const onLockedInRef = useRef<(() => void) | null>(null);
+  const onListenMilestoneRef = useRef<(() => void) | null>(null);
+  const cumulativeSecRef = useRef(0);
+  const milestoneFiredForRef = useRef<string | null>(null);
+  const lockedInFiredForRef = useRef<string | null>(null);
+  const playingArchiveIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = radio.currentItem?.archiveId ?? null;
+    if (id !== playingArchiveIdRef.current) {
+      // Schedule rolled to a new archive — reset the counters so the next
+      // 5/15-min triggers are fresh.
+      playingArchiveIdRef.current = id;
+      cumulativeSecRef.current = 0;
+    }
+  }, [radio.currentItem?.archiveId]);
+  useEffect(() => {
+    if (!radio.isPlaying) return;
+    const interval = setInterval(() => {
+      cumulativeSecRef.current += 1;
+      const id = playingArchiveIdRef.current;
+      if (!id) return;
+      if (cumulativeSecRef.current >= 300 && milestoneFiredForRef.current !== id) {
+        milestoneFiredForRef.current = id;
+        onListenMilestoneRef.current?.();
+      }
+      if (cumulativeSecRef.current >= 900 && lockedInFiredForRef.current !== id) {
+        lockedInFiredForRef.current = id;
+        onLockedInRef.current?.();
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [radio.isPlaying]);
+
   const value = useMemo<ArchiveRadioContextValue>(() => ({
     enabled,
     ready: radio.ready,
@@ -113,6 +156,8 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     setVisibleSlide,
     currentArchive,
     setArchives,
+    onLockedInRef,
+    onListenMilestoneRef,
   }), [
     enabled, radio.ready, radio.isPlaying, radio.isLoading, radio.error,
     radio.currentItem, radio.nextItem, radio.itemSeekSec, radio.itemDurationSec,

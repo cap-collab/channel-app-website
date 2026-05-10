@@ -136,7 +136,7 @@ export function GlobalBroadcastBar() {
   const radioDjProfileUsername = radioPrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
   const radioDjProfile = useDJProfileInfo(radioPrimaryDj?.username);
   const radioTipLink = radioDjProfile.tipButtonLink;
-  const { sendLove: radioSendLove } = useDJProfileChat({
+  const { sendLove: radioSendLove, sendLockedIn: radioSendLockedIn } = useDJProfileChat({
     chatUsernameNormalized: radioDjProfileUsername,
     djUsername: radioArchive?.djs?.map(d => d.name).join(', ') || '',
     username: chatUsername || undefined,
@@ -156,6 +156,20 @@ export function GlobalBroadcastBar() {
       console.error('Failed to send radio love:', err);
     }
   }, [radioSendLove]);
+
+  // Wire radio listen-milestone refs — same pattern as live + archive.
+  // The context fires onListenMilestone at 5 min and onLockedIn at 15 min
+  // of cumulative listen time on each radio archive.
+  useEffect(() => {
+    if (!radioCtx) return;
+    radioCtx.onLockedInRef.current = radioSendLockedIn;
+    radioCtx.onListenMilestoneRef.current = nudge;
+    return () => {
+      if (!radioCtx) return;
+      radioCtx.onLockedInRef.current = null;
+      radioCtx.onListenMilestoneRef.current = null;
+    };
+  }, [radioCtx, radioSendLockedIn, nudge]);
 
   // Wire "locked in" callbacks to the timer refs in stream contexts
   useEffect(() => {
