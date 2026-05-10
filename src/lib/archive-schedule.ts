@@ -154,7 +154,10 @@ export function slotSpanFor(durationSec: number, slotDurationSec: number): numbe
 // goes if the catalog can't fill the day otherwise).
 export function buildQueue(opts: BuildQueueOptions): BuildQueueResult {
   const target = opts.targetDurationSec ?? DAY_SECONDS;
-  const layout = opts.layout ?? 'slotted';
+  // Default to 'continuous' (back-to-back). 'slotted' (hourly alignment) is
+  // kept as an option but unused in production — short archives in slotted
+  // mode left silent gaps until the next hour boundary.
+  const layout = opts.layout ?? 'continuous';
   const slotDurationSec = opts.slotDurationSec ?? 3600;
   const rng = opts.rng ?? Math.random;
   const items: ScheduleItem[] = [];

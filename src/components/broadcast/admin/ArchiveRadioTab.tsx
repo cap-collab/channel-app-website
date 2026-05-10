@@ -5,9 +5,6 @@ import Image from 'next/image';
 import { ArchiveSerialized } from '@/types/broadcast';
 import { offsetUtcId, todayUtcId } from '@/lib/archive-schedule';
 
-const SLOT_SEC = 3600;
-const SLOTS_PER_DAY = 24;
-
 // A single editable item in the schedule. Mirrors ScheduleItem but only the
 // fields the admin UI needs to show/save.
 interface UIItem {
@@ -19,8 +16,6 @@ interface UIItem {
   djs?: { name: string; username?: string; photoUrl?: string }[];
   artworkUrl?: string;
   archiveId?: string;
-  // Computed: how many hourly slots this item should occupy.
-  span: number;
 }
 
 interface DayDoc {
@@ -30,23 +25,20 @@ interface DayDoc {
   generatedAtMs?: number;
   generatedBy?: 'cron' | 'admin';
   locked?: boolean;
-  items?: Array<Omit<UIItem, 'span'>>;
+  items?: Array<UIItem>;
   eligibleArchiveCount?: number | null;
 }
 
-function computeSpan(durationSec: number): number {
-  if (!durationSec) return 1;
-  return Math.max(1, Math.round(durationSec / SLOT_SEC));
-}
-
-// Convert a UTC schedule day + hour offset into a Pacific-Time clock label
-// (e.g. "5 PM"). The schedule is keyed by UTC date because storage spans
-// timezones, but the admin UI shows PT so it matches what the admin sees.
-function formatHour(slotIndex: number, dayId: string): string {
-  const utcMoment = new Date(`${dayId}T${String(slotIndex % 24).padStart(2, '0')}:00:00.000Z`);
+// Convert a UTC schedule day + offset-in-seconds into a Pacific-Time clock
+// label (e.g. "5:42 PM"). The schedule is keyed by UTC date because storage
+// spans timezones, but the admin UI shows PT to match what the admin sees.
+function formatClockOffset(offsetSec: number, dayId: string): string {
+  const utcMoment = new Date(`${dayId}T00:00:00.000Z`);
+  utcMoment.setUTCSeconds(utcMoment.getUTCSeconds() + offsetSec);
   return utcMoment.toLocaleTimeString('en-US', {
     timeZone: 'America/Los_Angeles',
     hour: 'numeric',
+    minute: '2-digit',
     hour12: true,
   });
 }
@@ -76,20 +68,6 @@ function buildDayOptions(): { id: string; label: string }[] {
   });
 }
 
-// Map items into a 24-row slot view. Multi-hour items occupy their `span`
-// adjacent rows; rendering layer groups them visually with rowSpan.
-function itemsToSlotRows(items: UIItem[]): Array<UIItem | null> {
-  const rows: Array<UIItem | null> = new Array(SLOTS_PER_DAY).fill(null);
-  for (const item of items) {
-    const startSlot = Math.round(item.startOffsetSec / SLOT_SEC);
-    if (startSlot < 0 || startSlot >= SLOTS_PER_DAY) continue;
-    rows[startSlot] = item;
-    // Mark following slots as "covered" by setting them to null and letting
-    // the renderer skip them via rowSpan. We use a sentinel by leaving them
-    // null but tracking the span on the head item itself.
-  }
-  return rows;
-}
 
 interface ArchivePickerProps {
   archives: ArchiveSerialized[];
@@ -215,7 +193,6 @@ export function ArchiveRadioTab() {
         djs: it.djs,
         artworkUrl: it.artworkUrl,
         archiveId: it.archiveId,
-        span: computeSpan(it.durationSec),
       })));
     } catch (err) {
       console.error('[ArchiveRadioTab] load day', err);
@@ -230,13 +207,13 @@ export function ArchiveRadioTab() {
   }, [selectedDate, loadDay]);
 
   // Recompute startOffsetSec from current item order whenever the items list
-  // mutates. Keeps the visual slot grid honest after edits.
+  // mutates. Back-to-back packing: each item starts when the previous one
+  // ends. No hourly alignment — matches what the cron writes.
   const reflow = useCallback((arr: UIItem[]): UIItem[] => {
     let cursor = 0;
     return arr.map((it) => {
-      const span = computeSpan(it.durationSec);
-      const next: UIItem = { ...it, span, startOffsetSec: cursor };
-      cursor += span * SLOT_SEC;
+      const next: UIItem = { ...it, startOffsetSec: cursor };
+      cursor += it.durationSec;
       return next;
     });
   }, []);
@@ -329,7 +306,6 @@ export function ArchiveRadioTab() {
         djs: archive.djs?.map((d) => ({ name: d.name, username: d.username, photoUrl: d.photoUrl })),
         artworkUrl: archive.showImageUrl,
         archiveId: archive.id,
-        span: computeSpan(archive.duration || 0),
       };
       return reflow(next);
     });
@@ -337,9 +313,10 @@ export function ArchiveRadioTab() {
     setDirty(true);
   };
 
-  const handleInsert = (slotIndex: number, archive: ArchiveSerialized) => {
-    // Insert at the end (closest to slotIndex) — reflow will land it where
-    // the cursor goes. Simpler than gap-filling and matches typical editing.
+  const handleInsert = (insertIndex: number, archive: ArchiveSerialized) => {
+    // Insert at the given item index (end of list when called from the
+    // "+ add archive" footer). reflow() then recomputes startOffsetSec
+    // back-to-back.
     setItems((prev) => {
       const next = [...prev];
       const newItem: UIItem = {
@@ -350,39 +327,14 @@ export function ArchiveRadioTab() {
         djs: archive.djs?.map((d) => ({ name: d.name, username: d.username, photoUrl: d.photoUrl })),
         artworkUrl: archive.showImageUrl,
         archiveId: archive.id,
-        span: computeSpan(archive.duration || 0),
       };
-      // Find where to splice — insert at the index whose cumulative span
-      // matches the requested slotIndex. Falls back to end if past 24.
-      let cursorSlots = 0;
-      let spliceAt = next.length;
-      for (let i = 0; i < next.length; i++) {
-        if (cursorSlots >= slotIndex) {
-          spliceAt = i;
-          break;
-        }
-        cursorSlots += next[i].span;
-      }
-      next.splice(spliceAt, 0, newItem);
+      const at = Math.min(Math.max(0, insertIndex), next.length);
+      next.splice(at, 0, newItem);
       return reflow(next);
     });
     setPickerSlot(null);
     setDirty(true);
   };
-
-  // Build the 24-row visual grid. Each row either renders the head of a
-  // multi-slot item (with rowSpan) or is a "covered" slot (skipped).
-  const slotRows = useMemo(() => itemsToSlotRows(items), [items]);
-  const covered = useMemo(() => {
-    const set = new Set<number>();
-    let i = 0;
-    for (const it of items) {
-      const span = computeSpan(it.durationSec);
-      for (let s = 1; s < span; s++) set.add(i + s);
-      i += span;
-    }
-    return set;
-  }, [items]);
 
   return (
     <div className="text-white">
@@ -448,87 +400,69 @@ export function ArchiveRadioTab() {
         <div className="border border-white/10">
           <table className="w-full text-sm">
             <tbody>
-              {slotRows.map((slot, slotIndex) => {
-                if (covered.has(slotIndex)) return null; // covered by a multi-slot item above
-                if (slot) {
-                  // Find this item's index in `items`.
-                  const itemIndex = items.findIndex((it) => it.startOffsetSec === slotIndex * SLOT_SEC);
-                  const span = slot.span;
-                  const photo = slot.artworkUrl || slot.djs?.[0]?.photoUrl;
-                  const djs = slot.djs?.map((d) => d.name).join(', ') || '';
-                  return (
-                    <tr key={slotIndex} className="border-b border-white/5 align-top">
-                      <td
-                        rowSpan={span}
-                        className="w-20 px-3 py-3 text-xs font-mono text-zinc-400 border-r border-white/10 align-top"
-                      >
-                        {formatHour(slotIndex, selectedDate)}
-                        {span > 1 && (
-                          <span className="block text-[10px] text-zinc-600 mt-0.5">
-                            → {formatHour(slotIndex + span, selectedDate)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3" colSpan={1}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-zinc-800 flex-shrink-0 overflow-hidden relative">
-                            {photo && (
-                              <Image src={photo} alt="" fill className="object-cover" sizes="48px" />
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-white text-sm font-semibold truncate">{slot.title || '(untitled)'}</div>
-                            <div className="text-zinc-400 text-xs truncate">{djs}</div>
-                            <div className="text-zinc-500 text-[11px]">
-                              {formatDuration(slot.durationSec)} · spans {span}h
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <button
-                              onClick={() => handleMove(itemIndex, -1)}
-                              disabled={itemIndex <= 0}
-                              className="px-2 py-1 text-xs text-zinc-400 hover:text-white disabled:opacity-30"
-                              title="Move up"
-                            >↑</button>
-                            <button
-                              onClick={() => handleMove(itemIndex, 1)}
-                              disabled={itemIndex >= items.length - 1}
-                              className="px-2 py-1 text-xs text-zinc-400 hover:text-white disabled:opacity-30"
-                              title="Move down"
-                            >↓</button>
-                            <button
-                              onClick={() => setPickerSlot(slotIndex)}
-                              className="px-2 py-1 text-xs text-zinc-400 hover:text-white"
-                              title="Swap archive"
-                            >swap</button>
-                            <button
-                              onClick={() => handleRemove(itemIndex)}
-                              className="px-2 py-1 text-xs text-red-400 hover:text-red-300"
-                              title="Remove"
-                            >×</button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                }
-                // Empty slot
+              {items.map((item, itemIndex) => {
+                const photo = item.artworkUrl || item.djs?.[0]?.photoUrl;
+                const djs = item.djs?.map((d) => d.name).join(', ') || '';
+                const startClock = formatClockOffset(item.startOffsetSec, selectedDate);
+                const endClock = formatClockOffset(item.startOffsetSec + item.durationSec, selectedDate);
                 return (
-                  <tr key={slotIndex} className="border-b border-white/5">
-                    <td className="w-20 px-3 py-3 text-xs font-mono text-zinc-500 border-r border-white/10">
-                      {formatHour(slotIndex, selectedDate)}
+                  <tr key={`${item.archiveId}-${itemIndex}`} className="border-b border-white/5 align-top">
+                    <td className="w-28 px-3 py-3 text-xs font-mono text-zinc-400 border-r border-white/10 align-top">
+                      {startClock}
+                      <span className="block text-[10px] text-zinc-600 mt-0.5">→ {endClock}</span>
                     </td>
                     <td className="px-3 py-3">
-                      <button
-                        onClick={() => setPickerSlot(slotIndex)}
-                        className="text-xs text-zinc-500 hover:text-white"
-                      >
-                        + add archive
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-zinc-800 flex-shrink-0 overflow-hidden relative">
+                          {photo && (
+                            <Image src={photo} alt="" fill className="object-cover" sizes="48px" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-white text-sm font-semibold truncate">{item.title || '(untitled)'}</div>
+                          <div className="text-zinc-400 text-xs truncate">{djs}</div>
+                          <div className="text-zinc-500 text-[11px]">{formatDuration(item.durationSec)}</div>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => handleMove(itemIndex, -1)}
+                            disabled={itemIndex <= 0}
+                            className="px-2 py-1 text-xs text-zinc-400 hover:text-white disabled:opacity-30"
+                            title="Move up"
+                          >↑</button>
+                          <button
+                            onClick={() => handleMove(itemIndex, 1)}
+                            disabled={itemIndex >= items.length - 1}
+                            className="px-2 py-1 text-xs text-zinc-400 hover:text-white disabled:opacity-30"
+                            title="Move down"
+                          >↓</button>
+                          <button
+                            onClick={() => setPickerSlot(itemIndex)}
+                            className="px-2 py-1 text-xs text-zinc-400 hover:text-white"
+                            title="Swap archive"
+                          >swap</button>
+                          <button
+                            onClick={() => handleRemove(itemIndex)}
+                            className="px-2 py-1 text-xs text-red-400 hover:text-red-300"
+                            title="Remove"
+                          >×</button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 );
               })}
+              {/* Append-at-end action */}
+              <tr>
+                <td colSpan={2} className="px-3 py-3 text-center">
+                  <button
+                    onClick={() => setPickerSlot(items.length)}
+                    className="text-xs text-zinc-500 hover:text-white"
+                  >
+                    + add archive
+                  </button>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -538,9 +472,10 @@ export function ArchiveRadioTab() {
         <ArchivePicker
           archives={archives}
           onPick={(a) => {
-            const existing = items.findIndex((it) => it.startOffsetSec === pickerSlot * SLOT_SEC);
-            if (existing >= 0) handleSwap(existing, a);
-            else handleInsert(pickerSlot, a);
+            // pickerSlot is now an itemIndex. If it points at an existing
+            // item, swap; if it's past the end, append (insert at end).
+            if (pickerSlot < items.length) handleSwap(pickerSlot, a);
+            else handleInsert(items.length, a);
           }}
           onClose={() => setPickerSlot(null)}
         />
