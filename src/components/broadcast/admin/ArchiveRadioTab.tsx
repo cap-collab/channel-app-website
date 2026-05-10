@@ -184,14 +184,20 @@ export function ArchiveRadioTab() {
         });
       }
       setLoops(next);
-      // Default selection: the loop currently playing.
+      // Default selection: the loop currently playing. If no loops exist,
+      // clear loading so the empty-state UI can render (otherwise the spinner
+      // would stay forever — loadLoop is what flips loading false, and it
+      // only runs once selectedLoopNumber is set).
       setSelectedLoopNumber((prev) => {
         if (prev != null && next.some((l) => l.loopNumber === prev)) return prev;
         const playing = next.find((l) => l.startTimeMs <= Date.now()) ?? next[0];
         return playing ? playing.loopNumber : null;
       });
+      if (next.length === 0) setLoading(false);
     }, (err) => {
       console.error('[ArchiveRadioTab] loops subscribe error', err);
+      setLoading(false);
+      setError(err instanceof Error ? err.message : 'Failed to subscribe to loops');
     });
     return unsub;
   }, []);
