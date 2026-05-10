@@ -304,6 +304,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     // Broadcast ended
     if (!isLive && wasLive) {
       setUserSelectedMode('archive');
+      // /demo: snap the carousel back to slide 0 — slide 0 is now the
+      // radio archive again (live image is gone). Slide 1 will recompute
+      // to an opposite-scene alternative on its own.
+      if (demoMode) setHeroIndex(0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLive, archivePlayer.currentArchive]);
