@@ -29,6 +29,12 @@ interface ArchiveRadioContextValue {
   // 0 = slide 0 (live or radio), 1 = slide 1 (archive). Set by ArchiveHero.
   visibleSlide: 0 | 1;
   setVisibleSlide: (slide: 0 | 1) => void;
+  // True when the inline player below the visible slide represents the
+  // currently-playing source (so the sticky bar can stay hidden). False
+  // when the inline shows a different source than what's actually playing
+  // (sticky bar should appear with the active source's info).
+  inlineCoversActive: boolean;
+  setInlineCoversActive: (covers: boolean) => void;
   // Resolved archive doc for the currently-playing radio item — looked up in
   // the archives list set by ArchiveHero. Single source of truth: scene,
   // username, photo, tip-link all come from here, no denormalization.
@@ -88,6 +94,9 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   }, [radio, archivePlayer]);
 
   const [visibleSlide, setVisibleSlide] = useState<0 | 1>(0);
+  // Defaults to true so the sticky stays hidden until ArchiveHero says
+  // otherwise (avoids a flash of sticky on first paint).
+  const [inlineCoversActive, setInlineCoversActive] = useState(true);
   const [archives, setArchives] = useState<ArchiveSerialized[]>([]);
 
   // Resolve the current archive doc from the schedule item's id. This is the
@@ -154,6 +163,8 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     pause: radio.pause,
     visibleSlide,
     setVisibleSlide,
+    inlineCoversActive,
+    setInlineCoversActive,
     currentArchive,
     setArchives,
     onLockedInRef,
@@ -162,7 +173,7 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     enabled, radio.ready, radio.isPlaying, radio.isLoading, radio.error,
     radio.currentItem, radio.nextItem, radio.itemSeekSec, radio.itemDurationSec,
     radio.itemStartMs, radio.itemEndMs, radio.pause, toggle, play, visibleSlide,
-    currentArchive,
+    inlineCoversActive, currentArchive,
   ]);
 
   return (

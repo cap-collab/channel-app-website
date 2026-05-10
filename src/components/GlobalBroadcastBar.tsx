@@ -230,7 +230,17 @@ export function GlobalBroadcastBar() {
   // On /radio (and /radio/demo), hide while the hero's inline player bar is
   // in view. Before the observer initializes, default to hidden to prevent a
   // flash on load. CSS transition instead of unmounting to avoid flicker.
-  const hiddenOnRadio = (pathname === '/radio' || pathname === '/radio/demo') && (heroBarVisible || !heroBarObserverReady);
+  // Sticky bar visibility on /radio + /radio/demo:
+  // - Hidden while the inline player bar is on screen (existing scroll
+  //   behaviour driven by IntersectionObserver → heroBarVisible).
+  // - On /radio/demo, also force-shown when the inline player below the
+  //   visible slide doesn't represent the active source (the "preview a
+  //   different slide while something else plays" case). The radio context
+  //   publishes inlineCoversActive for that.
+  const onRadioPath = pathname === '/radio' || pathname === '/radio/demo';
+  const inlineHidesSticky = heroBarVisible || !heroBarObserverReady;
+  const demoOverridesSticky = pathname === '/radio/demo' && radioCtx?.enabled && !radioCtx.inlineCoversActive;
+  const hiddenOnRadio = onRadioPath && inlineHidesSticky && !demoOverridesSticky;
 
   const showLiveBar = barMode === 'live';
 
@@ -480,6 +490,18 @@ export function GlobalBroadcastBar() {
             <ScrollingDJName text={archiveDjName} className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]" />
           )}
         </Link>
+
+        {/* Archive-folder source indicator (demo only) — same spot where
+            radio/live bars show the pulsing red dot. */}
+        {radioCtx?.enabled && (
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <svg className="w-3 h-3 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="5" rx="1" />
+              <path d="M5 8v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
+              <path d="M10 12h4" />
+            </svg>
+          </div>
+        )}
 
         {/* DJ profile link */}
         {archiveDjProfileUsername && (

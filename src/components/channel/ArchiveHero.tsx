@@ -533,13 +533,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // follows what's playing via demoBarMode; the hero only moves when the
   // listener manually swipes or clicks a dot/arrow.)
 
-  // /demo: when the visible slide doesn't show the active audio source,
-  // hide the inline bar and let GlobalBroadcastBar take over immediately
-  // (no scroll required). Flip heroBarVisible to false so the sticky shows.
+  // /demo: inline player is always rendered under the visible slide and
+  // mirrors that slide's content. The sticky bar takes over only when the
+  // visible slide's source isn't what's actively playing — that signal is
+  // published to ArchiveRadioContext (inlineCoversActive) and read by
+  // GlobalBroadcastBar.
   useEffect(() => {
-    if (!demoMode) return;
-    setHeroBarVisible(demoSlideShowsActive);
-  }, [demoMode, demoSlideShowsActive, setHeroBarVisible]);
+    if (!demoMode || !radioCtx) return;
+    radioCtx.setInlineCoversActive(demoSlideShowsActive);
+  }, [demoMode, demoSlideShowsActive, radioCtx]);
 
   // Publish what the hero is showing so GlobalBroadcastBar can mirror it.
   useEffect(() => {
@@ -856,26 +858,38 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                           />
                         );
                       })()}
-                      {/* Overlay play button — shown when slide 0 isn't the
-                          active source. Click triggers the slide's underlying
-                          onPlay (radio toggle / live play). Visual matches
-                          ArchiveGridCard's centered overlay. */}
-                      {demoActiveSlide !== 0 && (
-                        <button
-                          onClick={() => {
-                            if (isLive) { setUserSelectedMode('live'); playLive(); }
-                            else { void radioCtx?.toggle(); }
-                          }}
-                          aria-label="Play this"
-                          className="absolute inset-0 flex items-center justify-center transition-opacity hover:bg-black/30"
-                        >
-                          <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
-                            <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                          </div>
-                        </button>
-                      )}
+                      {/* Overlay play/pause button — always shown on /demo.
+                          Pause icon when this slide's source is the active
+                          one and playing; play icon otherwise. Click toggles. */}
+                      {(() => {
+                        const slideIsPlaying = isLive ? isLivePlaying : !!radioCtx?.isPlaying;
+                        return (
+                          <button
+                            onClick={() => {
+                              if (isLive) {
+                                if (isLivePlaying) toggleLive();
+                                else { setUserSelectedMode('live'); playLive(); }
+                              } else {
+                                void radioCtx?.toggle();
+                              }
+                            }}
+                            aria-label={slideIsPlaying ? 'Pause' : 'Play this'}
+                            className="absolute inset-0 flex items-center justify-center transition-opacity hover:bg-black/30"
+                          >
+                            <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
+                              {slideIsPlaying ? (
+                                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                                </svg>
+                              ) : (
+                                <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M8 5v14l11-7z" />
+                                </svg>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })()}
                     </div>
                     {secondHeroArchive && (
                       <div key={`slide-1-${secondHeroArchive.id}`} className="relative w-full flex-shrink-0 flex flex-col">
@@ -887,25 +901,40 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                             playArchive(secondHeroArchive);
                           }}
                         />
-                        {/* Overlay play button — shown when slide 1 isn't the
-                            active source (i.e. this archive isn't currently
-                            playing). Same visual as slide 0. */}
-                        {demoActiveSlide !== 1 && (
-                          <button
-                            onClick={() => {
-                              setUserSelectedMode('archive');
-                              playArchive(secondHeroArchive);
-                            }}
-                            aria-label="Play this archive"
-                            className="absolute inset-0 flex items-center justify-center transition-opacity hover:bg-black/30"
-                          >
-                            <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
-                              <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M8 5v14l11-7z" />
-                              </svg>
-                            </div>
-                          </button>
-                        )}
+                        {/* Overlay play/pause button — always shown on /demo.
+                            Pause icon when this archive is currently playing,
+                            play icon otherwise. Click toggles. */}
+                        {(() => {
+                          const slideIsPlaying =
+                            archivePlayer.isPlaying &&
+                            archivePlayer.currentArchive?.id === secondHeroArchive.id;
+                          return (
+                            <button
+                              onClick={() => {
+                                if (slideIsPlaying) {
+                                  archivePlayer.toggle();
+                                } else {
+                                  setUserSelectedMode('archive');
+                                  playArchive(secondHeroArchive);
+                                }
+                              }}
+                              aria-label={slideIsPlaying ? 'Pause' : 'Play this archive'}
+                              className="absolute inset-0 flex items-center justify-center transition-opacity hover:bg-black/30"
+                            >
+                              <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
+                                {slideIsPlaying ? (
+                                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z" />
+                                  </svg>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })()}
                       </div>
                     )}
                   </>
@@ -987,14 +1016,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
         {/* Player bar.
             /radio (legacy): showLiveInHero ? live bar : archive bar.
-            /demo: demoBarMode ('live' | 'radio' | 'archive') — what's playing
-            wins, otherwise follows the visible slide. On /demo the inline
-            bar is hidden when the visible slide isn't the active source —
-            the GlobalBroadcastBar takes over via the heroBarVisible flag
-            we flip in the effect above. */}
-        {demoSlideShowsActive && (
+            /demo: bar is always rendered and mirrors the visible slide.
+            Bar selection follows heroIndex (slide-driven), not what's
+            playing. The sticky bar takes over only when the visible slide's
+            source isn't the active source. */}
         <div ref={stickyBarRef} className="bg-black relative">
-          {demoMode && radioCtx && demoBarMode === 'radio' ? (
+          {demoMode && radioCtx && heroIndex === 0 && !isLive ? (
             <>
               {/* Radio player bar — same chrome as the archive bar (scene
                   glyph, play, scrolling text, profile, love, tip), but driven
@@ -1086,7 +1113,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </>
               )}
             </>
-          ) : (demoMode ? demoBarMode === 'live' : showLiveInHero) ? (
+          ) : (demoMode ? (heroIndex === 0 && isLive) : showLiveInHero) ? (
             <>
               {/* Live player bar — uses the archive-bar play size (h-[27px]
                   wrapper, w-8 icon) so swiping between cards doesn't change
@@ -1211,6 +1238,18 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     <ScrollingDJName text={displayedArchive.djs.map((d) => d.name).join(', ')} className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]" />
                   )}
                 </div>
+                {/* Archive-folder source indicator (demo only) — same spot
+                    where radio/live bars show the pulsing red dot. Mirrors
+                    the "Archive" pill above the hero, no text label here. */}
+                {demoMode && (
+                  <div className="flex items-center gap-0.5 flex-shrink-0">
+                    <svg className="w-3 h-3 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="5" rx="1" />
+                      <path d="M5 8v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
+                      <path d="M10 12h4" />
+                    </svg>
+                  </div>
+                )}
                 {(() => {
                   const archiveDjUsername = displayedArchive.djs[0]?.username?.replace(/\s+/g, '').toLowerCase();
                   return archiveDjUsername ? (
@@ -1250,7 +1289,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             </>
           )}
         </div>
-        )}
 
         {/* Carousel dots — always reserve space below player bar to prevent layout shift */}
         {!showLiveInHero && (
