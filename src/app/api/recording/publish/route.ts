@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       isPublic: true,
       sourceType: 'recording',
       publishedAt,
-      priority: 'medium',
+      priority: 'low',
     }, { merge: true });
 
     return NextResponse.json({

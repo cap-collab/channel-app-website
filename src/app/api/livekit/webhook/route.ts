@@ -422,7 +422,7 @@ export async function POST(request: NextRequest) {
                 recordedAt,
                 createdAt: Date.now(),
                 stationId: (slotData?.stationId as string) || STATION_ID,
-                priority: 'medium',
+                priority: isRecordingOnly ? 'low' : 'medium',
                 // Both recordings and live broadcasts are public (auto-published)
                 isPublic: true,
                 sourceType: isRecordingOnly ? 'recording' : 'live',
