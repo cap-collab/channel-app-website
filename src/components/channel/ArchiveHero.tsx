@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
 import { SceneGlyph } from '@/components/SceneGlyph';
 import Image from 'next/image';
@@ -342,6 +343,32 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     if (radioCtx?.isPlaying) radioCtx.pause();
     archivePlayer.play(archive);
   }, [archivePlayer, radioCtx]);
+
+  // Honor `?play=1` (e.g. /about → "Lock in" link): start whatever slide 0
+  // would play (live if on, otherwise archive radio), then strip the param
+  // so it doesn't fire again on back/forward. Fires once per visit.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const autoPlayConsumedRef = useRef(false);
+  useEffect(() => {
+    if (autoPlayConsumedRef.current) return;
+    if (searchParams?.get('play') !== '1') return;
+    if (isLive) {
+      autoPlayConsumedRef.current = true;
+      setUserSelectedMode('live');
+      void playLive();
+    } else if (radioCtx?.ready) {
+      autoPlayConsumedRef.current = true;
+      void radioCtx.play();
+    } else {
+      return; // wait for radio to be ready
+    }
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    params.delete('play');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, isLive, playLive, radioCtx, router, pathname]);
 
 
   // When a scene filter is actively narrowing the set (shared `?scene=` link or

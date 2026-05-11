@@ -38,15 +38,6 @@ export default function About() {
       <section id="about-me" className="pb-24 px-6 bg-black pt-12">
         <ScrollReveal>
           <div className="max-w-3xl mx-auto">
-            <div className="flex justify-center mb-8">
-              <Link
-                href="/"
-                className="inline-block bg-white text-black hover:bg-gray-200 transition-colors text-sm font-medium px-6 py-3 rounded"
-              >
-                Dig in
-              </Link>
-            </div>
-
             <div className="space-y-6 text-zinc-400 leading-relaxed">
               <p>
                 My name is Cap. I&apos;m building Channel out of love for the music, and the people behind it.
@@ -78,6 +69,15 @@ export default function About() {
               >
                 Follow us on Instagram @channelrad.io
               </a>
+            </div>
+
+            <div className="mt-8 flex justify-center">
+              <Link
+                href="/?play=1"
+                className="inline-block bg-white text-black hover:bg-gray-200 transition-colors text-sm font-medium px-6 py-3 rounded"
+              >
+                Lock in
+              </Link>
             </div>
           </div>
         </ScrollReveal>
