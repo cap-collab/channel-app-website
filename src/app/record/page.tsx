@@ -2,7 +2,13 @@ import { Suspense } from 'react';
 import { makeOG } from '@/lib/og';
 import { RecordClient } from './RecordClient';
 
-export const metadata = makeOG();
+export const metadata = {
+  ...makeOG({
+    title: "Record",
+    description: "Record a set or upload audio to share on Channel.",
+  }),
+  robots: { index: false, follow: false },
+};
 
 export default function RecordPage() {
   return (

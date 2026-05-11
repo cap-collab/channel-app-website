@@ -294,7 +294,7 @@ export function AdminDashboard() {
           </p>
           <div className="pt-4 border-t border-gray-700">
             <p className="text-gray-400 text-sm">
-              <a href="/apply" className="text-blue-400 hover:text-blue-300">
+              <a href="/radio-portal" className="text-blue-400 hover:text-blue-300">
                 Fill out this form to feature your station
               </a>
               {' '}or contact{' '}

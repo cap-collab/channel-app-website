@@ -1,14 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  async redirects() {
-    return [
-      {
-        source: '/radio',
-        destination: '/',
-        permanent: true,
-      },
-    ];
-  },
   async rewrites() {
     return {
       afterFiles: [

@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - Channel",
-  description: "Privacy Policy for Channel - Channel Media, Inc.",
+  title: "Privacy Policy",
+  description: "How Channel Media, Inc. collects, uses, and protects your data.",
 };
 
 export default function PrivacyPage() {

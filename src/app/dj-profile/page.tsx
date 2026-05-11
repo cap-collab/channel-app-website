@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { DJProfileClient } from "./DJProfileClient";
 
 export const metadata = {
-  title: "DJ Profile - Channel",
-  description: "Manage your DJ profile and broadcast settings",
+  title: "DJ Profile",
+  description: "Manage your DJ profile and broadcast settings.",
 };
 
 function LoadingFallback() {

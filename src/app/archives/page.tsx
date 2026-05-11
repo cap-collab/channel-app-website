@@ -2,8 +2,8 @@ import { Metadata } from 'next';
 import { ArchivesClient } from './ArchivesClient';
 
 export const metadata: Metadata = {
-  title: 'Archives | Channel',
-  description: 'Listen to recorded live broadcasts from Channel DJs',
+  title: "Archives",
+  description: "Listen to recorded live shows from DJs broadcasting on Channel.",
 };
 
 export default function ArchivesPage() {

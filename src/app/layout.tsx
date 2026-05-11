@@ -18,19 +18,28 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Channel – Creative Communities",
+  title: {
+    default: "Channel — community-led internet radio",
+    template: "%s · Channel",
+  },
   description: "For the music. And the people behind it.",
   metadataBase: new URL("https://channel-app.com"),
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
-    title: "channel",
+    title: "Channel — community-led internet radio",
     description: "For the music. And the people behind it.",
     type: "website",
     url: "https://channel-app.com",
+    siteName: "Channel",
+    images: [{ url: "/og-image.png", width: 600, height: 600, alt: "Channel" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "channel",
+    title: "Channel — community-led internet radio",
     description: "For the music. And the people behind it.",
+    images: ["/og-image.png"],
   },
   icons: {
     icon: [

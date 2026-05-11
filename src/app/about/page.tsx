@@ -1,8 +1,14 @@
 import Link from "next/link";
+import { Metadata } from "next";
 import ScrollReveal from "@/components/ScrollReveal";
 import FAQAccordion from "@/components/FAQAccordion";
 import { Header } from "@/components/Header";
 import { AboutEmailSignup } from "@/components/AboutEmailSignup";
+
+export const metadata: Metadata = {
+  title: "About",
+  description: "Channel is community-led internet radio for artists, producers, labels, and collectives. No ads. No algorithms.",
+};
 
 const faqItems = [
   {

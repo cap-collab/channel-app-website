@@ -8,27 +8,8 @@ const resend = process.env.RESEND_API_KEY
 const FROM_EMAIL = "Channel <djshows@channel-app.com>";
 const FROM_EMAIL_DJ = "Cap from Channel <cap@channel-app.com>";
 
-// Map backend metadata station IDs to iOS app station IDs for deep links
-function getDeepLinkStationId(metadataStationId: string): string {
-  const mapping: Record<string, string> = {
-    nts1: "nts-1",
-    nts2: "nts-2",
-    rinse: "rinse-fm",
-    rinsefr: "rinse-fr",
-    dublab: "dublab",
-    subtle: "subtle",
-    sutro: "sutro",
-  };
-  return mapping[metadataStationId] || metadataStationId;
-}
-
-// Generate deep link URL for a station (opens app if installed, falls back to website)
-function getStationDeepLink(metadataStationId: string): string {
-  const appStationId = getDeepLinkStationId(metadataStationId);
-  return `https://channel-app.com/listen/${appStationId}`;
-}
-
-// Get the radio station's website URL by metadata key
+// Get the radio station's website URL by metadata key. Unknown station IDs
+// fall back to the Channel homepage.
 function getStationWebsiteUrl(metadataStationId: string): string {
   const websiteUrls: Record<string, string> = {
     nts1: "https://www.nts.live/",
@@ -41,7 +22,7 @@ function getStationWebsiteUrl(metadataStationId: string): string {
     newtown: "https://newtownradio.com",
     broadcast: "https://channel-app.com/",
   };
-  return websiteUrls[metadataStationId] || getStationDeepLink(metadataStationId);
+  return websiteUrls[metadataStationId] || "https://channel-app.com/";
 }
 
 // Settings deep link (opens app settings if installed, falls back to website)

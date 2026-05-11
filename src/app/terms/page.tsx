@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms of Use - Channel",
-  description: "Terms of Use for Channel - Channel Media, Inc.",
+  title: "Terms of Use",
+  description: "Terms of Use for Channel — the community-led internet radio platform by Channel Media, Inc.",
 };
 
 export default function TermsPage() {

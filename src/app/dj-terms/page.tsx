@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Artist Terms of Use - Channel",
-  description: "Artist Terms of Use - Channel Media, Inc.",
+  title: "Artist Terms of Use",
+  description: "Terms of Use for DJs and artists broadcasting on Channel.",
 };
 
 export default function DJTermsPage() {

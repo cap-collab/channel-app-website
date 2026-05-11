@@ -25,11 +25,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const scene = await fetchSceneBySlugServer(slug);
   if (!scene) {
-    return makeOG({ title: 'Channel — Scene not found' });
+    return makeOG({ title: "Scene not found" });
   }
   return makeOG({
-    title: `Channel — ${scene.emoji} ${scene.name}`,
-    description: scene.description,
+    title: scene.name,
+    description: scene.description || `Explore the ${scene.name} scene on Channel — DJs, collectives, venues, and shows.`,
   });
 }
 

@@ -83,7 +83,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const dj = await getDJData(username);
   const name = dj?.name || username;
   return makeOG({
-    title: `Channel - ${name}`,
+    title: name,
+    description: `${name} broadcasts on Channel. Listen to recorded shows, follow upcoming sets, and discover their selections.`,
     image: dj?.photoUrl || undefined,
   });
 }

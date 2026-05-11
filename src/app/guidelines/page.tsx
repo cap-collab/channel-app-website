@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Community Guidelines - Channel",
-  description: "Community Guidelines for Channel - Community-Led Media",
+  title: "Community Guidelines",
+  description: "Community guidelines for DJs, listeners, and hosts on Channel.",
 };
 
 export default function GuidelinesPage() {

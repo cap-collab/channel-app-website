@@ -1,8 +1,8 @@
 import { SettingsClient } from "./SettingsClient";
 
 export const metadata = {
-  title: "Settings - Channel",
-  description: "Manage your notification preferences",
+  title: "Settings",
+  description: "Manage your notification preferences.",
 };
 
 export default function SettingsPage() {

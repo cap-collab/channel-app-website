@@ -2,7 +2,10 @@ import { Suspense } from 'react';
 import { makeOG } from '@/lib/og';
 import { ExploreClient } from './ExploreClient';
 
-export const metadata = makeOG({ title: 'Explore the Scene' });
+export const metadata = makeOG({
+  title: "Explore",
+  description: "Explore scenes, DJs, venues, and collectives across Channel.",
+});
 
 export default function ExplorePage() {
   return (

@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { StudioProfileClient } from "./StudioProfileClient";
 
 export const metadata = {
-  title: "Studio - Channel",
-  description: "Manage your artist profile and broadcast settings",
+  title: "Studio",
+  description: "Manage your artist profile and broadcast settings.",
 };
 
 function LoadingFallback() {

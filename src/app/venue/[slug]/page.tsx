@@ -9,7 +9,7 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-async function getVenueName(slug: string): Promise<string | null> {
+async function getVenueData(slug: string): Promise<{ name: string; photo: string | null } | null> {
   const adminDb = getAdminDb();
   if (!adminDb) return null;
 
@@ -21,7 +21,8 @@ async function getVenueName(slug: string): Promise<string | null> {
       .get();
 
     if (snapshot.empty) return null;
-    return snapshot.docs[0].data().name || null;
+    const data = snapshot.docs[0].data();
+    return { name: data.name || slug, photo: data.photo || null };
   } catch (error) {
     console.error("[Venue Metadata] Error:", error);
     return null;
@@ -30,8 +31,13 @@ async function getVenueName(slug: string): Promise<string | null> {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const name = (await getVenueName(slug)) || slug;
-  return makeOG({ title: `Channel - ${name}` });
+  const venue = await getVenueData(slug);
+  const name = venue?.name || slug;
+  return makeOG({
+    title: name,
+    description: `Discover shows, DJs, and events at ${name} on Channel.`,
+    image: venue?.photo || undefined,
+  });
 }
 
 export default async function VenueProfilePage({ params }: Props) {
