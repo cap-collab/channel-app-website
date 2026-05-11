@@ -1367,7 +1367,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         return (
           <div className="mt-6 max-w-7xl mx-auto">
             <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-              <h2 className="text-2xl md:text-3xl font-semibold">Past shows</h2>
+              <h2 className="text-2xl md:text-3xl font-semibold">Archives</h2>
               {availableScenes.length > 0 && (
                 <div className="flex items-center gap-2">
                   {availableScenes.map((s) => {
