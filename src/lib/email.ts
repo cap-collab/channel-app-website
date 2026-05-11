@@ -791,7 +791,10 @@ export async function sendBroadcast48HourReminderEmail({
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; ${profileSetupHint}</td>
             </tr>` : ''}
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; <strong>Test your audio capture</strong> by doing a short recording</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; <strong>Pick a strong image and a good show name.</strong> It's what people see first, and it shapes how your show stands out.</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Test your audio capture by doing a short recording</td>
             </tr>
             <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Prepare to go live" ahead of time to avoid any surprises</td>
