@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { makeOG } from '@/lib/og';
-import { ChannelClient } from './radio/ChannelClient';
+import { ChannelClient } from '@/components/channel/ChannelClient';
 import { getHeroArchives } from '@/lib/hero-archives';
 
 export const metadata = makeOG({ path: '/' });

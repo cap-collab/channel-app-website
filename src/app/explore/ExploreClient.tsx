@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { HeaderSearch } from '@/components/HeaderSearch';
 import { AuthModal } from '@/components/AuthModal';
-import { ChannelClient } from '../radio/ChannelClient';
+import { ChannelClient } from '@/components/channel/ChannelClient';
 import { useFilterContext } from '@/contexts/FilterContext';
 import { Tuner } from '@/components/channel/Tuner';
 
