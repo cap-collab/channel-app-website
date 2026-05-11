@@ -81,6 +81,12 @@ export const FIRST_NAME_OVERRIDES: Record<string, string> = {
 export const EXCLUDE_EMAILS = new Set<string>([
   "maiii@posteo.la",
   "64j87qk747@privaterelay.appleid.com",
+  // Waitlist spam — Gmail dot-stuffed addresses, won't deliver and risk
+  // hurting our sender reputation if Gmail flags them as fake.
+  "c.epuz.i.z.o.b.i.so.63@gmail.com",
+  "eho.na.siloh.ek9.0@gmail.com",
+  "h.o.o.dd.j.o.rd.j.8.9@gmail.com",
+  "varavag.u.t.80.1@gmail.com",
 ]);
 
 // Extra listeners — radio-notify waitlist signups without a `users` doc.
