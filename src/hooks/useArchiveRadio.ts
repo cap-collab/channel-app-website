@@ -484,7 +484,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   useEffect(() => {
     if (!opts.active) return;
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
-    if (!current || !isPlaying) return;
+    if (!current) return;
     const item = current.item;
     const artist = (item.djs?.length ? item.djs.map((d) => d.name).join(', ') : undefined);
     const fallback = `${window.location.origin}/apple-touch-icon.png`;
@@ -504,6 +504,10 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
         artwork: [{ src: artworkSrc, sizes: '128x128', type: 'image/png' }],
       });
     } catch { /* ignore */ }
+    // Reflect intent via playbackState so iOS Control Center keeps the Now
+    // Playing entry visible while paused (instead of dropping it when the
+    // <audio> element pauses).
+    try { navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'; } catch { /* ignore */ }
     const disable: MediaSessionAction[] = ['seekforward', 'seekbackward', 'previoustrack', 'nexttrack'];
     for (const a of disable) {
       try { navigator.mediaSession.setActionHandler(a, null); } catch { /* ignore */ }
@@ -514,8 +518,9 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
 
     // Position state — same shape as live: a clock-time progress bar that
     // ticks through the current item's slot. Update every 2 minutes (live's
-    // cadence) since the scrubber is read-only anyway.
-    if (current.item.durationSec > 0) {
+    // cadence) since the scrubber is read-only anyway. Only tick while
+    // playing; when paused, leave the last position in place.
+    if (isPlaying && current.item.durationSec > 0) {
       const updatePosition = () => {
         const live = resolveCurrent(currentLoop, nextLoop, Date.now());
         if (!live) return;
