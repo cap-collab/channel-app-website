@@ -172,16 +172,16 @@ export function buildEmailHtml(
     : NEWSLETTER_APP_URL;
 
   const djFooterBlock = cohort === "dj" ? `
-    <p style="margin: 24px 0 16px; color: #1a1a1a;">—</p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">Most shows are also uploaded across platforms shortly after broadcast:</p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">Channel:<br/>
-      <a href="${djProfileUrl}" style="color: #1a1a1a;">${djProfileUrl}</a>
+    <p style="margin: 24px 0 8px; font-size: 12px; color: #999;">*</p>
+    <p style="margin: 0 0 10px; font-size: 12px; line-height: 1.5; color: #999;">Most shows are uploaded shortly after broadcast.</p>
+    <p style="margin: 0 0 6px; font-size: 12px; line-height: 1.5; color: #999;">Channel<br/>
+      <a href="${djProfileUrl}" style="color: #999;">${djProfileUrl}</a>
     </p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">YouTube:<br/>
-      <a href="https://youtube.com/@channelrad-io" style="color: #1a1a1a;">https://youtube.com/@channelrad-io</a>
+    <p style="margin: 0 0 6px; font-size: 12px; line-height: 1.5; color: #999;">YouTube<br/>
+      <a href="https://youtube.com/@channelrad-io" style="color: #999;">https://youtube.com/@channelrad-io</a>
     </p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">SoundCloud:<br/>
-      <a href="https://soundcloud.com/channel-254533657" style="color: #1a1a1a;">https://soundcloud.com/channel-254533657</a>
+    <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #999;">SoundCloud<br/>
+      <a href="https://soundcloud.com/channel-254533657" style="color: #999;">https://soundcloud.com/channel-254533657</a>
     </p>
   ` : "";
 
