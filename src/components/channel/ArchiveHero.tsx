@@ -500,7 +500,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     return legacy[1] ?? legacy[0] ?? null;
   }, [archivePlayer.currentArchive, archives, djSceneMap, heroArchives, maxHeroSlides, radioCurrentArchiveId, slide1Identity]);
 
-  const [heroIndex, setHeroIndex] = useState(0);
+  // Default to slide 1 when an archive is already engaged on mount — covers
+  // the "playing an archive elsewhere on the site, then arriving on the
+  // hero" case so the listener visually lands on what they're hearing
+  // (slide 1 = listener-played archive). Otherwise default to slide 0
+  // (radio/live).
+  const [heroIndex, setHeroIndex] = useState<number>(() => {
+    if (archivePlayer.currentArchive || archivePlayer.isPlaying || archivePlayer.isLoading) return 1;
+    return 0;
+  });
   const heroTouchRef = useRef<{ startX: number; startY: number } | null>(null);
 
   // When the filter pool shifts (user toggles a chip), clamp heroIndex so we
