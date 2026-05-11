@@ -322,9 +322,22 @@ export async function getListenerRecipients(
   const waitlistSnap = await db.collection("radio-notify-waitlist").get();
   for (const doc of waitlistSnap.docs) {
     const data = doc.data();
-    if (data.email && data.unsubscribed === true) {
-      waitlistUnsubscribed.add((data.email as string).toLowerCase());
+    if (!data.email) continue;
+    const emailLower = (data.email as string).toLowerCase();
+    if (data.unsubscribed === true) {
+      waitlistUnsubscribed.add(emailLower);
+      continue;
     }
+    if (EXCLUDE_EMAILS.has(emailLower)) continue;
+    if (djEmails.has(data.email as string)) continue;
+    if (seen.has(data.email as string)) continue;
+    seen.add(data.email as string);
+    out.push({
+      email: data.email as string,
+      name: resolveFirstName(emailLower, data.name, undefined, data.displayName),
+      id: doc.id,
+      cohort: "listener",
+    });
   }
 
   for (const extra of EXTRA_LISTENERS) {
