@@ -172,22 +172,22 @@ export function buildEmailHtml(
     : NEWSLETTER_APP_URL;
 
   const djFooterBlock = cohort === "dj" ? `
-    <p style="margin: 24px 0 8px; font-size: 12px; color: #999;">*</p>
-    <p style="margin: 0 0 10px; font-size: 12px; line-height: 1.5; color: #999;">Most shows are uploaded shortly after broadcast.</p>
-    <p style="margin: 0 0 6px; font-size: 12px; line-height: 1.5; color: #999;">Channel<br/>
+    <p style="margin: 24px 0 8px; font-size: 13px; color: #999;">*</p>
+    <p style="margin: 0 0 10px; font-size: 13px; line-height: 1.5; color: #999;">Most shows are uploaded shortly after broadcast.</p>
+    <p style="margin: 0 0 6px; font-size: 13px; line-height: 1.5; color: #999;">Channel<br/>
       <a href="${djProfileUrl}" style="color: #999;">${djProfileUrl}</a>
     </p>
-    <p style="margin: 0 0 6px; font-size: 12px; line-height: 1.5; color: #999;">YouTube<br/>
+    <p style="margin: 0 0 6px; font-size: 13px; line-height: 1.5; color: #999;">YouTube<br/>
       <a href="https://youtube.com/@channelrad-io" style="color: #999;">https://youtube.com/@channelrad-io</a>
     </p>
-    <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #999;">SoundCloud<br/>
+    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #999;">SoundCloud<br/>
       <a href="https://soundcloud.com/channel-254533657" style="color: #999;">https://soundcloud.com/channel-254533657</a>
     </p>
   ` : "";
 
   const listenerFooterBlock = cohort === "listener" ? `
-    <p style="margin: 24px 0 8px; font-size: 12px; color: #999;">*</p>
-    <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #999;">Live moments and clips:<br/>
+    <p style="margin: 24px 0 8px; font-size: 13px; color: #999;">*</p>
+    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #999;">Live moments and clips:<br/>
       <a href="https://instagram.com/channelrad.io" style="color: #999;">https://instagram.com/channelrad.io</a>
     </p>
   ` : "";
@@ -232,6 +232,9 @@ export function buildEmailHtml(
                 <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
                   ${body}
                 </td>
+              </tr>
+              <tr>
+                <td style="height: 32px; line-height: 32px; font-size: 0;" bgcolor="#ffffff">&nbsp;</td>
               </tr>
               <tr>
                 <td align="center" style="padding-top: 32px; border-top: 1px solid #e5e5e5;" bgcolor="#ffffff">
