@@ -329,7 +329,7 @@ export const ROOM_NAME = 'channel-radio';
 export const STATION_ID = 'channel-main';  // Default station for now
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Continuous archive radio (auto-scheduled archive playback on /radio/demo).
+// Continuous archive radio (auto-scheduled archive playback).
 // One Firestore doc per UTC day in `archive-schedule`, doc id = YYYY-MM-DD.
 // ─────────────────────────────────────────────────────────────────────────────
 

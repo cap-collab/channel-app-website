@@ -23,8 +23,8 @@ interface ArchiveRadioContextValue {
   toggle: () => Promise<void>;
   play: () => Promise<void>;
   pause: () => void;
-  // Which carousel slide the listener is looking at on /demo. Used by the
-  // sticky bar to mirror the visible slide when nothing's actively playing.
+  // Which carousel slide the listener is looking at. Used by the sticky bar
+  // to mirror the visible slide when nothing's actively playing.
   // 0 = slide 0 (live or radio), 1 = slide 1 (archive). Set by ArchiveHero.
   visibleSlide: 0 | 1;
   setVisibleSlide: (slide: 0 | 1) => void;
@@ -49,12 +49,12 @@ interface ArchiveRadioContextValue {
 
 const ArchiveRadioContext = createContext<ArchiveRadioContextValue | null>(null);
 
-// Single hook instance for the whole tree — prevents the demo hero and the
+// Single hook instance for the whole tree — prevents the hero and the
 // global sticky bar from each spinning up their own <audio> element.
 //
 // `enabled` controls whether the radio is allowed to play here at all.
-// On /radio/demo we mount this with enabled=true; on /radio (legacy) we just
-// don't render the provider, so consumers see null and behave as before.
+// Mounted with enabled=true at the app root so radio audio follows the
+// listener across pages.
 export function ArchiveRadioProvider({ children, enabled }: { children: ReactNode; enabled: boolean }) {
   const archivePlayer = useArchivePlayer();
   // Radio audio elements stay "alive" as long as the provider is mounted.

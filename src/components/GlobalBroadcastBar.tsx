@@ -208,19 +208,19 @@ export function GlobalBroadcastBar() {
   const radioAvailable = !!radioCtx?.enabled && !!radioCtx?.currentItem;
   const displayArchive = archivePlayer.currentArchive || archivePlayer.heroDisplayedArchive || archivePlayer.featuredArchive;
 
-  // Priority (matches the inline /demo bar's demoBarMode so the two bars
+  // Priority (matches the inline hero bar's barMode so the two bars
   // always agree):
   //   1. something actively playing → mirror that
-  //   2. /demo with listener on slide 1 → archive (user is asking for it)
+  //   2. listener on slide 1 → archive (user is asking for it)
   //   3. live broadcast on → live
-  //   4. /demo radio available → radio
+  //   4. radio available → radio
   //   5. fallback archive
-  const demoSlideOneVisible = !!radioCtx?.enabled && radioCtx?.visibleSlide === 1;
+  const slideOneVisible = !!radioCtx?.enabled && radioCtx?.visibleSlide === 1;
   let barMode: 'live' | 'archive' | 'radio' | null;
   if (isLivePlaying) barMode = 'live';
   else if (isArchivePlaying) barMode = 'archive';
   else if (isRadioPlaying) barMode = 'radio';
-  else if (demoSlideOneVisible && displayArchive) barMode = 'archive';
+  else if (slideOneVisible && displayArchive) barMode = 'archive';
   else if (isLiveReady) barMode = 'live';
   else if (radioAvailable) barMode = 'radio';
   else if (displayArchive) barMode = 'archive';

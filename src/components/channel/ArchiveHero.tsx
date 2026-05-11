@@ -265,10 +265,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
   // Auto-switch to live only when a NEW broadcast starts and no archive is loaded
   // Auto-switch to archive when broadcast ends
-  // /demo: never auto-pauses or auto-snaps. If the listener is already
-  // listening to something (radio or a regular archive), live just becomes
-  // available — the slide 0 image shows live + the "Switch to Live Radio"
-  // button in the header strip lets the listener switch manually.
+  // Never auto-pauses or auto-snaps. If the listener is already listening
+  // to something (radio or a regular archive), live just becomes available —
+  // the slide 0 image shows live + the "Switch to Live Radio" button in the
+  // header strip lets the listener switch manually.
   const prevIsLiveRef = useRef(isLive);
   useEffect(() => {
     const wasLive = prevIsLiveRef.current;
@@ -337,7 +337,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // Single-source rule: starting a regular archive must pause the radio
   // (archivePlayer.play already pauses the live broadcast). Mirrors the
   // existing live↔archive pattern. Used everywhere archivePlayer.play is
-  // called on /radio + /demo, so the radio coordinates the same way.
+  // called, so the radio coordinates the same way.
   const playArchive = useCallback((archive: ArchiveSerialized) => {
     if (radioCtx?.isPlaying) radioCtx.pause();
     archivePlayer.play(archive);
@@ -562,13 +562,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // rule is enforced by ArchiveRadioContext.toggle/play and archivePlayer
   // when the listener actually clicks the overlay.)
   // (No auto-swipe on listener play — hero composition is stable. The bar
-  // follows what's playing via demoBarMode; the hero only moves when the
+  // follows what's playing via barMode; the hero only moves when the
   // listener manually swipes or clicks a dot/arrow.)
 
-  // /demo: inline player is always rendered under the visible slide and
-  // mirrors that slide's content. The sticky bar takes over only when the
-  // visible slide's source isn't what's actively playing — that signal is
-  // published to ArchiveRadioContext (inlineCoversActive) and read by
+  // Inline player is always rendered under the visible slide and mirrors
+  // that slide's content. The sticky bar takes over only when the visible
+  // slide's source isn't what's actively playing — that signal is published
+  // to ArchiveRadioContext (inlineCoversActive) and read by
   // GlobalBroadcastBar.
   useEffect(() => {
     if (!radioCtx) return;
@@ -685,10 +685,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
         {/* Status line above image — reflects what the hero is showing */}
         <div className="flex items-center justify-between mb-2 relative">
-          {/* Left side of the strip above the hero. /demo: when the archive
-              bar is showing (slide 1 or a listener-played archive), swap
-              the legacy "Next live at" copy for a "Back to Live/Radio"
-              action that pauses the archive and resumes the page default. */}
+          {/* Left side of the strip above the hero. When the archive bar
+              is showing (slide 1 or a listener-played archive), swap the
+              legacy "Next live at" copy for a "Back to Live/Radio" action
+              that pauses the archive and resumes the page default. */}
           {(() => {
             // Switch button only shows on slide 1 AND only when slide 0's
             // source isn't already playing (no point telling the listener to
@@ -885,7 +885,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                           />
                         );
                       })()}
-                      {/* Overlay play/pause button — always shown on /demo.
+                      {/* Overlay play/pause button — always shown on slide 0.
                           Pause icon when this slide's source is the active
                           one and playing; play icon otherwise. Click toggles. */}
                       {(() => {
@@ -1118,7 +1118,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             <>
               {/* Live player bar — uses the archive-bar play size (h-[27px]
                   wrapper, w-8 icon) so swiping between cards doesn't change
-                  the button size on /radio or /demo. */}
+                  the button size. */}
               <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
                 <button
                   onClick={toggleLive}

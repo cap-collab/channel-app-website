@@ -87,8 +87,8 @@ export function FloatingChat() {
     writeIsArchive = true;
     writeDjPhotoUrl = archivePrimaryDj?.photoUrl;
   } else if (radioCtx?.enabled && radioDjRoom) {
-    // Radio is the page default (offline /demo) — write to the current
-    // radio DJ even before the listener presses play.
+    // Radio is the page default when nothing else is playing — write to
+    // the current radio DJ even before the listener presses play.
     writeChatRoom = radioDjRoom;
     writeDJLabel = radioDjName || 'Channel Radio';
     writeIsArchive = true;
