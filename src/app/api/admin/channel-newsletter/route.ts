@@ -152,7 +152,12 @@ export async function GET(request: NextRequest) {
         totalRows: rows.length,
         onNextSend: rows.filter((r) => r.onNextSend).length,
         unsubscribed: rows.filter((r) => r.unsubscribed).length,
-        gap: gap.map((r) => ({ email: r.email, source: r.source, role: r.role })),
+        gap: gap.map((r) => ({
+          email: r.email,
+          source: r.source,
+          role: r.role,
+          unsubReason: r.unsubReason,
+        })),
       });
     } catch (e) {
       return NextResponse.json({ error: String(e) }, { status: 500 });

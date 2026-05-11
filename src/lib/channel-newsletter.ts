@@ -354,6 +354,10 @@ export type AuditRow = {
   // personalized /dj/<slug> URL or the site-root fallback if no slug exists.
   // null for non-DJ rows.
   djProfileUrl: string | null;
+  // Raw emailNotifications flags so the audit can explain why someone
+  // isn't on next send (e.g. djInsiders undefined).
+  djInsiders: boolean | null;
+  marketing: boolean | null;
 };
 
 const FALLBACK_DJ_URL = `${NEWSLETTER_APP_URL}/`;
@@ -409,6 +413,8 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName),
       displayNameFirstWord: firstWord(d.displayName),
       djProfileUrl: role === "dj" ? djProfileUrlFor(d) : null,
+      djInsiders: d.emailNotifications?.djInsiders ?? null,
+      marketing: d.emailNotifications?.marketing ?? null,
     });
   }
 
@@ -437,6 +443,8 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName),
       displayNameFirstWord: firstWord(d.displayName),
       djProfileUrl: djProfileUrlFor(d),
+      djInsiders: d.emailNotifications?.djInsiders ?? null,
+      marketing: d.emailNotifications?.marketing ?? null,
     });
   }
 
@@ -465,6 +473,8 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       currentFirstName: resolveFirstName(email, d.name, undefined, d.displayName),
       displayNameFirstWord: firstWord(d.displayName),
       djProfileUrl: null,
+      djInsiders: null,
+      marketing: null,
     });
   }
 
@@ -494,6 +504,8 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       currentFirstName: resolveFirstName(email, extra.name, extra.djUsername),
       displayNameFirstWord: null,
       djProfileUrl,
+      djInsiders: null,
+      marketing: null,
     });
   }
 
@@ -518,6 +530,8 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       currentFirstName: resolveFirstName(email, extra.name),
       displayNameFirstWord: null,
       djProfileUrl: null,
+      djInsiders: null,
+      marketing: null,
     });
   }
 
@@ -556,12 +570,31 @@ function escapeHtml(s: string | null | undefined): string {
     .replace(/"/g, "&quot;");
 }
 
+function sendStatusFor(r: AuditRow): string {
+  if (r.onNextSend) return "Sending";
+  if (r.unsubReason.length === 0) {
+    // Not on send, but no explicit unsub reason recorded.
+    if (r.source === "waitlist") return "Waitlist orphan (no users doc)";
+    if (r.role === "admin" || r.role === "broadcaster") return `Excluded role: ${r.role}`;
+    if (r.source === "users-dj" || r.source === "pending-dj" || r.source === "extra-dj") {
+      return "DJ djInsiders flag not enabled";
+    }
+    return "Not on next send (reason unknown)";
+  }
+  if (r.unsubReason.includes("excluded")) return "Spam / excluded";
+  if (r.unsubReason.includes("marketing=false")) return "Unsubscribed (marketing)";
+  if (r.unsubReason.includes("djInsiders=false")) return "Unsubscribed (DJ insiders)";
+  if (r.unsubReason.includes("pending.unsubscribed=true")) return "Unsubscribed (pending DJ)";
+  if (r.unsubReason.includes("waitlist.unsubscribed=true")) return "Unsubscribed (waitlist)";
+  return `Excluded: ${r.unsubReason.join(", ")}`;
+}
+
 export function buildAuditHtml(rows: AuditRow[]): string {
   const onSend = rows.filter((r) => r.onNextSend).length;
   const unsubbed = rows.filter((r) => r.unsubscribed).length;
   const headers = [
     "DJ / User",
-    "Unsub?",
+    "Send status",
     "Email",
     "First name (as of now)",
     "displayName first word",
@@ -577,6 +610,15 @@ export function buildAuditHtml(rows: AuditRow[]): string {
   const djsWithRadio = rows.filter((r) => isDjSource(r) && r.djProfileUrl === FALLBACK_DJ_URL);
   const users = rows.filter((r) => r.source === "users-non-dj" || r.source === "waitlist" || r.source === "extra-listener");
 
+  // Within each section: sending first, then everything else, then alpha by email.
+  const sortBySendThenEmail = (a: AuditRow, b: AuditRow): number => {
+    if (a.onNextSend !== b.onNextSend) return a.onNextSend ? -1 : 1;
+    return a.email.localeCompare(b.email);
+  };
+  djsWithProfile.sort(sortBySendThenEmail);
+  djsWithRadio.sort(sortBySendThenEmail);
+  users.sort(sortBySendThenEmail);
+
   const renderRow = (r: AuditRow): string => {
     const rowBg = r.onNextSend ? "#ffffff" : "#fafafa";
     const djOrUser =
@@ -588,9 +630,12 @@ export function buildAuditHtml(rows: AuditRow[]): string {
     const linkCell = r.djProfileUrl
       ? `<a href="${escapeHtml(r.djProfileUrl)}" style="color:#0070f3;text-decoration:none;">${escapeHtml(r.djProfileUrl.replace(/^https?:\/\//, ""))}</a>`
       : "";
+    const status = sendStatusFor(r);
+    const statusColor = r.onNextSend ? "#0a7d28" : "#999";
+    const statusCell = `<span style="color:${statusColor};font-weight:${r.onNextSend ? "bold" : "normal"};">${escapeHtml(status)}</span>`;
     const cells = [
       djOrUser,
-      r.unsubscribed ? "YES" : "",
+      statusCell,
       r.email,
       r.currentFirstName,
       r.displayNameFirstWord ?? "",
@@ -598,7 +643,7 @@ export function buildAuditHtml(rows: AuditRow[]): string {
     ];
     return `<tr style="background:${rowBg};">${cells
       .map((c, i) =>
-        i === 5
+        i === 1 || i === 5
           ? `<td style="padding:6px 8px;border:1px solid #ddd;font-size:12px;vertical-align:top;">${c}</td>`
           : `<td style="padding:6px 8px;border:1px solid #ddd;font-size:12px;vertical-align:top;">${escapeHtml(String(c))}</td>`,
       )
