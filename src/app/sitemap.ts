@@ -3,48 +3,32 @@ import { getAdminDb } from '@/lib/firebase-admin';
 
 const BASE_URL = 'https://channel-app.com';
 
-// Public DJ profile pages live at /dj/[chatUsernameNormalized]. We include
-// users explicitly tagged role === 'dj', plus the single admin account that
-// runs the station feed (chatUsernameNormalized === 'channelbroadcast'), so
-// its profile is discoverable.
+// Public DJ profile pages live at /dj/[chatUsernameNormalized]. Include
+// users explicitly tagged role === 'dj', excluding the channelbroadcast
+// admin account (it runs the station feed, not a DJ profile worth indexing).
 async function getDjEntries(): Promise<MetadataRoute.Sitemap> {
   const adminDb = getAdminDb();
   if (!adminDb) return [];
 
   try {
     const lastModified = new Date();
-    const seen = new Set<string>();
+    const snapshot = await adminDb
+      .collection('users')
+      .where('role', '==', 'dj')
+      .get();
+
     const out: MetadataRoute.Sitemap = [];
-
-    const pushFromSnapshot = (
-      snapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>,
-    ) => {
-      for (const doc of snapshot.docs) {
-        const data = doc.data();
-        const slug: string | undefined = data.chatUsernameNormalized;
-        if (!slug || seen.has(slug)) continue;
-        seen.add(slug);
-        out.push({
-          url: `${BASE_URL}/dj/${encodeURIComponent(slug)}`,
-          lastModified,
-          changeFrequency: 'weekly',
-          priority: 0.7,
-        });
-      }
-    };
-
-    const [djSnap, channelBroadcastSnap] = await Promise.all([
-      adminDb.collection('users').where('role', '==', 'dj').get(),
-      adminDb
-        .collection('users')
-        .where('chatUsernameNormalized', '==', 'channelbroadcast')
-        .limit(1)
-        .get(),
-    ]);
-
-    pushFromSnapshot(djSnap);
-    pushFromSnapshot(channelBroadcastSnap);
-
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      const slug: string | undefined = data.chatUsernameNormalized;
+      if (!slug || slug === 'channelbroadcast') continue;
+      out.push({
+        url: `${BASE_URL}/dj/${encodeURIComponent(slug)}`,
+        lastModified,
+        changeFrequency: 'weekly',
+        priority: 0.7,
+      });
+    }
     return out;
   } catch (error) {
     console.error('[sitemap] Failed to fetch DJ entries:', error);
