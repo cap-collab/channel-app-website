@@ -490,7 +490,12 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     const fallback = `${window.location.origin}/apple-touch-icon.png`;
     const proxy = (url: string) =>
       url.startsWith('/') ? url : `/_next/image?url=${encodeURIComponent(url)}&w=128&q=75`;
-    const artworkSrc = item.artworkUrl ? proxy(item.artworkUrl) : fallback;
+    // Cascade like live (useBroadcastStream): show image → first DJ photo →
+    // logo fallback. Some archives don't have showImageUrl set, so without
+    // the DJ-photo step the Control Center shows the generic logo.
+    const djPhoto = item.djs?.find((d) => d.photoUrl)?.photoUrl;
+    const rawArtwork = item.artworkUrl || djPhoto;
+    const artworkSrc = rawArtwork ? proxy(rawArtwork) : fallback;
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: item.title || 'Archive radio',
