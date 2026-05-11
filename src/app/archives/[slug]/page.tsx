@@ -34,8 +34,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = djNames ? `${showName} · ${djNames}` : showName;
   const description = djNames
-    ? `Listen to ${showName} by ${djNames} on Channel — community-led internet radio.`
-    : `Listen to ${showName} on Channel — community-led internet radio.`;
+    ? `Listen to ${showName} by ${djNames} on Channel — independent creative scenes.`
+    : `Listen to ${showName} on Channel — independent creative scenes.`;
   return makeOG({ title, description, image, path: `/archives/${encodeURIComponent(slug)}` });
 }
 

@@ -7,7 +7,7 @@ import { AboutEmailSignup } from "@/components/AboutEmailSignup";
 
 export const metadata: Metadata = {
   title: "About",
-  description: "Channel is community-led internet radio for artists, producers, labels, and collectives. No ads. No algorithms.",
+  description: "Channel is for independent creative scenes — artists, producers, labels, and collectives. No ads. No algorithms.",
   alternates: { canonical: "/about" },
 };
 

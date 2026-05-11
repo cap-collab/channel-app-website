@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 
 const BRAND = "Channel";
-const HOME_TITLE = "Channel — community-led internet radio";
+const HOME_TITLE = "Channel — independent creative scenes";
 const DEFAULT_DESCRIPTION = "For the music. And the people behind it.";
 
 // Produces page metadata aligned with the root layout's `%s · Channel`

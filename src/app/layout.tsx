@@ -19,13 +19,13 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: {
-    default: "Channel — community-led internet radio",
+    default: "Channel — independent creative scenes",
     template: "%s · Channel",
   },
   description: "For the music. And the people behind it.",
   metadataBase: new URL("https://channel-app.com"),
   openGraph: {
-    title: "Channel — community-led internet radio",
+    title: "Channel — independent creative scenes",
     description: "For the music. And the people behind it.",
     type: "website",
     url: "https://channel-app.com",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Channel — community-led internet radio",
+    title: "Channel — independent creative scenes",
     description: "For the music. And the people behind it.",
     images: ["/og-image.png"],
   },
