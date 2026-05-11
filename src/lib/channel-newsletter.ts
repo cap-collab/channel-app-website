@@ -92,10 +92,11 @@ const EXTRA_LISTENERS: Array<{ email: string; name: string; id: string }> = [
 ];
 
 // Extra DJs — approved applicants who have a show booked but haven't
-// created a `users` account yet. Receives the DJ email; djUsername left
-// undefined so the Channel link falls back to the site root.
+// created a `users` account yet. djUsername intentionally left undefined:
+// their /dj/<slug> page renders 404 until they onboard, so the Channel
+// link falls back to the site root.
 const EXTRA_DJS: Array<{ email: string; name: string; id: string; djUsername?: string }> = [
-  { email: "jaketurpin@minimal.audio", name: "Jake", id: "applicant-jaketurpin", djUsername: "jaketurpin" },
+  { email: "jaketurpin@minimal.audio", name: "Jake", id: "applicant-jaketurpin" },
 ];
 
 function minifyHtml(html: string): string {
@@ -338,7 +339,7 @@ export async function getListenerRecipients(
 
 export type AuditRow = {
   email: string;
-  source: "users-dj" | "users-non-dj" | "pending-dj" | "waitlist";
+  source: "users-dj" | "users-non-dj" | "pending-dj" | "waitlist" | "extra-dj" | "extra-listener";
   role: string;
   name: string | null;
   displayName: string | null;
@@ -467,6 +468,59 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
     });
   }
 
+  // In-code extras (approved DJs without a Firestore profile, waitlist
+  // shortcuts) — Firestore loops above will miss these, so add them here.
+  for (const extra of EXTRA_DJS) {
+    const email = extra.email.toLowerCase();
+    if (seen.has(email)) continue;
+    seen.add(email);
+    const unsubReasons: string[] = [];
+    if (EXCLUDE_EMAILS.has(email)) unsubReasons.push("excluded");
+    const onDj = sendDjEmails.has(email);
+    const djProfileUrl = extra.djUsername
+      ? `${NEWSLETTER_APP_URL}/dj/${encodeURIComponent(extra.djUsername)}`
+      : FALLBACK_DJ_URL;
+    rows.push({
+      email,
+      source: "extra-dj",
+      role: "(extra dj — in-code)",
+      name: extra.name,
+      displayName: null,
+      chatUsername: extra.djUsername ?? null,
+      unsubscribed: unsubReasons.length > 0,
+      unsubReason: unsubReasons,
+      onNextSend: onDj,
+      onNextSendCohort: onDj ? "dj" : null,
+      currentFirstName: resolveFirstName(email, extra.name, extra.djUsername),
+      displayNameFirstWord: null,
+      djProfileUrl,
+    });
+  }
+
+  for (const extra of EXTRA_LISTENERS) {
+    const email = extra.email.toLowerCase();
+    if (seen.has(email)) continue;
+    seen.add(email);
+    const unsubReasons: string[] = [];
+    if (EXCLUDE_EMAILS.has(email)) unsubReasons.push("excluded");
+    const onListener = sendListenerEmails.has(email);
+    rows.push({
+      email,
+      source: "extra-listener",
+      role: "(extra listener — in-code)",
+      name: extra.name,
+      displayName: null,
+      chatUsername: null,
+      unsubscribed: unsubReasons.length > 0,
+      unsubReason: unsubReasons,
+      onNextSend: onListener,
+      onNextSendCohort: onListener ? "listener" : null,
+      currentFirstName: resolveFirstName(email, extra.name),
+      displayNameFirstWord: null,
+      djProfileUrl: null,
+    });
+  }
+
   // Group order: 1) DJs with profile URL, 2) DJs with site-root fallback,
   // 3) Users (listeners). Within each group: on-next-send first, then
   // alphabetical by email. Anyone not on next send (unsubbed/excluded)
@@ -476,7 +530,7 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       const isFallback = r.djProfileUrl === FALLBACK_DJ_URL;
       return isFallback ? 1 : 0;
     }
-    if (r.source === "users-dj" || r.source === "pending-dj") {
+    if (r.source === "users-dj" || r.source === "pending-dj" || r.source === "extra-dj") {
       // DJ row but not on next send (unsubbed/excluded) — keep with DJ groups
       const isFallback = r.djProfileUrl === FALLBACK_DJ_URL;
       return isFallback ? 1 : 0;
@@ -518,14 +572,15 @@ export function buildAuditHtml(rows: AuditRow[]): string {
     .map((h) => `<th style="text-align:left;padding:6px 8px;border:1px solid #ddd;font-size:12px;background:#f6f6f6;">${h}</th>`)
     .join("");
 
-  const djsWithProfile = rows.filter((r) => (r.source === "users-dj" || r.source === "pending-dj") && r.djProfileUrl && r.djProfileUrl !== FALLBACK_DJ_URL);
-  const djsWithRadio = rows.filter((r) => (r.source === "users-dj" || r.source === "pending-dj") && r.djProfileUrl === FALLBACK_DJ_URL);
-  const users = rows.filter((r) => r.source === "users-non-dj" || r.source === "waitlist");
+  const isDjSource = (r: AuditRow) => r.source === "users-dj" || r.source === "pending-dj" || r.source === "extra-dj";
+  const djsWithProfile = rows.filter((r) => isDjSource(r) && r.djProfileUrl && r.djProfileUrl !== FALLBACK_DJ_URL);
+  const djsWithRadio = rows.filter((r) => isDjSource(r) && r.djProfileUrl === FALLBACK_DJ_URL);
+  const users = rows.filter((r) => r.source === "users-non-dj" || r.source === "waitlist" || r.source === "extra-listener");
 
   const renderRow = (r: AuditRow): string => {
     const rowBg = r.onNextSend ? "#ffffff" : "#fafafa";
     const djOrUser =
-      r.source === "users-dj" || r.source === "pending-dj"
+      isDjSource(r)
         ? "DJ"
         : r.source === "waitlist"
           ? "Waitlist"
