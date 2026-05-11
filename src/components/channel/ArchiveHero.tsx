@@ -763,27 +763,27 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </>
               )
             ) : heroIndex === 0 ? (
-              // Slide 0 + offline → archive radio. Restream pill (zinc).
+              // Slide 0 + offline → archive radio. Red pulsing dot + RADIO.
               <>
-                <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                </svg>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                </span>
                 <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
-                  Restream
+                  Radio
                 </span>
               </>
             ) : slide1Identity === 'radio' ? (
               // Slide 1 = the radio's currently-playing archive (live is
               // on, listener hasn't picked their own archive). It's the
-              // radio card visually, so use the Restream pill.
+              // radio card visually, so use the radio pill.
               <>
-                <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                </svg>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                </span>
                 <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
-                  Restream
+                  Radio
                 </span>
               </>
             ) : (
