@@ -394,8 +394,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
   // Slide 1 identity — drives both the picker (which archive to show) and
   // the surface labels (pill + inline bar). Three possibilities:
-  //   - 'archive-engaged': listener is actively engaged with their own
-  //     archive (playing OR loading). Pill = "Archive", inline = archive bar.
+  //   - 'archive-engaged': listener has an archive loaded (playing, loading,
+  //     or paused). Pill = "Archive", inline = archive bar.
   //   - 'radio': live is on with no listener archive engaged. Slide 1 shows
   //     the radio's current archive so the listener still has the radio
   //     image alongside live. Pill = "Restream", inline = radio bar.
@@ -403,12 +403,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   //     archive. Pill = "Archive", inline = archive bar.
   type Slide1Identity = 'archive-engaged' | 'radio' | 'archive-alt';
   const slide1Identity: Slide1Identity = useMemo(() => {
-    // Archive is "engaged" only when it's actively playing or loading.
-    // A merely *loaded* (paused) archive from earlier in the session is
-    // NOT engaged — it would otherwise stick to a stale archive when the
-    // listener moves on to the radio or live and that archive is no
-    // longer in their attention.
-    const archiveEngaged = archivePlayer.isPlaying || archivePlayer.isLoading;
+    // Archive is "engaged" whenever the player still has a currentArchive —
+    // including the paused state. Otherwise the slide-1 image swaps to a
+    // rotated alt archive while the player bar still shows the paused one,
+    // desyncing image from metadata.
+    const archiveEngaged =
+      archivePlayer.isPlaying || archivePlayer.isLoading || !!archivePlayer.currentArchive;
     if (archiveEngaged) return 'archive-engaged';
     // When live is on (and nothing else is engaged), slide 1 is always
     // the radio identity — even if radioCurrentArchiveId hasn't loaded
@@ -418,7 +418,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     // as the listener's selection.
     if (isLive) return 'radio';
     return 'archive-alt';
-  }, [archivePlayer.isPlaying, archivePlayer.isLoading, isLive]);
+  }, [archivePlayer.isPlaying, archivePlayer.isLoading, archivePlayer.currentArchive, isLive]);
 
   const secondHeroArchive = useMemo<ArchiveSerialized | null>(() => {
     if (maxHeroSlides === 1) return null;
@@ -939,41 +939,34 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                             }
                           }}
                         />
-                        {/* Overlay play/pause button — always shown on /demo.
-                            Pause icon when this archive is currently playing,
-                            play icon otherwise. Click toggles. Same identity-
-                            aware routing as the HeroSlide above. */}
+                        {/* Play-only overlay. Shown when this slide's source
+                            isn't currently playing — gives the listener a
+                            visible tap target. No pause icon: pausing is
+                            handled by the player bar below. */}
                         {(() => {
                           const slideIsRadio = slide1Identity === 'radio';
                           const slideIsPlaying = slideIsRadio
                             ? !!radioCtx?.isPlaying
                             : (archivePlayer.isPlaying &&
                                archivePlayer.currentArchive?.id === secondHeroArchive.id);
+                          if (slideIsPlaying) return null;
                           return (
                             <button
                               onClick={() => {
                                 if (slideIsRadio) {
                                   void radioCtx?.toggle();
-                                } else if (slideIsPlaying) {
-                                  archivePlayer.toggle();
                                 } else {
                                   setUserSelectedMode('archive');
                                   playArchive(secondHeroArchive);
                                 }
                               }}
-                              aria-label={slideIsPlaying ? 'Pause' : (slideIsRadio ? 'Play radio' : 'Play this archive')}
+                              aria-label={slideIsRadio ? 'Play radio' : 'Play this archive'}
                               className="absolute inset-0 flex items-center justify-center transition-opacity hover:bg-black/30"
                             >
                               <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
-                                {slideIsPlaying ? (
-                                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                                  </svg>
-                                ) : (
-                                  <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M8 5v14l11-7z" />
-                                  </svg>
-                                )}
+                                <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M8 5v14l11-7z" />
+                                </svg>
                               </div>
                             </button>
                           );
