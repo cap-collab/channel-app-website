@@ -1,5 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return [
+      // /radio is the historical URL for the homepage. Google may still hold
+      // SEO equity at this URL — preserve it via permanent redirect so signals
+      // consolidate to /.
+      {
+        source: '/radio',
+        destination: '/',
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return {
       afterFiles: [
