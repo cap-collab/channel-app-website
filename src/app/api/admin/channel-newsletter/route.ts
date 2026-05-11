@@ -145,12 +145,14 @@ export async function GET(request: NextRequest) {
         subject: `[audit] Channel newsletter roster — ${rows.length} rows`,
         html,
       });
+      const gap = rows.filter((r) => !r.onNextSend && !r.unsubscribed);
       return NextResponse.json({
         mode: "audit",
         sentTo: auditTo,
         totalRows: rows.length,
         onNextSend: rows.filter((r) => r.onNextSend).length,
         unsubscribed: rows.filter((r) => r.unsubscribed).length,
+        gap: gap.map((r) => ({ email: r.email, source: r.source, role: r.role })),
       });
     } catch (e) {
       return NextResponse.json({ error: String(e) }, { status: 500 });
