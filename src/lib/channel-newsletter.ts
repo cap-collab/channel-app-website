@@ -174,7 +174,7 @@ export function buildEmailHtml(
       <a href="https://youtube.com/@channelrad-io" style="color: #1a1a1a;">https://youtube.com/@channelrad-io</a>
     </p>
     <p style="margin: 0 0 16px; color: #1a1a1a;">SoundCloud:<br/>
-      <a href="https://soundcloud.com/channel" style="color: #1a1a1a;">https://soundcloud.com/channel</a>
+      <a href="https://soundcloud.com/channel-254533657" style="color: #1a1a1a;">https://soundcloud.com/channel-254533657</a>
     </p>
   ` : "";
 
