@@ -939,35 +939,39 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                             }
                           }}
                         />
-                        {/* Play-only overlay. Shown when this slide's source
-                            isn't currently playing — gives the listener a
-                            visible tap target. No pause icon: pausing is
-                            handled by the player bar below. */}
+                        {/* Tap overlay. Always covers the slide so the card
+                            stays clickable. Shows a play icon only when the
+                            slide's source isn't currently playing — no pause
+                            icon (pausing belongs to the player bar). While
+                            playing, tapping still toggles via the bar. */}
                         {(() => {
                           const slideIsRadio = slide1Identity === 'radio';
                           const slideIsPlaying = slideIsRadio
                             ? !!radioCtx?.isPlaying
                             : (archivePlayer.isPlaying &&
                                archivePlayer.currentArchive?.id === secondHeroArchive.id);
-                          if (slideIsPlaying) return null;
                           return (
                             <button
                               onClick={() => {
                                 if (slideIsRadio) {
                                   void radioCtx?.toggle();
+                                } else if (slideIsPlaying) {
+                                  archivePlayer.toggle();
                                 } else {
                                   setUserSelectedMode('archive');
                                   playArchive(secondHeroArchive);
                                 }
                               }}
-                              aria-label={slideIsRadio ? 'Play radio' : 'Play this archive'}
+                              aria-label={slideIsPlaying ? 'Pause' : (slideIsRadio ? 'Play radio' : 'Play this archive')}
                               className="absolute inset-0 flex items-center justify-center transition-opacity hover:bg-black/30"
                             >
-                              <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
-                                <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                                  <path d="M8 5v14l11-7z" />
-                                </svg>
-                              </div>
+                              {!slideIsPlaying && (
+                                <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
+                                  <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z" />
+                                  </svg>
+                                </div>
+                              )}
                             </button>
                           );
                         })()}
