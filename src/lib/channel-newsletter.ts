@@ -180,7 +180,7 @@ export function buildEmailHtml(
 
   const body = `
     <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${displayName},</p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">Channel is now running continuously, 24/7.</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>Channel is now running continuously, 24/7.</strong></p>
     <p style="margin: 0 0 16px; color: #1a1a1a;">Live sets and restreams moving throughout day and night.</p>
     <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>Lock in:</strong><br/>
       <a href="${NEWSLETTER_APP_URL}" style="color: #1a1a1a;">https://channel-app.com</a>
