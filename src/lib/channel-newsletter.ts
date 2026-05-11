@@ -160,6 +160,24 @@ export function buildEmailHtml(
     ? "You're receiving this as an artist on Channel."
     : "You're receiving this as a member of Channel.";
 
+  const djProfileUrl = djUsername
+    ? `${NEWSLETTER_APP_URL}/dj/${encodeURIComponent(djUsername)}`
+    : NEWSLETTER_APP_URL;
+
+  const djFooterBlock = cohort === "dj" ? `
+    <p style="margin: 24px 0 16px; color: #1a1a1a;">—</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">Most shows are also uploaded across platforms shortly after broadcast:</p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">Channel:<br/>
+      <a href="${djProfileUrl}" style="color: #1a1a1a;">${djProfileUrl}</a>
+    </p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">YouTube:<br/>
+      <a href="https://youtube.com/@channelrad-io" style="color: #1a1a1a;">https://youtube.com/@channelrad-io</a>
+    </p>
+    <p style="margin: 0 0 16px; color: #1a1a1a;">SoundCloud:<br/>
+      <a href="https://soundcloud.com/channel" style="color: #1a1a1a;">https://soundcloud.com/channel</a>
+    </p>
+  ` : "";
+
   const body = `
     <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${displayName},</p>
     <p style="margin: 0 0 16px; color: #1a1a1a;">Channel is now running continuously, 24/7.</p>
@@ -168,8 +186,8 @@ export function buildEmailHtml(
       <a href="${NEWSLETTER_APP_URL}" style="color: #1a1a1a;">https://channel-app.com</a>
     </p>
     <p style="margin: 0; color: #1a1a1a;">Cap</p>
+    ${djFooterBlock}
   `;
-  void djUsername;
 
   return minifyHtml(`
     <!DOCTYPE html>
