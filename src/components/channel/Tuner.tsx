@@ -139,7 +139,7 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
     <div className={compact ? '' : 'z-[90] bg-black/90 backdrop-blur-sm border-b border-white/5'}>
       <div className="flex items-center h-8">
         {/* City selector - left column */}
-        <div className="relative flex-1 flex justify-center">
+        <div className="relative flex-1 flex justify-center hidden">
           <button
             ref={cityButtonRef}
             onClick={() => {
