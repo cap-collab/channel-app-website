@@ -185,6 +185,13 @@ export function buildEmailHtml(
     </p>
   ` : "";
 
+  const listenerFooterBlock = cohort === "listener" ? `
+    <p style="margin: 24px 0 8px; font-size: 12px; color: #999;">*</p>
+    <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #999;">Live moments and clips:<br/>
+      <a href="https://instagram.com/channelrad.io" style="color: #999;">https://instagram.com/channelrad.io</a>
+    </p>
+  ` : "";
+
   const body = `
     <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${displayName},</p>
     <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>Channel is now running continuously, 24/7.</strong></p>
@@ -194,6 +201,7 @@ export function buildEmailHtml(
     </p>
     <p style="margin: 0; color: #1a1a1a;">Cap</p>
     ${djFooterBlock}
+    ${listenerFooterBlock}
   `;
 
   return minifyHtml(`
