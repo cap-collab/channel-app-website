@@ -33,6 +33,7 @@ export function GlobalBroadcastBar() {
   const {
     isLive, isStreaming, isPlaying, isLoading, toggle,
     showName, djName, tipLink, currentShow,
+    heroBarVisible,
     onLockedInRef: broadcastLockedInRef,
     onListenMilestoneRef: broadcastListenMilestoneRef,
   } = useBroadcastStreamContext();
@@ -227,10 +228,14 @@ export function GlobalBroadcastBar() {
 
   if (!barMode) return null;
 
-  // Sticky bar is always visible on /radio (and /radio/demo). Listeners
-  // need a persistent "what's playing / what's the page default" reference
-  // at the top of the page regardless of carousel state.
-  const hiddenOnRadio = false;
+  // On the homepage `/` (canonical radio page), keep the sticky bar hidden
+  // until the listener has actually engaged or scrolled past the inline
+  // player. Reveal triggers: something is playing/loaded, the inline hero
+  // bar has scrolled out of view, or the listener navigates to another
+  // page (pathname check handles the last one automatically).
+  const nothingEngaged =
+    !isLivePlaying && !isArchivePlaying && !isRadioPlaying && !archivePlayer.currentArchive;
+  const hiddenOnRadio = pathname === '/' && heroBarVisible && nothingEngaged;
 
   const showLiveBar = barMode === 'live';
 
