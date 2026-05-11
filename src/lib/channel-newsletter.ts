@@ -172,7 +172,7 @@ export function buildEmailHtml(
     : NEWSLETTER_APP_URL;
 
   const djFooterBlock = cohort === "dj" ? `
-    <p style="margin: 24px 0 8px; font-size: 13px; color: #999;">*</p>
+    <p style="margin: 24px 0 8px; font-size: 13px; color: #1a1a1a;">*</p>
     <p style="margin: 0 0 10px; font-size: 13px; line-height: 1.5; color: #999;">Most shows are uploaded shortly after broadcast.</p>
     <p style="margin: 0 0 4px; font-size: 13px; line-height: 1.5; color: #999;">Channel: <a href="${djProfileUrl}" style="color: #999;">${djProfileUrl}</a></p>
     <p style="margin: 0 0 4px; font-size: 13px; line-height: 1.5; color: #999;">YouTube: <a href="https://youtube.com/@channelrad-io" style="color: #999;">https://youtube.com/@channelrad-io</a></p>
@@ -180,7 +180,7 @@ export function buildEmailHtml(
   ` : "";
 
   const listenerFooterBlock = cohort === "listener" ? `
-    <p style="margin: 24px 0 8px; font-size: 13px; color: #999;">*</p>
+    <p style="margin: 24px 0 8px; font-size: 13px; color: #1a1a1a;">*</p>
     <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #999;">Live moments and clips: <a href="https://instagram.com/channelrad.io" style="color: #999;">https://instagram.com/channelrad.io</a></p>
   ` : "";
 
