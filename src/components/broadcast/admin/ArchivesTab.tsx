@@ -284,6 +284,20 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
   const liveCount = archives.filter(a => a.sourceType === 'live').length;
   const recordingCount = archives.filter(a => a.sourceType === 'recording').length;
 
+  const priorityStats: { key: ArchivePriority; label: string; className: string }[] = [
+    { key: 'high', label: 'High', className: 'text-red-400' },
+    { key: 'medium', label: 'Medium', className: 'text-yellow-400' },
+    { key: 'low', label: 'Low', className: 'text-gray-400' },
+  ];
+  const statsByPriority = priorityStats.map(p => {
+    const items = archives.filter(a => (a.priority || 'medium') === p.key);
+    return {
+      ...p,
+      count: items.length,
+      duration: items.reduce((sum, a) => sum + (a.duration || 0), 0),
+    };
+  });
+
   const sourceGroups: { source: FilterSource; label: string; count: number }[] = [
     { source: 'all', label: 'All', count: archives.length },
     { source: 'live', label: 'Live Broadcasts', count: liveCount },
@@ -319,9 +333,15 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
   return (
     <div>
       {/* Stats bar */}
-      <div className="flex gap-4 mb-6 text-sm text-gray-400">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-6 text-sm text-gray-400">
         <span>{archives.length} archives</span>
         <span>Total: {formatDuration(totalDuration)}</span>
+        <span className="text-gray-700">|</span>
+        {statsByPriority.map((s) => (
+          <span key={s.key} className={s.className}>
+            {s.label}: {s.count} ({formatDuration(s.duration)})
+          </span>
+        ))}
       </div>
 
       {/* Filters and Sort */}
