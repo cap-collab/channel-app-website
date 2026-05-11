@@ -4,6 +4,7 @@ import { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Terms of Use",
   description: "Terms of Use for Channel — the community-led internet radio platform by Channel Media, Inc.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

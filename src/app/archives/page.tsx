@@ -4,6 +4,7 @@ import { ArchivesClient } from './ArchivesClient';
 export const metadata: Metadata = {
   title: "Archives",
   description: "Listen to recorded live shows from DJs broadcasting on Channel.",
+  alternates: { canonical: "/archives" },
 };
 
 export default function ArchivesPage() {

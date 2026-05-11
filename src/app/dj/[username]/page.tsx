@@ -86,6 +86,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: name,
     description: `${name} broadcasts on Channel. Listen to recorded shows, follow upcoming sets, and discover their selections.`,
     image: dj?.photoUrl || undefined,
+    path: `/dj/${encodeURIComponent(username)}`,
   });
 }
 

@@ -37,6 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: name,
     description: `Discover shows, DJs, and events at ${name} on Channel.`,
     image: venue?.photo || undefined,
+    path: `/venue/${encodeURIComponent(slug)}`,
   });
 }
 

@@ -4,6 +4,7 @@ import { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Community Guidelines",
   description: "Community guidelines for DJs, listeners, and hosts on Channel.",
+  alternates: { canonical: "/guidelines" },
 };
 
 export default function GuidelinesPage() {

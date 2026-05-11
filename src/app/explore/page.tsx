@@ -5,6 +5,7 @@ import { ExploreClient } from './ExploreClient';
 export const metadata = makeOG({
   title: "Explore",
   description: "Explore scenes, DJs, venues, and collectives across Channel.",
+  path: "/explore",
 });
 
 export default function ExplorePage() {

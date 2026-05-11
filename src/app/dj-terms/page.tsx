@@ -4,6 +4,7 @@ import { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Artist Terms of Use",
   description: "Terms of Use for DJs and artists broadcasting on Channel.",
+  alternates: { canonical: "/dj-terms" },
 };
 
 export default function DJTermsPage() {

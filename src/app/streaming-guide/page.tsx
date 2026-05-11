@@ -5,6 +5,7 @@ import { StreamingGuideClient } from './StreamingGuideClient';
 export const metadata = makeOG({
   title: "Streaming Guide",
   description: "Set up your gear, software, and stream key to broadcast on Channel.",
+  path: "/streaming-guide",
 });
 
 export default function StreamingGuidePage() {

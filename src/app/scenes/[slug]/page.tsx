@@ -30,6 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return makeOG({
     title: scene.name,
     description: scene.description || `Explore the ${scene.name} scene on Channel — DJs, collectives, venues, and shows.`,
+    path: `/scenes/${encodeURIComponent(slug)}`,
   });
 }
 

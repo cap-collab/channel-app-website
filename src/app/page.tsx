@@ -3,7 +3,7 @@ import { makeOG } from '@/lib/og';
 import { ChannelClient } from './radio/ChannelClient';
 import { getHeroArchives } from '@/lib/hero-archives';
 
-export const metadata = makeOG();
+export const metadata = makeOG({ path: '/' });
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {

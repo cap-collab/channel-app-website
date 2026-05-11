@@ -24,9 +24,6 @@ export const metadata: Metadata = {
   },
   description: "For the music. And the people behind it.",
   metadataBase: new URL("https://channel-app.com"),
-  alternates: {
-    canonical: "/",
-  },
   openGraph: {
     title: "Channel — community-led internet radio",
     description: "For the music. And the people behind it.",
