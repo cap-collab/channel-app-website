@@ -716,16 +716,16 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // Slide 0's audio source is actually playing right now (live when on,
   // otherwise the archive radio).
   const slide0IsPlaying = isLive ? isLivePlaying : !!radioCtx?.isPlaying;
-  // Carousel unlock: a single 10s wall-clock timer kicks off the first
+  // Carousel unlock: a single 5s wall-clock timer kicks off the first
   // time slide 0 begins playing. Pausing within that window doesn't
-  // reset it — once 10s pass since the first press, the carousel
+  // reset it — once 5s pass since the first press, the carousel
   // (arrows, dots, swipe, slide transition) unlocks for the session.
   const [slide0Unlocked, setSlide0Unlocked] = useState(false);
   const slide0TimerStartedRef = useRef(false);
   useEffect(() => {
     if (slide0Unlocked || slide0TimerStartedRef.current || !slide0IsPlaying) return;
     slide0TimerStartedRef.current = true;
-    const t = setTimeout(() => setSlide0Unlocked(true), 10_000);
+    const t = setTimeout(() => setSlide0Unlocked(true), 5_000);
     return () => clearTimeout(t);
   }, [slide0IsPlaying, slide0Unlocked]);
   // Controls are always available from slide 1+; from slide 0, only after
