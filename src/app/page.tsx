@@ -49,6 +49,7 @@ export default async function Home() {
         <ChannelClient
           initialHeroArchives={heroSeed.archives}
           initialPreferredHero={heroSeed.preferredHero}
+          initialRadioArchiveId={heroSeed.currentRadioArchiveId}
         />
       </Suspense>
     </>
