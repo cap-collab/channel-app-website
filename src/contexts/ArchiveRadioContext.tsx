@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type MutableRefObject } from 'react';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
+import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchiveRadio } from '@/hooks/useArchiveRadio';
 import type { ArchiveSerialized, ScheduleItem } from '@/types/broadcast';
 
@@ -57,14 +58,11 @@ const ArchiveRadioContext = createContext<ArchiveRadioContextValue | null>(null)
 // listener across pages.
 export function ArchiveRadioProvider({ children, enabled }: { children: ReactNode; enabled: boolean }) {
   const archivePlayer = useArchivePlayer();
-  // Radio audio elements stay "alive" as long as the provider is mounted.
-  // Don't gate on live or archive state — tearing down the audio on
-  // showLive flips false would pause the radio when a live broadcast goes
-  // live, which contradicts the rule "live becoming live must NEVER
-  // interrupt the radio". Single-source coordination is handled by the
-  // explicit user-action paths (toggle/play in this context pause the
-  // others, and ArchivePlayer.play pauses the radio via the playArchive
-  // helper).
+  // Radio audio elements stay "alive" as long as the provider is mounted —
+  // not gated on live/archive state. Single-source coordination is handled
+  // by the explicit user-action paths (toggle/play here pause the others,
+  // ArchivePlayer.play pauses the radio) plus the auto-handoff coordinator
+  // below, which swaps radio↔live when audio is verified to be flowing.
   const radio = useArchiveRadio({
     active: enabled,
   });
@@ -76,19 +74,62 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
 
   // Single-source rule: when a regular archive *actually starts playing*,
   // pause the radio. Mirrors archivePlayer.play→pauseBroadcast on /radio.
-  //
-  // We do NOT auto-pause the radio when:
-  //   - broadcast.isLive flips true (live merely becomes available)
-  //   - broadcast.isPlaying flips true (live audio starts — could be a
-  //     show-transition auto-resume that the listener didn't request)
-  // Live starting/playing must NEVER interrupt the listener's current
-  // radio stream. They switch to live manually via the "Switch to Live
-  // Radio" button or the slide overlay. The single-source rule only
-  // applies when an *archive* (a finite recording the listener picked)
-  // starts playing.
   useEffect(() => {
     if (radio.isPlaying && archivePlayer.isPlaying) radio.pause();
   }, [archivePlayer.isPlaying, radio]);
+
+  // Auto-handoff coordinator between radio loop and live broadcast.
+  //
+  // Rule A (radio → live): when `isStreaming` flips false→true (LiveKit
+  // webhook confirmed audio is actually flowing), if the radio is playing
+  // and no specific archive is playing, pause radio and play live. Gating on
+  // `isStreaming` (not `isLive`) closes the historical bug where `isLive`
+  // flipped before audio actually flowed, causing stale loops on mobile.
+  //
+  // Rule B (live → radio): when `isLive` flips true→false (schedule-aware
+  // grace already determined there's no follow-up scheduled, or the
+  // follow-up DJ no-showed past 60s), if live audio was actively playing
+  // at the moment of the flip, resume the radio loop. Applies to all live
+  // listeners regardless of how they joined. The "was playing at flip"
+  // gate filters out users who manually paused the live — they chose
+  // silence, leave them silent.
+  const broadcast = useBroadcastStreamContext();
+  const prevIsStreamingRef = useRef(false);
+  const prevIsLiveRef = useRef(false);
+  const prevBroadcastPlayingRef = useRef(false);
+
+  // Stable refs to radio/broadcast control functions so the rule effects only
+  // re-run on actual state changes, not on every parent render. (radio is a
+  // fresh object each render of useArchiveRadio; we don't want it as a dep.)
+  const radioPlayRef = useRef(radio.play);
+  const radioPauseRef = useRef(radio.pause);
+  const broadcastPlayRef = useRef(broadcast.play);
+  useEffect(() => { radioPlayRef.current = radio.play; }, [radio.play]);
+  useEffect(() => { radioPauseRef.current = radio.pause; }, [radio.pause]);
+  useEffect(() => { broadcastPlayRef.current = broadcast.play; }, [broadcast.play]);
+
+  useEffect(() => {
+    const wasStreaming = prevIsStreamingRef.current;
+    prevIsStreamingRef.current = broadcast.isStreaming;
+    if (!wasStreaming && broadcast.isStreaming
+        && radio.isPlaying
+        && !archivePlayer.isPlaying) {
+      radioPauseRef.current();
+      broadcastPlayRef.current();
+    }
+  }, [broadcast.isStreaming, radio.isPlaying, archivePlayer.isPlaying]);
+
+  useEffect(() => {
+    prevBroadcastPlayingRef.current = broadcast.isPlaying;
+  }, [broadcast.isPlaying]);
+
+  useEffect(() => {
+    const wasLive = prevIsLiveRef.current;
+    prevIsLiveRef.current = broadcast.isLive;
+    if (wasLive && !broadcast.isLive && prevBroadcastPlayingRef.current) {
+      radioPlayRef.current();
+    }
+  }, [broadcast.isLive]);
 
   const play = useCallback(async () => {
     if (archivePlayer.isPlaying) archivePlayer.pause();
