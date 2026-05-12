@@ -508,6 +508,11 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     if (!opts.active) return;
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
     if (!current) return;
+    // Only own the mediaSession while radio is actually playing. When the
+    // radio is paused (e.g. live took over via auto-handoff, or user paused),
+    // leave mediaSession alone so the active source can write its own
+    // metadata without us overwriting it.
+    if (!isPlaying) return;
     const item = current.item;
     const artist = (item.djs?.length ? item.djs.map((d) => d.name).join(', ') : undefined);
     const fallback = `${window.location.origin}/apple-touch-icon.png`;
