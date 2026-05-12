@@ -716,12 +716,16 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // Slide 0's audio source is actually playing right now (live when on,
   // otherwise the archive radio).
   const slide0IsPlaying = isLive ? isLivePlaying : !!radioCtx?.isPlaying;
-  // Carousel unlock: the listener must press play on slide 0 at least once
-  // before the carousel (arrows, dots, swipe, slide transition) becomes
-  // available. Once unlocked, it stays unlocked — pausing slide 0 doesn't
-  // re-hide the controls, since by then the listener has clearly engaged.
+  // Carousel unlock: starts a 10s timer the first time slide 0 begins
+  // playing. After it elapses, the carousel (arrows, dots, swipe, slide
+  // transition) becomes available and stays available for the rest of
+  // the session — pausing later doesn't re-hide the controls.
   const [slide0Unlocked, setSlide0Unlocked] = useState(false);
-  useEffect(() => { if (slide0IsPlaying) setSlide0Unlocked(true); }, [slide0IsPlaying]);
+  useEffect(() => {
+    if (slide0Unlocked || !slide0IsPlaying) return;
+    const t = setTimeout(() => setSlide0Unlocked(true), 10_000);
+    return () => clearTimeout(t);
+  }, [slide0IsPlaying, slide0Unlocked]);
   // Controls are always available from slide 1+; from slide 0, only after
   // unlock.
   const carouselControlsVisible = heroIndex !== 0 || slide0Unlocked;
