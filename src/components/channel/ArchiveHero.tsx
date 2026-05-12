@@ -154,6 +154,11 @@ interface ArchiveHeroProps {
     spiral: ArchiveSerialized | null;
     star: ArchiveSerialized | null;
   };
+  // SSR-resolved id of the archive playing on the radio right now. Used by
+  // slide 0 (radio image) until the client subscribes to the loop collection
+  // and `radioCtx.currentItem.archiveId` resolves — otherwise slide 0 would
+  // flash a different archive (the featured fallback) on first paint.
+  initialRadioArchiveId?: string | null;
 }
 
 function formatClockTime(timestampMs: number): string {
@@ -188,7 +193,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
   );
 }
 
-export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle, preferredHeroSeed }: ArchiveHeroProps) {
+export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle, preferredHeroSeed, initialRadioArchiveId }: ArchiveHeroProps) {
   const { user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
   const {
@@ -310,8 +315,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const radioCurrentArchiveId = radioCtx?.currentItem?.archiveId ?? null;
   // Single source of truth: radioCtx resolves the archive doc from the
   // schedule item's id. All bar metadata (scene, username, tip, photo) reads
-  // from there — same data the rest of the hero uses.
-  const radioArchive = radioCtx?.currentArchive ?? null;
+  // from there — same data the rest of the hero uses. While that subscription
+  // resolves on first paint, fall back to the SSR-seeded radio archive so the
+  // player bar shows the real show name + DJ instead of "Loading…".
+  const radioArchive =
+    radioCtx?.currentArchive ??
+    (initialRadioArchiveId ? archives.find((a) => a.id === initialRadioArchiveId) ?? null : null);
   const radioPrimaryDj = radioArchive?.djs?.[0];
   const radioDjUsername = radioPrimaryDj?.username || '';
   const radioDjUsernameNormalized = radioDjUsername.replace(/\s+/g, '').toLowerCase();
@@ -932,11 +941,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                         // Slide 0 = archive radio. Prefer the resolved archive
                         // doc so we render a real HeroSlide (DJ overlay, scene
                         // glyphs, photo). While the schedule loads, fall back
-                        // to the featured archive so the slot isn't an ugly
-                        // placeholder — same trick /radio uses below.
-                        const radioArchive = (radioCtx?.currentItem?.archiveId
-                          ? archives.find((a) => a.id === radioCtx.currentItem!.archiveId)
-                          : null) ?? featuredArchive;
+                        // to the SSR-resolved radio archive (so the image
+                        // matches what's actually playing on first paint),
+                        // then to the featured archive as a last resort.
+                        const liveRadioId = radioCtx?.currentItem?.archiveId;
+                        const seedId = initialRadioArchiveId ?? null;
+                        const radioArchive =
+                          (liveRadioId ? archives.find((a) => a.id === liveRadioId) : null) ??
+                          (seedId ? archives.find((a) => a.id === seedId) : null) ??
+                          featuredArchive;
                         return (
                           <HeroSlide
                             archive={radioArchive}
@@ -1088,7 +1101,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   glyph, play, scrolling text, profile, love, tip), but driven
                   by the radio context. The progress is non-seekable because
                   the radio is a synced schedule, not a single audio file. */}
-              <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
+              <div className="flex items-center gap-0.5 sm:gap-[11px] py-2 px-1">
                 <div className="flex items-center ml-1 flex-shrink-0">
                   {radioSceneSlug && (
                     <div className="w-[27px] h-[27px] flex items-center justify-center bg-white text-black flex-shrink-0">
@@ -1130,14 +1143,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 {/* Pulsing red dot — same as live, marks "live audio" feel
                     on the radio (it's a synced stream, not a static archive). */}
                 <div className="flex items-center gap-0.5 flex-shrink-0">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                  <span className="relative flex h-2 w-2 sm:h-[18px] sm:w-[18px] items-center justify-center">
+                    <span className="animate-ping absolute inline-flex h-2 w-2 sm:h-[9px] sm:w-[9px] rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 sm:h-[9px] sm:w-[9px] bg-red-600" />
                   </span>
                 </div>
                 {radioDjUsernameNormalized && (
                   <Link href={`/dj/${radioDjUsernameNormalized}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                    <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                   </Link>
                 )}
                 <div className="relative flex-shrink-0">
@@ -1145,7 +1158,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     onClick={() => { void handleRadioLove(); }}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
                   >
-                    <svg key={`r-${nudgeKey}`} className={`w-4 h-4 ${radioCtx.isPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                    <svg key={`r-${nudgeKey}`} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${radioCtx.isPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                     </svg>
                   </button>
@@ -1156,7 +1169,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     djUsername={radioPrimaryDj?.name || 'DJ'}
                     tipLink={radioTipLink}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
-                    iconClassName="w-4 h-4"
+                    iconClassName="w-4 h-4 sm:w-[18px] sm:h-[18px]"
                   />
                 )}
               </div>
@@ -1180,7 +1193,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               {/* Live player bar — uses the archive-bar play size (h-[27px]
                   wrapper, w-8 icon) so swiping between cards doesn't change
                   the button size. */}
-              <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
+              <div className="flex items-center gap-0.5 sm:gap-[11px] py-2 px-1">
                 <button
                   onClick={toggleLive}
                   className="h-[27px] ml-1 pl-2 pr-1 flex items-center justify-center transition-colors flex-shrink-0"
@@ -1208,9 +1221,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </div>
                 {/* Live indicator + BPM */}
                 <div className="flex items-center gap-0.5 flex-shrink-0">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                  <span className="relative flex h-2 w-2 sm:h-[18px] sm:w-[18px] items-center justify-center">
+                    <span className="animate-ping absolute inline-flex h-2 w-2 sm:h-[9px] sm:w-[9px] rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 sm:h-[9px] sm:w-[9px] bg-red-600" />
                   </span>
                   {liveBPM && (
                     <span className="hidden md:inline text-xs font-mono uppercase tracking-tighter font-bold text-red-500">
@@ -1220,7 +1233,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </div>
                 {liveDjProfileUsername && (
                   <Link href={`/dj/${liveDjProfileUsername.replace(/\s+/g, '').toLowerCase()}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                    <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                   </Link>
                 )}
                 <div className="relative flex-shrink-0">
@@ -1228,7 +1241,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     onClick={handleLove}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
                   >
-                    <svg key={nudgeKey} className={`w-4 h-4 ${anyPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                    <svg key={nudgeKey} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${anyPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                     </svg>
                   </button>
@@ -1239,7 +1252,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     djUsername={djName || 'DJ'}
                     tipLink={tipLink}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
-                    iconClassName="w-4 h-4"
+                    iconClassName="w-4 h-4 sm:w-[18px] sm:h-[18px]"
                   />
                 )}
               </div>
@@ -1259,7 +1272,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           ) : (
             <>
               {/* Archive player bar */}
-              <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
+              <div className="flex items-center gap-0.5 sm:gap-[11px] py-2 px-1">
                 <div className="flex items-center ml-1 flex-shrink-0">
                   {(() => {
                     const slug = resolveArchiveScenes(displayedArchive, djSceneMap).find((s) => s !== 'grid');
@@ -1305,7 +1318,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     live bars show the pulsing red dot. Mirrors the "Archive"
                     pill above the hero, no text label here. */}
                 <div className="flex items-center gap-0.5 flex-shrink-0">
-                  <svg className="w-4 h-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="3" width="18" height="5" rx="1" />
                     <path d="M5 8v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
                     <path d="M10 12h4" />
@@ -1315,7 +1328,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   const archiveDjUsername = displayedArchive.djs[0]?.username?.replace(/\s+/g, '').toLowerCase();
                   return archiveDjUsername ? (
                     <Link href={`/dj/${archiveDjUsername}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                      <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                     </Link>
                   ) : null;
                 })()}
@@ -1324,7 +1337,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     onClick={handleLove}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
                   >
-                    <svg key={nudgeKey} className={`w-4 h-4 ${anyPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                    <svg key={nudgeKey} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${anyPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                     </svg>
                   </button>
@@ -1335,7 +1348,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     djUsername={djName || 'DJ'}
                     tipLink={tipLink}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
-                    iconClassName="w-4 h-4"
+                    iconClassName="w-4 h-4 sm:w-[18px] sm:h-[18px]"
                   />
                 )}
               </div>
