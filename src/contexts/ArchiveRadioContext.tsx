@@ -132,8 +132,23 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     }
   }, [broadcast.isStreaming, radio.isPlaying, archivePlayer.isPlaying]);
 
+  // Rule B — Live → Radio: fire BEFORE the prevBroadcastPlayingRef tracking
+  // effect below, so we read the previous value (from before this render's
+  // update) rather than the value after.
+  useEffect(() => {
+    const wasLive = prevIsLiveRef.current;
+    prevIsLiveRef.current = broadcast.isLive;
+    if (wasLive && !broadcast.isLive && prevBroadcastPlayingRef.current) {
+      radioPlayRef.current();
+    }
+  }, [broadcast.isLive]);
+
   // Track broadcast.isPlaying. When it flips true while a handoff is
   // pending, pause the radio (live is now confirmed producing audio).
+  // Must run AFTER Rule B so the ref still holds the pre-flip value when
+  // Rule B reads it on the same render where isLive and isPlaying both
+  // flip false (which happens when statusIsLive turns off — the context
+  // returns a hardcoded {isPlaying:false,isLive:false} object).
   useEffect(() => {
     const wasPlaying = prevBroadcastPlayingRef.current;
     prevBroadcastPlayingRef.current = broadcast.isPlaying;
@@ -142,14 +157,6 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
       radioPauseRef.current();
     }
   }, [broadcast.isPlaying]);
-
-  useEffect(() => {
-    const wasLive = prevIsLiveRef.current;
-    prevIsLiveRef.current = broadcast.isLive;
-    if (wasLive && !broadcast.isLive && prevBroadcastPlayingRef.current) {
-      radioPlayRef.current();
-    }
-  }, [broadcast.isLive]);
 
   const play = useCallback(async () => {
     if (archivePlayer.isPlaying) archivePlayer.pause();
