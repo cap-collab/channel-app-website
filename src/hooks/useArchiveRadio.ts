@@ -18,7 +18,6 @@ import type {
   ArchiveRadioLoop,
   ScheduleItem,
 } from '@/types/broadcast';
-import { registerAudio, pauseOthers } from '@/lib/audio-exclusive';
 
 // Minimum lookahead when scheduling the boundary timer; avoids a 0ms timer if
 // we're already past the boundary (e.g. tab was just unbackgrounded).
@@ -234,6 +233,23 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   // attrs set up-front (matches feedback_ios_mediasession + the existing
   // useBroadcastStream pattern: playsinline + crossOrigin must be set before
   // the first .play()).
+  // Attach play/pause listeners that mirror the audio element's actual
+  // state back into React state. Critical when another source pauses us
+  // via the audio-exclusive registry (registry calls el.pause() directly,
+  // bypassing our play()/pause() helpers) — without these listeners, the
+  // radio's isPlaying state would stay true while the audio was silent,
+  // and the sticky bar would show the wrong source.
+  const attachStateListeners = useCallback((el: HTMLAudioElement) => {
+    el.addEventListener('pause', () => {
+      const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
+      if (el === active) setIsPlaying(false);
+    });
+    el.addEventListener('play', () => {
+      const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
+      if (el === active) setIsPlaying(true);
+    });
+  }, []);
+
   const ensureAudio = useCallback(() => {
     if (typeof window === 'undefined') return null;
     if (!audioARef.current) {
@@ -242,6 +258,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       a.preload = 'auto';
       a.setAttribute('playsinline', '');
       a.setAttribute('webkit-playsinline', '');
+      attachStateListeners(a);
       audioARef.current = a;
     }
     if (!audioBRef.current) {
@@ -250,10 +267,11 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       b.preload = 'auto';
       b.setAttribute('playsinline', '');
       b.setAttribute('webkit-playsinline', '');
+      attachStateListeners(b);
       audioBRef.current = b;
     }
     return { a: audioARef.current, b: audioBRef.current };
-  }, []);
+  }, [attachStateListeners]);
 
   const getActive = useCallback(() => {
     return activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
@@ -313,15 +331,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       playingKeyRef.current = key;
       setIsPlaying(true);
       setError(null);
-      // Single-source coordination: register the active element and pause
-      // live/archive. The play/pause listener effect below can't be relied
-      // on here because the audio elements are created lazily in
-      // ensureAudio() (above) but the listener effect's deps only include
-      // opts.active — by the time the elements exist, the effect has
-      // already run and bailed out. Doing it here guarantees the registry
-      // updates on every actual play.
-      registerAudio('radio', active);
-      pauseOthers('radio');
     } catch (err) {
       setIsPlaying(false);
       setError(err instanceof Error ? err.message : 'Playback failed.');
@@ -342,7 +351,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     a?.pause();
     b?.pause();
     setIsPlaying(false);
-    registerAudio('radio', null);
   }, []);
 
   const toggle = useCallback(async () => {
@@ -399,11 +407,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
         }
         playingKeyRef.current = nextKey;
         preloadedNextKeyRef.current = null;
-        // Update the registry to point at the new active element so future
-        // pauseOthers('live') / pauseOthers('archive') pauses the right one.
-        // No pauseOthers('radio') here — boundary swap isn't a user-intent
-        // source change, and the single-source rule already holds.
-        registerAudio('radio', standbyEl);
       } catch (err) {
         console.warn('[useArchiveRadio] boundary swap failed', err);
       }

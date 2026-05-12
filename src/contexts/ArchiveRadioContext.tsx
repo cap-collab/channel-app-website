@@ -66,17 +66,27 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   const radio = useArchiveRadio({
     active: enabled,
   });
+  const broadcast = useBroadcastStreamContext();
+
   const toggle = useCallback(async () => {
     const willPlay = !radio.isPlaying;
     if (willPlay && archivePlayer.isPlaying) archivePlayer.pause();
+    if (willPlay && broadcast.isPlaying) broadcast.pause();
     await radio.toggle();
-  }, [radio, archivePlayer]);
+  }, [radio, archivePlayer, broadcast]);
 
   // Single-source rule: when a regular archive *actually starts playing*,
   // pause the radio. Mirrors archivePlayer.play→pauseBroadcast on /radio.
   useEffect(() => {
     if (radio.isPlaying && archivePlayer.isPlaying) radio.pause();
   }, [archivePlayer.isPlaying, radio]);
+
+  // Same rule for live: when the live broadcast actually starts playing,
+  // pause the radio. Mirrors broadcast.play→pauseArchive in
+  // ArchivePlayerContext (which pauses broadcast when archive plays).
+  useEffect(() => {
+    if (radio.isPlaying && broadcast.isPlaying) radio.pause();
+  }, [broadcast.isPlaying, radio]);
 
   // Auto-handoff coordinator between radio loop and live broadcast.
   //
@@ -95,7 +105,6 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   // actively playing at the moment of the flip, resume the radio loop.
   // Applies to all live listeners regardless of how they joined. The
   // "was playing at flip" gate filters out users who manually paused.
-  const broadcast = useBroadcastStreamContext();
   const prevIsStreamingRef = useRef(false);
   const prevIsLiveRef = useRef(false);
   const prevBroadcastPlayingRef = useRef(false);
@@ -160,8 +169,9 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
 
   const play = useCallback(async () => {
     if (archivePlayer.isPlaying) archivePlayer.pause();
+    if (broadcast.isPlaying) broadcast.pause();
     await radio.play();
-  }, [radio, archivePlayer]);
+  }, [radio, archivePlayer, broadcast]);
 
   const [visibleSlide, setVisibleSlide] = useState<0 | 1>(0);
   // Defaults to true so the sticky stays hidden until ArchiveHero says

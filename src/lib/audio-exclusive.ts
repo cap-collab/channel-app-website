@@ -1,8 +1,14 @@
 // Tracks which audio element is currently "owning" playback so a new player
-// can pause the other one. Live, archive, and radio share this registry —
-// whichever starts last wins. No events, no listeners, no re-renders.
+// can pause the other one. Live and archive share this registry — whichever
+// starts last wins. No events, no listeners, no re-renders.
+//
+// Radio↔live and radio↔archive coordination is NOT handled here — instead
+// it's done via explicit React-state .pause() calls in ArchiveRadioContext
+// (mirroring how archive↔live coordinates via pauseBroadcast() calls in
+// ArchivePlayerContext). That keeps the React state in sync, which the
+// inline + sticky players read for play/pause icons and barMode selection.
 
-type Source = 'live' | 'archive' | 'radio';
+type Source = 'live' | 'archive';
 
 const elements: Partial<Record<Source, HTMLAudioElement>> = {};
 
