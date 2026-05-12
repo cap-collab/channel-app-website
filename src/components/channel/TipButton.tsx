@@ -8,6 +8,7 @@ interface TipButtonProps {
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   className?: string;
+  iconClassName?: string;
   tipLink?: string | null;
 }
 
@@ -17,6 +18,7 @@ export function TipButton({
   size,
   disabled = false,
   className,
+  iconClassName,
   tipLink,
 }: TipButtonProps) {
   const handleClick = useCallback(() => {
@@ -48,7 +50,7 @@ export function TipButton({
       title={`Tip ${djUsername}`}
     >
       <svg
-        className={iconSize}
+        className={iconClassName || iconSize}
         fill="currentColor"
         viewBox="0 0 24 24"
       >
