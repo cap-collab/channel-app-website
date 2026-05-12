@@ -138,8 +138,9 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
   return (
     <div className={compact ? '' : 'z-[90] bg-black/90 backdrop-blur-sm border-b border-white/5'}>
       <div className="flex items-center h-8">
-        {/* City selector - left column */}
-        <div className="relative flex-1 flex justify-center hidden">
+        {/* City selector - left column. Only shown in the non-compact
+            (/explore) variant; the header's compact Tuner keeps it hidden. */}
+        <div className={`relative flex-1 flex justify-center ${compact ? 'hidden' : ''}`}>
           <button
             ref={cityButtonRef}
             onClick={() => {
@@ -241,8 +242,9 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
           )}
         </div>
 
-        {/* Genre selector removed — scene filter on /radio Past shows replaces it. */}
-        <div className="relative flex-1 flex justify-center hidden">
+        {/* Genre selector — same gate as the city selector: visible only
+            in the non-compact (/explore) variant. */}
+        <div className={`relative flex-1 flex justify-center ${compact ? 'hidden' : ''}`}>
           <button
             ref={genreButtonRef}
             onClick={() => {
