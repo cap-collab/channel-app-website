@@ -23,7 +23,7 @@ const config: Config = {
         },
       },
       animation: {
-        'heart-nudge': 'heart-nudge 20s ease-in-out 10s 3',
+        'heart-nudge': 'heart-nudge 20s ease-in-out 3s 3',
         'heart-nudge-strong': 'heart-nudge-strong 20s ease-in-out 2s 6',
       },
       fontFamily: {
