@@ -781,6 +781,12 @@ export function useBroadcastStream(
   useEffect(() => {
     const audio = audioElementRef.current;
     if (!audio || !isPlaying) return;
+    // Don't auto-resume once the live is over (statusIsLive=false, set by
+    // useBroadcastLiveStatus after its schedule-aware grace). Otherwise a
+    // pause from ArchiveRadioContext's Rule B (which silences stale live
+    // audio at handoff to radio) would be undone 2s later by this
+    // resume.
+    if (!statusIsLive) return;
 
     const handleBrowserPause = () => {
       // Only auto-resume if this wasn't a user-initiated pause
@@ -798,7 +804,7 @@ export function useBroadcastStream(
 
     audio.addEventListener('pause', handleBrowserPause);
     return () => audio.removeEventListener('pause', handleBrowserPause);
-  }, [isPlaying]);
+  }, [isPlaying, statusIsLive]);
 
   // Update lock screen / control center metadata via Media Session API
   useEffect(() => {

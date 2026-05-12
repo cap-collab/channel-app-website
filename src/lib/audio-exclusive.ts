@@ -24,3 +24,16 @@ export function pauseOthers(source: Source): void {
     if (el && !el.paused) el.pause();
   }
 }
+
+/**
+ * Pause a specific registered source's audio element. Used when we need
+ * to silence a stale source from outside its own hook (e.g. live audio
+ * lingering during useBroadcastStream's internal 60s grace after the
+ * live actually ended with no follow-up — ArchiveRadioContext's Rule B
+ * calls this to stop the stale live audio at the moment of auto-handoff
+ * to radio).
+ */
+export function pauseSource(source: Source): void {
+  const el = elements[source];
+  if (el && !el.paused) el.pause();
+}

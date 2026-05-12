@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchiveRadio } from '@/hooks/useArchiveRadio';
+import { pauseSource } from '@/lib/audio-exclusive';
 import type { ArchiveSerialized, ScheduleItem } from '@/types/broadcast';
 
 interface ArchiveRadioContextValue {
@@ -148,6 +149,13 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     const wasLive = prevIsLiveRef.current;
     prevIsLiveRef.current = broadcast.isLive;
     if (wasLive && !broadcast.isLive && prevBroadcastPlayingRef.current) {
+      // Tear down stale live audio at the listener side. useBroadcastStream
+      // keeps a 60s internal grace alive (for live↔live continuity) but
+      // when statusIsLive flips false the live is truly over — silence the
+      // <audio> element directly so the listener doesn't hear lingering
+      // audio while we hand them off to radio. Auto-resume is gated on
+      // statusIsLive too, so this pause sticks.
+      pauseSource('live');
       radioPlayRef.current();
     }
   }, [broadcast.isLive]);
