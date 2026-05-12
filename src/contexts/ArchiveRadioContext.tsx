@@ -5,6 +5,9 @@ import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchiveRadio } from '@/hooks/useArchiveRadio';
 import { pauseSource } from '@/lib/audio-exclusive';
+import { db } from '@/lib/firebase';
+import { hasActiveOrImminentBroadcastSlot } from '@/hooks/useBroadcastLiveStatus';
+import { collection } from 'firebase/firestore';
 import type { ArchiveSerialized, ScheduleItem } from '@/types/broadcast';
 
 interface ArchiveRadioContextValue {
@@ -145,19 +148,41 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   // Rule B — Live → Radio: fire BEFORE the prevBroadcastPlayingRef tracking
   // effect below, so we read the previous value (from before this render's
   // update) rather than the value after.
+  //
+  // Gated by:
+  //   1. 2s debounce: brief statusIsLive flips happen during live↔live
+  //      transitions when Live A loses status='live' a beat before Live B's
+  //      startTime <= now is recognized. If broadcast.isLive flips back to
+  //      true within the debounce, cancel. (Effect cleanup fires on the
+  //      next isLive change, which cancels the timer.)
+  //   2. Schedule check: after the debounce, query Firestore for any slot
+  //      active right now OR starting in the next 60s. If yes, hold off —
+  //      let the user wait on (silent) live for the imminent show.
   useEffect(() => {
     const wasLive = prevIsLiveRef.current;
     prevIsLiveRef.current = broadcast.isLive;
-    if (wasLive && !broadcast.isLive && prevBroadcastPlayingRef.current) {
+    if (!(wasLive && !broadcast.isLive && prevBroadcastPlayingRef.current)) return;
+
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      if (cancelled || !db) return;
+      const slotsRef = collection(db, 'broadcast-slots');
+      const hasNearby = await hasActiveOrImminentBroadcastSlot(db, slotsRef, 60_000);
+      if (cancelled || hasNearby) return;
       // Tear down stale live audio at the listener side. useBroadcastStream
       // keeps a 60s internal grace alive (for live↔live continuity) but
-      // when statusIsLive flips false the live is truly over — silence the
+      // here we've confirmed the live is truly over — silence the
       // <audio> element directly so the listener doesn't hear lingering
       // audio while we hand them off to radio. Auto-resume is gated on
       // statusIsLive too, so this pause sticks.
       pauseSource('live');
       radioPlayRef.current();
-    }
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [broadcast.isLive]);
 
   // Track broadcast.isPlaying. When it flips true while a handoff is

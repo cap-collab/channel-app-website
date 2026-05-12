@@ -205,3 +205,37 @@ export async function hasScheduledSlotNow(
     return false;
   }
 }
+
+/**
+ * Check if any broadcast slot is either currently active (covers now) OR
+ * starts within the next `lookaheadMs` milliseconds. Used by Rule B to
+ * decide whether to hand the listener off to radio: if a show is on or
+ * imminent, hold off (avoids handing off during the brief statusIsLive
+ * flip race in a live↔live transition, and during normal back-to-back
+ * gaps shorter than the lookahead).
+ */
+export async function hasActiveOrImminentBroadcastSlot(
+  db: ReturnType<typeof getFirestore>,
+  slotsRef: ReturnType<typeof collection>,
+  lookaheadMs: number,
+): Promise<boolean> {
+  try {
+    const now = Timestamp.now();
+    const q = query(
+      slotsRef,
+      where('endTime', '>', now),
+      limit(5)
+    );
+    const snap = await getDocs(q);
+    const nowMs = Date.now();
+    const horizonMs = nowMs + lookaheadMs;
+    return snap.docs.some(doc => {
+      const data = doc.data();
+      const startMs = (data.startTime as Timestamp).toMillis();
+      return startMs <= horizonMs;
+    });
+  } catch (err) {
+    console.error('Schedule lookahead check failed:', err);
+    return false;
+  }
+}
