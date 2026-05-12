@@ -346,19 +346,17 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     const rawArtworkUrl = currentArchive.showImageUrl || currentArchive.djs[0]?.photoUrl;
     const fallbackArtworkUrl = typeof window !== 'undefined' ? `${window.location.origin}/apple-touch-icon.png` : '';
 
-    // Proxy through Next.js for same-origin. Supply multiple sizes so iOS can
-    // pick the largest one its Control Center will render; small sizes remain
-    // as a safety fallback for older iOS versions that reject larger artwork.
-    const proxied = (url: string, w: number) =>
-      url.startsWith('/') ? url : `/_next/image?url=${encodeURIComponent(url)}&w=${w}&q=75`;
+    // iOS only uses the first artwork entry and rejects images > 128x128
+    // (shows grey placeholder instead). Proxy through Next.js for same-origin.
+    const artworkUrl = rawArtworkUrl
+      ? `/_next/image?url=${encodeURIComponent(rawArtworkUrl)}&w=128&q=75`
+      : null;
 
-    const buildArtwork = (url: string) => [
-      { src: proxied(url, 512), sizes: '512x512', type: 'image/png' },
-      { src: proxied(url, 256), sizes: '256x256', type: 'image/png' },
-      { src: proxied(url, 128), sizes: '128x128', type: 'image/png' },
-    ];
-
-    const artwork = rawArtworkUrl ? buildArtwork(rawArtworkUrl) : buildArtwork(fallbackArtworkUrl);
+    const artwork = artworkUrl
+      ? [
+          { src: artworkUrl, sizes: '128x128', type: 'image/png' },
+        ]
+      : [{ src: fallbackArtworkUrl, sizes: '128x128', type: 'image/png' }];
 
     navigator.mediaSession.metadata = new MediaMetadata({
       title: currentArchive.showName || 'Archive',

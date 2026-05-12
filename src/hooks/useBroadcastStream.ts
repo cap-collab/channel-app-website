@@ -817,11 +817,10 @@ export function useBroadcastStream(
 
       const fallbackArtworkUrl = `${window.location.origin}/apple-touch-icon.png`;
 
-      // Proxy through Next.js for same-origin. Supply multiple sizes so iOS
-      // can pick the largest its Control Center will render; smaller sizes
-      // remain as a fallback for older iOS versions that reject larger art.
-      const proxyUrl = (url: string, w: number) =>
-        url.startsWith('/') ? url : `/_next/image?url=${encodeURIComponent(url)}&w=${w}&q=75`;
+      // iOS only uses first artwork entry and rejects images > 128x128.
+      // Proxy through Next.js for same-origin.
+      const proxyUrl = (url: string) =>
+        url.startsWith('/') ? url : `/_next/image?url=${encodeURIComponent(url)}&w=128&q=75`;
 
       const setMetadata = (imgSrc: string) => {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -829,9 +828,7 @@ export function useBroadcastStream(
           artist: currentDJ || undefined,
           album: 'channel radio',
           artwork: [
-            { src: proxyUrl(imgSrc, 512), sizes: '512x512', type: 'image/png' },
-            { src: proxyUrl(imgSrc, 256), sizes: '256x256', type: 'image/png' },
-            { src: proxyUrl(imgSrc, 128), sizes: '128x128', type: 'image/png' },
+            { src: proxyUrl(imgSrc), sizes: '128x128', type: 'image/png' },
           ],
         });
       };

@@ -475,13 +475,12 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   }, [opts.active]);
 
   // MediaSession metadata + control-center actions. Mirrors the live
-  // broadcast's setup (useBroadcastStream): multi-size artwork via
-  // /_next/image so iOS can pick the largest its Control Center will render
-  // (smaller sizes remain as a fallback), all skip/seek actions nulled
-  // (radio is a synced stream, not scrubbable), and a position state
-  // published from the schedule so the lock screen shows the current item's
-  // progress through its own duration (just like live shows the
-  // show-startTime → endTime progress).
+  // broadcast's setup (useBroadcastStream lines 880-924): ≤128x128 artwork
+  // via /_next/image, single entry, all skip/seek actions nulled (radio is
+  // a synced stream, not scrubbable), and a position state published from
+  // the schedule so the lock screen shows the current item's progress
+  // through its own duration (just like live shows the show-startTime →
+  // endTime progress).
   useEffect(() => {
     if (!opts.active) return;
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
@@ -489,24 +488,20 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     const item = current.item;
     const artist = (item.djs?.length ? item.djs.map((d) => d.name).join(', ') : undefined);
     const fallback = `${window.location.origin}/apple-touch-icon.png`;
-    const proxy = (url: string, w: number) =>
-      url.startsWith('/') ? url : `/_next/image?url=${encodeURIComponent(url)}&w=${w}&q=75`;
+    const proxy = (url: string) =>
+      url.startsWith('/') ? url : `/_next/image?url=${encodeURIComponent(url)}&w=128&q=75`;
     // Cascade like live (useBroadcastStream): show image → first DJ photo →
     // logo fallback. Some archives don't have showImageUrl set, so without
     // the DJ-photo step the Control Center shows the generic logo.
     const djPhoto = item.djs?.find((d) => d.photoUrl)?.photoUrl;
     const rawArtwork = item.artworkUrl || djPhoto;
-    const baseArtwork = rawArtwork || fallback;
+    const artworkSrc = rawArtwork ? proxy(rawArtwork) : fallback;
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: item.title || 'Archive radio',
         artist,
         album: 'channel — archive radio',
-        artwork: [
-          { src: proxy(baseArtwork, 512), sizes: '512x512', type: 'image/png' },
-          { src: proxy(baseArtwork, 256), sizes: '256x256', type: 'image/png' },
-          { src: proxy(baseArtwork, 128), sizes: '128x128', type: 'image/png' },
-        ],
+        artwork: [{ src: artworkSrc, sizes: '128x128', type: 'image/png' }],
       });
     } catch { /* ignore */ }
     // Reflect intent via playbackState so iOS Control Center keeps the Now
