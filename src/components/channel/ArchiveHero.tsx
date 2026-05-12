@@ -281,15 +281,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     prevIsLiveRef.current = isLive;
 
     // When live starts, auto-position the carousel:
-    //   - If something is playing (radio or archive) → swipe to slide 1 so
-    //     the listener keeps seeing the image of what they're hearing.
-    //   - If nothing is playing → swipe to slide 0 so the listener sees
-    //     the new live broadcast and can press play.
-    // Either way, audio is uninterrupted; this is a pure UI shuffle.
+    //   - A specific archive is playing → swipe to slide 1 (archive isn't
+    //     auto-handed-off; listener keeps seeing what they're hearing).
+    //   - Otherwise (radio playing or nothing playing) → swipe to slide 0:
+    //     either the auto-handoff will transfer radio → live (so live IS
+    //     what they'll be hearing), or nothing's playing and they should
+    //     see the new live and press play.
     if (isLive && !wasLive) {
-      const somethingPlaying =
-        !!radioCtx?.isPlaying || !!archivePlayer.isPlaying || !!archivePlayer.currentArchive;
-      setHeroIndex(somethingPlaying ? 1 : 0);
+      const archivePlaying = !!archivePlayer.isPlaying || !!archivePlayer.currentArchive;
+      setHeroIndex(archivePlaying ? 1 : 0);
     }
     // Broadcast ended
     if (!isLive && wasLive) {
@@ -308,6 +308,17 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
   // Show live in hero when user chose live and broadcast is actually live
   const showLiveInHero = isLive && userSelectedMode === 'live';
+
+  // Auto-track userSelectedMode to 'live' once live audio is actually
+  // playing — covers the auto-handoff path (radio → live) where the user
+  // didn't tap a button so userSelectedMode wasn't set to 'live' by a
+  // click handler. Without this, the love button would still point at
+  // the radio DJ and the dots would stay hidden after auto-handoff.
+  useEffect(() => {
+    if (isLive && isLivePlaying && userSelectedMode !== 'live') {
+      setUserSelectedMode('live');
+    }
+  }, [isLive, isLivePlaying, userSelectedMode]);
 
   // Continuous archive radio — driven by ArchiveRadioContext (mounted by
   // the page-level provider).
