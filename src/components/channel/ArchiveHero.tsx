@@ -336,7 +336,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     isArchivePlayback: true,
   });
   const [radioHeartTrigger, setRadioHeartTrigger] = useState(0);
+  // Shared 30s nudge suppression across live/archive/radio love clicks —
+  // clicking the heart on any bar quiets all of them, since they share
+  // the same nudgeKey.
+  const [nudgeDismissedAt, setNudgeDismissedAt] = useState<number | null>(null);
   const handleRadioLove = useCallback(async () => {
+    setNudgeDismissedAt(Date.now());
     setRadioHeartTrigger((prev) => prev + 1);
     try { await radioSendLove(); } catch (err) { console.error('radio love failed', err); }
   }, [radioSendLove]);
@@ -705,12 +710,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
   // Heart / Love
   const [heartTrigger, setHeartTrigger] = useState(0);
-  const [heartNudgeDismissed, setHeartNudgeDismissed] = useState(false);
-  const skipNudge = heartNudgeDismissed;
   const { nudgeKey } = useHeartNudge();
+  const skipNudge = !!nudgeDismissedAt && Date.now() - nudgeDismissedAt < 30_000;
   const anyPlaying = isLivePlaying || archivePlayer.isPlaying;
   const handleLove = () => {
-    setHeartNudgeDismissed(true);
+    setNudgeDismissedAt(Date.now());
     setHeartTrigger((t) => t + 1);
     sendLove();
   };
@@ -1158,7 +1162,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     onClick={() => { void handleRadioLove(); }}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
                   >
-                    <svg key={`r-${nudgeKey}`} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${radioCtx.isPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                    <svg key={`r-${nudgeKey}`} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${radioCtx.isPlaying && nudgeKey > 0 && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                     </svg>
                   </button>
@@ -1241,7 +1245,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     onClick={handleLove}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
                   >
-                    <svg key={nudgeKey} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${anyPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                    <svg key={nudgeKey} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${anyPlaying && nudgeKey > 0 && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                     </svg>
                   </button>
@@ -1337,7 +1341,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     onClick={handleLove}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
                   >
-                    <svg key={nudgeKey} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${anyPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                    <svg key={nudgeKey} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${anyPlaying && nudgeKey > 0 && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                     </svg>
                   </button>

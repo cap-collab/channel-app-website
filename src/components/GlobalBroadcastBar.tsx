@@ -46,9 +46,12 @@ export function GlobalBroadcastBar() {
   const { user } = useAuthContext();
   const { chatUsername, showLockedInMessages } = useUserProfile(user?.uid);
   const [heartTrigger, setHeartTrigger] = useState(0);
-  const [heartNudgeDismissed, setHeartNudgeDismissed] = useState(false);
-  const skipNudge = heartNudgeDismissed;
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
   const { nudgeKey, nudge } = useHeartNudge();
+  // Suppress nudges for 30s after the user clicks the heart. After the
+  // window expires the next nudgeKey bump re-evaluates and animation
+  // resumes — no timer needed because bumps cause re-renders.
+  const skipNudge = !!dismissedAt && Date.now() - dismissedAt < 30_000;
 
   // Compute current DJ chat room (same logic as LiveBroadcastHero)
   const currentDJChatRoom = useMemo(() => {
@@ -89,7 +92,7 @@ export function GlobalBroadcastBar() {
   });
 
   const handleSendLove = useCallback(async () => {
-    setHeartNudgeDismissed(true);
+    setDismissedAt(Date.now());
     setHeartTrigger((prev) => prev + 1);
     try {
       await sendLove();
@@ -118,7 +121,7 @@ export function GlobalBroadcastBar() {
 
   const [archiveHeartTrigger, setArchiveHeartTrigger] = useState(0);
   const handleArchiveSendLove = useCallback(async () => {
-    setHeartNudgeDismissed(true);
+    setDismissedAt(Date.now());
     setArchiveHeartTrigger((prev) => prev + 1);
     try {
       await archiveSendLove();
@@ -149,7 +152,7 @@ export function GlobalBroadcastBar() {
   });
   const [radioHeartTrigger, setRadioHeartTrigger] = useState(0);
   const handleRadioSendLove = useCallback(async () => {
-    setHeartNudgeDismissed(true);
+    setDismissedAt(Date.now());
     setRadioHeartTrigger((prev) => prev + 1);
     try {
       await radioSendLove();
@@ -307,7 +310,7 @@ export function GlobalBroadcastBar() {
               onClick={() => handleSendLove()}
               className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
             >
-              <svg key={nudgeKey} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${isPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
+              <svg key={nudgeKey} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${isPlaying && nudgeKey > 0 && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
               </svg>
             </button>
@@ -404,7 +407,7 @@ export function GlobalBroadcastBar() {
               onClick={() => handleRadioSendLove()}
               className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
             >
-              <svg key={`r-${nudgeKey}`} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${radioCtx.isPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
+              <svg key={`r-${nudgeKey}`} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${radioCtx.isPlaying && nudgeKey > 0 && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
               </svg>
             </button>
@@ -511,7 +514,7 @@ export function GlobalBroadcastBar() {
             onClick={() => handleArchiveSendLove()}
             className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
           >
-            <svg key={nudgeKey} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${archivePlayer.isPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
+            <svg key={nudgeKey} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${archivePlayer.isPlaying && nudgeKey > 0 && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
           </button>
