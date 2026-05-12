@@ -1,8 +1,8 @@
 // Tracks which audio element is currently "owning" playback so a new player
-// can pause the other one. Live and archive share this registry — whichever
-// starts last wins. No events, no listeners, no re-renders.
+// can pause the other one. Live, archive, and radio share this registry —
+// whichever starts last wins. No events, no listeners, no re-renders.
 
-type Source = 'live' | 'archive';
+type Source = 'live' | 'archive' | 'radio';
 
 const elements: Partial<Record<Source, HTMLAudioElement>> = {};
 

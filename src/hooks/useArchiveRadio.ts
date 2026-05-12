@@ -18,6 +18,7 @@ import type {
   ArchiveRadioLoop,
   ScheduleItem,
 } from '@/types/broadcast';
+import { registerAudio, pauseOthers } from '@/lib/audio-exclusive';
 
 // Minimum lookahead when scheduling the boundary timer; avoids a 0ms timer if
 // we're already past the boundary (e.g. tab was just unbackgrounded).
@@ -454,11 +455,20 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     const onPause = (el: HTMLAudioElement) => () => {
       // Only treat as a real pause if the element was supposed to be active.
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
-      if (el === active) setIsPlaying(false);
+      if (el === active) {
+        setIsPlaying(false);
+        registerAudio('radio', null);
+      }
     };
     const onPlay = (el: HTMLAudioElement) => () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
-      if (el === active) setIsPlaying(true);
+      if (el === active) {
+        setIsPlaying(true);
+        // Register so live/archive's pauseOthers() pauses the radio too.
+        registerAudio('radio', el);
+        // And pause live/archive if either was playing — single-source rule.
+        pauseOthers('radio');
+      }
     };
     const aPause = onPause(a); const aPlay = onPlay(a);
     const bPause = onPause(b); const bPlay = onPlay(b);
