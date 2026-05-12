@@ -81,22 +81,27 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   // Auto-handoff coordinator between radio loop and live broadcast.
   //
   // Rule A (radio → live): when `isStreaming` flips false→true (LiveKit
-  // webhook confirmed audio is actually flowing), if the radio is playing
-  // and no specific archive is playing, pause radio and play live. Gating on
-  // `isStreaming` (not `isLive`) closes the historical bug where `isLive`
-  // flipped before audio actually flowed, causing stale loops on mobile.
+  // webhook confirmed audio is flowing), arm a handoff if the radio is
+  // playing and no specific archive is playing. We call broadcast.play()
+  // BUT DO NOT pause the radio yet — iOS Safari silently rejects play()
+  // on the live <audio> element if it hasn't been gesture-unlocked, so
+  // pausing the radio first would leave the listener in silence. Instead
+  // we wait for broadcast.isPlaying to flip true (live audio actually
+  // started), and only then pause the radio. If isPlaying never flips
+  // within a short window, abort — the listener stays on the radio.
   //
   // Rule B (live → radio): when `isLive` flips true→false (schedule-aware
-  // grace already determined there's no follow-up scheduled, or the
-  // follow-up DJ no-showed past 60s), if live audio was actively playing
-  // at the moment of the flip, resume the radio loop. Applies to all live
-  // listeners regardless of how they joined. The "was playing at flip"
-  // gate filters out users who manually paused the live — they chose
-  // silence, leave them silent.
+  // grace already determined no follow-up is coming), if live audio was
+  // actively playing at the moment of the flip, resume the radio loop.
+  // Applies to all live listeners regardless of how they joined. The
+  // "was playing at flip" gate filters out users who manually paused.
   const broadcast = useBroadcastStreamContext();
   const prevIsStreamingRef = useRef(false);
   const prevIsLiveRef = useRef(false);
   const prevBroadcastPlayingRef = useRef(false);
+  // True while waiting for broadcast.isPlaying to flip true after we
+  // called broadcast.play(). Used to coordinate the deferred radio.pause().
+  const handoffPendingRef = useRef(false);
 
   // Stable refs to radio/broadcast control functions so the rule effects only
   // re-run on actual state changes, not on every parent render. (radio is a
@@ -108,19 +113,34 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   useEffect(() => { radioPauseRef.current = radio.pause; }, [radio.pause]);
   useEffect(() => { broadcastPlayRef.current = broadcast.play; }, [broadcast.play]);
 
+  // Rule A — fire broadcast.play() when isStreaming flips true with radio
+  // playing. Do NOT pause radio yet. Set a timeout: if live doesn't start
+  // playing within 10s (covers iOS HLS manifest fetch), abandon the
+  // handoff (listener stays on radio).
   useEffect(() => {
     const wasStreaming = prevIsStreamingRef.current;
     prevIsStreamingRef.current = broadcast.isStreaming;
     if (!wasStreaming && broadcast.isStreaming
         && radio.isPlaying
         && !archivePlayer.isPlaying) {
-      radioPauseRef.current();
+      handoffPendingRef.current = true;
       broadcastPlayRef.current();
+      const abortTimer = setTimeout(() => {
+        handoffPendingRef.current = false;
+      }, 10000);
+      return () => clearTimeout(abortTimer);
     }
   }, [broadcast.isStreaming, radio.isPlaying, archivePlayer.isPlaying]);
 
+  // Track broadcast.isPlaying. When it flips true while a handoff is
+  // pending, pause the radio (live is now confirmed producing audio).
   useEffect(() => {
+    const wasPlaying = prevBroadcastPlayingRef.current;
     prevBroadcastPlayingRef.current = broadcast.isPlaying;
+    if (!wasPlaying && broadcast.isPlaying && handoffPendingRef.current) {
+      handoffPendingRef.current = false;
+      radioPauseRef.current();
+    }
   }, [broadcast.isPlaying]);
 
   useEffect(() => {
