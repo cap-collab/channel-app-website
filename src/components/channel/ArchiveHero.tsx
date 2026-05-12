@@ -1293,7 +1293,17 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 )}
               </div>
               {streamError && (
-                <p className="text-red-400 text-xs pb-2 px-2">{streamError}</p>
+                <p className="text-red-400 text-xs pb-2 px-2">
+                  {/* Specific copy for the auto-handoff failure case: iOS
+                      rejected broadcast.play() because the live <audio>
+                      element wasn't gesture-unlocked, while the listener
+                      was still hearing the radio. The original message
+                      ("Tap to play") suggests they were already on live —
+                      "Tap to join live show" is more accurate. */}
+                  {streamError === 'Tap to play' && radioCtx?.isPlaying
+                    ? 'Tap to join live show'
+                    : streamError}
+                </p>
               )}
               {currentShow && (
                 <>
