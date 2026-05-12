@@ -1403,17 +1403,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         {/* Carousel dots — always reserve space below player bar to prevent
             layout shift. Hidden until the carousel is unlocked (same gate
             as the right arrow and swipe). */}
-        {!showLiveInHero && (
-          <div className="flex justify-center gap-1.5 pt-2 h-3.5">
-            {carouselSlideCount > 1 && carouselControlsVisible && Array.from({ length: carouselSlideCount }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setHeroIndex(i)}
-                className={`w-1.5 h-1.5 rounded-full transition-colors ${i === heroIndex ? 'bg-white' : 'bg-white/30'}`}
-              />
-            ))}
-          </div>
-        )}
+        <div className="flex justify-center gap-1.5 pt-2 h-3.5">
+          {carouselSlideCount > 1 && carouselControlsVisible && Array.from({ length: carouselSlideCount }).map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setHeroIndex(i)}
+              className={`w-1.5 h-1.5 rounded-full transition-colors ${i === heroIndex ? 'bg-white' : 'bg-white/30'}`}
+            />
+          ))}
+        </div>
 
       </div>
 
