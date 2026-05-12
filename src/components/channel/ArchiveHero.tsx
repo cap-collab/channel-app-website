@@ -1071,8 +1071,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     </svg>
                   </button>
                 )}
-                {/* Right arrow only when there's a next slide. */}
-                {heroIndex < carouselSlideCount - 1 && (
+                {/* Right arrow only when there's a next slide. From slide 0,
+                    only show it if slide 0's source is actually playing —
+                    we don't want to invite the listener to leave a silent
+                    hero. */}
+                {heroIndex < carouselSlideCount - 1 && (heroIndex !== 0 || (isLive ? isLivePlaying : !!radioCtx?.isPlaying)) && (
                   <button
                     onClick={() => setHeroIndex(heroIndex + 1)}
                     className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-5 w-10 h-10 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
