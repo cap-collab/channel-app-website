@@ -740,8 +740,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     return () => clearTimeout(t);
   }, [slide0IsPlaying, slide0Unlocked]);
   // Controls are always available from slide 1+; from slide 0, only after
-  // unlock.
-  const carouselControlsVisible = heroIndex !== 0 || slide0Unlocked;
+  // unlock. When live is on, slide 0 is the live slide — always unlocked
+  // (arrow + dots + swipe immediately available, regardless of play state).
+  const carouselControlsVisible = heroIndex !== 0 || slide0Unlocked || isLive;
   const handleLove = () => {
     setNudgeDismissedAt(Date.now());
     setHeartTrigger((t) => t + 1);
