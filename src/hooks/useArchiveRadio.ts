@@ -313,6 +313,15 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       playingKeyRef.current = key;
       setIsPlaying(true);
       setError(null);
+      // Single-source coordination: register the active element and pause
+      // live/archive. The play/pause listener effect below can't be relied
+      // on here because the audio elements are created lazily in
+      // ensureAudio() (above) but the listener effect's deps only include
+      // opts.active — by the time the elements exist, the effect has
+      // already run and bailed out. Doing it here guarantees the registry
+      // updates on every actual play.
+      registerAudio('radio', active);
+      pauseOthers('radio');
     } catch (err) {
       setIsPlaying(false);
       setError(err instanceof Error ? err.message : 'Playback failed.');
@@ -333,6 +342,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     a?.pause();
     b?.pause();
     setIsPlaying(false);
+    registerAudio('radio', null);
   }, []);
 
   const toggle = useCallback(async () => {
@@ -389,6 +399,11 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
         }
         playingKeyRef.current = nextKey;
         preloadedNextKeyRef.current = null;
+        // Update the registry to point at the new active element so future
+        // pauseOthers('live') / pauseOthers('archive') pauses the right one.
+        // No pauseOthers('radio') here — boundary swap isn't a user-intent
+        // source change, and the single-source rule already holds.
+        registerAudio('radio', standbyEl);
       } catch (err) {
         console.warn('[useArchiveRadio] boundary swap failed', err);
       }
@@ -452,25 +467,18 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     const a = audioARef.current;
     const b = audioBRef.current;
     if (!a || !b) return;
+    // Note: registry coordination (registerAudio/pauseOthers) happens in
+    // play()/pause() directly, not here. This effect only runs on mount
+    // when audio elements may not exist yet, and never re-attaches —
+    // depending on it for the single-source rule would silently fail.
     const onPause = (el: HTMLAudioElement) => () => {
       // Only treat as a real pause if the element was supposed to be active.
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
-      if (el === active) {
-        setIsPlaying(false);
-        registerAudio('radio', null);
-      }
+      if (el === active) setIsPlaying(false);
     };
     const onPlay = (el: HTMLAudioElement) => () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
-      if (el === active) {
-        setIsPlaying(true);
-        // Register so live/archive's pauseOthers() will pause the radio.
-        // Also pause live/archive — harmless no-op when neither is playing
-        // (single-source rule guarantees that), and the right thing on
-        // user-initiated radio start.
-        registerAudio('radio', el);
-        pauseOthers('radio');
-      }
+      if (el === active) setIsPlaying(true);
     };
     const aPause = onPause(a); const aPlay = onPlay(a);
     const bPause = onPause(b); const bPlay = onPlay(b);
