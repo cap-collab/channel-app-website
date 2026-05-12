@@ -713,6 +713,18 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const { nudgeKey } = useHeartNudge();
   const skipNudge = !!nudgeDismissedAt && Date.now() - nudgeDismissedAt < 30_000;
   const anyPlaying = isLivePlaying || archivePlayer.isPlaying;
+  // Slide 0's audio source is actually playing right now (live when on,
+  // otherwise the archive radio).
+  const slide0IsPlaying = isLive ? isLivePlaying : !!radioCtx?.isPlaying;
+  // Carousel unlock: the listener must press play on slide 0 at least once
+  // before the carousel (arrows, dots, swipe, slide transition) becomes
+  // available. Once unlocked, it stays unlocked — pausing slide 0 doesn't
+  // re-hide the controls, since by then the listener has clearly engaged.
+  const [slide0Unlocked, setSlide0Unlocked] = useState(false);
+  useEffect(() => { if (slide0IsPlaying) setSlide0Unlocked(true); }, [slide0IsPlaying]);
+  // Controls are always available from slide 1+; from slide 0, only after
+  // unlock.
+  const carouselControlsVisible = heroIndex !== 0 || slide0Unlocked;
   const handleLove = () => {
     setNudgeDismissedAt(Date.now());
     setHeartTrigger((t) => t + 1);
@@ -882,8 +894,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         {(
           <div
             className="relative"
-            onTouchStart={(e) => { heroTouchRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY }; }}
-            onTouchEnd={(e) => {
+            onTouchStart={carouselControlsVisible ? (e) => { heroTouchRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY }; } : undefined}
+            onTouchEnd={carouselControlsVisible ? (e) => {
               if (!heroTouchRef.current) return;
               const dx = e.changedTouches[0].clientX - heroTouchRef.current.startX;
               const dy = e.changedTouches[0].clientY - heroTouchRef.current.startY;
@@ -891,11 +903,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
               if (dx < 0 && heroIndex < carouselSlideCount - 1) setHeroIndex(heroIndex + 1);
               if (dx > 0 && heroIndex > 0) setHeroIndex(heroIndex - 1);
-            }}
+            } : undefined}
           >
             <div className="overflow-hidden">
               <div
-                className="flex transition-transform duration-300 ease-out"
+                className={`flex ${carouselControlsVisible ? 'transition-transform duration-300 ease-out' : ''}`}
                 style={{ transform: `translateX(-${heroIndex * 100}%)` }}
               >
                 <>
@@ -1071,11 +1083,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     </svg>
                   </button>
                 )}
-                {/* Right arrow only when there's a next slide. From slide 0,
-                    only show it if slide 0's source is actually playing —
-                    we don't want to invite the listener to leave a silent
-                    hero. */}
-                {heroIndex < carouselSlideCount - 1 && (heroIndex !== 0 || (isLive ? isLivePlaying : !!radioCtx?.isPlaying)) && (
+                {/* Right arrow only when there's a next slide and the
+                    carousel has been unlocked (listener has pressed play on
+                    slide 0 at least once). */}
+                {heroIndex < carouselSlideCount - 1 && carouselControlsVisible && (
                   <button
                     onClick={() => setHeroIndex(heroIndex + 1)}
                     className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-5 w-10 h-10 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors"
@@ -1372,10 +1383,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           )}
         </div>
 
-        {/* Carousel dots — always reserve space below player bar to prevent layout shift */}
+        {/* Carousel dots — always reserve space below player bar to prevent
+            layout shift. Hidden until the carousel is unlocked (same gate
+            as the right arrow and swipe). */}
         {!showLiveInHero && (
           <div className="flex justify-center gap-1.5 pt-2 h-3.5">
-            {carouselSlideCount > 1 && Array.from({ length: carouselSlideCount }).map((_, i) => (
+            {carouselSlideCount > 1 && carouselControlsVisible && Array.from({ length: carouselSlideCount }).map((_, i) => (
               <button
                 key={i}
                 onClick={() => setHeroIndex(i)}
