@@ -344,6 +344,39 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     archivePlayer.play(archive);
   }, [archivePlayer, radioCtx]);
 
+  // Auto-advance when an archive finishes: pick a random high-priority
+  // archive that shares ≥1 non-grid scene with the one that just ended.
+  // Falls back to any other archive (any priority) if the same-scene pool
+  // is empty, so the listener never just stops at silence.
+  const archivesRef = useRef(archives);
+  useEffect(() => { archivesRef.current = archives; }, [archives]);
+  const djSceneMapRef = useRef(djSceneMap);
+  useEffect(() => { djSceneMapRef.current = djSceneMap; }, [djSceneMap]);
+  const onArchiveEndedRef = archivePlayer.onArchiveEndedRef;
+  useEffect(() => {
+    onArchiveEndedRef.current = (ended: ArchiveSerialized) => {
+      const all = archivesRef.current;
+      if (!all || all.length === 0) return;
+      const endedScenes = new Set(
+        resolveArchiveScenes(ended, djSceneMapRef.current).filter((s) => s !== 'grid')
+      );
+      const sharesScene = (a: ArchiveSerialized) => {
+        if (endedScenes.size === 0) return false;
+        const s = resolveArchiveScenes(a, djSceneMapRef.current);
+        for (const id of s) if (id !== 'grid' && endedScenes.has(id)) return true;
+        return false;
+      };
+      const primary = all.filter(
+        (a) => a.id !== ended.id && a.priority === 'high' && sharesScene(a)
+      );
+      const pool = primary.length > 0 ? primary : all.filter((a) => a.id !== ended.id);
+      if (pool.length === 0) return;
+      const next = pool[Math.floor(Math.random() * pool.length)];
+      playArchive(next);
+    };
+    return () => { onArchiveEndedRef.current = null; };
+  }, [onArchiveEndedRef, playArchive]);
+
   // Honor `?play=1` (e.g. /about → "Lock in" link): start whatever slide 0
   // would play (live if on, otherwise archive radio), then strip the param
   // so it doesn't fire again on back/forward. Fires once per visit.
@@ -1112,7 +1145,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     onClick={() => { void handleRadioLove(); }}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
                   >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                     </svg>
                   </button>
@@ -1123,6 +1156,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     djUsername={radioPrimaryDj?.name || 'DJ'}
                     tipLink={radioTipLink}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
+                    iconClassName="w-4 h-4"
                   />
                 )}
               </div>
@@ -1194,7 +1228,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     onClick={handleLove}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
                   >
-                    <svg key={nudgeKey} className={`w-5 h-5 ${anyPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                    <svg key={nudgeKey} className={`w-4 h-4 ${anyPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                     </svg>
                   </button>
@@ -1205,6 +1239,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     djUsername={djName || 'DJ'}
                     tipLink={tipLink}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
+                    iconClassName="w-4 h-4"
                   />
                 )}
               </div>
@@ -1270,7 +1305,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     live bars show the pulsing red dot. Mirrors the "Archive"
                     pill above the hero, no text label here. */}
                 <div className="flex items-center gap-0.5 flex-shrink-0">
-                  <svg className="w-3 h-3 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="w-4 h-4 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="3" width="18" height="5" rx="1" />
                     <path d="M5 8v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
                     <path d="M10 12h4" />
@@ -1289,7 +1324,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     onClick={handleLove}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
                   >
-                    <svg key={nudgeKey} className={`w-5 h-5 ${anyPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                    <svg key={nudgeKey} className={`w-4 h-4 ${anyPlaying ? (nudgeKey > 0 ? 'animate-heart-nudge-strong' : (!skipNudge ? 'animate-heart-nudge' : '')) : ''}`} fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                     </svg>
                   </button>
@@ -1300,6 +1335,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     djUsername={djName || 'DJ'}
                     tipLink={tipLink}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
+                    iconClassName="w-4 h-4"
                   />
                 )}
               </div>

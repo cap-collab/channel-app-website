@@ -58,6 +58,9 @@ interface ArchivePlayerContextValue {
   onLockedInRef: MutableRefObject<(() => void) | null>;
   // Ref callback for 5-minute listen milestone (heart-nudge re-trigger)
   onListenMilestoneRef: MutableRefObject<(() => void) | null>;
+  // Ref callback fired when an archive finishes playing. ArchiveHero sets this
+  // to auto-advance to the next archive (same scene + high priority).
+  onArchiveEndedRef: MutableRefObject<((endedArchive: ArchiveSerialized) => void) | null>;
 }
 
 const ArchivePlayerContext = createContext<ArchivePlayerContextValue | null>(null);
@@ -107,6 +110,11 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const archiveMilestoneFiredRef = useRef<string | null>(null);
   const onLockedInRef = useRef<(() => void) | null>(null);
   const onListenMilestoneRef = useRef<(() => void) | null>(null);
+  const onArchiveEndedRef = useRef<((endedArchive: ArchiveSerialized) => void) | null>(null);
+  // Snapshot of the currently-playing archive for use inside audio event
+  // handlers (registered once, so they can't close over the latest state).
+  const currentArchiveRef = useRef<ArchiveSerialized | null>(null);
+  useEffect(() => { currentArchiveRef.current = currentArchive; }, [currentArchive]);
 
   // Clean up on unmount
   useEffect(() => {
@@ -164,6 +172,11 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
           const sessionDuration = Math.round((Date.now() - playbackStartedAtRef.current) / 1000);
           captureEvent('playback_ended', { type: 'archive', session_duration: sessionDuration });
           playbackStartedAtRef.current = null;
+        }
+        // Auto-advance: let the hero pick the next archive and start it.
+        const ended = currentArchiveRef.current;
+        if (ended) {
+          try { onArchiveEndedRef.current?.(ended); } catch (err) { console.warn('onArchiveEnded handler threw', err); }
         }
       });
       audio.addEventListener('error', () => {
@@ -600,6 +613,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     setHeroDisplayedArchive,
     onLockedInRef,
     onListenMilestoneRef,
+    onArchiveEndedRef,
   }), [currentArchive, isPlaying, isLoading, currentTime, duration, listenerCount, isGated, gateAttempt, clearGate, play, pause, toggle, seek, featuredArchive, heroDisplayedArchive]);
 
   return (
