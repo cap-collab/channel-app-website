@@ -33,6 +33,10 @@
       "schedule": "0 21 11 5 *"
     },
     {
+      "path": "/api/cron/newsletter-recap",
+      "schedule": "0 15 * * 2"
+    },
+    {
       "path": "/api/cron/generate-archive-schedule",
       "schedule": "0 23 * * *"
     }
