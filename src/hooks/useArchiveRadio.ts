@@ -464,9 +464,11 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
       if (el === active) {
         setIsPlaying(true);
-        // Register so live/archive's pauseOthers() pauses the radio too.
+        // Register so live/archive's pauseOthers() will pause the radio.
+        // Also pause live/archive — harmless no-op when neither is playing
+        // (single-source rule guarantees that), and the right thing on
+        // user-initiated radio start.
         registerAudio('radio', el);
-        // And pause live/archive if either was playing — single-source rule.
         pauseOthers('radio');
       }
     };
