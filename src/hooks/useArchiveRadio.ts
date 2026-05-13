@@ -292,7 +292,10 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   const playCurrent = useCallback(async () => {
     if (!opts.active) return;
     if (!current) {
-      setError('No archive scheduled right now.');
+      // Schedule not loaded yet (or no archive scheduled at all — rare,
+      // since the bar wouldn't render in that case). Stay silent; the user
+      // can re-tap once the schedule resolves. Avoids the misleading "No
+      // archive scheduled right now" message during the brief load window.
       return;
     }
     const els = ensureAudio();
