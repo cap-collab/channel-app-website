@@ -81,7 +81,7 @@ export function ResidentsGrid({ items }: ResidentsGridProps) {
               </svg>
             );
             const inner = (
-              <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-[88px] md:h-24 overflow-hidden">
+              <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-[78px] overflow-hidden">
                 <div className="w-14 h-14 bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {it.photoUrl ? (
                     <Image

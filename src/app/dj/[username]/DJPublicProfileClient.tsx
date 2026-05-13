@@ -1482,6 +1482,19 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     if (!hasUpcomingShows) setActiveTab('chat');
   }, [upcomingFetched, hasUpcomingShows, djProfile?.profileType]);
 
+  // Collective override: ensure activeTab is 'timeline' on first profile-load.
+  // Runs once when djProfile transitions from null to a collective, regardless of
+  // what other effects/handlers have set the tab to in the meantime.
+  const collectiveTabInitializedRef = useRef(false);
+  useEffect(() => {
+    if (!djProfile) return;
+    if (collectiveTabInitializedRef.current) return;
+    if (djProfile.profileType === 'collective') {
+      setActiveTab('timeline');
+    }
+    collectiveTabInitializedRef.current = true;
+  }, [djProfile]);
+
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {
     const selects: { label: string; url: string; imageUrl?: string }[] = [];
