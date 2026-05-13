@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MetadataResponse } from "@/types";
-import { getStationByMetadataKey } from "@/lib/stations";
+import { MetadataResponse, ShowV2 } from "@/types";
+import { getStationByMetadataKey, getStationById } from "@/lib/stations";
+import vpnHistoryStatic from "../../../../public/vpn-history.json";
 
 const HISTORY_URL =
   "https://cap-collab.github.io/channel-metadata/history.json";
+
+// Past VPN entries are bundled in this repo (channel-media doesn't archive VPN).
+function loadVPNHistory(): ShowV2[] {
+  return Array.isArray(vpnHistoryStatic) ? (vpnHistoryStatic as unknown as ShowV2[]) : [];
+}
 
 // In-memory cache (same pattern as metadata.ts)
 let cachedHistory: MetadataResponse | null = null;
@@ -22,6 +28,13 @@ async function fetchHistory(): Promise<MetadataResponse> {
   }
 
   const data: MetadataResponse = await res.json();
+
+  // Merge VPN history (bundled in this repo — channel-media doesn't archive VPN).
+  const vpnHistory = loadVPNHistory();
+  if (vpnHistory.length > 0) {
+    data.stations = { ...data.stations, vpn: vpnHistory };
+  }
+
   cachedHistory = data;
   cacheTimestamp = Date.now();
   return data;
@@ -62,6 +75,13 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Station-collective awareness: if any of the requested usernames matches a station id,
+  // include every show from that station (used so /dj/vpn surfaces all VPN past shows).
+  const stationIdMatches = new Set<string>();
+  Array.from(djUsernames).forEach((u) => {
+    if (getStationById(u)) stationIdMatches.add(u);
+  });
+
   try {
     const history = await fetchHistory();
     const shows: PastShowResponse[] = [];
@@ -72,17 +92,18 @@ export async function GET(request: NextRequest) {
       const station = getStationByMetadataKey(metadataKey);
       const stationId = station?.id || metadataKey;
       const stationName = station?.name || metadataKey;
+      const stationMatches = stationIdMatches.has(stationId);
 
       for (const show of stationShows) {
         // Skip replays and playlists
         if (show.t === 'restream' || show.t === 'playlist') continue;
 
-        // Match by primary profile (p) or additional profiles (ap)
+        // Match by primary profile (p), additional profiles (ap), or station-collective.
         const primaryMatch = show.p && djUsernames.has(show.p.toLowerCase());
         const additionalMatch = !primaryMatch && show.ap?.some(
           (slug: string) => djUsernames.has(slug.toLowerCase())
         );
-        if (!primaryMatch && !additionalMatch) continue;
+        if (!primaryMatch && !additionalMatch && !stationMatches) continue;
 
         shows.push({
           id: `${stationId}-${show.s}`,
