@@ -1,8 +1,8 @@
 import { Metadata } from "next";
 
 const BRAND = "Channel";
-const HOME_TITLE = "Channel — independent creative scenes";
-const DEFAULT_DESCRIPTION = "For the music. And the people behind it.";
+const HOME_TITLE = "Channel — Human Radio";
+const DEFAULT_DESCRIPTION = "Left-field electronic music curated by underground selectors. No ads. No algorithms.";
 
 // Produces page metadata aligned with the root layout's `%s · Channel`
 // template. Pass a short page title (no brand suffix) and a description.
@@ -21,7 +21,7 @@ export function makeOG({
   image?: string;
   path?: string;
 } = {}): Metadata {
-  const ogTitle = title ? `${title} · ${BRAND}` : HOME_TITLE;
+  const ogTitle = title ? `${title} — ${BRAND}` : HOME_TITLE;
   return {
     // `title` is a string here so the root layout's template doesn't re-suffix
     // (Next.js only applies templates to children's metadata when the child
