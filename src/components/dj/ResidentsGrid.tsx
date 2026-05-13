@@ -65,33 +65,6 @@ export function ResidentsGrid({ items }: ResidentsGridProps) {
 
   return (
     <div className="relative">
-      {/* Left arrow (desktop only) */}
-      {hasOverflow && canLeft && (
-        <button
-          type="button"
-          aria-label="Scroll left"
-          onClick={() => scrollByPage(-1)}
-          className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 z-10 h-9 w-9 items-center justify-center rounded-full bg-zinc-900/80 border border-white/10 text-white hover:bg-zinc-800 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-      )}
-      {/* Right arrow (desktop only) */}
-      {hasOverflow && canRight && (
-        <button
-          type="button"
-          aria-label="Scroll right"
-          onClick={() => scrollByPage(1)}
-          className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 z-10 h-9 w-9 items-center justify-center rounded-full bg-zinc-900/80 border border-white/10 text-white hover:bg-zinc-800 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      )}
-
       <div
         ref={scrollRef}
         className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0 scrollbar-hide"
@@ -146,25 +119,57 @@ export function ResidentsGrid({ items }: ResidentsGridProps) {
         </div>
       </div>
 
-      {/* Pagination dots */}
+      {/* Dots indicator — same style as SwipeableCardCarousel on /explore */}
       {hasOverflow && pageCount > 1 && (
         <div className="flex justify-center gap-1.5 mt-3">
           {Array.from({ length: pageCount }).map((_, i) => (
             <button
               key={i}
               type="button"
-              aria-label={`Scroll to page ${i + 1}`}
+              aria-label={`Go to position ${i + 1}`}
               onClick={() => {
                 const el = scrollRef.current;
                 if (!el) return;
                 el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
               }}
-              className={`h-1.5 rounded-full transition-all ${
-                i === activePage ? "w-6 bg-white" : "w-1.5 bg-zinc-700 hover:bg-zinc-600"
+              className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                i === activePage ? "bg-white" : "bg-white/30"
               }`}
             />
           ))}
         </div>
+      )}
+
+      {/* Navigation arrows — same style as SwipeableCardCarousel on /explore */}
+      {hasOverflow && (
+        <>
+          <button
+            type="button"
+            onClick={() => scrollByPage(-1)}
+            disabled={!canLeft}
+            aria-label="Previous"
+            className={`hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-5 w-10 h-10 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors ${
+              !canLeft ? "opacity-30 cursor-not-allowed" : ""
+            }`}
+          >
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollByPage(1)}
+            disabled={!canRight}
+            aria-label="Next"
+            className={`hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-5 w-10 h-10 items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors ${
+              !canRight ? "opacity-30 cursor-not-allowed" : ""
+            }`}
+          >
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </>
       )}
     </div>
   );
