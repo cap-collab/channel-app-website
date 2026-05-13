@@ -130,9 +130,12 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   // playing. Do NOT pause radio yet. Set a timeout: if live doesn't start
   // playing within 10s (covers iOS HLS manifest fetch), abandon the
   // handoff (listener stays on radio).
+  // Gated by NEXT_PUBLIC_DISABLE_RADIO_TO_LIVE_AUTO_SWITCH — the handoff
+  // doesn't work reliably on mobile yet, so kept off in prod.
   useEffect(() => {
     const wasStreaming = prevIsStreamingRef.current;
     prevIsStreamingRef.current = broadcast.isStreaming;
+    if (process.env.NEXT_PUBLIC_DISABLE_RADIO_TO_LIVE_AUTO_SWITCH === 'true') return;
     if (!wasStreaming && broadcast.isStreaming
         && radio.isPlaying
         && !archivePlayer.isPlaying) {
