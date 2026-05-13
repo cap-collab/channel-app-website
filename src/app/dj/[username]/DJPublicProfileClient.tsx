@@ -1689,83 +1689,95 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           );
         })()}
 
-        {/* COLLECTIVE RESIDENTS — cards with photo, name, truncated bio (2 per row on desktop) */}
+        {/* COLLECTIVE RESIDENTS — 2-row grid, horizontally scrollable.
+            Desktop: 3 cards visible per row (6 visible w/o scrolling). Mobile: 2 per row,
+            bio hidden. Photo-first sort puts pictured residents in the no-scroll zone. */}
         {profile.profileType === 'collective' &&
-          (residentsResolved.length > 0 || (profile.linkedCollectives && profile.linkedCollectives.length > 0)) && (
-          <section className="mb-6">
-            <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">Residents</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {residentsResolved.map((r, i) => {
-                const inner = (
-                  <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-full">
-                    <div className="w-14 h-14 bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {r.djPhotoUrl ? (
-                        <Image
-                          src={r.djPhotoUrl}
-                          alt={r.djName}
-                          width={56}
-                          height={56}
-                          className="w-full h-full object-cover"
-                          unoptimized
-                        />
+          (residentsResolved.length > 0 || (profile.linkedCollectives && profile.linkedCollectives.length > 0)) && (() => {
+            type ResidentItem = {
+              key: string;
+              href: string | null;
+              name: string;
+              photoUrl?: string;
+              bio?: string;
+              badge?: string;
+              isCollective: boolean;
+            };
+            const items: ResidentItem[] = [];
+            residentsResolved.forEach((r, i) => {
+              items.push({
+                key: `dj-${r.djUsername || r.djName}-${i}`,
+                href: r.djUsername ? `/dj/${normalizeUsername(r.djUsername)}` : null,
+                name: r.djName,
+                photoUrl: r.djPhotoUrl,
+                bio: r.bio,
+                isCollective: false,
+              });
+            });
+            (profile.linkedCollectives || []).forEach((lc, i) => {
+              items.push({
+                key: `coll-${lc.collectiveId}-${i}`,
+                href: lc.collectiveSlug ? `/dj/${lc.collectiveSlug}` : null,
+                name: lc.collectiveName,
+                photoUrl: lc.collectivePhoto || undefined,
+                badge: 'Collective',
+                isCollective: true,
+              });
+            });
+            // Photo-first: stable sort so original order is preserved within each bucket.
+            items.sort((a, b) => Number(Boolean(b.photoUrl)) - Number(Boolean(a.photoUrl)));
+
+            return (
+              <section className="mb-6">
+                <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">Residents</h2>
+                <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0 scrollbar-hide">
+                  <div className="grid grid-rows-2 grid-flow-col gap-3 auto-cols-[calc(50%-0.375rem)] md:auto-cols-[calc(33.333%-0.5rem)]">
+                    {items.map((it) => {
+                      const placeholderSvg = it.isCollective ? (
+                        <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
                       ) : (
                         <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-white font-medium text-sm truncate">{r.djName}</p>
-                      {r.bio && (
-                        <p className="text-zinc-400 text-xs mt-1 line-clamp-2">{r.bio}</p>
-                      )}
-                    </div>
-                  </div>
-                );
-                return r.djUsername ? (
-                  <Link key={`${r.djUsername}-${i}`} href={`/dj/${normalizeUsername(r.djUsername)}`} className="block">
-                    {inner}
-                  </Link>
-                ) : (
-                  <div key={`${r.djName}-${i}`}>{inner}</div>
-                );
-              })}
-              {(profile.linkedCollectives || []).map((lc, i) => {
-                const inner = (
-                  <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-full">
-                    <div className="w-14 h-14 bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {lc.collectivePhoto ? (
-                        <Image
-                          src={lc.collectivePhoto}
-                          alt={lc.collectiveName}
-                          width={56}
-                          height={56}
-                          className="w-full h-full object-cover"
-                          unoptimized
-                        />
+                      );
+                      const inner = (
+                        <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-full">
+                          <div className="w-14 h-14 bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {it.photoUrl ? (
+                              <Image
+                                src={it.photoUrl}
+                                alt={it.name}
+                                width={56}
+                                height={56}
+                                className="w-full h-full object-cover"
+                                unoptimized
+                              />
+                            ) : placeholderSvg}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-white font-medium text-sm truncate">{it.name}</p>
+                            {it.badge && (
+                              <p className="text-zinc-500 text-[10px] uppercase tracking-wider mt-1">{it.badge}</p>
+                            )}
+                            {it.bio && (
+                              <p className="hidden md:block text-zinc-400 text-xs mt-1 line-clamp-2">{it.bio}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                      return it.href ? (
+                        <Link key={it.key} href={it.href} className="block">{inner}</Link>
                       ) : (
-                        <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-white font-medium text-sm truncate">{lc.collectiveName}</p>
-                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider mt-1">Collective</p>
-                    </div>
+                        <div key={it.key}>{inner}</div>
+                      );
+                    })}
                   </div>
-                );
-                return lc.collectiveSlug ? (
-                  <Link key={`${lc.collectiveId}-${i}`} href={`/dj/${lc.collectiveSlug}`} className="block">
-                    {inner}
-                  </Link>
-                ) : (
-                  <div key={`${lc.collectiveId}-${i}`}>{inner}</div>
-                );
-              })}
-            </div>
-          </section>
-        )}
+                </div>
+              </section>
+            );
+          })()}
 
         {/* LIVE SHOW CARD - Above tabs when DJ is live */}
         {currentLiveShow && (
