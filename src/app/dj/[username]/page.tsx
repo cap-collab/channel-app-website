@@ -21,22 +21,11 @@ async function getDJData(username: string): Promise<{ name: string; photoUrl: st
     const normalized = decodeURIComponent(username).replace(/[\s-]+/g, "").toLowerCase();
     console.log("[DJ Metadata] Looking up:", normalized);
 
-    // Check pending-dj-profiles first (single where clause)
-    const pendingSnapshot = await adminDb
-      .collection("pending-dj-profiles")
-      .where("chatUsernameNormalized", "==", normalized)
-      .get();
-
-    if (pendingSnapshot.docs.length > 0) {
-      const data = pendingSnapshot.docs[0].data();
-      console.log("[DJ Metadata] Found pending profile:", data.chatUsername);
-      return {
-        name: data.chatUsername || username,
-        photoUrl: data.djProfile?.photoUrl || null,
-      };
-    }
-
-    // Check users collection (single where clause, filter roles client-side)
+    // Check users collection first — Studio writes here, so it has the
+    // claimed DJ's current photo. A stale `pending-dj-profiles` doc with
+    // empty djProfile.photoUrl often lingers after a DJ claims their
+    // account; the previous "pending first" order returned that stub and
+    // never reached the users collection. Mirrors DJPublicProfileClient.
     const usersSnapshot = await adminDb
       .collection("users")
       .where("chatUsernameNormalized", "==", normalized)
@@ -52,6 +41,21 @@ async function getDJData(username: string): Promise<{ name: string; photoUrl: st
           photoUrl: data.djProfile?.photoUrl || null,
         };
       }
+    }
+
+    // Fall back to pending-dj-profiles for unclaimed DJs.
+    const pendingSnapshot = await adminDb
+      .collection("pending-dj-profiles")
+      .where("chatUsernameNormalized", "==", normalized)
+      .get();
+
+    if (pendingSnapshot.docs.length > 0) {
+      const data = pendingSnapshot.docs[0].data();
+      console.log("[DJ Metadata] Found pending profile:", data.chatUsername);
+      return {
+        name: data.chatUsername || username,
+        photoUrl: data.djProfile?.photoUrl || null,
+      };
     }
 
     // Final fallback: collective by slug (collectives share the /dj/<slug> namespace)
