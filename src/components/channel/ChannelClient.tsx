@@ -159,14 +159,19 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
   // Sort archives by priority and genre match
   // - No genre filter: high priority first, low priority last, medium in the middle (original date order)
   // - Genre filter: high+genre match first, then medium+genre match, then medium no match, then low always last
+  // Homepage (skipHero=false) hides low-priority archives entirely.
+  // /explore (skipHero=true) keeps them at the bottom.
   const { archives, featuredArchive } = useMemo(() => {
-    if (rawArchives.length === 0) return { archives: rawArchives, featuredArchive: rawFeaturedArchive };
+    const sourceArchives = skipHero
+      ? rawArchives
+      : rawArchives.filter((a) => (a.priority || 'medium') !== 'low');
+    if (sourceArchives.length === 0) return { archives: sourceArchives, featuredArchive: rawFeaturedArchive };
 
     const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
 
     if (selectedGenres.length === 0) {
       // No genre filter: sort by priority tier, preserve date order within each tier
-      const sorted = [...rawArchives].sort((a, b) => {
+      const sorted = [...sourceArchives].sort((a, b) => {
         const pa = PRIORITY_RANK[a.priority || 'medium'] ?? 1;
         const pb = PRIORITY_RANK[b.priority || 'medium'] ?? 1;
         if (pa !== pb) return pa - pb;
@@ -176,7 +181,7 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
     }
 
     // Genre filter active: score each archive
-    const scored = rawArchives.map((archive) => {
+    const scored = sourceArchives.map((archive) => {
       let genreScore = 0;
       for (const dj of archive.djs) {
         const genres = dj.genres;
@@ -210,7 +215,7 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
 
     const sorted = scored.map((s) => s.archive);
     return { archives: sorted, featuredArchive: sorted[0] };
-  }, [rawArchives, rawFeaturedArchive, selectedGenres]);
+  }, [rawArchives, rawFeaturedArchive, selectedGenres, skipHero]);
 
   // Sync featured archive into context so GlobalBroadcastBar can access it
   useEffect(() => {
