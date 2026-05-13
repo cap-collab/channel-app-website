@@ -517,10 +517,12 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
     // its schedule window is small.
     const stationOrder: Record<string, number> = {
       sutro: 10,
+      vpn: 11,
       'rinse-fm': 20,
       'rinse-fr': 21,
     };
-    const stationCandidates: { item: MatchedItem; id: string; djName: string | undefined; live: boolean; isChannelUser: boolean; stationOrder: number }[] = [];
+    type StationCandidate = { item: MatchedItem; id: string; djName: string | undefined; live: boolean; isChannelUser: boolean; stationOrder: number; stationId: string };
+    const stationCandidates: StationCandidate[] = [];
     for (const show of allShows) {
       if (!isValidShow(show)) continue;
       if (new Date(show.endTime) <= now) continue;
@@ -532,17 +534,39 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
         item: { type: 'radio', data: show, station, matchLabel: `SELECTED BY ${station.name.toUpperCase()}`, live: live || undefined },
         id: show.id, djName: show.dj, live, isChannelUser: show.isChannelUser ?? false,
         stationOrder: stationOrder[show.stationId] ?? 100,
+        stationId: show.stationId,
       });
     }
-    stationCandidates.sort((a, b) => {
+    const candidateSort = (a: StationCandidate, b: StationCandidate) => {
       if (a.live !== b.live) return a.live ? -1 : 1;
       if (a.isChannelUser !== b.isChannelUser) return a.isChannelUser ? -1 : 1;
       if (a.stationOrder !== b.stationOrder) return a.stationOrder - b.stationOrder;
       return 0;
-    });
+    };
+    stationCandidates.sort(candidateSort);
+
+    // Pin the top of the section to one Sutro + one VPN pick (in that order) so both
+    // stations always get visibility regardless of broader sort ordering. Each pinned
+    // slot picks the best candidate for that station under the same sort rules.
     let stationCount = 0;
+    const usedIds = new Set<string>();
+    const pinnedFirst: StationCandidate[] = [];
+    for (const pinStationId of ['sutro', 'vpn']) {
+      const pick = stationCandidates.find((c) => c.stationId === pinStationId && !usedIds.has(c.id));
+      if (pick && tryAddShow(pick.id, pick.djName)) {
+        pinnedFirst.push(pick);
+        usedIds.add(pick.id);
+      }
+    }
+    for (const c of pinnedFirst) {
+      newS4.push(c.item);
+      stationCount++;
+    }
+    // Fill the rest of the section with the normal sort, skipping any candidate we
+    // already pinned (and respecting tryAddShow's global dedupe).
     for (const c of stationCandidates) {
       if (stationCount >= 5) break;
+      if (usedIds.has(c.id)) continue;
       if (!tryAddShow(c.id, c.djName)) continue;
       newS4.push(c.item);
       stationCount++;
