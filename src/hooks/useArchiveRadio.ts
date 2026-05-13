@@ -516,9 +516,8 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     const item = current.item;
     const artist = (item.djs?.length ? item.djs.map((d) => d.name).join(', ') : undefined);
     const fallback = `${window.location.origin}/artwork-fallback.png`;
-    // Diagnostic: pass raw URL through (no /_next/image proxy) to test
-    // whether Safari rejects the WebP that the proxy returns.
-    const proxy = (url: string) => url;
+    const proxy = (url: string) =>
+      url.startsWith('/') ? url : `/_next/image?url=${encodeURIComponent(url)}&w=128&q=75`;
     // Cascade like live (useBroadcastStream): show image → first DJ photo →
     // logo fallback. Some archives don't have showImageUrl set, so without
     // the DJ-photo step the Control Center shows the generic logo.

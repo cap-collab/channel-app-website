@@ -824,9 +824,9 @@ export function useBroadcastStream(
       const fallbackArtworkUrl = `${window.location.origin}/artwork-fallback.png`;
 
       // iOS only uses first artwork entry and rejects images > 128x128.
-      // Diagnostic: pass raw URL through (no /_next/image proxy) to test
-      // whether Safari was rejecting the WebP that the proxy returns.
-      const proxyUrl = (url: string) => url;
+      // Proxy through Next.js for same-origin.
+      const proxyUrl = (url: string) =>
+        url.startsWith('/') ? url : `/_next/image?url=${encodeURIComponent(url)}&w=128&q=75`;
 
       const setMetadata = (imgSrc: string) => {
         navigator.mediaSession.metadata = new MediaMetadata({
