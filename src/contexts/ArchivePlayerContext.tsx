@@ -347,10 +347,10 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     const fallbackArtworkUrl = typeof window !== 'undefined' ? `${window.location.origin}/artwork-fallback.png` : '';
 
     // iOS only uses the first artwork entry and rejects images > 128x128
-    // (shows grey placeholder instead). Proxy through Next.js for same-origin.
-    const artworkUrl = rawArtworkUrl
-      ? `/_next/image?url=${encodeURIComponent(rawArtworkUrl)}&w=128&q=75`
-      : null;
+    // (shows grey placeholder instead). Diagnostic: pass raw URL through
+    // (no /_next/image proxy) to test whether Safari rejects the WebP that
+    // the proxy returns.
+    const artworkUrl = rawArtworkUrl || null;
 
     const artwork = artworkUrl
       ? [
