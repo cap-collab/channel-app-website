@@ -547,15 +547,22 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
 
     // Pin the top of the section to one Sutro + one VPN pick (in that order) so both
     // stations always get visibility regardless of broader sort ordering. Each pinned
-    // slot picks the best candidate for that station under the same sort rules.
+    // slot walks the station's candidate list in priority order and takes the first
+    // one that survives tryAddShow's global show/DJ dedupe — important when earlier
+    // sections (favorites, today/tomorrow) have already claimed a station's top DJ.
     let stationCount = 0;
     const usedIds = new Set<string>();
     const pinnedFirst: StationCandidate[] = [];
     for (const pinStationId of ['sutro', 'vpn']) {
-      const pick = stationCandidates.find((c) => c.stationId === pinStationId && !usedIds.has(c.id));
-      if (pick && tryAddShow(pick.id, pick.djName)) {
-        pinnedFirst.push(pick);
-        usedIds.add(pick.id);
+      const candidatesForStation = stationCandidates.filter(
+        (c) => c.stationId === pinStationId && !usedIds.has(c.id)
+      );
+      for (const pick of candidatesForStation) {
+        if (tryAddShow(pick.id, pick.djName)) {
+          pinnedFirst.push(pick);
+          usedIds.add(pick.id);
+          break;
+        }
       }
     }
     for (const c of pinnedFirst) {
