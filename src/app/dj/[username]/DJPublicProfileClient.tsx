@@ -285,6 +285,9 @@ interface DJProfile {
   profileType?: 'user' | 'pending' | 'collective';
   owners?: string[];                  // channel-user UIDs
   residentDJs?: { djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[];
+  // Collectives that are also part of this collective's roster. Reused from the
+  // existing admin "Linked Collectives" field and rendered alongside resident DJs.
+  linkedCollectives?: { collectiveId: string; collectiveName: string; collectiveSlug?: string; collectivePhoto?: string | null }[];
   // Collective-only: the slug used for archive matching (distinct from
   // chatUsername, which displays the collective's pretty name).
   collectiveSlug?: string;
@@ -574,6 +577,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               profileType: 'collective',
               owners: Array.isArray(cData.owners) ? cData.owners : [],
               residentDJs: Array.isArray(cData.residentDJs) ? cData.residentDJs : [],
+              linkedCollectives: Array.isArray(cData.linkedCollectives) ? cData.linkedCollectives : [],
               collectiveSlug: cData.slug,
             });
             setLoading(false);
@@ -1676,7 +1680,8 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
         })()}
 
         {/* COLLECTIVE RESIDENTS — cards with photo, name, truncated bio (2 per row on desktop) */}
-        {profile.profileType === 'collective' && residentsResolved.length > 0 && (
+        {profile.profileType === 'collective' &&
+          (residentsResolved.length > 0 || (profile.linkedCollectives && profile.linkedCollectives.length > 0)) && (
           <section className="mb-6">
             <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">Residents</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1713,6 +1718,39 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                   </Link>
                 ) : (
                   <div key={`${r.djName}-${i}`}>{inner}</div>
+                );
+              })}
+              {(profile.linkedCollectives || []).map((lc, i) => {
+                const inner = (
+                  <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-full">
+                    <div className="w-14 h-14 bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {lc.collectivePhoto ? (
+                        <Image
+                          src={lc.collectivePhoto}
+                          alt={lc.collectiveName}
+                          width={56}
+                          height={56}
+                          className="w-full h-full object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-white font-medium text-sm truncate">{lc.collectiveName}</p>
+                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider mt-1">Collective</p>
+                    </div>
+                  </div>
+                );
+                return lc.collectiveSlug ? (
+                  <Link key={`${lc.collectiveId}-${i}`} href={`/dj/${lc.collectiveSlug}`} className="block">
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={`${lc.collectiveId}-${i}`}>{inner}</div>
                 );
               })}
             </div>
