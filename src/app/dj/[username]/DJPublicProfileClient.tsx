@@ -1470,15 +1470,16 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   const hasScheduleContent = upcomingShows.length > 0 || pastActivities.length > 0 || !!currentLiveShow;
   const hasUpcomingShows = upcomingShows.length > 0 || !!currentLiveShow;
 
-  // Default to the schedule tab only when there are upcoming shows; DJs with
-  // only past activity (or nothing) land on chat where conversation lives.
-  // Wait for the fetch to resolve so we don't flip to chat during the loading
-  // window and then leave it there even after upcoming shows arrive.
-  // Collectives are exempt: they always open on schedule (never auto-flip to chat).
+  // Always render the schedule tab first, UNLESS the profile is a non-collective
+  // DJ with no upcoming shows — those land on chat where conversation lives.
   useEffect(() => {
     if (!upcomingFetched) return;
-    if (djProfile?.profileType === 'collective') return;
-    if (!hasUpcomingShows) setActiveTab('chat');
+    const isCollective = djProfile?.profileType === 'collective';
+    if (!isCollective && !hasUpcomingShows) {
+      setActiveTab('chat');
+    } else {
+      setActiveTab('timeline');
+    }
   }, [upcomingFetched, hasUpcomingShows, djProfile?.profileType]);
 
   // Create Artist Selects (recommendations)
