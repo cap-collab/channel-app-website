@@ -1506,13 +1506,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
         return (
           <div className="mt-6 max-w-7xl mx-auto">
-            <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-              <div>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div className="min-w-0">
                 <h2 className="text-2xl md:text-3xl font-semibold">Archives</h2>
                 <p className="text-sm md:text-base text-zinc-400 mt-1">Left-field electronic shows from underground selectors</p>
               </div>
               {availableScenes.length > 0 && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 md:gap-2 shrink-0">
                   {availableScenes.map((s) => {
                     // Empty selection means "show everything" (same behavior as all
                     // selected), so render all chips active in both cases.
@@ -1537,8 +1537,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               )}
             </div>
 
-            {/* Card list — full width mobile, 2 cols desktop */}
-            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mx-auto ${homepage ? 'max-w-[90%]' : ''}`}>
+            {/* Card list — 2 cols on mobile (homepage only) and desktop */}
+            <div className={`grid ${homepage ? 'grid-cols-2' : 'grid-cols-1'} md:grid-cols-2 gap-4 mx-auto ${homepage ? 'max-w-[90%]' : ''}`}>
               {ordered.map(({ archive, sceneIds }) => (
                 <ArchiveGridCard
                   key={archive.id}
