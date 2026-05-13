@@ -116,8 +116,8 @@ interface ShowV2 {
   t?: string;
   p?: string;
   ap?: string[];
-  // Display names parallel to ap[] (VPN-local extension; not in upstream schema).
-  apNames?: string[];
+  pName?: string;     // display name for p (web-app extension)
+  apNames?: string[]; // display names parallel to ap (web-app extension)
   l?: string;
 }
 
@@ -227,10 +227,12 @@ async function main() {
       s: startISO,
       e: endISO,
       d: null,
-      j: h.guestName,
+      // j is a legacy free-text host label kept around for older shows. We don't use it
+      // to drive chip rendering — chips are built from (p, pName) + (ap[], apNames[]).
       u: PALM_READER_IMAGE,
       t: "monthly",
       p: "newpalm",
+      pName: "New Palm",
       ap: [normalize(h.guestName)],
       apNames: [h.guestName],
       l: PALM_READER_URL,

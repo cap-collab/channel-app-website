@@ -10,6 +10,7 @@ export interface ShowV2 {
   p?: string | null; // profile username (for DJ profile link)
   ap?: string[]; // additional profile usernames (for multi-DJ shows)
   apNames?: string[]; // display names parallel to ap (web-app extension; not in upstream schema)
+  pName?: string; // display name for the primary profile p (web-app extension)
   l?: string | null; // per-show URL on the source station's site
 }
 

@@ -4,10 +4,10 @@
     "s": "2024-01-19T05:00:00.000Z",
     "e": "2024-01-19T06:00:00.000Z",
     "d": null,
-    "j": "Seung L",
     "u": "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/f238b6b0-3dc8-4c03-a3d3-dc15e38b1a7a/PALMREADER_SHOWIMAGE.jpg",
     "t": "monthly",
     "p": "newpalm",
+    "pName": "New Palm",
     "ap": [
       "seungl"
     ],
@@ -21,10 +21,10 @@
     "s": "2024-02-16T05:00:00.000Z",
     "e": "2024-02-16T06:00:00.000Z",
     "d": null,
-    "j": "Max Ellington",
     "u": "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/f238b6b0-3dc8-4c03-a3d3-dc15e38b1a7a/PALMREADER_SHOWIMAGE.jpg",
     "t": "monthly",
     "p": "newpalm",
+    "pName": "New Palm",
     "ap": [
       "maxellington"
     ],
@@ -38,10 +38,10 @@
     "s": "2024-04-19T04:00:00.000Z",
     "e": "2024-04-19T05:00:00.000Z",
     "d": null,
-    "j": "Matt Sussman",
     "u": "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/f238b6b0-3dc8-4c03-a3d3-dc15e38b1a7a/PALMREADER_SHOWIMAGE.jpg",
     "t": "monthly",
     "p": "newpalm",
+    "pName": "New Palm",
     "ap": [
       "mattsussman"
     ],
@@ -55,10 +55,10 @@
     "s": "2024-05-17T04:00:00.000Z",
     "e": "2024-05-17T05:00:00.000Z",
     "d": null,
-    "j": "DJ SAD",
     "u": "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/f238b6b0-3dc8-4c03-a3d3-dc15e38b1a7a/PALMREADER_SHOWIMAGE.jpg",
     "t": "monthly",
     "p": "newpalm",
+    "pName": "New Palm",
     "ap": [
       "djsad"
     ],
@@ -72,10 +72,10 @@
     "s": "2024-07-19T04:00:00.000Z",
     "e": "2024-07-19T05:00:00.000Z",
     "d": null,
-    "j": "Lena Deen",
     "u": "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/f238b6b0-3dc8-4c03-a3d3-dc15e38b1a7a/PALMREADER_SHOWIMAGE.jpg",
     "t": "monthly",
     "p": "newpalm",
+    "pName": "New Palm",
     "ap": [
       "lenadeen"
     ],
@@ -89,10 +89,10 @@
     "s": "2024-08-16T04:00:00.000Z",
     "e": "2024-08-16T05:00:00.000Z",
     "d": null,
-    "j": "Seiji Fujiwara",
     "u": "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/f238b6b0-3dc8-4c03-a3d3-dc15e38b1a7a/PALMREADER_SHOWIMAGE.jpg",
     "t": "monthly",
     "p": "newpalm",
+    "pName": "New Palm",
     "ap": [
       "seijifujiwara"
     ],
@@ -106,10 +106,10 @@
     "s": "2024-12-19T05:00:00.000Z",
     "e": "2024-12-19T06:00:00.000Z",
     "d": null,
-    "j": "David Grunzweig",
     "u": "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/f238b6b0-3dc8-4c03-a3d3-dc15e38b1a7a/PALMREADER_SHOWIMAGE.jpg",
     "t": "monthly",
     "p": "newpalm",
+    "pName": "New Palm",
     "ap": [
       "davidgrunzweig"
     ],
@@ -123,10 +123,10 @@
     "s": "2025-01-24T05:00:00.000Z",
     "e": "2025-01-24T06:00:00.000Z",
     "d": null,
-    "j": "Radha",
     "u": "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/f238b6b0-3dc8-4c03-a3d3-dc15e38b1a7a/PALMREADER_SHOWIMAGE.jpg",
     "t": "monthly",
     "p": "newpalm",
+    "pName": "New Palm",
     "ap": [
       "radha"
     ],
@@ -140,10 +140,10 @@
     "s": "2025-02-21T05:00:00.000Z",
     "e": "2025-02-21T06:00:00.000Z",
     "d": null,
-    "j": "Seung L",
     "u": "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/f238b6b0-3dc8-4c03-a3d3-dc15e38b1a7a/PALMREADER_SHOWIMAGE.jpg",
     "t": "monthly",
     "p": "newpalm",
+    "pName": "New Palm",
     "ap": [
       "seungl"
     ],
@@ -157,10 +157,10 @@
     "s": "2025-02-21T05:00:00.000Z",
     "e": "2025-02-21T06:00:00.000Z",
     "d": null,
-    "j": "Spillman",
     "u": "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/f238b6b0-3dc8-4c03-a3d3-dc15e38b1a7a/PALMREADER_SHOWIMAGE.jpg",
     "t": "monthly",
     "p": "newpalm",
+    "pName": "New Palm",
     "ap": [
       "spillman"
     ],
@@ -174,10 +174,10 @@
     "s": "2025-08-08T04:00:00.000Z",
     "e": "2025-08-08T05:00:00.000Z",
     "d": null,
-    "j": "Israel Vines",
     "u": "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/f238b6b0-3dc8-4c03-a3d3-dc15e38b1a7a/PALMREADER_SHOWIMAGE.jpg",
     "t": "monthly",
     "p": "newpalm",
+    "pName": "New Palm",
     "ap": [
       "israelvines"
     ],
