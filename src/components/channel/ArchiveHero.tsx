@@ -198,10 +198,26 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const { chatUsername } = useUserProfile(user?.uid);
   const {
     isPlaying: isLivePlaying, isLoading: isLiveLoading, currentShow, currentDJ,
-    toggle: toggleLive, play: playLive,
+    toggle: toggleLive, play: playLive, pause: pauseLive,
     setHeroBarVisible, setHeroBarObserverReady, tipLink: liveTipLink,
     error: streamError,
   } = useBroadcastStreamContext();
+
+  // Wraps playLive with a defensive reset when streamError is set —
+  // typically after a Rule A auto-handoff attempt was rejected by iOS
+  // (audio element left in a half-loaded state with buffered segments
+  // from the moment Rule A fired). Calling pause() first clears src
+  // via the existing well-tested pause path, then play() re-attaches
+  // with a fresh cache-busted manifest URL. Only fires when there's
+  // an error — clean-state plays go through playLive directly.
+  const tapPlayLive = useCallback(() => {
+    if (streamError) {
+      pauseLive();
+      setTimeout(() => playLive(), 0);
+    } else {
+      playLive();
+    }
+  }, [streamError, pauseLive, playLive]);
   const archivePlayer = useArchivePlayer();
   const stickyBarRef = useRef<HTMLDivElement>(null);
 
@@ -808,7 +824,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             if (isLive) {
               return (
                 <button
-                  onClick={() => { archivePlayer.pause(); setHeroIndex(0); setUserSelectedMode('live'); playLive(); }}
+                  onClick={() => { archivePlayer.pause(); setHeroIndex(0); setUserSelectedMode('live'); tapPlayLive(); }}
                   className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors text-red-500 hover:text-red-400"
                 >
                   Switch to Live Radio
@@ -940,7 +956,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                         <button
                           onClick={() => {
                             if (isLivePlaying) toggleLive();
-                            else { setUserSelectedMode('live'); playLive(); }
+                            else { setUserSelectedMode('live'); tapPlayLive(); }
                           }}
                           className="relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10 text-left"
                           aria-label={isLivePlaying ? 'Pause live' : 'Play live'}
@@ -1002,7 +1018,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                             onClick={() => {
                               if (isLive) {
                                 if (isLivePlaying) toggleLive();
-                                else { setUserSelectedMode('live'); playLive(); }
+                                else { setUserSelectedMode('live'); tapPlayLive(); }
                               } else {
                                 void radioCtx?.toggle();
                               }
@@ -1231,7 +1247,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   the button size. */}
               <div className="flex items-center gap-0.5 sm:gap-[11px] py-2 px-1">
                 <button
-                  onClick={toggleLive}
+                  onClick={() => { if (isLivePlaying) toggleLive(); else tapPlayLive(); }}
                   className="h-[27px] ml-1 pl-2 pr-1 flex items-center justify-center transition-colors flex-shrink-0"
                 >
                   {isLiveLoading ? (
