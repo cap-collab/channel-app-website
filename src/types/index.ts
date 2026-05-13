@@ -9,6 +9,7 @@ export interface ShowV2 {
   t?: string | null; // type (weekly, monthly, restream, playlist)
   p?: string | null; // profile username (for DJ profile link)
   ap?: string[]; // additional profile usernames (for multi-DJ shows)
+  l?: string | null; // per-show URL on the source station's site
 }
 
 // Expanded show with station info
@@ -38,6 +39,8 @@ export interface Show {
   djGenres?: string[];
   // Whether the DJ has claimed their Channel profile (exists in users collection)
   isChannelUser?: boolean;
+  // Per-show URL on the source station's site (e.g. https://www.virtualpublic.net/suite-serenade)
+  showUrl?: string;
 }
 
 // Metadata response from GitHub

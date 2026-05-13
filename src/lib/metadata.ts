@@ -24,6 +24,24 @@ const NEWTOWN_PHANTOM_SHOWS = new Set([
   "..dash",
 ]);
 
+async function loadVPNShows(): Promise<ShowV2[]> {
+  try {
+    // Read from public/ on the server. We avoid `fetch(<absolute-url>)` because
+    // fetchMetadata() runs in API routes where the request origin isn't always
+    // available, and we want this to work in build / cron contexts too.
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const filePath = path.join(process.cwd(), "public", "vpn-shows.json");
+    const raw = await fs.readFile(filePath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as ShowV2[];
+    return [];
+  } catch (error) {
+    console.warn("[Metadata] /vpn-shows.json not loadable, VPN will be absent:", error);
+    return [];
+  }
+}
+
 export async function fetchMetadata(): Promise<MetadataResponse> {
   const now = Date.now();
 
@@ -42,6 +60,15 @@ export async function fetchMetadata(): Promise<MetadataResponse> {
     }
 
     const data: MetadataResponse = await response.json();
+
+    // Merge VPN shows from the static file shipped in public/. The channel-media
+    // daily scrapers don't know about VPN, so they never write stations.vpn —
+    // we own VPN scheduling entirely in this repo.
+    const vpnShows = await loadVPNShows();
+    if (vpnShows.length > 0) {
+      data.stations = { ...data.stations, vpn: vpnShows };
+    }
+
     cachedMetadata = data;
     cacheTimestamp = now;
 
@@ -369,6 +396,7 @@ function expandShow(show: ShowV2, stationMetadataKey: string): Show {
     imageUrl: show.u || undefined,
     stationId,
     type: show.t || undefined,
+    showUrl: show.l || undefined,
   };
 }
 

@@ -92,6 +92,16 @@ export const STATIONS: Station[] = [
     accentColor: "#ec92af",
   },
   {
+    id: "vpn",
+    name: "VPN",
+    metadataKey: "vpn",
+    streamUrl: "",
+    websiteUrl: "https://www.virtualpublic.net/",
+    backgroundColor: "#000000",
+    textColor: "#FFFFFF",
+    accentColor: "#FFFFFF",
+  },
+  {
     id: "dj-radio",
     name: "Radio",
     metadataKey: "dj-radio",
@@ -125,6 +135,7 @@ const STATION_LOGOS: Record<string, string> = {
   "subtle": "/stations/subtle-logo.png",
   "sutro": "/stations/sutro-logo.jpg",
   "dublab": "/stations/dublab-logo.png",
+  "vpn": "/stations/vpn-logo.jpeg",
 };
 
 export function getStationLogoUrl(stationId: string): string | undefined {

@@ -166,6 +166,20 @@ export function TicketCard({
         </h3>
         <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
           Selected by {show.externalRadioName || station.name}
+          {show.showUrl && (
+            <>
+              {" · "}
+              <a
+                href={show.showUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="underline hover:text-zinc-300"
+              >
+                View on {station.name}
+              </a>
+            </>
+          )}
         </p>
         {show.djGenres && show.djGenres.length > 0 && (
           <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
