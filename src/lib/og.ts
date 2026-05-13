@@ -22,6 +22,11 @@ export function makeOG({
   path?: string;
 } = {}): Metadata {
   const ogTitle = title ? `${title} — ${BRAND}` : HOME_TITLE;
+  // When a per-page image is supplied (DJ/collective/archive/scene/venue),
+  // declare it as a 400x400 thumbnail and downgrade the Twitter card to
+  // `summary` so platforms render a small square thumb instead of a huge
+  // banner. Pages with no per-page image fall back to the root layout's
+  // 600x600 og-image.png and its `summary_large_image` card.
   return {
     // `title` is a string here so the root layout's template doesn't re-suffix
     // (Next.js only applies templates to children's metadata when the child
@@ -34,10 +39,10 @@ export function makeOG({
       title: ogTitle,
       description,
       ...(path ? { url: path } : {}),
-      ...(image ? { images: [{ url: image }] } : {}),
+      ...(image ? { images: [{ url: image, width: 400, height: 400 }] } : {}),
     },
     twitter: {
-      card: "summary_large_image",
+      card: image ? "summary" : "summary_large_image",
       title: ogTitle,
       description,
       ...(image ? { images: [image] } : {}),
