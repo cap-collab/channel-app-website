@@ -63,10 +63,10 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
               style={{ pointerEvents: 'auto' }}
             >
               <Image
-                src="/logo-white.svg"
+                src="/logo-white.png"
                 alt="CHANNEL"
-                width={120}
-                height={24}
+                width={400}
+                height={80}
                 className="h-6 w-auto"
                 priority
               />
