@@ -215,6 +215,29 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   const [inlineCoversActive, setInlineCoversActive] = useState(true);
   const [archives, setArchives] = useState<ArchiveSerialized[]>([]);
 
+  // Self-fetch archives so the sticky bar's scene/username/tip resolves
+  // identically on every page — not just on / where ArchiveHero feeds the
+  // list. ArchiveHero still calls setArchives, but this gives us the same
+  // data everywhere else (DJ profiles, /studio, /broadcast/admin, etc.).
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/archives');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const list = Array.isArray(data?.archives) ? data.archives as ArchiveSerialized[] : [];
+        // Don't clobber a richer list set by ArchiveHero — only seed when empty.
+        setArchives((prev) => prev.length > 0 ? prev : list);
+      } catch {
+        // Best-effort; sticky bar falls back to denormalized fields.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [enabled]);
+
   // Resolve the current archive doc from the schedule item's id. This is the
   // single source of truth for scene/username/photo/tip — same data the rest
   // of the hero uses, so when an admin edits a DJ profile the radio bar
