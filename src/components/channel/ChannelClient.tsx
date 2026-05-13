@@ -841,6 +841,7 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
               liveDJChatRoom={currentDJChatRoom}
               preferredHeroSeed={initialPreferredHero}
               initialRadioArchiveId={initialRadioArchiveId}
+              homepage
             />
           ) : null}
         </div>

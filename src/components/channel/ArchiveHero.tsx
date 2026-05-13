@@ -159,6 +159,9 @@ interface ArchiveHeroProps {
   // and `radioCtx.currentItem.archiveId` resolves — otherwise slide 0 would
   // flash a different archive (the featured fallback) on first paint.
   initialRadioArchiveId?: string | null;
+  // Homepage variant: widens the hero slider and narrows the archives grid
+  // so the hero reads bigger and the cards read smaller. Only `/` opts in.
+  homepage?: boolean;
 }
 
 function formatClockTime(timestampMs: number): string {
@@ -193,7 +196,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
   );
 }
 
-export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle, preferredHeroSeed, initialRadioArchiveId }: ArchiveHeroProps) {
+export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle, preferredHeroSeed, initialRadioArchiveId, homepage }: ArchiveHeroProps) {
   const { user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
   const {
@@ -800,7 +803,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           <p className="text-sm md:text-base text-zinc-400 mt-1">No ads. No algorithms. Just people with great taste.</p>
         )}
       </div>
-      <div className="max-w-3xl mx-auto">
+      <div className={`${homepage ? 'max-w-[845px]' : 'max-w-3xl'} mx-auto`}>
 
         {/* Status line above image — reflects what the hero is showing */}
         <div className="flex items-center justify-between mb-2 relative">
@@ -1535,7 +1538,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             </div>
 
             {/* Card list — full width mobile, 2 cols desktop */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mx-auto ${homepage ? 'max-w-[90%]' : ''}`}>
               {ordered.map(({ archive, sceneIds }) => (
                 <ArchiveGridCard
                   key={archive.id}
