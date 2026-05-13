@@ -1008,9 +1008,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                           />
                         );
                       })()}
-                      {/* Overlay play/pause button — always shown on slide 0.
-                          Pause icon when this slide's source is the active
-                          one and playing; play icon otherwise. Click toggles. */}
+                      {/* Tap overlay. Always covers the slide so the card
+                          stays clickable. Shows a play icon only when the
+                          slide's source isn't currently playing — no pause
+                          icon (pausing belongs to the player bar). Matches
+                          slide 1's behavior. */}
                       {(() => {
                         const slideIsPlaying = isLive ? isLivePlaying : !!radioCtx?.isPlaying;
                         return (
@@ -1026,17 +1028,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                             aria-label={slideIsPlaying ? 'Pause' : 'Play this'}
                             className="absolute inset-0 flex items-center justify-center transition-opacity hover:bg-black/30"
                           >
-                            <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
-                              {slideIsPlaying ? (
-                                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                                </svg>
-                              ) : (
+                            {!slideIsPlaying && (
+                              <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
                                 <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                                   <path d="M8 5v14l11-7z" />
                                 </svg>
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </button>
                         );
                       })()}
