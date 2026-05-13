@@ -344,7 +344,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
 
     const djNames = currentArchive.djs.map(d => d.name).join(', ');
     const rawArtworkUrl = currentArchive.showImageUrl || currentArchive.djs[0]?.photoUrl;
-    const fallbackArtworkUrl = typeof window !== 'undefined' ? `${window.location.origin}/apple-touch-icon.png` : '';
+    const fallbackArtworkUrl = typeof window !== 'undefined' ? `${window.location.origin}/artwork-fallback.png` : '';
 
     // iOS only uses the first artwork entry and rejects images > 128x128
     // (shows grey placeholder instead). Proxy through Next.js for same-origin.

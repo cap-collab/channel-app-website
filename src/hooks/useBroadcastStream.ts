@@ -821,7 +821,7 @@ export function useBroadcastStream(
       })();
       const rawArtworkUrl = currentShow.showImageUrl || currentShow.liveDjPhotoUrl || primaryRestreamDjPhoto;
 
-      const fallbackArtworkUrl = `${window.location.origin}/apple-touch-icon.png`;
+      const fallbackArtworkUrl = `${window.location.origin}/artwork-fallback.png`;
 
       // iOS only uses first artwork entry and rejects images > 128x128.
       // Proxy through Next.js for same-origin.

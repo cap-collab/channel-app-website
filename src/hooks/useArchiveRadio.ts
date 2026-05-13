@@ -515,7 +515,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     if (!isPlaying) return;
     const item = current.item;
     const artist = (item.djs?.length ? item.djs.map((d) => d.name).join(', ') : undefined);
-    const fallback = `${window.location.origin}/apple-touch-icon.png`;
+    const fallback = `${window.location.origin}/artwork-fallback.png`;
     const proxy = (url: string) =>
       url.startsWith('/') ? url : `/_next/image?url=${encodeURIComponent(url)}&w=128&q=75`;
     // Cascade like live (useBroadcastStream): show image → first DJ photo →
