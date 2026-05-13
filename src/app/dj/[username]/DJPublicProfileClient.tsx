@@ -22,6 +22,7 @@ import { getStationById, getMetadataKeyByStationId } from "@/lib/stations";
 import { useBPM } from "@/contexts/BPMContext";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { Venue, Collective, Event as ChannelEvent, EventDJRef, EventVenueRef, CollectiveRef } from "@/types/events";
+import { ResidentsGrid } from "@/components/dj/ResidentsGrid";
 // Icon components (inline SVGs to avoid external dependencies)
 
 
@@ -1473,10 +1474,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   // only past activity (or nothing) land on chat where conversation lives.
   // Wait for the fetch to resolve so we don't flip to chat during the loading
   // window and then leave it there even after upcoming shows arrive.
+  // Collectives always default to schedule — their pages are about programming,
+  // not 1:1 conversation.
   useEffect(() => {
     if (!upcomingFetched) return;
+    if (djProfile?.profileType === 'collective') return;
     if (!hasUpcomingShows) setActiveTab('chat');
-  }, [upcomingFetched, hasUpcomingShows]);
+  }, [upcomingFetched, hasUpcomingShows, djProfile?.profileType]);
 
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {
@@ -1689,21 +1693,12 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           );
         })()}
 
-        {/* COLLECTIVE RESIDENTS — 2-row grid, horizontally scrollable.
-            Desktop: 3 cards visible per row (6 visible w/o scrolling). Mobile: 2 per row,
-            bio hidden. Photo-first sort puts pictured residents in the no-scroll zone. */}
+        {/* COLLECTIVE RESIDENTS — 2-row horizontally-scrollable grid with arrows + dots.
+            Desktop: 3 cards per row (6 visible). Mobile: 2 per row, bio hidden.
+            Photo-first sort keeps pictured residents in the no-scroll columns. */}
         {profile.profileType === 'collective' &&
           (residentsResolved.length > 0 || (profile.linkedCollectives && profile.linkedCollectives.length > 0)) && (() => {
-            type ResidentItem = {
-              key: string;
-              href: string | null;
-              name: string;
-              photoUrl?: string;
-              bio?: string;
-              badge?: string;
-              isCollective: boolean;
-            };
-            const items: ResidentItem[] = [];
+            const items: { key: string; href: string | null; name: string; photoUrl?: string; bio?: string; badge?: string; isCollective: boolean }[] = [];
             residentsResolved.forEach((r, i) => {
               items.push({
                 key: `dj-${r.djUsername || r.djName}-${i}`,
@@ -1724,57 +1719,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                 isCollective: true,
               });
             });
-            // Photo-first: stable sort so original order is preserved within each bucket.
+            // Photo-first stable sort.
             items.sort((a, b) => Number(Boolean(b.photoUrl)) - Number(Boolean(a.photoUrl)));
 
             return (
               <section className="mb-6">
                 <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">Residents</h2>
-                <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0 scrollbar-hide">
-                  <div className="grid grid-rows-2 grid-flow-col gap-3 auto-cols-[calc(50%-0.375rem)] md:auto-cols-[calc(33.333%-0.5rem)]">
-                    {items.map((it) => {
-                      const placeholderSvg = it.isCollective ? (
-                        <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                      ) : (
-                        <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      );
-                      const inner = (
-                        <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-full">
-                          <div className="w-14 h-14 bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {it.photoUrl ? (
-                              <Image
-                                src={it.photoUrl}
-                                alt={it.name}
-                                width={56}
-                                height={56}
-                                className="w-full h-full object-cover"
-                                unoptimized
-                              />
-                            ) : placeholderSvg}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-white font-medium text-sm truncate">{it.name}</p>
-                            {it.badge && (
-                              <p className="text-zinc-500 text-[10px] uppercase tracking-wider mt-1">{it.badge}</p>
-                            )}
-                            {it.bio && (
-                              <p className="hidden md:block text-zinc-400 text-xs mt-1 line-clamp-2">{it.bio}</p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                      return it.href ? (
-                        <Link key={it.key} href={it.href} className="block">{inner}</Link>
-                      ) : (
-                        <div key={it.key}>{inner}</div>
-                      );
-                    })}
-                  </div>
-                </div>
+                <ResidentsGrid items={items} />
               </section>
             );
           })()}
