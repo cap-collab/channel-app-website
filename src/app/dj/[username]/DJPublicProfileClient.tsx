@@ -643,28 +643,31 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       const resolved: typeof residentsResolved = [];
       for (const r of djProfile.residentDJs || []) {
         let bio: string | undefined;
+        let djPhotoUrl: string | undefined = r.djPhotoUrl;
         try {
           if (r.djUserId) {
             const userSnap = await getDocs(query(collection(db, "users"), where("__name__", "in", [r.djUserId])));
             userSnap.forEach(d => {
               const data = d.data();
               if (data.djProfile?.bio) bio = data.djProfile.bio;
+              if (!djPhotoUrl && data.djProfile?.photoUrl) djPhotoUrl = data.djProfile.photoUrl;
             });
           }
-          if (!bio && r.djUsername) {
+          if ((!bio || !djPhotoUrl) && r.djUsername) {
             const normalized = r.djUsername.replace(/[\s-]+/g, '').toLowerCase();
             const pendingSnap = await getDocs(
               query(collection(db, "pending-dj-profiles"), where("chatUsernameNormalized", "==", normalized))
             );
             pendingSnap.forEach(d => {
               const data = d.data();
-              if (data.djProfile?.bio) bio = data.djProfile.bio;
+              if (!bio && data.djProfile?.bio) bio = data.djProfile.bio;
+              if (!djPhotoUrl && data.djProfile?.photoUrl) djPhotoUrl = data.djProfile.photoUrl;
             });
           }
         } catch (err) {
           console.error("Error resolving resident bio:", err);
         }
-        resolved.push({ ...r, bio });
+        resolved.push({ ...r, djPhotoUrl, bio });
       }
       if (!cancelled) setResidentsResolved(resolved);
     })();
