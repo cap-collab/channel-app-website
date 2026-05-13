@@ -1621,11 +1621,22 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                   <Link
                     key={`collective-${col.id}`}
                     href={`/collective/${col.slug}`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/50 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:border-white/20 transition-colors text-xs"
+                    className="flex items-center gap-1.5 pl-1 pr-3 py-1 bg-zinc-900/50 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:border-white/20 transition-colors text-xs"
                   >
-                    <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
+                    {col.photo ? (
+                      <Image
+                        src={col.photo}
+                        alt={col.name}
+                        width={18}
+                        height={18}
+                        className="w-[18px] h-[18px] rounded-full object-cover flex-shrink-0"
+                        unoptimized
+                      />
+                    ) : (
+                      <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    )}
                     {col.name}
                   </Link>
                 ))}
