@@ -242,9 +242,10 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
           )}
         </div>
 
-        {/* Genre selector — same gate as the city selector: visible only
-            in the non-compact (/explore) variant. */}
-        <div className={`relative flex-1 flex justify-center ${compact ? 'hidden' : ''}`}>
+        {/* Genre selector — only rendered in the non-compact (/explore)
+            variant. Not present at all in the header. */}
+        {!compact && (
+        <div className="relative flex-1 flex justify-center">
           <button
             ref={genreButtonRef}
             onClick={() => {
@@ -357,6 +358,7 @@ export function Tuner({ selectedCity, onCityChange, selectedGenres, onGenresChan
             document.body
           )}
         </div>
+        )}
       </div>
     </div>
   );
