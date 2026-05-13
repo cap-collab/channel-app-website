@@ -252,19 +252,13 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
 
   const ensureAudio = useCallback(() => {
     if (typeof window === 'undefined') return null;
-    // Attach hidden to the DOM so iOS lock screen can bind to a real
-    // <audio> element. Detached `new Audio()` plays fine but iOS picks
-    // the wrong/no element for Now Playing controls and shows a play
-    // icon even while audio is playing.
     if (!audioARef.current) {
       const a = new Audio();
       a.crossOrigin = 'anonymous';
       a.preload = 'auto';
       a.setAttribute('playsinline', '');
       a.setAttribute('webkit-playsinline', '');
-      a.style.display = 'none';
       attachStateListeners(a);
-      document.body.appendChild(a);
       audioARef.current = a;
     }
     if (!audioBRef.current) {
@@ -273,9 +267,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       b.preload = 'auto';
       b.setAttribute('playsinline', '');
       b.setAttribute('webkit-playsinline', '');
-      b.style.display = 'none';
       attachStateListeners(b);
-      document.body.appendChild(b);
       audioBRef.current = b;
     }
     return { a: audioARef.current, b: audioBRef.current };
@@ -594,8 +586,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       try { b?.pause(); } catch { /* ignore */ }
       if (a) a.src = '';
       if (b) b.src = '';
-      try { a?.parentNode?.removeChild(a); } catch { /* ignore */ }
-      try { b?.parentNode?.removeChild(b); } catch { /* ignore */ }
       audioARef.current = null;
       audioBRef.current = null;
     };
