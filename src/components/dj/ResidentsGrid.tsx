@@ -108,7 +108,7 @@ export function ResidentsGrid({ items }: ResidentsGridProps) {
               </svg>
             );
             const inner = (
-              <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-full">
+              <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-20 md:h-24 overflow-hidden">
                 <div className="w-14 h-14 bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {it.photoUrl ? (
                     <Image
@@ -121,13 +121,13 @@ export function ResidentsGrid({ items }: ResidentsGridProps) {
                     />
                   ) : placeholderSvg}
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 overflow-hidden">
                   <p className="text-white font-medium text-sm truncate">{it.name}</p>
                   {it.badge && (
                     <p className="text-zinc-500 text-[10px] uppercase tracking-wider mt-1">{it.badge}</p>
                   )}
                   {it.bio && (
-                    <p className="hidden md:block text-zinc-400 text-xs mt-1 line-clamp-2">{it.bio}</p>
+                    <p className="hidden md:block text-zinc-400 text-xs mt-1 line-clamp-2 overflow-hidden">{it.bio}</p>
                   )}
                 </div>
               </div>
