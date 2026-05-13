@@ -157,14 +157,12 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
   }, [getMatchingGenres]);
 
   // Sort archives by priority and genre match
-  // - No genre filter: high priority first, low priority last, medium in the middle (original date order)
-  // - Genre filter: high+genre match first, then medium+genre match, then medium no match, then low always last
-  // Homepage (skipHero=false) hides low-priority archives entirely.
-  // /explore (skipHero=true) keeps them at the bottom.
+  // - No genre filter: high priority first, medium below
+  // - Genre filter: high+genre match first, then medium+genre match, then no match
+  // Low-priority archives are dropped — ArchiveHero is the only consumer and
+  // we don't want them surfacing in the carousel.
   const { archives, featuredArchive } = useMemo(() => {
-    const sourceArchives = skipHero
-      ? rawArchives
-      : rawArchives.filter((a) => (a.priority || 'medium') !== 'low');
+    const sourceArchives = rawArchives.filter((a) => (a.priority || 'medium') !== 'low');
     if (sourceArchives.length === 0) return { archives: sourceArchives, featuredArchive: rawFeaturedArchive };
 
     const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
@@ -215,7 +213,7 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
 
     const sorted = scored.map((s) => s.archive);
     return { archives: sorted, featuredArchive: sorted[0] };
-  }, [rawArchives, rawFeaturedArchive, selectedGenres, skipHero]);
+  }, [rawArchives, rawFeaturedArchive, selectedGenres]);
 
   // Sync featured archive into context so GlobalBroadcastBar can access it
   useEffect(() => {
