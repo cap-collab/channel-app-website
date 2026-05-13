@@ -117,7 +117,10 @@ export function ArchivesClient() {
           <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
         </div> */}
 
-        <h1 className="text-2xl font-bold mb-6">Archives</h1>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Archives</h1>
+          <p className="text-sm md:text-base text-zinc-400 mt-1">Left-field electronic shows from underground selectors</p>
+        </div>
 
         {loading && (
           <div className="flex items-center justify-center py-20">

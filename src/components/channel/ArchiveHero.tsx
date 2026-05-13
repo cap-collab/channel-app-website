@@ -141,7 +141,7 @@ interface ArchiveHeroProps {
   // Max number of slides in the offline hero carousel. Default 3 (used on /radio).
   // Pass 1 for scene pages where we want a single featured archive.
   maxHeroSlides?: number;
-  // Custom section title. Defaults to "Live DJ radio" on /radio.
+  // Custom section title. Defaults to "Human Radio" on /radio.
   // Scene pages pass <>Live {emoji} Radio</> so the scene emoji sits inline.
   titleOverride?: ReactNode;
   // Hide the subtitle under the title (scene pages want a cleaner header).
@@ -794,10 +794,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     <section className="relative z-10 px-4 pt-6 pb-2">
       <div className="max-w-7xl mx-auto mb-4">
         <h2 className="text-2xl md:text-3xl font-semibold flex items-center gap-2">
-          {titleOverride ?? 'Live DJ radio'}
+          {titleOverride ?? 'Human Radio'}
         </h2>
         {!hideSubtitle && (
-          <p className="text-sm md:text-base text-zinc-400 mt-1">for the music. and the people behind it</p>
+          <p className="text-sm md:text-base text-zinc-400 mt-1">No ads. No algorithms. Just people with great taste.</p>
         )}
       </div>
       <div className="max-w-3xl mx-auto">
@@ -1504,7 +1504,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         return (
           <div className="mt-6 max-w-7xl mx-auto">
             <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-              <h2 className="text-2xl md:text-3xl font-semibold">Archives</h2>
+              <div>
+                <h2 className="text-2xl md:text-3xl font-semibold">Archives</h2>
+                <p className="text-sm md:text-base text-zinc-400 mt-1">Left-field electronic shows from underground selectors</p>
+              </div>
               {availableScenes.length > 0 && (
                 <div className="flex items-center gap-2">
                   {availableScenes.map((s) => {
