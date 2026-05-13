@@ -135,14 +135,20 @@ export function GlobalBroadcastBar() {
   // Single source of truth: resolve the radio's current archive doc and read
   // username/scene/tip/photo from there (not from denormalized fields on
   // the schedule item).
+  // Prefer the schedule item's denormalized DJ (set everywhere the radio
+  // plays); fall back to the archive doc (only populated by ArchiveHero on /).
+  // Without this fallback the profile/tip icons disappear on pages that don't
+  // mount ArchiveHero (e.g. /studio, /archives, /broadcast/admin).
   const radioArchive = radioCtx?.currentArchive ?? null;
-  const radioPrimaryDj = radioArchive?.djs?.[0];
+  const radioPrimaryDj = radioCtx?.currentItem?.djs?.[0] ?? radioArchive?.djs?.[0];
   const radioDjProfileUsername = radioPrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
   const radioDjProfile = useDJProfileInfo(radioPrimaryDj?.username);
   const radioTipLink = radioDjProfile.tipButtonLink;
   const { sendLove: radioSendLove, sendLockedIn: radioSendLockedIn } = useDJProfileChat({
     chatUsernameNormalized: radioDjProfileUsername,
-    djUsername: radioArchive?.djs?.map(d => d.name).join(', ') || '',
+    djUsername: radioArchive?.djs?.map(d => d.name).join(', ')
+      || radioCtx?.currentItem?.djs?.map(d => d.name).join(', ')
+      || '',
     username: chatUsername || undefined,
     enabled: false,
     lockedInMessagesEnabled: showLockedInMessages,
@@ -341,12 +347,16 @@ export function GlobalBroadcastBar() {
   // love button, tip widgets.
   if (barMode === 'radio' && radioCtx) {
     const radioTitle = radioArchive?.showName || radioCtx.currentItem?.title || 'Archive radio';
-    const radioDjs = radioArchive?.djs?.map((d) => d.name).join(', ') || '';
+    const radioDjs = radioArchive?.djs?.map((d) => d.name).join(', ')
+      || radioCtx.currentItem?.djs?.map((d) => d.name).join(', ')
+      || '';
     const profileSlug = radioDjProfileUsername;
-    // Scene glyph — resolved live from the archive doc.
+    // Scene glyph — prefer the resolved archive doc; fall back to the
+    // schedule item's denormalized sceneSlugs on pages where ArchiveHero
+    // hasn't fed the radio context.
     const radioSceneSlug = radioArchive
       ? pickSceneSlug(resolveArchiveScenes(radioArchive, djSceneMap))
-      : null;
+      : pickSceneSlug(radioCtx.currentItem?.sceneSlugs ?? []);
     return (
       <div className={`z-[99] bg-black border-b border-white/10 overflow-hidden transition-all duration-200 ${hiddenOnRadio ? 'opacity-0 -translate-y-full h-0 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
         <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
