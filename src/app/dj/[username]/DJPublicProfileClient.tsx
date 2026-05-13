@@ -843,6 +843,14 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       // Simple O(1) lookup - no regex matching needed!
       const normalizedProfileUsername = djProfile.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
 
+      // For collectives whose slug equals a station id (e.g. /dj/vpn = the VPN station's
+      // collective page), surface every show from that station, not just shows where
+      // the collective itself is a profile match.
+      const collectiveStationId =
+        djProfile.profileType === "collective" && getStationById(djProfile.collectiveSlug || normalizedProfileUsername)
+          ? (djProfile.collectiveSlug || normalizedProfileUsername)
+          : null;
+
       allShows.forEach((show) => {
         // Skip broadcast shows (already handled above)
         if (show.stationId === "broadcast") return;
@@ -857,9 +865,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
         const endTime = new Date(show.endTime).getTime();
         if (endTime <= now) return;
 
-        // Match by primary djUsername or additional profiles (for multi-DJ shows)
-        if (show.djUsername === normalizedProfileUsername ||
-            show.additionalDjUsernames?.includes(normalizedProfileUsername)) {
+        // Match by primary djUsername, additional profiles, OR (for station-collectives)
+        // by stationId so the VPN collective page lists every VPN show.
+        const matchesByDj =
+          show.djUsername === normalizedProfileUsername ||
+          show.additionalDjUsernames?.includes(normalizedProfileUsername);
+        const matchesByStation = collectiveStationId !== null && show.stationId === collectiveStationId;
+        if (matchesByDj || matchesByStation) {
           const id = `external-${show.id}`;
           if (seenIds.has(id)) return;
           seenIds.add(id);
@@ -2193,11 +2205,25 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
                       {/* Body */}
                       <div className="p-4 space-y-4">
-                        <div>
-                          <h3 className="text-white font-medium">{broadcast.showName}</h3>
-                          {broadcast.djName && (
-                            <p className="text-zinc-400 text-sm mt-0.5">{broadcast.djName}</p>
+                        <div className="flex items-center gap-3">
+                          {broadcast.showImageUrl && (
+                            <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+                              <Image
+                                src={broadcast.showImageUrl}
+                                alt={broadcast.showName}
+                                width={48}
+                                height={48}
+                                className="w-full h-full object-cover"
+                                unoptimized
+                              />
+                            </div>
                           )}
+                          <div className="min-w-0">
+                            <h3 className="text-white font-medium truncate">{broadcast.showName}</h3>
+                            {broadcast.djName && (
+                              <p className="text-zinc-400 text-sm mt-0.5 truncate">{broadcast.djName}</p>
+                            )}
+                          </div>
                         </div>
 
                         {/* Time Bar */}
