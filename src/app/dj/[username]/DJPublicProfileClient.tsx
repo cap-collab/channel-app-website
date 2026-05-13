@@ -222,6 +222,12 @@ interface PastShow {
   stationId: string;
   stationName: string;
   showType?: string; // weekly, monthly, biweekly, regular, restream, playlist
+  // Profiles linked to the show (from metadata "p" + "ap"). Rendered as
+  // clickable chips inside the past-show card.
+  djName?: string;
+  djUsername?: string;
+  additionalDjUsernames?: string[];
+  additionalDjNames?: string[];
 }
 
 interface CustomLink {
@@ -1093,7 +1099,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
         const data = await res.json();
         const shows: PastShow[] = (data.shows || []).map(
-          (show: { id: string; showName: string; startTime: string; endTime: string; stationId: string; stationName: string; showType?: string; showImageUrl?: string }) => ({
+          (show: { id: string; showName: string; startTime: string; endTime: string; stationId: string; stationName: string; showType?: string; showImageUrl?: string; djName?: string; djUsername?: string; additionalDjUsernames?: string[]; additionalDjNames?: string[] }) => ({
             id: show.id,
             showName: show.showName,
             startTime: new Date(show.startTime).getTime(),
@@ -1102,6 +1108,10 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             stationName: show.stationName,
             showType: show.showType,
             showImageUrl: show.showImageUrl,
+            djName: show.djName,
+            djUsername: show.djUsername,
+            additionalDjUsernames: show.additionalDjUsernames,
+            additionalDjNames: show.additionalDjNames,
           })
         );
 
@@ -2698,10 +2708,31 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                   const isWatching = isInWatchlist(pastShow.showName);
                   const isToggling = togglingFavoriteId === pastShow.id;
                   const stationAccentColor = getStationById(pastShow.stationId)?.accentColor;
+                  const pastShowStationCollectiveSlug = getStationById(pastShow.stationId)?.collectiveSlug;
+                  const pastShowStationDisplayName = pastShow.stationId === "broadcast" ? "Channel" : pastShow.stationName;
 
                   // Format date for header
                   const showDate = new Date(pastShow.startTime);
                   const dateStr = showDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+                  // DJ links shown under the show title, same style as the upcoming card.
+                  // Combine primary (p) + additional (ap), dedupe. Only hide a chip if it's
+                  // the current collective's slug AND we're on that collective page (so the
+                  // collective doesn't link to itself). DJ self-matches still render — useful
+                  // when the show name is just the show title and the DJ chip provides context.
+                  const profileSlug = djProfile?.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
+                  const isOnCollectivePage = djProfile?.profileType === "collective";
+                  const shouldHide = (slug: string) => isOnCollectivePage && slug === profileSlug;
+                  type DjLink = { slug: string; label: string };
+                  const djLinksMap = new Map<string, DjLink>();
+                  if (pastShow.djUsername && !shouldHide(pastShow.djUsername)) {
+                    djLinksMap.set(pastShow.djUsername, { slug: pastShow.djUsername, label: pastShow.djName || pastShow.djUsername });
+                  }
+                  (pastShow.additionalDjUsernames || []).forEach((slug, i) => {
+                    if (!slug || shouldHide(slug) || djLinksMap.has(slug)) return;
+                    djLinksMap.set(slug, { slug, label: pastShow.additionalDjNames?.[i] || slug });
+                  });
+                  const djLinks = Array.from(djLinksMap.values());
 
                   return (
                     <div
@@ -2718,9 +2749,16 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                           {pastShow.stationName && (
                             <>
                               <span className="text-zinc-500">·</span>
-                              <span className="truncate">
-                                {pastShow.stationId === "broadcast" ? "Channel" : pastShow.stationName}
-                              </span>
+                              {pastShowStationCollectiveSlug ? (
+                                <Link
+                                  href={`/dj/${pastShowStationCollectiveSlug}`}
+                                  className="truncate hover:text-white transition-colors"
+                                >
+                                  {pastShowStationDisplayName}
+                                </Link>
+                              ) : (
+                                <span className="truncate">{pastShowStationDisplayName}</span>
+                              )}
                             </>
                           )}
                         </span>
@@ -2744,7 +2782,21 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                               />
                             </div>
                           )}
-                          <h3 className="text-zinc-400 font-medium truncate min-w-0">{pastShow.showName}</h3>
+                          <div className="min-w-0">
+                            <h3 className="text-zinc-400 font-medium truncate">{pastShow.showName}</h3>
+                            {djLinks.length > 0 && (
+                              <p className="text-zinc-400 text-sm mt-0.5 truncate">
+                                {djLinks.map((d, i) => (
+                                  <span key={d.slug}>
+                                    {i > 0 && ", "}
+                                    <Link href={`/dj/${d.slug}`} className="hover:text-white transition-colors">
+                                      {d.label}
+                                    </Link>
+                                  </span>
+                                ))}
+                              </p>
+                            )}
+                          </div>
                         </div>
 
                         {/* Action Button: Toggle watchlist */}

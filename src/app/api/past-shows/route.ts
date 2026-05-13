@@ -49,6 +49,14 @@ interface PastShowResponse {
   stationName: string;
   showType?: string;
   showImageUrl?: string;
+  // Linked profiles from metadata: p (primary) + ap (additional). Each is
+  // a normalized username; the client renders them as clickable Links.
+  djUsername?: string;
+  additionalDjUsernames?: string[];
+  // Display names parallel to additionalDjUsernames (when provided).
+  additionalDjNames?: string[];
+  // Human-readable name for the primary DJ (from the show's "j" field).
+  djName?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -114,6 +122,10 @@ export async function GET(request: NextRequest) {
           stationName,
           showType: show.t || undefined,
           showImageUrl: show.u || undefined,
+          djName: show.j || undefined,
+          djUsername: show.p || undefined,
+          additionalDjUsernames: show.ap && show.ap.length > 0 ? show.ap : undefined,
+          additionalDjNames: show.apNames && show.apNames.length > 0 ? show.apNames : undefined,
         });
       }
     }

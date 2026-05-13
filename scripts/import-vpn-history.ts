@@ -110,12 +110,14 @@ interface ShowV2 {
   n: string;
   s: string;
   e: string;
-  d?: string;
+  d?: string | null;
   j?: string;
   u?: string | null;
   t?: string;
   p?: string;
   ap?: string[];
+  // Display names parallel to ap[] (VPN-local extension; not in upstream schema).
+  apNames?: string[];
   l?: string;
 }
 
@@ -230,6 +232,7 @@ async function main() {
       t: "monthly",
       p: "newpalm",
       ap: [normalize(h.guestName)],
+      apNames: [h.guestName],
       l: PALM_READER_URL,
     };
   });
