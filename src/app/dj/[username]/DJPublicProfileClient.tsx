@@ -1082,7 +1082,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
         const data = await res.json();
         const shows: PastShow[] = (data.shows || []).map(
-          (show: { id: string; showName: string; startTime: string; endTime: string; stationId: string; stationName: string; showType?: string }) => ({
+          (show: { id: string; showName: string; startTime: string; endTime: string; stationId: string; stationName: string; showType?: string; showImageUrl?: string }) => ({
             id: show.id,
             showName: show.showName,
             startTime: new Date(show.startTime).getTime(),
@@ -1090,6 +1090,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             stationId: show.stationId,
             stationName: show.stationName,
             showType: show.showType,
+            showImageUrl: show.showImageUrl,
           })
         );
 
@@ -2667,8 +2668,20 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
                       {/* Body */}
                       <div className="p-4 space-y-4">
-                        <div>
-                          <h3 className="text-zinc-400 font-medium">{pastShow.showName}</h3>
+                        <div className="flex items-center gap-3">
+                          {pastShow.showImageUrl && (
+                            <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+                              <Image
+                                src={pastShow.showImageUrl}
+                                alt={pastShow.showName}
+                                width={48}
+                                height={48}
+                                className="w-full h-full object-cover"
+                                unoptimized
+                              />
+                            </div>
+                          )}
+                          <h3 className="text-zinc-400 font-medium truncate min-w-0">{pastShow.showName}</h3>
                         </div>
 
                         {/* Action Button: Toggle watchlist */}

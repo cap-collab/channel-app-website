@@ -35,6 +35,7 @@ interface PastShowResponse {
   stationId: string;
   stationName: string;
   showType?: string;
+  showImageUrl?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -91,6 +92,7 @@ export async function GET(request: NextRequest) {
           stationId,
           stationName,
           showType: show.t || undefined,
+          showImageUrl: show.u || undefined,
         });
       }
     }
