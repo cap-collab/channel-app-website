@@ -58,20 +58,21 @@ type Slot =
 interface ShowInput {
   showName: string;
   showUrl: string;
-  djDisplayName: string;       // shown in "j" field of ShowV2
-  djUsername: string;          // links the show to /dj/<username>
+  showImageUrl?: string | null;   // cover art for the SHOW, goes to ShowV2.u
+  djDisplayName: string;
+  djUsername: string;
   slots: Slot[];
-  bio: string;
-  photoUrl?: string | null;
+  bio: string;                    // show description (also seeded into new pending profiles)
   socials: { instagram?: string; soundcloud?: string };
   profileAction: "create" | "fillMissingExisting" | "appendAutoSource" | "skip";
-  existingPendingDocId?: string;  // for fillMissingExisting (Max Ellington)
+  existingPendingDocId?: string;
 }
 
 const SHOWS: ShowInput[] = [
   {
     showName: "Suite Serenade",
     showUrl: "https://www.virtualpublic.net/suite-serenade",
+    showImageUrl: "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/c45795cd-f9f9-48f9-8428-388c5ab31be1/SUITESERENADE.jpg",
     djDisplayName: "Abbyliciouss",
     djUsername: "abbyliciouss",
     slots: [{ kind: "monthly-nth", weekday: 1, nth: 1, startHour: 19, endHour: 21 }],
@@ -82,6 +83,7 @@ const SHOWS: ShowInput[] = [
   {
     showName: "Soft Terrain",
     showUrl: "https://www.virtualpublic.net/soft-terrain",
+    showImageUrl: "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/2053524a-c94a-4eca-99aa-2e62180623d7/VPN_SHOW_SOFTTERRAIN.jpg",
     djDisplayName: "Naomi Green",
     djUsername: "naomigreen",
     slots: [{ kind: "monthly-nth", weekday: 3, nth: 3, startHour: 20, endHour: 21 }],
@@ -92,6 +94,7 @@ const SHOWS: ShowInput[] = [
   {
     showName: "Surrealchemistry",
     showUrl: "https://www.virtualpublic.net/surrealchemistry",
+    showImageUrl: "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/99d6c0d8-9e0d-46b1-980f-012c20d37444/VPN_Show_Surrealchemistry.jpg",
     djDisplayName: "Max Ellington",
     djUsername: "maxellington",
     slots: [{ kind: "monthly-nth", weekday: 2, nth: 2, startHour: 13, endHour: 15 }],
@@ -102,6 +105,7 @@ const SHOWS: ShowInput[] = [
   {
     showName: "Jes Grew",
     showUrl: "https://www.virtualpublic.net/jes-grew",
+    showImageUrl: "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/61004902-f6df-4f6a-9146-66af2abff8d3/2024_VPN_WEBSITE_SHOW_JESGREW.jpg",
     djDisplayName: "Drew LaBarre",
     djUsername: "drewlabarre",
     slots: [{ kind: "monthly-nth", weekday: 2, nth: 1, startHour: 18, endHour: 20 }],
@@ -112,6 +116,7 @@ const SHOWS: ShowInput[] = [
   {
     showName: "etc radio",
     showUrl: "https://www.virtualpublic.net/etc-radio",
+    showImageUrl: "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/6d4fdf55-ebfb-463a-aadc-49c82a9332e4/VPN_SHOW_TEMPLATE_2026.02.20_3_bg_only.JPG",
     djDisplayName: "m50",
     djUsername: "m50",
     slots: [
@@ -125,6 +130,7 @@ const SHOWS: ShowInput[] = [
   {
     showName: "Love Affair Radio",
     showUrl: "https://www.virtualpublic.net/love-affair-radio",
+    showImageUrl: "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/7a8d2e68-ee1d-4589-aa15-94f4346ecce1/2024_VPN_WEBSITE_SHOW_LOVEAFFAIR.jpg",
     djDisplayName: "Pretty Gay Friendly",
     djUsername: "prettygayfriendly",
     slots: [{ kind: "monthly-nth", weekday: 3, nth: 4, startHour: 12, endHour: 14 }],
@@ -135,6 +141,7 @@ const SHOWS: ShowInput[] = [
   {
     showName: "Palm Reader",
     showUrl: "https://www.virtualpublic.net/palm-reader",
+    showImageUrl: "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/f238b6b0-3dc8-4c03-a3d3-dc15e38b1a7a/PALMREADER_SHOWIMAGE.jpg",
     djDisplayName: "New Palm",
     djUsername: "newpalm",
     slots: [{ kind: "monthly-nth", weekday: 4, nth: 3, startHour: 21, endHour: 22 }],
@@ -145,6 +152,7 @@ const SHOWS: ShowInput[] = [
   {
     showName: "Room Service",
     showUrl: "https://www.virtualpublic.net/room-service",
+    showImageUrl: "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/8e424a33-0b6b-4368-8164-2194bc4a8deb/2024_VPN_WEBSITE_SHOW_ROOMSERVICE.jpg",
     djDisplayName: "MTHRMTHRMTHRMTHR",
     djUsername: "mthrmthrmthrmthr",
     slots: [{ kind: "monthly-nth", weekday: 6, nth: 1, startHour: 17, endHour: 19 }],
@@ -155,6 +163,7 @@ const SHOWS: ShowInput[] = [
   {
     showName: "Cathedral Cove",
     showUrl: "https://www.virtualpublic.net/cathedral-cove",
+    showImageUrl: "https://images.squarespace-cdn.com/content/v1/65d2bcdc7cec604faf22a41a/6dec9354-4bee-45dc-9332-0b201ea64e36/IMG_3183+%281%29.jpeg",
     djDisplayName: "DJ AA",
     djUsername: "djaa",
     slots: [{ kind: "monthly-nth", weekday: 5, nth: 1, startHour: 15, endHour: 16 }],
@@ -281,7 +290,8 @@ async function writeProfile(show: ShowInput) {
     };
     // Fill missing only
     if (!data.djProfile?.bio && show.bio) updates["djProfile.bio"] = show.bio;
-    if (!data.djProfile?.photoUrl && show.photoUrl) updates["djProfile.photoUrl"] = show.photoUrl;
+    // We deliberately don't fill djProfile.photoUrl from VPN — VPN gives us SHOW cover art,
+    // not DJ portraits. Show art belongs on the show instance (ShowV2.u), not on the DJ profile.
     if (Object.keys(socials).length > 0) {
       const existingSocials = data.djProfile?.socialLinks || {};
       const merged = { ...existingSocials };
@@ -308,7 +318,7 @@ async function writeProfile(show: ShowInput) {
     autoSources: [autoSource],
     djProfile: {
       bio: show.bio,
-      photoUrl: show.photoUrl || null,
+      photoUrl: null,
       location: null,
       genres: [],
       socialLinks: socials,
@@ -352,7 +362,7 @@ async function main() {
           e: inst.e,
           j: show.djDisplayName,
           p: show.djUsername,
-          u: show.photoUrl || null,
+          u: show.showImageUrl || null,
           t: slot.kind === "weekly" ? "weekly" : "monthly",
           l: show.showUrl,
           d: show.bio,
