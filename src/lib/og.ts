@@ -3,6 +3,11 @@ import { Metadata } from "next";
 const BRAND = "Channel";
 const HOME_TITLE = "Channel — Human Radio";
 const DEFAULT_DESCRIPTION = "Left-field electronic music curated by underground selectors. No ads. No algorithms.";
+// Small square Channel logo used as the fallback OG image when a dynamic
+// page (DJ/collective/archive/etc.) has no per-entity photo. 180x180 so
+// Facebook/Messenger pick the compact left-thumbnail card layout
+// (anything above ~600px on either side triggers their big banner).
+const FALLBACK_IMAGE = "/apple-touch-icon.png";
 
 // Produces page metadata aligned with the root layout's `%s · Channel`
 // template. Pass a short page title (no brand suffix) and a description.
@@ -22,11 +27,13 @@ export function makeOG({
   path?: string;
 } = {}): Metadata {
   const ogTitle = title ? `${title} — ${BRAND}` : HOME_TITLE;
-  // When a per-page image is supplied (DJ/collective/archive/scene/venue),
-  // declare it as a 400x400 thumbnail and downgrade the Twitter card to
-  // `summary` so platforms render a small square thumb instead of a huge
-  // banner. Pages with no per-page image fall back to the root layout's
-  // 600x600 og-image.png and its `summary_large_image` card.
+  // Always emit an og:image so social platforms don't scrape a random image
+  // (the page logo, a random <img>, etc.) when a DJ/collective has no photo.
+  // Declare 200x200 dimensions — Messenger/Facebook only pick the compact
+  // left-thumbnail layout when both sides are below ~200px; anything bigger
+  // (including a square 400x400) renders as a giant rectangle on top.
+  // Twitter is forced to `summary` (small square card) for the same reason.
+  const ogImage = image || FALLBACK_IMAGE;
   return {
     // `title` is a string here so the root layout's template doesn't re-suffix
     // (Next.js only applies templates to children's metadata when the child
@@ -39,13 +46,13 @@ export function makeOG({
       title: ogTitle,
       description,
       ...(path ? { url: path } : {}),
-      ...(image ? { images: [{ url: image, width: 400, height: 400 }] } : {}),
+      images: [{ url: ogImage, width: 200, height: 200 }],
     },
     twitter: {
-      card: image ? "summary" : "summary_large_image",
+      card: "summary",
       title: ogTitle,
       description,
-      ...(image ? { images: [image] } : {}),
+      images: [ogImage],
     },
   };
 }
