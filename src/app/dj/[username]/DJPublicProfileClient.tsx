@@ -294,6 +294,8 @@ interface UpcomingShow {
   id: string;
   showName: string;
   djName: string;
+  djUsername?: string;            // primary DJ profile slug (for clickable name)
+  additionalDjUsernames?: string[]; // for multi-DJ shows
   startTime: number;
   endTime: number;
   status: string;
@@ -884,6 +886,8 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             id,
             showName: show.name,
             djName: show.dj || djProfile.chatUsername,
+            djUsername: show.djUsername,
+            additionalDjUsernames: show.additionalDjUsernames,
             startTime: new Date(show.startTime).getTime(),
             endTime: endTime,
             status: new Date(show.startTime).getTime() <= now && endTime > now ? "live" : "scheduled",
@@ -2180,6 +2184,8 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                   const showDate = new Date(broadcast.startTime);
                   const dateStr = showDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
                   const timeStr = formatShowTime(showDate);
+                  const stationCollectiveSlug = getStationById(broadcast.stationId)?.collectiveSlug;
+                  const stationDisplayName = broadcast.stationId === "broadcast" ? "Channel" : broadcast.stationName;
 
                   return (
                     <div
@@ -2196,9 +2202,16 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                           {broadcast.stationName && (
                             <>
                               <span className="text-zinc-500">·</span>
-                              <span className="truncate">
-                                {broadcast.stationId === "broadcast" ? "Channel" : broadcast.stationName}
-                              </span>
+                              {stationCollectiveSlug ? (
+                                <Link
+                                  href={`/dj/${stationCollectiveSlug}`}
+                                  className="truncate hover:text-white transition-colors"
+                                >
+                                  {stationDisplayName}
+                                </Link>
+                              ) : (
+                                <span className="truncate">{stationDisplayName}</span>
+                              )}
                             </>
                           )}
                         </span>
@@ -2225,7 +2238,16 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                           <div className="min-w-0">
                             <h3 className="text-white font-medium truncate">{broadcast.showName}</h3>
                             {broadcast.djName && (
-                              <p className="text-zinc-400 text-sm mt-0.5 truncate">{broadcast.djName}</p>
+                              broadcast.djUsername ? (
+                                <Link
+                                  href={`/dj/${broadcast.djUsername}`}
+                                  className="block text-zinc-400 text-sm mt-0.5 truncate hover:text-white transition-colors"
+                                >
+                                  {broadcast.djName}
+                                </Link>
+                              ) : (
+                                <p className="text-zinc-400 text-sm mt-0.5 truncate">{broadcast.djName}</p>
+                              )
                             )}
                           </div>
                         </div>

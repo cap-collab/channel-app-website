@@ -62,6 +62,9 @@ export interface Station {
   backgroundColor: string;
   textColor: string;
   accentColor: string;
+  // If set, the station has a collective page at /dj/<collectiveSlug>.
+  // Lets us link station-name labels to their collective home.
+  collectiveSlug?: string;
 }
 
 // User document in Firestore

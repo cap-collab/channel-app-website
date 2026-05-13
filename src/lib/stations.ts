@@ -100,6 +100,7 @@ export const STATIONS: Station[] = [
     backgroundColor: "#000000",
     textColor: "#FFFFFF",
     accentColor: "#FFFFFF",
+    collectiveSlug: "vpn",
   },
   {
     id: "dj-radio",
