@@ -1474,26 +1474,12 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   // only past activity (or nothing) land on chat where conversation lives.
   // Wait for the fetch to resolve so we don't flip to chat during the loading
   // window and then leave it there even after upcoming shows arrive.
-  // Collectives always default to schedule — their pages are about programming,
-  // not 1:1 conversation.
+  // Collectives are exempt: they always open on schedule (never auto-flip to chat).
   useEffect(() => {
     if (!upcomingFetched) return;
     if (djProfile?.profileType === 'collective') return;
     if (!hasUpcomingShows) setActiveTab('chat');
   }, [upcomingFetched, hasUpcomingShows, djProfile?.profileType]);
-
-  // Collective override: ensure activeTab is 'timeline' on first profile-load.
-  // Runs once when djProfile transitions from null to a collective, regardless of
-  // what other effects/handlers have set the tab to in the meantime.
-  const collectiveTabInitializedRef = useRef(false);
-  useEffect(() => {
-    if (!djProfile) return;
-    if (collectiveTabInitializedRef.current) return;
-    if (djProfile.profileType === 'collective') {
-      setActiveTab('timeline');
-    }
-    collectiveTabInitializedRef.current = true;
-  }, [djProfile]);
 
   // Create Artist Selects (recommendations)
   const artistSelects = useMemo(() => {
