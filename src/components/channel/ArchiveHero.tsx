@@ -1191,8 +1191,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   ) : null}
                 </div>
                 {/* Pulsing red dot — same as live, marks "live audio" feel
-                    on the radio (it's a synced stream, not a static archive). */}
-                <div className="flex items-center gap-0.5 flex-shrink-0">
+                    on the radio (it's a synced stream, not a static archive).
+                    Wrapper matches icon hit-area so spacing in the row stays
+                    even across dot + icon siblings. */}
+                <div className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center flex-shrink-0">
                   <span className="relative flex h-2 w-2 sm:h-[18px] sm:w-[18px] items-center justify-center">
                     <span className="animate-ping absolute inline-flex h-2 w-2 sm:h-[9px] sm:w-[9px] rounded-full bg-red-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2 w-2 sm:h-[9px] sm:w-[9px] bg-red-600" />
@@ -1269,8 +1271,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     <ScrollingDJName text={djName} className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]" />
                   )}
                 </div>
-                {/* Live indicator + BPM */}
-                <div className="flex items-center gap-0.5 flex-shrink-0">
+                {/* Live indicator + BPM. Wrapper matches icon hit-area so
+                    spacing in the row stays even across dot + icon siblings. */}
+                <div className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center gap-0.5 flex-shrink-0">
                   <span className="relative flex h-2 w-2 sm:h-[18px] sm:w-[18px] items-center justify-center">
                     <span className="animate-ping absolute inline-flex h-2 w-2 sm:h-[9px] sm:w-[9px] rounded-full bg-red-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2 w-2 sm:h-[9px] sm:w-[9px] bg-red-600" />
@@ -1376,8 +1379,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </div>
                 {/* Archive-folder source indicator — same spot where radio/
                     live bars show the pulsing red dot. Mirrors the "Archive"
-                    pill above the hero, no text label here. */}
-                <div className="flex items-center gap-0.5 flex-shrink-0">
+                    pill above the hero, no text label here. Wrapper matches
+                    icon hit-area so spacing in the row stays even. */}
+                <div className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center flex-shrink-0">
                   <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="3" width="18" height="5" rx="1" />
                     <path d="M5 8v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />

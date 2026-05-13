@@ -30,11 +30,19 @@ export function ScrollingShowName({ text, className }: { text: string; className
     const container = containerRef.current;
     const textEl = textRef.current;
     if (!container || !textEl) return;
-    const overflow = textEl.scrollWidth > container.clientWidth;
-    setNeedsScroll(overflow);
-    if (overflow) {
-      setScrollDistance(textEl.scrollWidth - container.clientWidth);
-    }
+    const measure = () => {
+      const overflow = textEl.scrollWidth > container.clientWidth;
+      setNeedsScroll(overflow);
+      setScrollDistance(overflow ? textEl.scrollWidth - container.clientWidth : 0);
+    };
+    measure();
+    // Container width can change after mount (icons appearing/disappearing,
+    // fonts loading). Re-measure so overflow detection stays accurate
+    // regardless of play state.
+    const ro = new ResizeObserver(measure);
+    ro.observe(container);
+    ro.observe(textEl);
+    return () => ro.disconnect();
   }, [text]);
 
   // ~12 px/sec on the moving portion (30% of cycle), clamped 10–20s.
@@ -83,11 +91,16 @@ export function ScrollingDJName({ text, className }: { text: string; className?:
     const container = containerRef.current;
     const textEl = textRef.current;
     if (!container || !textEl) return;
-    const overflow = textEl.scrollHeight > container.clientHeight;
-    setNeedsScroll(overflow);
-    if (overflow) {
-      setScrollDistance(textEl.scrollHeight - container.clientHeight);
-    }
+    const measure = () => {
+      const overflow = textEl.scrollHeight > container.clientHeight;
+      setNeedsScroll(overflow);
+      setScrollDistance(overflow ? textEl.scrollHeight - container.clientHeight : 0);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(container);
+    ro.observe(textEl);
+    return () => ro.disconnect();
   }, [text]);
 
   // ~12 px/sec on the moving portion (30% of cycle), clamped 10–20s.
