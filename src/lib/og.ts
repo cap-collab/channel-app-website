@@ -9,6 +9,18 @@ const DEFAULT_DESCRIPTION = "Left-field electronic music curated by underground 
 // (anything above ~600px on either side triggers their big banner).
 const FALLBACK_IMAGE = "/apple-touch-icon.png";
 
+// Messenger/Facebook ignore og:image:width/height hints and render layout
+// from the actual image's dimensions. Firebase-hosted DJ photos are 640px+
+// so Messenger always picks the big-banner card. Wrap remote URLs in the
+// Next image optimizer so the OG crawler downloads a 256px thumbnail and
+// the compact left-thumb layout kicks in. Pass-through for local /public
+// assets (no optimization gain, and `/_next/image` rejects non-allowlisted
+// hosts anyway).
+function thumbnailize(url: string): string {
+  if (url.startsWith("/")) return url;
+  return `/_next/image?url=${encodeURIComponent(url)}&w=256&q=75`;
+}
+
 // Produces page metadata aligned with the root layout's `%s · Channel`
 // template. Pass a short page title (no brand suffix) and a description.
 // Omit `title` for pages that should use the home title verbatim.
@@ -33,7 +45,7 @@ export function makeOG({
   // left-thumbnail layout when both sides are below ~200px; anything bigger
   // (including a square 400x400) renders as a giant rectangle on top.
   // Twitter is forced to `summary` (small square card) for the same reason.
-  const ogImage = image || FALLBACK_IMAGE;
+  const ogImage = image ? thumbnailize(image) : FALLBACK_IMAGE;
   return {
     // `title` is a string here so the root layout's template doesn't re-suffix
     // (Next.js only applies templates to children's metadata when the child
