@@ -349,7 +349,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     // iOS only uses the first artwork entry and rejects images > 128x128
     // (shows grey placeholder instead). Proxy through Next.js for same-origin.
     const artworkUrl = rawArtworkUrl
-      ? `/_next/image?url=${encodeURIComponent(rawArtworkUrl)}&w=128&q=75`
+      ? `/_next/image?url=${encodeURIComponent(rawArtworkUrl)}&w=384&q=85`
       : null;
 
     const artwork = artworkUrl
