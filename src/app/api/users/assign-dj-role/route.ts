@@ -115,15 +115,15 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Mark pending profile as claimed
-        await pendingDoc.ref.update({
-          status: 'claimed',
-          claimedAt: FieldValue.serverTimestamp(),
-          claimedByUserId: userId,
-        });
+        // Delete the pending profile — all fields have been copied to
+        // updateData above (applied to the users doc at the end of the
+        // route). Leaving a `status: claimed` stub behind causes SSR
+        // profile lookups to hit the empty pending doc before the real
+        // users doc and miss djProfile.photoUrl.
+        await pendingDoc.ref.delete();
 
         pendingProfileClaimed = true;
-        console.log(`[assign-dj-role] Claimed pending DJ profile ${pendingDoc.id} for user ${userId}`);
+        console.log(`[assign-dj-role] Claimed (and deleted) pending DJ profile ${pendingDoc.id} for user ${userId}`);
 
         // Update watchlist entries that match this DJ's username
         try {

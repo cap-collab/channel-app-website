@@ -12,13 +12,15 @@ const FALLBACK_IMAGE = "/apple-touch-icon.png";
 // Messenger/Facebook ignore og:image:width/height hints and render layout
 // from the actual image's dimensions. Firebase-hosted DJ photos are 640px+
 // so Messenger always picks the big-banner card. Wrap remote URLs in the
-// Next image optimizer so the OG crawler downloads a 256px thumbnail and
-// the compact left-thumb layout kicks in. Pass-through for local /public
-// assets (no optimization gain, and `/_next/image` rejects non-allowlisted
-// hosts anyway).
+// Next image optimizer so the OG crawler downloads a 128px thumbnail —
+// small enough to trigger the compact left-thumb layout even for portrait
+// source photos (which come back as ~128x187 from /_next/image, since it
+// only constrains the longest side). Pass-through for local /public assets
+// (no optimization gain, and `/_next/image` rejects non-allowlisted hosts
+// anyway).
 function thumbnailize(url: string): string {
   if (url.startsWith("/")) return url;
-  return `/_next/image?url=${encodeURIComponent(url)}&w=256&q=75`;
+  return `/_next/image?url=${encodeURIComponent(url)}&w=128&q=75`;
 }
 
 // Produces page metadata aligned with the root layout's `%s · Channel`
