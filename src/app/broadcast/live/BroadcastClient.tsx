@@ -637,6 +637,7 @@ export function BroadcastClient() {
           isVenue={slot?.broadcastType === 'venue'}
           onChangeUsername={slot?.broadcastType === 'venue' ? setDjUsername : undefined}
           audioSourceLabel={audioSourceLabel}
+          redChannelChoice={redChannelChoice}
         />
 
         {/* New DJ profile overlay for multi-DJ shows */}

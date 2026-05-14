@@ -332,6 +332,7 @@ export function RecordClient() {
         audioSourceLabel={audioSourceLabel}
         isRecordingMode={true}
         djEmail={user?.email || ''}
+        redChannelChoice={redChannelChoice}
       />
     );
   }

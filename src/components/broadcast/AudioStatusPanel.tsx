@@ -201,6 +201,19 @@ export function AudioStatusPanel({
             )}
           </div>
         )}
+        {/* Stream optimization — read-only info while live (gear path only).
+            RED is locked into the published track once live, so this is
+            informational; the editable control is the pre-live panel. */}
+        {isLive && inputMethod === 'device' && redChannelChoice && (
+          <div className="flex items-center justify-between">
+            <p className="text-gray-400 text-sm">
+              Stream optimization:{' '}
+              <span className="text-white">
+                {redChannelChoice === 'stereo' ? 'Stereo' : 'Mono'}
+              </span>
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Checklist — pre-live only. Top bar handles monitoring once live. */}
@@ -264,8 +277,9 @@ export function AudioStatusPanel({
 
       {/* Stream Optimization status — gear path, pre-live only. Tells the DJ
           which mode they're about to broadcast in, with a quick jump back to
-          the panel. Stereo carries a warning: amber when untested, red when
-          the audio check detected a mono signal. */}
+          the panel. Stereo always carries a warning (the audio check can't
+          positively verify a true stereo signal): red when the check actively
+          detected a mono signal, amber otherwise. */}
       {!isLive && inputMethod === 'device' && (
         <div className="mb-3">
           <div className="flex items-center justify-between gap-2">
@@ -284,8 +298,8 @@ export function AudioStatusPanel({
               </button>
             )}
           </div>
-          {redChannelChoice === 'stereo' && testResult !== 'stereo' && (
-            testResult === 'mono' || testResult === 'ambiguous' ? (
+          {redChannelChoice === 'stereo' && (
+            testResult === 'mono' ? (
               <div className="mt-2 bg-red-900/50 border border-red-600 text-red-200 text-sm px-3 py-2 rounded-lg">
                 <p className="font-semibold">⚠️ Your last audio check detected a mono signal.</p>
                 <p className="mt-1">
@@ -296,9 +310,9 @@ export function AudioStatusPanel({
               </div>
             ) : (
               <div className="mt-2 bg-amber-900/40 border border-amber-700 text-amber-200 text-sm px-3 py-2 rounded-lg">
-                ⚠️ Using Stereo without truly distinct L/R channels will cause severe
-                overlapping audio. We strongly recommend testing your setup before
-                selecting audio.
+                ⚠️ Stereo is enabled. We can&apos;t verify your audio is truly stereo — if
+                it isn&apos;t, listeners may hear severe overlapping audio. Stay on Mono if
+                unsure.
               </div>
             )
           )}

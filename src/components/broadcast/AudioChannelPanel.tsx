@@ -44,18 +44,19 @@ export function AudioChannelPanel({
     if (!stream || testing) return;
     setTesting(true);
     onTestResult(null);
+    let result: ChannelContentClass;
     try {
-      const result = await analyseStereoContent(stream, 3000);
-      onTestResult(result);
-      // The test is advice — pre-select the recommended choice for convenience,
-      // but the DJ can still pick anything afterwards.
-      if (result === 'stereo') onChange('stereo');
-      else if (result === 'mono') onChange('mono');
+      result = await analyseStereoContent(stream, 3000);
     } catch {
-      onTestResult('ambiguous');
-    } finally {
-      setTesting(false);
+      result = 'ambiguous'; // analyser failed → treat as "unable to verify"
     }
+    onTestResult(result);
+    setTesting(false);
+    // The test NEVER auto-selects Stereo — a 3-second check can't guarantee a
+    // genuine L/R signal (level imbalance, mono-through-an-interface, etc. all
+    // read as "not mono"). It only switches TOWARD the safe option: every
+    // result falls back to Mono. The DJ must deliberately pick Stereo.
+    onChange('mono');
   };
 
   return (
@@ -79,28 +80,33 @@ export function AudioChannelPanel({
         >
           {testing ? 'Checking your audio…' : 'Test my audio'}
         </button>
-        {testResult === 'stereo' && (
-          <div className="mt-2 bg-green-900/40 border border-green-800 text-green-200 text-xs px-3 py-2 rounded-lg">
-            <p className="font-semibold">Stereo detected ✓</p>
-            <p className="mt-0.5">Your audio is sending separate left and right channels.</p>
-          </div>
-        )}
         {testResult === 'mono' && (
-          <div className="mt-2 bg-green-900/40 border border-green-800 text-green-200 text-xs px-3 py-2 rounded-lg">
-            <p className="font-semibold">Mono detected ✓</p>
+          <div className="mt-2 bg-gray-800 border border-gray-700 text-gray-300 text-xs px-3 py-2 rounded-lg">
+            <p className="font-semibold">Mono signal detected</p>
             <p className="mt-0.5">
-              Your audio is currently sending the same signal on both channels. Use Mono
-              setup. Using Stereo can cause echoing and overlapping audio for listeners.
+              Your audio is sending the same signal on both channels. We&apos;ve set you
+              to Mono. Using Stereo with this setup can cause echoing and overlapping
+              audio for listeners.
             </p>
           </div>
         )}
-        {testResult === 'ambiguous' && (
+        {/* Anything that isn't clearly mono-summed — including a "stereo-looking"
+            result. A 3-second check can't guarantee a genuine L/R signal, so we
+            never claim "stereo detected"; we say we couldn't verify it. */}
+        {(testResult === 'stereo' || testResult === 'ambiguous') && (
           <div className="mt-2 bg-gray-800 border border-gray-700 text-gray-300 text-xs px-3 py-2 rounded-lg">
-            <p className="font-semibold">Unable to detect</p>
+            <p className="font-semibold">Unable to verify stereo</p>
             <p className="mt-0.5">
-              We couldn&apos;t confirm your setup. Select Mono to be safe, or play audio
-              through your mixer and try the check again.
+              A quick check can&apos;t guarantee your channels carry genuinely separate
+              left and right audio. If you&apos;re sure your setup is true stereo, you can
+              select Stereo below — otherwise stay on Mono.
             </p>
+            <p className="mt-1">A true stereo setup means:</p>
+            <ul className="list-disc list-inside mt-0.5 space-y-0.5">
+              <li>2 separate outputs from your mixer</li>
+              <li>2 inputs into your audio interface</li>
+              <li>your mixer is not set to mono</li>
+            </ul>
           </div>
         )}
       </div>

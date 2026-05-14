@@ -113,7 +113,6 @@ export function DJControlCenter({
         inputMethod={inputMethod}
         isRecordingMode={isRecordingMode}
         redChannelChoice={redChannelChoice}
-        testResult={testResult}
       />
 
       {/* Main Content — single column: audio first, then tip/share, then compact chat at bottom */}

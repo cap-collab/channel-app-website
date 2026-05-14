@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAudioHealth } from '@/hooks/useAudioHealth';
 import { AudioInputMethod, RedChannelChoice } from '@/types/broadcast';
-import { ChannelContentClass } from '@/lib/audio-analysis';
 import { buildChecklist, isChecklistAllGreen } from '@/lib/broadcast-checklist';
 
 interface LiveControlBarProps {
@@ -11,8 +10,7 @@ interface LiveControlBarProps {
   isLive: boolean;
   isRecordingMode?: boolean;
   inputMethod: AudioInputMethod | null;
-  redChannelChoice?: RedChannelChoice;     // DJ's Stream Optimization choice
-  testResult?: ChannelContentClass | null; // Last audio-check result (gear path)
+  redChannelChoice?: RedChannelChoice; // DJ's Stream Optimization choice
   // Kept for prop compatibility with parent (unused here)
   showStartTime?: number;
   showName?: string;
@@ -133,17 +131,18 @@ export function LiveControlBar({
   isRecordingMode = false,
   inputMethod,
   redChannelChoice,
-  testResult,
 }: LiveControlBarProps) {
   const health = useAudioHealth(stream);
 
-  // Stereo stream optimization is on but the audio check hasn't confirmed a
-  // true stereo signal (untested, or detected mono/ambiguous) — same trigger
-  // as the warning above the GO LIVE button. Gear path only.
+  // Stereo stream optimization is enabled. The audio check can never
+  // positively verify a true stereo signal, so this warning shows whenever
+  // Stereo is the active choice on the gear path — but PRE-LIVE only. Once
+  // live, RED is locked into the published track; nagging about it serves no
+  // purpose, and this slot is otherwise for live audio-health monitoring.
+  // (testResult is intentionally not consulted here; the GO LIVE-area warning
+  // carries the red/amber severity nuance.)
   const showStereoRiskWarning =
-    inputMethod === 'device' &&
-    redChannelChoice === 'stereo' &&
-    testResult !== 'stereo';
+    !isLive && inputMethod === 'device' && redChannelChoice === 'stereo';
 
   const hasStream = !!stream;
   const hasStrongAudio = health.leftState === 'active' || health.rightState === 'active';
