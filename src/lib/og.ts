@@ -2,7 +2,7 @@ import { Metadata } from "next";
 
 const BRAND = "Channel";
 const HOME_TITLE = "Channel — Human Radio";
-const DEFAULT_DESCRIPTION = "Left-field electronic music curated by underground selectors. No ads. No algorithms.";
+const DEFAULT_DESCRIPTION = "Left-field electronic music from underground curators. No ads. No algorithms.";
 // Small square Channel logo used as the fallback OG image when a dynamic
 // page (DJ/collective/archive/etc.) has no per-entity photo. 180x180 so
 // Facebook/Messenger pick the compact left-thumbnail card layout

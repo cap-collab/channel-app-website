@@ -1534,7 +1534,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   </div>
                 )}
               </div>
-              <p className="text-sm md:text-base text-zinc-400 mt-1">Left-field electronic shows from underground selectors</p>
+              <p className="text-sm md:text-base text-zinc-400 mt-1">Left-field electronic shows from underground curators</p>
             </div>
 
             {/* Card list — full width mobile, 2 cols desktop */}

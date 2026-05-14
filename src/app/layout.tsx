@@ -22,11 +22,11 @@ export const metadata: Metadata = {
     default: "Channel — Human Radio",
     template: "%s — Channel",
   },
-  description: "Left-field electronic music curated by underground selectors. No ads. No algorithms.",
+  description: "Left-field electronic music from underground curators. No ads. No algorithms.",
   metadataBase: new URL("https://channel-app.com"),
   openGraph: {
     title: "Channel — Human Radio",
-    description: "Left-field electronic music curated by underground selectors. No ads. No algorithms.",
+    description: "Left-field electronic music from underground curators. No ads. No algorithms.",
     type: "website",
     url: "https://channel-app.com",
     siteName: "Channel",
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Channel — Human Radio",
-    description: "Left-field electronic music curated by underground selectors. No ads. No algorithms.",
+    description: "Left-field electronic music from underground curators. No ads. No algorithms.",
     images: ["/og-image.png"],
   },
   icons: {
