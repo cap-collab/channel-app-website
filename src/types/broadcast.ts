@@ -1,6 +1,13 @@
 // Audio input methods for DJ broadcasting
 export type AudioInputMethod = 'system' | 'device' | 'rtmp';
 
+// DJ's declared audio channel setup, chosen in the Stream Optimization panel.
+// Drives whether forced stereo Opus RED is applied on publish:
+//   'stereo' on the 'device' (gear) input path → force RED on; everything else
+//   omits the `red` option and lets the LiveKit SDK default apply (mono auto-RED,
+//   stereo none). Default 'mono'. Persisted at users/{uid}.redChannelChoice.
+export type RedChannelChoice = 'mono' | 'stereo' | 'unsure';
+
 // Broadcast slot status
 // - scheduled: slot created, waiting for DJ to go live
 // - live: DJ is currently broadcasting

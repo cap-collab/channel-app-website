@@ -34,6 +34,7 @@ interface DJControlCenterProps {
   roomOccupied?: boolean;    // Previous DJ still broadcasting
   roomFreeAt?: number | null; // When the previous DJ's slot ends (Unix ms)
   onQueueGoLive?: () => void; // Queue to auto go-live when room clears
+  audioChannelPanel?: React.ReactNode; // Stream Optimization panel (pre-live, gear input only)
 }
 
 export function DJControlCenter({
@@ -62,6 +63,7 @@ export function DJControlCenter({
   roomOccupied = false,
   roomFreeAt,
   onQueueGoLive,
+  audioChannelPanel,
 }: DJControlCenterProps) {
   const [copied, setCopied] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
@@ -122,6 +124,10 @@ export function DJControlCenter({
               slotEndTime={slot?.endTime}
               showName={slot?.showName}
             />
+
+            {/* Stream Optimization — pre-live only, gear input only.
+                Renders nothing for screen-share / RTMP / live state. */}
+            {audioChannelPanel}
 
             {/* Tip + Share side by side */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

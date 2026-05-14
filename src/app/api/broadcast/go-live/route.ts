@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { broadcastToken, djUsername, djUserId, egressId, recordingEgressId, thankYouMessage } = body;
+    const { broadcastToken, djUsername, djUserId, egressId, recordingEgressId, thankYouMessage, redChannelChoice } = body;
 
     console.log('[go-live] Request received:', { broadcastToken: broadcastToken?.slice(0, 10) + '...', djUsername, djUserId });
 
@@ -500,8 +500,14 @@ export async function POST(request: NextRequest) {
         const userData = userDoc.data();
         const userEmail = userData?.email;
 
-        // Update lastSeenAt for the logged-in user
-        await userRef.set({ lastSeenAt: FieldValue.serverTimestamp() }, { merge: true });
+        // Update lastSeenAt for the logged-in user, and persist their Stream
+        // Optimization choice so it pre-selects next broadcast. Best-effort —
+        // the whole block is wrapped in try/catch and never fails go-live.
+        const userUpdate: Record<string, unknown> = { lastSeenAt: FieldValue.serverTimestamp() };
+        if (redChannelChoice === 'mono' || redChannelChoice === 'stereo' || redChannelChoice === 'unsure') {
+          userUpdate.redChannelChoice = redChannelChoice;
+        }
+        await userRef.set(userUpdate, { merge: true });
 
         // Save thankYouMessage to the slot's linked DJ profile (not the logged-in user)
         if (thankYouMessage && typeof thankYouMessage === 'string' && thankYouMessage.trim()) {

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Room, RoomEvent, Track, LocalTrack, DisconnectReason, TrackEvent } from 'livekit-client';
-import { BroadcastState, ROOM_NAME, RoomStatus } from '@/types/broadcast';
+import { BroadcastState, ROOM_NAME, RoomStatus, RedChannelChoice } from '@/types/broadcast';
 import { usePublisherStats } from './usePublisherStats';
 
 const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
@@ -15,71 +15,6 @@ async function fetchWithTimeout(input: RequestInfo, init: RequestInit & { timeou
     return await fetch(input, { ...rest, signal: controller.signal });
   } finally {
     clearTimeout(timer);
-  }
-}
-
-// Classify a 2-channel MediaStream as 'stereo' (genuine L/R separation),
-// 'mono' (L≈R, mono summed into stereo), or 'ambiguous' (insufficient signal
-// to decide). Conservative — biased toward 'ambiguous' so callers can fall
-// back to safe defaults. Used by publishAudio to decide whether stereo Opus
-// RED is safe to enable (it is NOT safe on mono-in-stereo content — produces
-// audible bleed in joint-coded stereo Opus + RED).
-async function analyseStereoContent(
-  stream: MediaStream,
-  durationMs: number,
-): Promise<'stereo' | 'mono' | 'ambiguous'> {
-  const Ctx: typeof AudioContext = (window as unknown as { AudioContext: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext
-    || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-  if (!Ctx) return 'ambiguous';
-  const ctx = new Ctx();
-  try {
-    const src = ctx.createMediaStreamSource(stream);
-    const splitter = ctx.createChannelSplitter(2);
-    const lAnalyser = ctx.createAnalyser();
-    const rAnalyser = ctx.createAnalyser();
-    lAnalyser.fftSize = 2048;
-    rAnalyser.fftSize = 2048;
-    src.connect(splitter);
-    splitter.connect(lAnalyser, 0);
-    splitter.connect(rAnalyser, 1);
-
-    const lBuf = new Float32Array(lAnalyser.fftSize);
-    const rBuf = new Float32Array(rAnalyser.fftSize);
-    let lSumSq = 0, rSumSq = 0, diffSumSq = 0, sampleCount = 0;
-    const intervalMs = 50;
-    const iterations = Math.max(10, Math.floor(durationMs / intervalMs));
-
-    for (let i = 0; i < iterations; i++) {
-      await new Promise((res) => setTimeout(res, intervalMs));
-      lAnalyser.getFloatTimeDomainData(lBuf);
-      rAnalyser.getFloatTimeDomainData(rBuf);
-      for (let j = 0; j < lBuf.length; j++) {
-        const l = lBuf[j], r = rBuf[j];
-        lSumSq += l * l;
-        rSumSq += r * r;
-        diffSumSq += (l - r) * (l - r);
-        sampleCount++;
-      }
-    }
-
-    if (sampleCount === 0) return 'ambiguous';
-    const lRms = Math.sqrt(lSumSq / sampleCount);
-    const rRms = Math.sqrt(rSumSq / sampleCount);
-    const diffRms = Math.sqrt(diffSumSq / sampleCount);
-    const mixRms = Math.sqrt((lSumSq + rSumSq) / sampleCount);
-    // Need real signal on BOTH channels to decide — silence on either side
-    // is ambiguous. -50 dBFS floor ≈ very quiet but non-zero.
-    const dB = (x: number) => 20 * Math.log10(Math.max(x, 1e-12));
-    if (dB(lRms) < -50 || dB(rRms) < -50 || dB(mixRms) < -45) return 'ambiguous';
-    // Separation = how much L-R differs from the L+R mix. >25 dB below mix
-    // means L≈R (mono summed). <15 dB means genuine stereo. In between is
-    // ambiguous.
-    const separationDb = dB(mixRms) - dB(diffRms);
-    if (separationDb >= 25) return 'mono';
-    if (separationDb <= 15) return 'stereo';
-    return 'ambiguous';
-  } finally {
-    try { await ctx.close(); } catch { /* swallow */ }
   }
 }
 
@@ -101,6 +36,7 @@ export function useBroadcast(
   broadcastToken?: string,
   options?: BroadcastOptions,
   slotEndTime?: number,
+  redChannelChoice: RedChannelChoice = 'mono',
 ) {
   // Determine the room name to use
   const roomName = options?.customRoomName || ROOM_NAME;
@@ -149,6 +85,17 @@ export function useBroadcast(
 
   const slotEndTimeRef = useRef(slotEndTime);
   slotEndTimeRef.current = slotEndTime;
+
+  // DJ's Stream Optimization choice (mono / stereo / unsure). Mirrored into a
+  // ref so the publish decision reads a synchronous, always-current value —
+  // never gated by a Firebase read.
+  const redChannelChoiceRef = useRef(redChannelChoice);
+  redChannelChoiceRef.current = redChannelChoice;
+
+  // Selected audio input method, mirrored for the publish decision (publishAudio
+  // is a stable useCallback so it can't read state.inputMethod directly).
+  const inputMethodRef = useRef(state.inputMethod);
+  inputMethodRef.current = state.inputMethod;
 
   // Telemetry — polls WebRTC stats during broadcast, no-op when flag disabled.
   // Wrapped in its own hook with try/catch — cannot affect publish.
@@ -320,43 +267,22 @@ export function useBroadcast(
         return false;
       }
 
-      // RED decision — gated by NEXT_PUBLIC_OPUS_RED_MODE in Vercel:
-      //   'off'       → no RED for anyone (pre-2026-05-05 baseline)
-      //   'mono-only' → RED only on confirmed mono tracks; stereo never gets RED
-      //   'all'       → RED on confirmed mono OR confirmed stereo (analyser-gated)
-      // Stereo-codec RED on mono-summed content (L=R) produces audible bleed
-      // (verified 2026-05-13 against protectynggirls + 6 historical recordings).
-      // When in doubt, skip RED — prefer an occasional tiny silence over bleed.
-      // Legacy: NEXT_PUBLIC_OPUS_RED_ENABLED=true is accepted as 'all' so
-      // existing Vercel config keeps working.
-      const rawMode = process.env.NEXT_PUBLIC_OPUS_RED_MODE;
-      const legacyFlag = process.env.NEXT_PUBLIC_OPUS_RED_ENABLED === 'true';
-      const redMode: 'off' | 'mono-only' | 'all' =
-        rawMode === 'off' || rawMode === 'mono-only' || rawMode === 'all'
-          ? rawMode
-          : legacyFlag ? 'all' : 'off';
-      const declaredChannels = audioTrack.getSettings().channelCount;
-      let contentClass: 'stereo' | 'mono' | 'ambiguous' = 'ambiguous';
-      // Only run the analyser when we'd actually use stereo RED (mode === 'all').
-      // 'mono-only' doesn't need it — declaredChannels alone decides.
-      if (redMode === 'all' && declaredChannels === 2) {
-        try {
-          contentClass = await analyseStereoContent(stream, 3000);
-        } catch (e) {
-          console.warn('📡 ⚠️ Stereo content analysis failed, treating as ambiguous:', e);
-          contentClass = 'ambiguous';
-        }
-      }
-      const useRed =
-        redMode === 'off' ? false
-        : redMode === 'mono-only' ? declaredChannels === 1
-        : /* all */ (declaredChannels === 1 || contentClass === 'stereo');
-      console.log('📡 Publishing audio — redMode:', redMode, 'declaredChannels:', declaredChannels, 'contentClass:', contentClass, 'Opus RED enabled:', useRed);
+      // RED decision. Baseline: omit the `red` option entirely and let the
+      // LiveKit SDK default apply — RED automatically on for mono tracks, off
+      // for stereo tracks. The ONLY override: force `red: true` when the DJ is
+      // streaming from gear AND explicitly picked Stereo in the Stream
+      // Optimization panel. Forced stereo RED on mono-summed content (L=R)
+      // causes audible bleed (verified 2026-05-13 against protectynggirls + 6
+      // historical recordings) — the panel's warnings cover that risk; the DJ's
+      // choice is honoured rather than silently overridden.
+      const forceStereoRed =
+        inputMethodRef.current === 'device' && redChannelChoiceRef.current === 'stereo';
+      console.log('📡 Publishing audio — inputMethod:', inputMethodRef.current, 'redChannelChoice:', redChannelChoiceRef.current, 'forceStereoRed:', forceStereoRed);
 
       const publishPromise = roomRef.current.localParticipant.publishTrack(audioTrack, {
         name: 'dj-audio',
         source: Track.Source.Microphone,
-        ...(useRed ? { red: true } : {}),
+        ...(forceStereoRed ? { red: true } : {}),
       });
       const publication = await Promise.race([
         publishPromise,
@@ -447,6 +373,9 @@ export function useBroadcast(
               thankYouMessage: currentDjInfo?.thankYouMessage,
               egressId: data.egressId,
               recordingEgressId: data.recordingEgressId,
+              // Best-effort persistence of the DJ's Stream Optimization choice;
+              // the go-live API write is already non-blocking (see catch below).
+              redChannelChoice: redChannelChoiceRef.current,
             }),
             timeoutMs: 15_000,
           });

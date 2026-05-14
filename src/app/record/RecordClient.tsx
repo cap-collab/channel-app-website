@@ -8,12 +8,15 @@ import { SystemAudioCapture } from '@/components/broadcast/SystemAudioCapture';
 import { DeviceAudioCapture } from '@/components/broadcast/DeviceAudioCapture';
 import { DJProfileSetup } from '@/components/broadcast/DJProfileSetup';
 import { DJControlCenter } from '@/components/broadcast/DJControlCenter';
+import { AudioChannelPanel } from '@/components/broadcast/AudioChannelPanel';
 import { QuotaDisplay } from '@/components/recording/QuotaDisplay';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { AuthModal } from '@/components/AuthModal';
-import { AudioInputMethod } from '@/types/broadcast';
+import { AudioInputMethod, RedChannelChoice } from '@/types/broadcast';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 type SetupStep = 'quota' | 'profile' | 'audio';
 
@@ -64,6 +67,10 @@ export function RecordClient() {
     };
   }, [djUsername, user?.uid]);
 
+  // DJ's Stream Optimization choice. Defaults to 'mono'; the Firebase read
+  // below is best-effort pre-fill only — it never gates anything.
+  const [redChannelChoice, setRedChannelChoice] = useState<RedChannelChoice>('mono');
+
   // Initialize broadcast hook with recording-only mode
   const broadcast = useBroadcast(
     djUsername || 'DJ',
@@ -73,8 +80,31 @@ export function RecordClient() {
     {
       recordingOnly: true,
       customRoomName: session?.roomName,
-    }
+    },
+    undefined,
+    redChannelChoice,
   );
+
+  // Best-effort: pre-fill the DJ's saved Stream Optimization choice. Failure
+  // (not logged in, permission denied, network) silently keeps the 'mono'
+  // default — the panel stays fully usable.
+  useEffect(() => {
+    const uid = user?.uid;
+    if (!uid || !db) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'users', uid));
+        const saved = snap.exists() ? snap.data()?.redChannelChoice : null;
+        if (!cancelled && (saved === 'mono' || saved === 'stereo' || saved === 'unsure')) {
+          setRedChannelChoice(saved);
+        }
+      } catch {
+        // ignore — keep the 'mono' default
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.uid]);
 
   // Fetch quota when user is authenticated
   useEffect(() => {
@@ -336,6 +366,14 @@ export function RecordClient() {
         audioSourceLabel={audioSourceLabel}
         isRecordingMode={true}
         djEmail={user?.email || ''}
+        audioChannelPanel={
+          <AudioChannelPanel
+            inputMethod={broadcast.inputMethod}
+            stream={audioStream}
+            choice={redChannelChoice}
+            onChange={setRedChannelChoice}
+          />
+        }
       />
     );
   }

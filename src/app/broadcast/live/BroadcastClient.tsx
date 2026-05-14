@@ -10,8 +10,11 @@ import { DeviceAudioCapture } from '@/components/broadcast/DeviceAudioCapture';
 import { RtmpIngressPanel } from '@/components/broadcast/RtmpIngressPanel';
 import { DJProfileSetup } from '@/components/broadcast/DJProfileSetup';
 import { DJControlCenter } from '@/components/broadcast/DJControlCenter';
+import { AudioChannelPanel } from '@/components/broadcast/AudioChannelPanel';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { AudioInputMethod } from '@/types/broadcast';
+import { AudioInputMethod, RedChannelChoice } from '@/types/broadcast';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { QueuedWaitingScreen } from '@/components/broadcast/QueuedWaitingScreen';
 
@@ -103,8 +106,33 @@ export function BroadcastClient() {
     };
   }, [djUsername, broadcastDjUserId]);
 
+  // DJ's Stream Optimization choice. Defaults to 'mono'; the Firebase read
+  // below is best-effort and only pre-fills — it never gates anything.
+  const [redChannelChoice, setRedChannelChoice] = useState<RedChannelChoice>('mono');
+
   const participantIdentity = slot?.djName || 'DJ';
-  const broadcast = useBroadcast(participantIdentity, slot?.id, djInfo, token || undefined, undefined, slot?.endTime);
+  const broadcast = useBroadcast(participantIdentity, slot?.id, djInfo, token || undefined, undefined, slot?.endTime, redChannelChoice);
+
+  // Best-effort: pre-fill the DJ's saved Stream Optimization choice. Failure
+  // (not logged in, permission denied, network) silently leaves the 'mono'
+  // default — the panel stays fully usable.
+  useEffect(() => {
+    const uid = broadcastDjUserId;
+    if (!uid || !db) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'users', uid));
+        const saved = snap.exists() ? snap.data()?.redChannelChoice : null;
+        if (!cancelled && (saved === 'mono' || saved === 'stereo' || saved === 'unsure')) {
+          setRedChannelChoice(saved);
+        }
+      } catch {
+        // ignore — keep the 'mono' default
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [broadcastDjUserId]);
 
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [audioSourceLabel, setAudioSourceLabel] = useState<string | null>(null);
@@ -762,6 +790,14 @@ export function BroadcastClient() {
           roomOccupied={roomBusy || broadcast.roomOccupied}
           roomFreeAt={roomBusyUntil || broadcast.roomFreeAt}
           onQueueGoLive={handleQueueGoLive}
+          audioChannelPanel={
+            <AudioChannelPanel
+              inputMethod={broadcast.inputMethod}
+              stream={audioStream}
+              choice={redChannelChoice}
+              onChange={setRedChannelChoice}
+            />
+          }
         />
         {showQueueOverlay && (
           <QueuedWaitingScreen
