@@ -286,7 +286,7 @@ export function AudioStatusPanel({
           </div>
           {redChannelChoice === 'stereo' && testResult !== 'stereo' && (
             testResult === 'mono' || testResult === 'ambiguous' ? (
-              <div className="mt-2 bg-red-900/50 border border-red-600 text-red-200 text-xs px-3 py-2 rounded-lg">
+              <div className="mt-2 bg-red-900/50 border border-red-600 text-red-200 text-sm px-3 py-2 rounded-lg">
                 <p className="font-semibold">⚠️ Your last audio check detected a mono signal.</p>
                 <p className="mt-1">
                   Stereo is enabled. Using Stereo with this setup will cause severe
@@ -295,7 +295,7 @@ export function AudioStatusPanel({
                 <p className="mt-1">We strongly recommend switching to Mono before going live.</p>
               </div>
             ) : (
-              <div className="mt-2 bg-amber-900/40 border border-amber-700 text-amber-200 text-xs px-3 py-2 rounded-lg">
+              <div className="mt-2 bg-amber-900/40 border border-amber-700 text-amber-200 text-sm px-3 py-2 rounded-lg">
                 ⚠️ Using Stereo without truly distinct L/R channels will cause severe
                 overlapping audio. We strongly recommend testing your setup before
                 selecting audio.
