@@ -6,8 +6,8 @@ import { useAuthContext } from "@/contexts/AuthContext";
 
 
 export type MobileMenuItem =
-  | { label: string; href?: string; onClick?: () => void; type?: "link"; external?: boolean; active?: boolean; icon?: React.ReactNode }
-  | { type: "auth"; label?: never; href?: never; onClick?: never; external?: never; active?: never; icon?: never };
+  | { label: string; href?: string; onClick?: () => void; type?: "link"; external?: boolean; active?: boolean; icon?: React.ReactNode; mobileOnly?: boolean }
+  | { type: "auth"; label?: never; href?: never; onClick?: never; external?: never; active?: never; icon?: never; mobileOnly?: never };
 
 interface MobileMenuProps {
   items: MobileMenuItem[];
@@ -136,6 +136,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
               ) : (
                 item.label
               );
+              const visibilityClass = item.mobileOnly ? "md:hidden" : "";
 
               if (item.href) {
                 const isAnchor = item.href.startsWith("#");
@@ -148,7 +149,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       onClick={() => handleItemClick(item)}
                       target={isExternal ? "_blank" : undefined}
                       rel={isExternal ? "noopener noreferrer" : undefined}
-                      className={`block w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors`}
+                      className={`block w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors ${visibilityClass}`}
                     >
                       {labelContent}
                     </a>
@@ -162,7 +163,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       handleItemClick(item);
                       router.push(item.href!);
                     }}
-                    className={`block w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors`}
+                    className={`block w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors ${visibilityClass}`}
                     style={{ pointerEvents: 'auto' }}
                   >
                     {labelContent}
@@ -174,7 +175,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                 <button
                   key={index}
                   onClick={() => handleItemClick(item)}
-                  className={`w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors`}
+                  className={`w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors ${visibilityClass}`}
                 >
                   {labelContent}
                 </button>

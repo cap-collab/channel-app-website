@@ -36,12 +36,13 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     // Home - always first
     items.push({ label: "Home", href: "/", active: currentPage === "channel" });
 
-    // Instagram - external link, sits right under Home
+    // Instagram - mobile-only menu entry; on desktop the icon sits next to the logo
     items.push({
-      label: "Instagram",
+      label: "IG",
       href: "https://instagram.com/channelrad.io",
       external: true,
       icon: <InstagramIcon size={16} />,
+      mobileOnly: true,
     });
 
     // Explore - always shown
@@ -90,7 +91,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Channel on Instagram"
-              className="hidden md:inline-flex text-gray-400 hover:text-white transition-colors relative z-[1000]"
+              className="hidden md:flex h-6 items-center text-gray-400 hover:text-white transition-colors relative z-[1000]"
               style={{ pointerEvents: 'auto' }}
             >
               <InstagramIcon size={18} />
