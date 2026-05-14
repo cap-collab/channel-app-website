@@ -13,6 +13,7 @@ import { DJControlCenter } from '@/components/broadcast/DJControlCenter';
 import { AudioChannelPanel } from '@/components/broadcast/AudioChannelPanel';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { AudioInputMethod, RedChannelChoice } from '@/types/broadcast';
+import { ChannelContentClass } from '@/lib/audio-analysis';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
@@ -109,6 +110,9 @@ export function BroadcastClient() {
   // DJ's Stream Optimization choice. Defaults to 'mono'; the Firebase read
   // below is best-effort and only pre-fills — it never gates anything.
   const [redChannelChoice, setRedChannelChoice] = useState<RedChannelChoice>('mono');
+  // Last audio-check result — lifted here so both the Stream Optimization panel
+  // and the status line above GO LIVE can read it.
+  const [testResult, setTestResult] = useState<ChannelContentClass | null>(null);
 
   const participantIdentity = slot?.djName || 'DJ';
   const broadcast = useBroadcast(participantIdentity, slot?.id, djInfo, token || undefined, undefined, slot?.endTime, redChannelChoice);
@@ -790,12 +794,16 @@ export function BroadcastClient() {
           roomOccupied={roomBusy || broadcast.roomOccupied}
           roomFreeAt={roomBusyUntil || broadcast.roomFreeAt}
           onQueueGoLive={handleQueueGoLive}
+          redChannelChoice={redChannelChoice}
+          testResult={testResult}
           audioChannelPanel={
             <AudioChannelPanel
               inputMethod={broadcast.inputMethod}
               stream={audioStream}
               choice={redChannelChoice}
               onChange={setRedChannelChoice}
+              testResult={testResult}
+              onTestResult={setTestResult}
             />
           }
         />

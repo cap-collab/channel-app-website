@@ -13,6 +13,7 @@ import { QuotaDisplay } from '@/components/recording/QuotaDisplay';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { AuthModal } from '@/components/AuthModal';
 import { AudioInputMethod, RedChannelChoice } from '@/types/broadcast';
+import { ChannelContentClass } from '@/lib/audio-analysis';
 import { BroadcastHeader } from '@/components/BroadcastHeader';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { doc, getDoc } from 'firebase/firestore';
@@ -70,6 +71,9 @@ export function RecordClient() {
   // DJ's Stream Optimization choice. Defaults to 'mono'; the Firebase read
   // below is best-effort pre-fill only — it never gates anything.
   const [redChannelChoice, setRedChannelChoice] = useState<RedChannelChoice>('mono');
+  // Last audio-check result — lifted here so both the Stream Optimization panel
+  // and the status line above START RECORDING can read it.
+  const [testResult, setTestResult] = useState<ChannelContentClass | null>(null);
 
   // Initialize broadcast hook with recording-only mode
   const broadcast = useBroadcast(
@@ -366,12 +370,16 @@ export function RecordClient() {
         audioSourceLabel={audioSourceLabel}
         isRecordingMode={true}
         djEmail={user?.email || ''}
+        redChannelChoice={redChannelChoice}
+        testResult={testResult}
         audioChannelPanel={
           <AudioChannelPanel
             inputMethod={broadcast.inputMethod}
             stream={audioStream}
             choice={redChannelChoice}
             onChange={setRedChannelChoice}
+            testResult={testResult}
+            onTestResult={setTestResult}
           />
         }
       />

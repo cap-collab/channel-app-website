@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAudioHealth } from '@/hooks/useAudioHealth';
-import { AudioInputMethod } from '@/types/broadcast';
+import { AudioInputMethod, RedChannelChoice } from '@/types/broadcast';
+import { ChannelContentClass } from '@/lib/audio-analysis';
 import { buildChecklist } from '@/lib/broadcast-checklist';
 
 interface AudioStatusPanelProps {
@@ -25,6 +26,9 @@ interface AudioStatusPanelProps {
   slotStartTime?: number;    // Slot start time (Unix ms) for "available in X minutes" countdown
   slotEndTime?: number;      // Slot end time (Unix ms) for progress bar while live
   showName?: string;         // Show title (used as the progress bar label when live)
+  redChannelChoice?: RedChannelChoice;        // DJ's Stream Optimization choice
+  testResult?: ChannelContentClass | null;    // Last audio-check result (gear path)
+  onChangeChannelMode?: () => void;           // Scroll to the Stream Optimization panel
 }
 
 export function AudioStatusPanel({
@@ -45,6 +49,9 @@ export function AudioStatusPanel({
   slotStartTime,
   slotEndTime,
   showName,
+  redChannelChoice,
+  testResult,
+  onChangeChannelMode,
 }: AudioStatusPanelProps) {
   const health = useAudioHealth(stream);
   // Tie checklist to real broadcast-level signal, not just "any signal detected".
@@ -254,6 +261,50 @@ export function AudioStatusPanel({
           50% { transform: scale(1.05); box-shadow: 0 0 20px 4px rgba(217, 119, 6, 0.4); }
         }
       `}</style>
+
+      {/* Stream Optimization status — gear path, pre-live only. Tells the DJ
+          which mode they're about to broadcast in, with a quick jump back to
+          the panel. Stereo carries a warning: amber when untested, red when
+          the audio check detected a mono signal. */}
+      {!isLive && inputMethod === 'device' && (
+        <div className="mb-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-gray-400 text-sm">
+              Audio capture optimized for{' '}
+              <span className="text-white font-medium">
+                {redChannelChoice === 'stereo' ? 'Stereo' : 'Mono'}
+              </span>
+            </p>
+            {onChangeChannelMode && (
+              <button
+                onClick={onChangeChannelMode}
+                className="text-accent hover:text-accent-hover text-sm transition-colors flex-shrink-0"
+              >
+                Change
+              </button>
+            )}
+          </div>
+          {redChannelChoice === 'stereo' && testResult !== 'stereo' && (
+            testResult === 'mono' || testResult === 'ambiguous' ? (
+              <div className="mt-2 bg-red-900/50 border border-red-600 text-red-200 text-xs px-3 py-2 rounded-lg">
+                <p className="font-semibold">⚠️ Your last audio check detected a mono signal.</p>
+                <p className="mt-1">
+                  Stereo is enabled. Using Stereo with this setup will cause severe
+                  overlapping audio.
+                </p>
+                <p className="mt-1">We strongly recommend switching to Mono before going live.</p>
+              </div>
+            ) : (
+              <div className="mt-2 bg-amber-900/40 border border-amber-700 text-amber-200 text-xs px-3 py-2 rounded-lg">
+                ⚠️ Using Stereo without truly distinct L/R channels will cause severe
+                overlapping audio. We strongly recommend testing your setup before
+                selecting audio.
+              </div>
+            )
+          )}
+        </div>
+      )}
+
       {!isLive ? (
         <div className="overflow-hidden">
           {canGoLive ? (

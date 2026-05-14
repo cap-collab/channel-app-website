@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { BroadcastSlotSerialized, AudioInputMethod } from '@/types/broadcast';
+import { useState, useMemo, useRef } from 'react';
+import { BroadcastSlotSerialized, AudioInputMethod, RedChannelChoice } from '@/types/broadcast';
+import { ChannelContentClass } from '@/lib/audio-analysis';
 import { LiveControlBar } from './LiveControlBar';
 import { AudioStatusPanel } from './AudioStatusPanel';
 import { BroadcastSettingsPanel } from './BroadcastSettingsPanel';
@@ -35,6 +36,8 @@ interface DJControlCenterProps {
   roomFreeAt?: number | null; // When the previous DJ's slot ends (Unix ms)
   onQueueGoLive?: () => void; // Queue to auto go-live when room clears
   audioChannelPanel?: React.ReactNode; // Stream Optimization panel (pre-live, gear input only)
+  redChannelChoice?: RedChannelChoice;     // DJ's Stream Optimization choice (for the status line)
+  testResult?: ChannelContentClass | null; // Last audio-check result (for the stereo warning)
 }
 
 export function DJControlCenter({
@@ -64,9 +67,21 @@ export function DJControlCenter({
   roomFreeAt,
   onQueueGoLive,
   audioChannelPanel,
+  redChannelChoice,
+  testResult,
 }: DJControlCenterProps) {
   const [copied, setCopied] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
+
+  // Stream Optimization panel — the "Change" link on the status line scrolls
+  // here and briefly highlights it.
+  const audioPanelRef = useRef<HTMLDivElement | null>(null);
+  const [highlightPanel, setHighlightPanel] = useState(false);
+  const scrollToAudioPanel = () => {
+    audioPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightPanel(true);
+    setTimeout(() => setHighlightPanel(false), 1200);
+  };
 
   const chatUsernameNormalized = useMemo(() => {
     return djUsername.replace(/[\s-]+/g, '').toLowerCase();
@@ -123,11 +138,22 @@ export function DJControlCenter({
               slotStartTime={slot?.startTime}
               slotEndTime={slot?.endTime}
               showName={slot?.showName}
+              redChannelChoice={redChannelChoice}
+              testResult={testResult}
+              onChangeChannelMode={audioChannelPanel ? scrollToAudioPanel : undefined}
             />
 
             {/* Stream Optimization — pre-live only, gear input only.
-                Renders nothing for screen-share / RTMP / live state. */}
-            {audioChannelPanel}
+                Renders nothing for screen-share / RTMP / live state.
+                The "Change" link on the status line scrolls here + highlights. */}
+            <div
+              ref={audioPanelRef}
+              className={`rounded-xl transition-shadow duration-500 ${
+                highlightPanel ? 'ring-2 ring-accent' : 'ring-0'
+              }`}
+            >
+              {audioChannelPanel}
+            </div>
 
             {/* Tip + Share side by side */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
