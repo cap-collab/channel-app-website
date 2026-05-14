@@ -1274,15 +1274,16 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     <ScrollingDJName text={djName} className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]" />
                   )}
                 </div>
-                {/* Live indicator + BPM. Wrapper matches icon hit-area so
-                    spacing in the row stays even across dot + icon siblings. */}
-                <div className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center gap-0.5 flex-shrink-0">
+                {/* Live indicator + BPM. Min-width matches icon hit-area so
+                    spacing in the row stays even across dot + icon siblings;
+                    auto-width lets the BPM label render on a single line. */}
+                <div className="min-w-7 h-7 sm:min-w-10 sm:h-10 flex items-center justify-center gap-1 flex-shrink-0 px-1">
                   <span className="relative flex h-2 w-2 sm:h-[18px] sm:w-[18px] items-center justify-center">
                     <span className="animate-ping absolute inline-flex h-2 w-2 sm:h-[9px] sm:w-[9px] rounded-full bg-red-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2 w-2 sm:h-[9px] sm:w-[9px] bg-red-600" />
                   </span>
                   {liveBPM && (
-                    <span className="hidden md:inline text-xs font-mono uppercase tracking-tighter font-bold text-red-500">
+                    <span className="hidden md:inline text-xs font-mono uppercase tracking-tighter font-bold text-red-500 whitespace-nowrap">
                       {liveBPM} BPM
                     </span>
                   )}
