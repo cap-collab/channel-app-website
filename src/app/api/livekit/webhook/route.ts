@@ -437,6 +437,11 @@ export async function POST(request: NextRequest) {
                 archiveDoc.showImageUrl = slotData.showImageUrl;
               }
 
+              // Carry the resolved Opus RED decision from the slot, if recorded.
+              if (typeof slotData?.redMode === 'string') {
+                archiveDoc.redMode = slotData.redMode;
+              }
+
               await archivesRef.add(archiveDoc);
 
               console.log(`Archive created: ${slug} for show "${showName}" (${isRecordingOnly ? 'recording' : 'live'})`);

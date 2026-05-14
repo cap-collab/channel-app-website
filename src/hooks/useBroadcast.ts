@@ -97,6 +97,11 @@ export function useBroadcast(
   const inputMethodRef = useRef(state.inputMethod);
   inputMethodRef.current = state.inputMethod;
 
+  // The resolved RED decision from publishAudio — 'stereo-forced' when red:true
+  // was sent, 'sdk-default' when the option was omitted. Stashed here so
+  // startEgress can report it to the go-live API for persistence on the slot.
+  const resolvedRedModeRef = useRef<'stereo-forced' | 'sdk-default'>('sdk-default');
+
   // Telemetry — polls WebRTC stats during broadcast, no-op when flag disabled.
   // Wrapped in its own hook with try/catch — cannot affect publish.
   const publisherStats = usePublisherStats(roomRef.current, state.isLive);
@@ -277,6 +282,8 @@ export function useBroadcast(
       // choice is honoured rather than silently overridden.
       const forceStereoRed =
         inputMethodRef.current === 'device' && redChannelChoiceRef.current === 'stereo';
+      // Stash the resolved decision so startEgress can persist it on the slot.
+      resolvedRedModeRef.current = forceStereoRed ? 'stereo-forced' : 'sdk-default';
       console.log('📡 Publishing audio — inputMethod:', inputMethodRef.current, 'redChannelChoice:', redChannelChoiceRef.current, 'forceStereoRed:', forceStereoRed);
 
       const publishPromise = roomRef.current.localParticipant.publishTrack(audioTrack, {
@@ -373,9 +380,11 @@ export function useBroadcast(
               thankYouMessage: currentDjInfo?.thankYouMessage,
               egressId: data.egressId,
               recordingEgressId: data.recordingEgressId,
-              // Best-effort persistence of the DJ's Stream Optimization choice;
-              // the go-live API write is already non-blocking (see catch below).
+              // Best-effort persistence of the DJ's Stream Optimization choice
+              // and the resolved RED decision applied at publish; the go-live
+              // API write is already non-blocking (see catch below).
               redChannelChoice: redChannelChoiceRef.current,
+              redMode: resolvedRedModeRef.current,
             }),
             timeoutMs: 15_000,
           });

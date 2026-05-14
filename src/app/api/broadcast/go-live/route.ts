@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { broadcastToken, djUsername, djUserId, egressId, recordingEgressId, thankYouMessage, redChannelChoice } = body;
+    const { broadcastToken, djUsername, djUserId, egressId, recordingEgressId, thankYouMessage, redChannelChoice, redMode } = body;
 
     console.log('[go-live] Request received:', { broadcastToken: broadcastToken?.slice(0, 10) + '...', djUsername, djUserId });
 
@@ -410,6 +410,12 @@ export async function POST(request: NextRequest) {
 
     if (egressId) {
       updateData.egressId = egressId;
+    }
+    // Record the resolved Opus RED decision the broadcast actually used, so
+    // archives carry it for debugging. 'stereo-forced' = red:true was sent;
+    // 'sdk-default' = the option was omitted (SDK default applied).
+    if (redMode === 'stereo-forced' || redMode === 'sdk-default') {
+      updateData.redMode = redMode;
     }
     if (recordingEgressId) {
       // Legacy fields for backward compatibility

@@ -100,6 +100,8 @@ export async function POST(request: NextRequest) {
       sourceType: 'recording',
       publishedAt,
       priority: 'low',
+      // Carry the resolved Opus RED decision from the studio-session, if recorded.
+      ...(typeof slotData.redMode === 'string' ? { redMode: slotData.redMode } : {}),
     }, { merge: true });
 
     return NextResponse.json({
