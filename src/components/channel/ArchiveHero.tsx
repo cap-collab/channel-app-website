@@ -1506,39 +1506,39 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
         return (
           <div className="mt-6 max-w-7xl mx-auto">
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <div className="min-w-0">
+            <div className="mb-4">
+              <div className="flex items-center justify-between gap-3">
                 <h2 className="text-2xl md:text-3xl font-semibold">Archives</h2>
-                <p className="text-sm md:text-base text-zinc-400 mt-1">Left-field electronic shows from underground selectors</p>
+                {availableScenes.length > 0 && (
+                  <div className="flex items-center gap-1 md:gap-2 shrink-0">
+                    {availableScenes.map((s) => {
+                      // Empty selection means "show everything" (same behavior as all
+                      // selected), so render all chips active in both cases.
+                      const active = noneSelected || sceneFilter.has(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => toggleSceneFilter(s.id)}
+                          title={s.name}
+                          aria-label={`Filter by ${s.name}`}
+                          className={`w-[27px] h-[27px] flex items-center justify-center transition-colors ${
+                            active
+                              ? 'bg-white text-black'
+                              : 'bg-transparent text-white/30 hover:text-white/60'
+                          }`}
+                        >
+                          <SceneGlyph slug={s.id} className="!w-5 !h-5" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              {availableScenes.length > 0 && (
-                <div className="flex items-center gap-1 md:gap-2 shrink-0">
-                  {availableScenes.map((s) => {
-                    // Empty selection means "show everything" (same behavior as all
-                    // selected), so render all chips active in both cases.
-                    const active = noneSelected || sceneFilter.has(s.id);
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => toggleSceneFilter(s.id)}
-                        title={s.name}
-                        aria-label={`Filter by ${s.name}`}
-                        className={`w-[27px] h-[27px] flex items-center justify-center transition-colors ${
-                          active
-                            ? 'bg-white text-black'
-                            : 'bg-transparent text-white/30 hover:text-white/60'
-                        }`}
-                      >
-                        <SceneGlyph slug={s.id} className="!w-5 !h-5" />
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              <p className="text-sm md:text-base text-zinc-400 mt-1">Left-field electronic shows from underground selectors</p>
             </div>
 
-            {/* Card list — 2 cols on mobile (homepage only) and desktop */}
-            <div className={`grid ${homepage ? 'grid-cols-2' : 'grid-cols-1'} md:grid-cols-2 gap-4 mx-auto ${homepage ? 'max-w-[90%]' : ''}`}>
+            {/* Card list — full width mobile, 2 cols desktop */}
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mx-auto ${homepage ? 'max-w-[90%]' : ''}`}>
               {ordered.map(({ archive, sceneIds }) => (
                 <ArchiveGridCard
                   key={archive.id}
