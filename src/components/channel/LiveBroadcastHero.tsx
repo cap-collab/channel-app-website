@@ -743,7 +743,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                 </span>
               )}
               {broadcastBPM && (
-                <span className={`text-xs font-mono uppercase tracking-tighter font-bold ${isRestream ? 'text-zinc-400' : 'text-red-500'}`}>
+                <span className={`text-xs font-mono uppercase tracking-tighter font-bold whitespace-nowrap ${isRestream ? 'text-zinc-400' : 'text-red-500'}`}>
                   {broadcastBPM} BPM
                 </span>
               )}
