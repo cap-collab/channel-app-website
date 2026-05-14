@@ -6,8 +6,8 @@ import { useAuthContext } from "@/contexts/AuthContext";
 
 
 export type MobileMenuItem =
-  | { label: string; href?: string; onClick?: () => void; type?: "link"; external?: boolean; active?: boolean }
-  | { type: "auth"; label?: never; href?: never; onClick?: never; external?: never; active?: never };
+  | { label: string; href?: string; onClick?: () => void; type?: "link"; external?: boolean; active?: boolean; icon?: React.ReactNode }
+  | { type: "auth"; label?: never; href?: never; onClick?: never; external?: never; active?: never; icon?: never };
 
 interface MobileMenuProps {
   items: MobileMenuItem[];
@@ -128,6 +128,15 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                 ? "text-white"
                 : "text-gray-400 hover:text-white";
 
+              const labelContent = item.icon ? (
+                <span className="inline-flex items-center gap-2">
+                  {item.label}
+                  {item.icon}
+                </span>
+              ) : (
+                item.label
+              );
+
               if (item.href) {
                 const isAnchor = item.href.startsWith("#");
                 const isExternal = item.external || item.href.startsWith("http");
@@ -141,7 +150,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                       rel={isExternal ? "noopener noreferrer" : undefined}
                       className={`block w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors`}
                     >
-                      {item.label}
+                      {labelContent}
                     </a>
                   );
                 }
@@ -156,7 +165,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                     className={`block w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors`}
                     style={{ pointerEvents: 'auto' }}
                   >
-                    {item.label}
+                    {labelContent}
                   </button>
                 );
               }
@@ -167,7 +176,7 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
                   onClick={() => handleItemClick(item)}
                   className={`w-full px-4 py-3 text-left text-sm ${textClass} hover:bg-[#252525] transition-colors`}
                 >
-                  {item.label}
+                  {labelContent}
                 </button>
               );
             })}
