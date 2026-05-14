@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAudioHealth } from '@/hooks/useAudioHealth';
 import { AudioInputMethod, RedChannelChoice } from '@/types/broadcast';
+import { ChannelContentClass } from '@/lib/audio-analysis';
 import { buildChecklist, isChecklistAllGreen } from '@/lib/broadcast-checklist';
 
 interface LiveControlBarProps {
@@ -11,6 +12,7 @@ interface LiveControlBarProps {
   isRecordingMode?: boolean;
   inputMethod: AudioInputMethod | null;
   redChannelChoice?: RedChannelChoice; // DJ's Stream Optimization choice
+  testResult?: ChannelContentClass | null; // Last audio-check result — drives the warning severity
   // Kept for prop compatibility with parent (unused here)
   showStartTime?: number;
   showName?: string;
@@ -131,6 +133,7 @@ export function LiveControlBar({
   isRecordingMode = false,
   inputMethod,
   redChannelChoice,
+  testResult,
 }: LiveControlBarProps) {
   const health = useAudioHealth(stream);
 
@@ -139,8 +142,8 @@ export function LiveControlBar({
   // Stereo is the active choice on the gear path — but PRE-LIVE only. Once
   // live, RED is locked into the published track; nagging about it serves no
   // purpose, and this slot is otherwise for live audio-health monitoring.
-  // (testResult is intentionally not consulted here; the GO LIVE-area warning
-  // carries the red/amber severity nuance.)
+  // Severity mirrors the GO LIVE-area warning: red when the audio check
+  // actively detected mono, amber (relaxed reminder) otherwise.
   const showStereoRiskWarning =
     !isLive && inputMethod === 'device' && redChannelChoice === 'stereo';
 
@@ -325,9 +328,15 @@ export function LiveControlBar({
             </div>
           )}
           {showStereoRiskWarning && (
-            <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
-              ⚠ Stereo stream optimization is enabled. Using Stereo optimization may cause severe overlapping audio.
-            </div>
+            testResult === 'mono' ? (
+              <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
+                ⚠ Stereo stream optimization is enabled. Using Stereo optimization may cause severe overlapping audio.
+              </div>
+            ) : (
+              <div className="w-full bg-amber-900/40 border border-amber-700 rounded px-3 py-2 text-amber-200 text-sm font-semibold">
+                ⚠ Stereo selected — make sure your mixer and audio interface aren&apos;t set to mono.
+              </div>
+            )
           )}
         </div>
       </div>

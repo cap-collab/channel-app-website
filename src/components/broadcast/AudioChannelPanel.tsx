@@ -105,7 +105,7 @@ export function AudioChannelPanel({
             <ul className="list-disc list-inside mt-0.5 space-y-0.5">
               <li>2 separate outputs from your mixer</li>
               <li>2 inputs into your audio interface</li>
-              <li>your mixer is not set to mono</li>
+              <li>your mixer is NOT set to mono</li>
             </ul>
           </div>
         )}
@@ -149,13 +149,13 @@ export function AudioChannelPanel({
           <ul className="list-disc list-inside mt-0.5 space-y-0.5">
             <li>2 separate outputs from your mixer</li>
             <li>2 inputs into your audio interface</li>
-            <li>your mixer is not set to mono</li>
+            <li>your mixer is NOT set to mono</li>
           </ul>
           <p className="mt-1">
             If the same mono signal is being sent to both channels, listeners may hear
             echoing or overlapping audio during your stream.
           </p>
-          <p className="mt-1">Not sure? Run the audio check or stay on Mono.</p>
+          <p className="mt-1">Not sure? stay on mono</p>
         </div>
       )}
     </div>

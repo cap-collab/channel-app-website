@@ -310,9 +310,9 @@ export function AudioStatusPanel({
               </div>
             ) : (
               <div className="mt-2 bg-amber-900/40 border border-amber-700 text-amber-200 text-sm px-3 py-2 rounded-lg">
-                ⚠️ Stereo is enabled. We can&apos;t verify your audio is truly stereo — if
-                it isn&apos;t, listeners may hear severe overlapping audio. Stay on Mono if
-                unsure.
+                Stereo selected. Double-check your mixer and audio interface aren&apos;t set
+                to mono — that&apos;s the usual cause of stereo issues. If either is mono,
+                listeners may hear overlapping audio.
               </div>
             )
           )}
