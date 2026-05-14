@@ -36,14 +36,17 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     // Home - always first
     items.push({ label: "Home", href: "/", active: currentPage === "channel" });
 
-    // Instagram - mobile-only menu entry; on desktop the icon sits next to the logo
-    items.push({
-      label: "IG",
-      href: "https://instagram.com/channelrad.io",
-      external: true,
-      icon: <InstagramIcon size={16} />,
-      mobileOnly: true,
-    });
+    // Instagram - mobile-only menu entry; on desktop the icon sits next to the logo.
+    // Hidden for logged-in users.
+    if (!isAuthenticated) {
+      items.push({
+        label: "IG",
+        href: "https://instagram.com/channelrad.io",
+        external: true,
+        icon: <InstagramIcon size={16} />,
+        mobileOnly: true,
+      });
+    }
 
     // Explore - always shown
     items.push({ label: "Explore", href: "/explore", active: currentPage === "explore" });
@@ -86,18 +89,21 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                 priority
               />
             </Link>
-            <a
-              href="https://instagram.com/channelrad.io"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Channel on Instagram"
-              className="hidden md:flex h-6 items-center text-gray-400 hover:text-white transition-colors relative z-[1000]"
-              style={{ pointerEvents: 'auto' }}
-            >
-              {/* logo-white.png has 7px top / 15px bottom transparent padding, so the
-                  letterforms' optical centre sits ~1px above the icon's flex centre */}
-              <InstagramIcon size={18} className="-translate-y-px" />
-            </a>
+            {/* Instagram icon — desktop only, hidden for logged-in users */}
+            {!isAuthenticated && (
+              <a
+                href="https://instagram.com/channelrad.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Channel on Instagram"
+                className="hidden md:flex h-6 items-center text-gray-400 hover:text-white transition-colors relative z-[1000]"
+                style={{ pointerEvents: 'auto' }}
+              >
+                {/* logo-white.png has 7px top / 15px bottom transparent padding, so the
+                    letterforms' optical centre sits ~1px above the icon's flex centre */}
+                <InstagramIcon size={18} className="-translate-y-px" />
+              </a>
+            )}
           </div>
 
           {/* Center: City/Genre filters */}
