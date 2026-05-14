@@ -44,15 +44,15 @@ export default function About() {
               </p>
 
               <p>
-                After moving from France to New York to Los Angeles, I realized how hard it is to stay connected to the people shaping a scene. This culture deserves better tools to find and follow the sounds and people you care about.
+                After moving from France to New York to Los Angeles, I realized how difficult it is to stay connected to the people and scenes shaping culture forward. The internet gives us endless music, but very little context, identity, or human connection.
               </p>
 
               <p>
-                Channel is built with the same values that shape the spaces we love. On the dancefloor, that often means no recording, no yapping, no staring, and a shared focus on the music. Channel extends that culture beyond the dancefloor — a place to dive deeper into music, strengthen communities, and support the artists shaping our world.
+                Channel was built as an alternative to algorithmic listening and mass consumption — a place centered around taste, discovery, and people who genuinely care about the craft. Human radio shaped by underground curators, artists, and listeners grounded in culture, not hype.
               </p>
 
               <p>
-                Channel is a space for conversation and community, grounded in respect. No harassment, no discrimination, no abusive behavior.
+                Channel is a space for music, conversation, and community, grounded in respect and curiosity. No harassment, discrimination, social gatekeeping, or abusive behavior.
               </p>
             </div>
 
