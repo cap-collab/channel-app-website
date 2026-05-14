@@ -18,6 +18,71 @@ async function fetchWithTimeout(input: RequestInfo, init: RequestInit & { timeou
   }
 }
 
+// Classify a 2-channel MediaStream as 'stereo' (genuine L/R separation),
+// 'mono' (L≈R, mono summed into stereo), or 'ambiguous' (insufficient signal
+// to decide). Conservative — biased toward 'ambiguous' so callers can fall
+// back to safe defaults. Used by publishAudio to decide whether stereo Opus
+// RED is safe to enable (it is NOT safe on mono-in-stereo content — produces
+// audible bleed in joint-coded stereo Opus + RED).
+async function analyseStereoContent(
+  stream: MediaStream,
+  durationMs: number,
+): Promise<'stereo' | 'mono' | 'ambiguous'> {
+  const Ctx: typeof AudioContext = (window as unknown as { AudioContext: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext
+    || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  if (!Ctx) return 'ambiguous';
+  const ctx = new Ctx();
+  try {
+    const src = ctx.createMediaStreamSource(stream);
+    const splitter = ctx.createChannelSplitter(2);
+    const lAnalyser = ctx.createAnalyser();
+    const rAnalyser = ctx.createAnalyser();
+    lAnalyser.fftSize = 2048;
+    rAnalyser.fftSize = 2048;
+    src.connect(splitter);
+    splitter.connect(lAnalyser, 0);
+    splitter.connect(rAnalyser, 1);
+
+    const lBuf = new Float32Array(lAnalyser.fftSize);
+    const rBuf = new Float32Array(rAnalyser.fftSize);
+    let lSumSq = 0, rSumSq = 0, diffSumSq = 0, sampleCount = 0;
+    const intervalMs = 50;
+    const iterations = Math.max(10, Math.floor(durationMs / intervalMs));
+
+    for (let i = 0; i < iterations; i++) {
+      await new Promise((res) => setTimeout(res, intervalMs));
+      lAnalyser.getFloatTimeDomainData(lBuf);
+      rAnalyser.getFloatTimeDomainData(rBuf);
+      for (let j = 0; j < lBuf.length; j++) {
+        const l = lBuf[j], r = rBuf[j];
+        lSumSq += l * l;
+        rSumSq += r * r;
+        diffSumSq += (l - r) * (l - r);
+        sampleCount++;
+      }
+    }
+
+    if (sampleCount === 0) return 'ambiguous';
+    const lRms = Math.sqrt(lSumSq / sampleCount);
+    const rRms = Math.sqrt(rSumSq / sampleCount);
+    const diffRms = Math.sqrt(diffSumSq / sampleCount);
+    const mixRms = Math.sqrt((lSumSq + rSumSq) / sampleCount);
+    // Need real signal on BOTH channels to decide — silence on either side
+    // is ambiguous. -50 dBFS floor ≈ very quiet but non-zero.
+    const dB = (x: number) => 20 * Math.log10(Math.max(x, 1e-12));
+    if (dB(lRms) < -50 || dB(rRms) < -50 || dB(mixRms) < -45) return 'ambiguous';
+    // Separation = how much L-R differs from the L+R mix. >25 dB below mix
+    // means L≈R (mono summed). <15 dB means genuine stereo. In between is
+    // ambiguous.
+    const separationDb = dB(mixRms) - dB(diffRms);
+    if (separationDb >= 25) return 'mono';
+    if (separationDb <= 15) return 'stereo';
+    return 'ambiguous';
+  } finally {
+    try { await ctx.close(); } catch { /* swallow */ }
+  }
+}
+
 interface DJInfo {
   username: string;
   userId?: string;
@@ -255,11 +320,25 @@ export function useBroadcast(
         return false;
       }
 
-      // Bound publishTrack with a timeout — if the SFU is still holding the
-      // previous DJ's publish slot, this can otherwise hang indefinitely and
-      // leave the UI stuck on "Connecting…".
-      const useRed = process.env.NEXT_PUBLIC_OPUS_RED_ENABLED === 'true';
-      console.log('📡 Publishing audio — Opus RED enabled:', useRed);
+      // RED decision — only enable on confidently-mono OR confidently-stereo
+      // tracks. Stereo-codec RED on mono-summed content (L=R) produces audible
+      // bleed (verified 2026-05-13 against protectynggirls + 6 other historical
+      // mono-in-stereo broadcasts). When in doubt, skip RED and accept a
+      // possible tiny silence instead of risking bleed.
+      const redFlagEnabled = process.env.NEXT_PUBLIC_OPUS_RED_ENABLED === 'true';
+      const declaredChannels = audioTrack.getSettings().channelCount;
+      let contentClass: 'stereo' | 'mono' | 'ambiguous' = 'ambiguous';
+      if (redFlagEnabled && declaredChannels === 2) {
+        try {
+          contentClass = await analyseStereoContent(stream, 3000);
+        } catch (e) {
+          console.warn('📡 ⚠️ Stereo content analysis failed, treating as ambiguous:', e);
+          contentClass = 'ambiguous';
+        }
+      }
+      const useRed = redFlagEnabled && (declaredChannels === 1 || contentClass === 'stereo');
+      console.log('📡 Publishing audio — declaredChannels:', declaredChannels, 'contentClass:', contentClass, 'Opus RED enabled:', useRed);
+
       const publishPromise = roomRef.current.localParticipant.publishTrack(audioTrack, {
         name: 'dj-audio',
         source: Track.Source.Microphone,
