@@ -297,7 +297,7 @@ export function GlobalBroadcastBar() {
               <span className="relative inline-flex rounded-full h-2 w-2 sm:h-[9px] sm:w-[9px] bg-red-600" />
             </span>
             {broadcastBPM && (
-              <span className="text-xs font-mono uppercase tracking-tighter font-bold text-red-500">
+              <span className="text-xs font-mono uppercase tracking-tighter font-bold text-red-500 whitespace-nowrap">
                 {broadcastBPM} BPM
               </span>
             )}
