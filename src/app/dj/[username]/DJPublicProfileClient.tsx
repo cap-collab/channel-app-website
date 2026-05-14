@@ -739,9 +739,16 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
     if (externalShow) {
       const station = getStationById(externalShow.stationId);
+      // dj-radio shows (DJ live on their own external station, entered via
+      // /studio) carry the real station URL on the show itself — the generic
+      // dj-radio station has no websiteUrl.
+      const stationUrl =
+        externalShow.stationId === "dj-radio"
+          ? externalShow.showUrl || "#"
+          : station?.websiteUrl || "#";
       setLiveElsewhere({
-        stationName: station?.name || externalShow.stationId,
-        stationUrl: station?.websiteUrl || "#",
+        stationName: externalShow.externalRadioName || station?.name || externalShow.stationId,
+        stationUrl,
         stationAccentColor: station?.accentColor,
       });
       setLiveOnChannel(false);
@@ -1858,17 +1865,21 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                   </div>
                 ) : liveElsewhere ? (
                   <div className="flex gap-2">
-                    <a
-                      href={liveElsewhere.stationUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
-                    >
-                      Join Stream
-                      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
+                    {/* Only render Join Stream when we have a real station URL.
+                        DJ-entered radio shows can be saved without a URL. */}
+                    {liveElsewhere.stationUrl !== "#" && (
+                      <a
+                        href={liveElsewhere.stationUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 min-w-0 py-3 px-2 sm:px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap"
+                      >
+                        Join Stream
+                        <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    )}
                     <button
                       onClick={async () => {
                         const profileUrl = `${window.location.origin}/dj/${username}`;

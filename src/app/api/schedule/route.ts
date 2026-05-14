@@ -495,6 +495,7 @@ function extractDJRadioShows(djUserDocs: FirestoreDoc[]): Show[] {
         djGenres: djProfile.genres || undefined,
         djEmail: userEmail || undefined,
         description: show.url ? `Listen at: ${show.url}` : undefined,
+        showUrl: show.url || undefined,
         imageUrl: djProfile.photoUrl || undefined,
         isChannelUser: true,
       });
@@ -570,6 +571,7 @@ async function extractPendingDJRadioShows(): Promise<Show[]> {
           djGenres: djProfile.genres || undefined,
           djEmail: data?.email || undefined,
           description: show.url ? `Listen at: ${show.url}` : undefined,
+          showUrl: show.url || undefined,
           imageUrl: djProfile.photoUrl || undefined,
           isChannelUser: false,
         });
