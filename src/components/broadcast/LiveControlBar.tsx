@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAudioHealth } from '@/hooks/useAudioHealth';
-import { AudioInputMethod } from '@/types/broadcast';
+import { AudioInputMethod, RedChannelChoice } from '@/types/broadcast';
+import { ChannelContentClass } from '@/lib/audio-analysis';
 import { buildChecklist, isChecklistAllGreen } from '@/lib/broadcast-checklist';
 
 interface LiveControlBarProps {
@@ -10,6 +11,8 @@ interface LiveControlBarProps {
   isLive: boolean;
   isRecordingMode?: boolean;
   inputMethod: AudioInputMethod | null;
+  redChannelChoice?: RedChannelChoice;     // DJ's Stream Optimization choice
+  testResult?: ChannelContentClass | null; // Last audio-check result (gear path)
   // Kept for prop compatibility with parent (unused here)
   showStartTime?: number;
   showName?: string;
@@ -129,8 +132,18 @@ export function LiveControlBar({
   isLive,
   isRecordingMode = false,
   inputMethod,
+  redChannelChoice,
+  testResult,
 }: LiveControlBarProps) {
   const health = useAudioHealth(stream);
+
+  // Stereo stream optimization is on but the audio check hasn't confirmed a
+  // true stereo signal (untested, or detected mono/ambiguous) — same trigger
+  // as the warning above the GO LIVE button. Gear path only.
+  const showStereoRiskWarning =
+    inputMethod === 'device' &&
+    redChannelChoice === 'stereo' &&
+    testResult !== 'stereo';
 
   const hasStream = !!stream;
   const hasStrongAudio = health.leftState === 'active' || health.rightState === 'active';
@@ -310,6 +323,11 @@ export function LiveControlBar({
           {heavyDropouts && (
             <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
               ⚠ Frequent audio dropouts — check USB cable, interface connection, or CPU load
+            </div>
+          )}
+          {showStereoRiskWarning && (
+            <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
+              ⚠ Stereo stream optimization is enabled. Using Stereo optimization may cause severe overlapping audio.
             </div>
           )}
         </div>
