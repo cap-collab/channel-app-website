@@ -200,11 +200,14 @@ export async function GET(request: NextRequest) {
       for (const show of radioShows) {
         // Only include online shows with a streaming URL
         if (!show.url) continue;
+        // Require both a date AND a start time — without a time we can't know
+        // when the show actually goes live, so don't notify.
         if (!show.date) continue;
+        if (!show.time) continue;
 
         // Convert local date/time/timezone to UTC (same logic as schedule route)
         const timezone = show.timezone || "America/Los_Angeles";
-        const timeStr = show.time || "12:00";
+        const timeStr = show.time;
         const [hours, minutes] = timeStr.split(":").map(Number);
 
         const localDateTime = `${show.date}T${String(hours || 0).padStart(2, "0")}:${String(minutes || 0).padStart(2, "0")}:00`;
