@@ -88,8 +88,11 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
   // Selected city and genres (from global FilterContext)
   const { selectedCity, selectedGenres, setTunerHints } = useFilterContext();
 
-  // Determine which hero to show
-  const isLiveReady = isBroadcastLive && isBroadcastStreaming;
+  // Determine which hero to show. Set NEXT_PUBLIC_HIDE_LIVE=true in Vercel
+  // to hide the live UI on the homepage (hero falls through to archive
+  // radio). Default: live is shown when broadcasting.
+  const hideLive = process.env.NEXT_PUBLIC_HIDE_LIVE === 'true';
+  const isLiveReady = !hideLive && isBroadcastLive && isBroadcastStreaming;
 
   const isRestream = currentShow?.broadcastType === 'restream';
 

@@ -225,12 +225,16 @@ export function GlobalBroadcastBar() {
   //   4. radio available → radio
   //   5. fallback archive
   const slideOneVisible = !!radioCtx?.enabled && radioCtx?.visibleSlide === 1;
+  // NEXT_PUBLIC_HIDE_LIVE=true hides the sticky live bar on the homepage,
+  // mirroring the inline hero override in ChannelClient. Other pages still
+  // see the live bar so /broadcast and DJ studio behave normally.
+  const hideLiveOnHome = pathname === '/' && process.env.NEXT_PUBLIC_HIDE_LIVE === 'true';
   let barMode: 'live' | 'archive' | 'radio' | null;
-  if (isLivePlaying) barMode = 'live';
+  if (isLivePlaying && !hideLiveOnHome) barMode = 'live';
   else if (isArchivePlaying) barMode = 'archive';
   else if (isRadioPlaying) barMode = 'radio';
   else if (slideOneVisible && displayArchive) barMode = 'archive';
-  else if (isLiveReady) barMode = 'live';
+  else if (isLiveReady && !hideLiveOnHome) barMode = 'live';
   else if (radioAvailable) barMode = 'radio';
   else if (displayArchive) barMode = 'archive';
   else barMode = null;
