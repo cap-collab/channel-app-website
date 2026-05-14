@@ -57,6 +57,15 @@ export default function About() {
             </div>
 
             <div className="mt-10 flex justify-center">
+              <Link
+                href="/?play=1"
+                className="inline-block bg-white text-black hover:bg-gray-200 transition-colors text-sm font-medium px-6 py-3 rounded"
+              >
+                Lock in
+              </Link>
+            </div>
+
+            <div className="mt-8 flex justify-center">
               <AboutEmailSignup />
             </div>
 
@@ -69,15 +78,6 @@ export default function About() {
               >
                 Follow us on Instagram @channelrad.io
               </a>
-            </div>
-
-            <div className="mt-8 flex justify-center">
-              <Link
-                href="/?play=1"
-                className="inline-block bg-white text-black hover:bg-gray-200 transition-colors text-sm font-medium px-6 py-3 rounded"
-              >
-                Lock in
-              </Link>
             </div>
           </div>
         </ScrollReveal>

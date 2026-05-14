@@ -130,8 +130,8 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
 
               const labelContent = item.icon ? (
                 <span className="inline-flex items-center gap-2">
-                  {item.label}
                   {item.icon}
+                  {item.label}
                 </span>
               ) : (
                 item.label
