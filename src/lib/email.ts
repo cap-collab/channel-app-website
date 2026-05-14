@@ -202,6 +202,7 @@ interface ShowStartingEmailParams {
   djHasEmail?: boolean; // Whether DJ has email set (can receive chat messages)
   stationName: string;
   stationId: string;
+  streamingUrl?: string; // For dj-radio shows: the external station's URL
 }
 
 export async function sendShowStartingEmail({
@@ -213,6 +214,7 @@ export async function sendShowStartingEmail({
   // djHasEmail no longer used — button logic now checks stationId instead
   stationName,
   stationId,
+  streamingUrl,
 }: ShowStartingEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -224,11 +226,17 @@ export async function sendShowStartingEmail({
   const djDisplayName = djUsername || djName || showName;
 
   // Channel Radio → "Tune In" → home
-  // External stations → "Tune In" → station website
+  // dj-radio (DJ live on an external station entered via /studio) → that station's URL
+  // Known external stations → "Tune In" → station website
   const isChannelRadio = stationId === "broadcast";
-  const buttonUrl = isChannelRadio
-    ? "https://channel-app.com/"
-    : getStationWebsiteUrl(stationId);
+  let buttonUrl: string;
+  if (isChannelRadio) {
+    buttonUrl = "https://channel-app.com/";
+  } else if (stationId === "dj-radio") {
+    buttonUrl = streamingUrl || "https://channel-app.com/";
+  } else {
+    buttonUrl = getStationWebsiteUrl(stationId);
+  }
   const buttonText = "Tune In";
 
   // Station accent colors for fallback avatar (same as watchlist digest)

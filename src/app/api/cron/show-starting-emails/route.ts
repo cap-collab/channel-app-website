@@ -438,6 +438,7 @@ export async function GET(request: NextRequest) {
           djHasEmail: show.djHasEmail,
           stationName: show.stationName,
           stationId: show.stationId,
+          streamingUrl: show.streamingUrl,
         });
 
         if (success) {
