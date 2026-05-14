@@ -320,15 +320,26 @@ export function useBroadcast(
         return false;
       }
 
-      // RED decision — only enable on confidently-mono OR confidently-stereo
-      // tracks. Stereo-codec RED on mono-summed content (L=R) produces audible
-      // bleed (verified 2026-05-13 against protectynggirls + 6 other historical
-      // mono-in-stereo broadcasts). When in doubt, skip RED and accept a
-      // possible tiny silence instead of risking bleed.
-      const redFlagEnabled = process.env.NEXT_PUBLIC_OPUS_RED_ENABLED === 'true';
+      // RED decision — gated by NEXT_PUBLIC_OPUS_RED_MODE in Vercel:
+      //   'off'       → no RED for anyone (pre-2026-05-05 baseline)
+      //   'mono-only' → RED only on confirmed mono tracks; stereo never gets RED
+      //   'all'       → RED on confirmed mono OR confirmed stereo (analyser-gated)
+      // Stereo-codec RED on mono-summed content (L=R) produces audible bleed
+      // (verified 2026-05-13 against protectynggirls + 6 historical recordings).
+      // When in doubt, skip RED — prefer an occasional tiny silence over bleed.
+      // Legacy: NEXT_PUBLIC_OPUS_RED_ENABLED=true is accepted as 'all' so
+      // existing Vercel config keeps working.
+      const rawMode = process.env.NEXT_PUBLIC_OPUS_RED_MODE;
+      const legacyFlag = process.env.NEXT_PUBLIC_OPUS_RED_ENABLED === 'true';
+      const redMode: 'off' | 'mono-only' | 'all' =
+        rawMode === 'off' || rawMode === 'mono-only' || rawMode === 'all'
+          ? rawMode
+          : legacyFlag ? 'all' : 'off';
       const declaredChannels = audioTrack.getSettings().channelCount;
       let contentClass: 'stereo' | 'mono' | 'ambiguous' = 'ambiguous';
-      if (redFlagEnabled && declaredChannels === 2) {
+      // Only run the analyser when we'd actually use stereo RED (mode === 'all').
+      // 'mono-only' doesn't need it — declaredChannels alone decides.
+      if (redMode === 'all' && declaredChannels === 2) {
         try {
           contentClass = await analyseStereoContent(stream, 3000);
         } catch (e) {
@@ -336,8 +347,11 @@ export function useBroadcast(
           contentClass = 'ambiguous';
         }
       }
-      const useRed = redFlagEnabled && (declaredChannels === 1 || contentClass === 'stereo');
-      console.log('📡 Publishing audio — declaredChannels:', declaredChannels, 'contentClass:', contentClass, 'Opus RED enabled:', useRed);
+      const useRed =
+        redMode === 'off' ? false
+        : redMode === 'mono-only' ? declaredChannels === 1
+        : /* all */ (declaredChannels === 1 || contentClass === 'stereo');
+      console.log('📡 Publishing audio — redMode:', redMode, 'declaredChannels:', declaredChannels, 'contentClass:', contentClass, 'Opus RED enabled:', useRed);
 
       const publishPromise = roomRef.current.localParticipant.publishTrack(audioTrack, {
         name: 'dj-audio',
