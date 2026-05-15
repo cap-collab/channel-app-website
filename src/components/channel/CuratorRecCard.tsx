@@ -68,7 +68,7 @@ export function CuratorRecCard({ rec }: CuratorRecCardProps) {
           <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
         </>
       ) : (
-        <div className="w-full h-full flex items-center justify-center bg-[#D94099]">
+        <div className="w-full h-full flex items-center justify-center bg-[#DC9B50]">
           <span className="text-2xl font-black uppercase tracking-tight text-white text-center px-4">
             {displayTitle || domain}
           </span>

@@ -39,7 +39,7 @@ export function ExpandedShowCard({
   isAuthenticated,
   timeDisplay,
 }: ExpandedShowCardProps) {
-  const accentColor = station.accentColor || '#D94099';
+  const accentColor = station.accentColor || '#DC9B50';
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const [showWatchlistModal, setShowWatchlistModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);

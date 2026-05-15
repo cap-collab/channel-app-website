@@ -179,7 +179,7 @@ export function ComingUpNext({ onAuthRequired }: ComingUpNextProps) {
       <div className="space-y-2">
         {upcomingShows.map(({ show }) => {
           const station = getStation(show.stationId);
-          const accentColor = station?.accentColor || '#D94099';
+          const accentColor = station?.accentColor || '#DC9B50';
           const isExpanded = expandedShowId === show.id;
           const { day, time } = formatShowTime(show.startTime);
           const canTip = station?.id === 'broadcast' && show.dj && (show.djUserId || show.djEmail) && show.broadcastSlotId;

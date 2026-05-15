@@ -18,7 +18,7 @@ export default function ChatScreen() {
     {
       user: "glademaker",
       avatar: "🌱",
-      avatarBg: "bg-pink-300",
+      avatarBg: "bg-amber-300",
       message: "I'll have to catch up to the rest of the show, but thanks for the few tunes, lovely!",
       time: "7:56 AM"
     },

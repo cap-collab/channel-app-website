@@ -20,7 +20,7 @@ export default function MyShowsScreen() {
           <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
           <span className="text-gray-500 text-xs font-medium tracking-wider">LIVE NOW</span>
         </div>
-        <div className="bg-[#252525]/60 rounded-xl p-4 border-l-4 border-pink-500">
+        <div className="bg-[#252525]/60 rounded-xl p-4 border-l-4 border-accent">
           <div className="flex items-center justify-between">
             <div>
               <div className="h-3 w-16 bg-gray-600 rounded blur-[5px] mb-2" />

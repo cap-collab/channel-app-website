@@ -1806,7 +1806,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                       className="h-full transition-all duration-1000 ease-linear"
                       style={{
                         width: `${liveShowProgress}%`,
-                        backgroundColor: liveOnChannel ? '#FFFFFF' : (liveElsewhere?.stationAccentColor || '#D94099')
+                        backgroundColor: liveOnChannel ? '#FFFFFF' : (liveElsewhere?.stationAccentColor || '#DC9B50')
                       }}
                     />
                   </div>
@@ -2291,7 +2291,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                             <div
                               className="h-full w-0"
                               style={{
-                                backgroundColor: stationAccentColor || '#D94099'
+                                backgroundColor: stationAccentColor || '#DC9B50'
                               }}
                             />
                           </div>
@@ -2405,7 +2405,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                                   className="h-full"
                                   style={{
                                     width: isLive ? `${Math.min(100, Math.max(0, (nowMs - showStartUtc) / (showEndUtc - showStartUtc) * 100))}%` : '0%',
-                                    backgroundColor: '#D94099'
+                                    backgroundColor: '#DC9B50'
                                   }}
                                 />
                               </div>

@@ -6,9 +6,9 @@ export default function DJProfileScreen() {
       {/* Profile section */}
       <div className="flex flex-col items-center px-4 pb-3">
         {/* Avatar with gradient border */}
-        <div className="w-20 h-20 rounded-full p-1 bg-gradient-to-br from-pink-500 via-purple-500 to-blue-500 mb-3">
+        <div className="w-20 h-20 rounded-full p-1 bg-gradient-to-br from-accent via-accent-hover to-accent mb-3">
           <div className="w-full h-full rounded-full bg-[#2a2a2a] flex items-center justify-center overflow-hidden">
-            <div className="w-full h-full bg-gradient-to-b from-pink-400/30 to-transparent" />
+            <div className="w-full h-full bg-gradient-to-b from-accent/30 to-transparent" />
           </div>
         </div>
 
@@ -61,7 +61,7 @@ export default function DJProfileScreen() {
         </p>
 
         {/* Link button */}
-        <button className="bg-gradient-to-r from-pink-500 to-pink-400 text-white px-4 py-1.5 rounded-full text-[10px] font-medium flex items-center gap-1 mb-2">
+        <button className="bg-gradient-to-r from-accent to-accent-hover text-white px-4 py-1.5 rounded-full text-[10px] font-medium flex items-center gap-1 mb-2">
           New DJ platform is out
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

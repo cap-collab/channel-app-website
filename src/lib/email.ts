@@ -241,8 +241,8 @@ export async function sendShowStartingEmail({
 
   // Station accent colors for fallback avatar (same as watchlist digest)
   const stationAccentColors: Record<string, string> = {
-    broadcast: "#D94099",
-    "dj-radio": "#D94099",
+    broadcast: "#DC9B50",
+    "dj-radio": "#DC9B50",
     nts1: "#FFFFFF",
     nts2: "#FFFFFF",
     rinse: "#228EFD",
@@ -252,7 +252,7 @@ export async function sendShowStartingEmail({
     sutro: "#FFFFFF",
     newtown: "#ec92af",
   };
-  const fallbackColor = stationAccentColors[stationId] || "#D94099";
+  const fallbackColor = stationAccentColors[stationId] || "#DC9B50";
 
   // DJ photo or fallback initial (email-compatible table-based fallback)
   // Use proxy URL for reliable loading in email clients
@@ -308,7 +308,7 @@ export async function sendShowStartingEmail({
 
 // Station accent colors for fallback avatars
 const STATION_ACCENT_COLORS: Record<string, string> = {
-  broadcast: "#D94099",
+  broadcast: "#DC9B50",
   nts1: "#FFFFFF",
   nts2: "#FFFFFF",
   rinse: "#228EFD",
@@ -358,7 +358,7 @@ function buildShowCardHtml(
     ? `${show.irlLocation || "TBA"}`
     : `${show.stationName} · ${timeStr}`;
 
-  const fallbackColor = show.isIRL ? "#22c55e" : (STATION_ACCENT_COLORS[show.stationId] || "#D94099");
+  const fallbackColor = show.isIRL ? "#22c55e" : (STATION_ACCENT_COLORS[show.stationId] || "#DC9B50");
   const emailPhotoUrl = getEmailPhotoUrl(show.djUsername, show.djPhotoUrl);
   const photoHtml = emailPhotoUrl
     ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 0; object-fit: cover; border: 1px solid #e5e5e5;" />`
@@ -441,7 +441,7 @@ function buildCuratorRecCardHtml(rec: {
   const photoUrl = displayImage || getEmailPhotoUrl(rec.djUsername, rec.djPhotoUrl);
   const photoHtml = photoUrl
     ? `<img src="${photoUrl}" alt="${displayTitle}" width="64" height="64" style="width: 64px; height: 64px; border-radius: 0; object-fit: cover; border: 1px solid #e5e5e5;" />`
-    : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #e5e5e5; background-color: #D94099;">
+    : `<table width="64" height="64" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #e5e5e5; background-color: #DC9B50;">
         <tr>
           <td align="center" valign="middle" style="font-size: 24px; font-weight: bold; color: #fff;">
             ${rec.djName.charAt(0).toUpperCase()}

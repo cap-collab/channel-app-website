@@ -9,7 +9,7 @@ export const STATIONS: Station[] = [
     websiteUrl: "https://channel-app.com/",
     backgroundColor: "#000000",
     textColor: "#FFFFFF",
-    accentColor: "#D94099",
+    accentColor: "#DC9B50",
   },
   {
     id: "nts-1",
@@ -110,7 +110,7 @@ export const STATIONS: Station[] = [
     websiteUrl: "",
     backgroundColor: "#000000",
     textColor: "#FFFFFF",
-    accentColor: "#D94099",
+    accentColor: "#DC9B50",
   },
 ];
 

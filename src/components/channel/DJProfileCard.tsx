@@ -60,7 +60,7 @@ export function DJProfileCard({
       {imageOverlays}
     </>
   ) : (
-    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-pink-900">
+    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-stone-800 to-amber-900">
       <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
         {profile.displayName}
       </h2>

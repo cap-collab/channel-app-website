@@ -28,9 +28,9 @@ const config: Config = {
         foreground: "var(--foreground)",
         // Channel brand colors
         accent: {
-          DEFAULT: '#D94099',
-          hover: '#E54DA6',
-          muted: '#D94099/20',
+          DEFAULT: '#DC9B50',
+          hover: '#E5AB66',
+          muted: '#DC9B50/20',
         },
         surface: {
           base: '#121212',

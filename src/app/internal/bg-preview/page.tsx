@@ -188,6 +188,62 @@ export default function BgPreviewPage() {
             it to the site.
           </p>
         </div>
+
+        <div className="rounded-lg border border-white/10 bg-black/40 p-4 backdrop-blur">
+          <p className="mb-3 text-sm text-white/80">Accent swatches (replacing pink #D94099)</p>
+
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div
+                className="h-12 w-12 rounded"
+                style={{ background: "#DC9B50" }}
+              />
+              <div className="text-xs">
+                <div className="text-white">#DC9B50 — brand accent (new)</div>
+                <div className="text-white/50">used in stations, progress bars, brand UI</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div
+                className="h-12 w-12 rounded"
+                style={{ background: "#E5AB66" }}
+              />
+              <div className="text-xs">
+                <div className="text-white">#E5AB66 — brand accent hover</div>
+                <div className="text-white/50">slightly lighter for hover states</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div
+                className="h-12 w-12 rounded"
+                style={{ background: "#F59E0B" }}
+              />
+              <div className="text-xs">
+                <div className="text-white">Tailwind amber-500 (#F59E0B)</div>
+                <div className="text-white/50">used in mockup screens — brighter, more orange</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div
+                className="h-12 w-12 rounded"
+                style={{ background: "#FCD34D" }}
+              />
+              <div className="text-xs">
+                <div className="text-white">Tailwind amber-300 (#FCD34D)</div>
+                <div className="text-white/50">lighter mockup accent</div>
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-4 text-xs text-white/50">
+            Note: the brand accent (#DC9B50) and Tailwind&apos;s amber-500 are close but not identical
+            — amber-500 is brighter/more orange. If you want them to match exactly, I can switch the
+            mockup classes to use #DC9B50 directly.
+          </p>
+        </div>
       </div>
     </div>
   );

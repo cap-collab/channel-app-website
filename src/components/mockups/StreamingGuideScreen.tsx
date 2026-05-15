@@ -26,17 +26,17 @@ export default function StreamingGuideScreen() {
           <span className="w-2 h-2 bg-red-500 rounded-full" />
           <span className="text-gray-400 text-xs font-medium tracking-wider">LIVE NOW</span>
         </div>
-        <div className="bg-[#252525]/60 rounded-xl p-3 border-l-4 border-pink-500">
+        <div className="bg-[#252525]/60 rounded-xl p-3 border-l-4 border-accent">
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="text-gray-400 text-[10px] font-medium tracking-wider mb-0.5">NEWTOWN RADIO</div>
               <div className="text-white font-semibold text-sm mb-0.5">YOUR FAVORITE DJ&apos;S FAVORITE DJ</div>
               <div className="flex items-center gap-2">
                 <span className="text-gray-500 text-xs">Today at 3:00 PM</span>
-                <span className="bg-pink-500 text-white text-[9px] px-2 py-0.5 rounded font-medium">biweekly</span>
+                <span className="bg-accent text-white text-[9px] px-2 py-0.5 rounded font-medium">biweekly</span>
               </div>
             </div>
-            <svg className="w-4 h-4 text-pink-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-accent flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
             </svg>
           </div>
