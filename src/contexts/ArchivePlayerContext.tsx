@@ -56,8 +56,6 @@ interface ArchivePlayerContextValue {
   setHeroDisplayedArchive: (archive: ArchiveSerialized | null) => void;
   // Ref callback for "locked in" message — set by consuming component (GlobalBroadcastBar)
   onLockedInRef: MutableRefObject<(() => void) | null>;
-  // Ref callback for 5-minute listen milestone (heart-nudge re-trigger)
-  onListenMilestoneRef: MutableRefObject<(() => void) | null>;
   // Ref callback fired when an archive finishes playing. ArchiveHero sets this
   // to auto-advance to the next archive (same scene + high priority).
   onArchiveEndedRef: MutableRefObject<((endedArchive: ArchiveSerialized) => void) | null>;
@@ -107,9 +105,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const resumePositionRef = useRef(0);
   const playbackStartedAtRef = useRef<number | null>(null);
   const archiveLockedInFiredRef = useRef<string | null>(null);
-  const archiveMilestoneFiredRef = useRef<string | null>(null);
   const onLockedInRef = useRef<(() => void) | null>(null);
-  const onListenMilestoneRef = useRef<(() => void) | null>(null);
   const onArchiveEndedRef = useRef<((endedArchive: ArchiveSerialized) => void) | null>(null);
   // Snapshot of the currently-playing archive for use inside audio event
   // handlers (registered once, so they can't close over the latest state).
@@ -220,14 +216,18 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     return audioRef.current;
   }, []);
 
-  // Track cumulative playback for stream count (300s threshold)
+  // Cumulative listen timer. At 900s (15 min) we both record a stream
+  // count and post the "locked in" chat message — same threshold so they
+  // fire together. The previous 5-min heart-nudge milestone is removed:
+  // the heart already pulses on every return-to-screen via
+  // HeartNudgeContext, so a separate listen-duration nudge is redundant.
   useEffect(() => {
     if (!isPlaying || !currentArchive) return;
 
     const interval = setInterval(() => {
       cumulativeTimeRef.current += 1;
       if (
-        cumulativeTimeRef.current >= 300 &&
+        cumulativeTimeRef.current >= 900 &&
         streamCountedRef.current !== currentArchive.id
       ) {
         streamCountedRef.current = currentArchive.id;
@@ -237,15 +237,6 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ userId: user?.uid || null }),
         }).catch(() => {});
       }
-      // Fire heart-nudge milestone at 300s (5 min), once per archive
-      if (
-        cumulativeTimeRef.current >= 300 &&
-        archiveMilestoneFiredRef.current !== currentArchive.id
-      ) {
-        archiveMilestoneFiredRef.current = currentArchive.id;
-        onListenMilestoneRef.current?.();
-      }
-      // Fire "locked in" message at 900s (15 min)
       if (
         cumulativeTimeRef.current >= 900 &&
         archiveLockedInFiredRef.current !== currentArchive.id
@@ -256,7 +247,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPlaying, currentArchive]);
+  }, [isPlaying, currentArchive, user?.uid]);
 
   // Initialize gate counter from localStorage
   useEffect(() => {
@@ -526,7 +517,6 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       setDuration(archive.duration || 0);
       cumulativeTimeRef.current = 0;
       archiveLockedInFiredRef.current = null;
-      archiveMilestoneFiredRef.current = null;
       resumePositionRef.current = 0;
       setIsLoading(true);
       pauseOthers('archive');
@@ -612,7 +602,6 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     heroDisplayedArchive,
     setHeroDisplayedArchive,
     onLockedInRef,
-    onListenMilestoneRef,
     onArchiveEndedRef,
   }), [currentArchive, isPlaying, isLoading, currentTime, duration, listenerCount, isGated, gateAttempt, clearGate, play, pause, toggle, seek, featuredArchive, heroDisplayedArchive]);
 

@@ -26,8 +26,6 @@ export function HeartNudgeProvider({ children }: { children: ReactNode }) {
   const anyPlaying = broadcastPlaying || archivePlaying || radioPlaying;
 
   // Rising-edge bump: any player transitions from not-playing to playing.
-  // The 5-min listen milestone is already wired separately via
-  // onListenMilestoneRef → nudge() in GlobalBroadcastBar.
   const prevAnyPlayingRef = useRef(anyPlaying);
   useEffect(() => {
     if (!prevAnyPlayingRef.current && anyPlaying) nudge();

@@ -114,7 +114,6 @@ interface UseBroadcastStreamReturn {
 export function useBroadcastStream(
   statusIsLive?: boolean,
   onLockedInRef?: MutableRefObject<(() => void) | null>,
-  onListenMilestoneRef?: MutableRefObject<(() => void) | null>,
 ): UseBroadcastStreamReturn {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -142,7 +141,6 @@ export function useBroadcastStream(
   const broadcastCumulativeTimeRef = useRef(0);
   const broadcastStreamCountedRef = useRef<string | null>(null);
   const broadcastLockedInFiredRef = useRef<string | null>(null);
-  const broadcastMilestoneFiredRef = useRef<string | null>(null);
   const [autoResumePending, setAutoResumePending] = useState(false);
   const playbackStartedAtRef = useRef<number | null>(null); // For posthog session_duration
 
@@ -1012,7 +1010,9 @@ export function useBroadcastStream(
     return () => unsubscribe();
   }, []);
 
-  // Track cumulative playback for broadcast stream count (300s threshold, same as archives)
+  // Track cumulative playback. At 900s (15 min) we both record a stream
+  // count and post the "locked in" chat message — same threshold so they
+  // fire together across live, archive, and radio.
   useEffect(() => {
     if (!isPlaying || !currentShow) return;
 
@@ -1020,13 +1020,12 @@ export function useBroadcastStream(
     if (broadcastStreamCountedRef.current !== null && broadcastStreamCountedRef.current !== currentShow.id) {
       broadcastCumulativeTimeRef.current = 0;
       broadcastLockedInFiredRef.current = null;
-      broadcastMilestoneFiredRef.current = null;
     }
 
     const interval = setInterval(() => {
       broadcastCumulativeTimeRef.current += 1;
       if (
-        broadcastCumulativeTimeRef.current >= 300 &&
+        broadcastCumulativeTimeRef.current >= 900 &&
         broadcastStreamCountedRef.current !== currentShow.id
       ) {
         broadcastStreamCountedRef.current = currentShow.id;
@@ -1037,15 +1036,6 @@ export function useBroadcastStream(
           body: JSON.stringify({ userId: uid }),
         }).catch(() => {});
       }
-      // Fire heart-nudge milestone at 300s (5 min), once per show
-      if (
-        broadcastCumulativeTimeRef.current >= 300 &&
-        broadcastMilestoneFiredRef.current !== currentShow.id
-      ) {
-        broadcastMilestoneFiredRef.current = currentShow.id;
-        onListenMilestoneRef?.current?.();
-      }
-      // Fire "locked in" message at 900s (15 min)
       if (
         broadcastCumulativeTimeRef.current >= 900 &&
         broadcastLockedInFiredRef.current !== currentShow.id
@@ -1056,7 +1046,7 @@ export function useBroadcastStream(
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPlaying, currentShow, onLockedInRef, onListenMilestoneRef]);
+  }, [isPlaying, currentShow, onLockedInRef]);
 
 
   return {

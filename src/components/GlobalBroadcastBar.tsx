@@ -35,7 +35,6 @@ export function GlobalBroadcastBar() {
     showName, djName, tipLink, currentShow,
     heroBarVisible,
     onLockedInRef: broadcastLockedInRef,
-    onListenMilestoneRef: broadcastListenMilestoneRef,
   } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
   const radioCtx = useArchiveRadioContext();
@@ -47,7 +46,7 @@ export function GlobalBroadcastBar() {
   const { chatUsername, showLockedInMessages } = useUserProfile(user?.uid);
   const [heartTrigger, setHeartTrigger] = useState(0);
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
-  const { nudgeKey, nudge } = useHeartNudge();
+  const { nudgeKey } = useHeartNudge();
   // Suppress nudges for 30s after the user clicks the heart. After the
   // window expires the next nudgeKey bump re-evaluates and animation
   // resumes — no timer needed because bumps cause re-renders.
@@ -167,21 +166,18 @@ export function GlobalBroadcastBar() {
     }
   }, [radioSendLove]);
 
-  // Wire radio listen-milestone refs — same pattern as live + archive.
-  // The context fires onListenMilestone at 5 min and onLockedIn at 15 min
-  // of cumulative listen time on each radio archive.
+  // Wire "locked in" callbacks to the timer refs in stream contexts —
+  // each context fires its onLockedInRef once cumulative listen time
+  // crosses 15 min on that show / archive.
   useEffect(() => {
     if (!radioCtx) return;
     radioCtx.onLockedInRef.current = radioSendLockedIn;
-    radioCtx.onListenMilestoneRef.current = nudge;
     return () => {
       if (!radioCtx) return;
       radioCtx.onLockedInRef.current = null;
-      radioCtx.onListenMilestoneRef.current = null;
     };
-  }, [radioCtx, radioSendLockedIn, nudge]);
+  }, [radioCtx, radioSendLockedIn]);
 
-  // Wire "locked in" callbacks to the timer refs in stream contexts
   useEffect(() => {
     broadcastLockedInRef.current = sendLockedIn;
     return () => { broadcastLockedInRef.current = null; };
@@ -191,17 +187,6 @@ export function GlobalBroadcastBar() {
     archivePlayer.onLockedInRef.current = archiveSendLockedIn;
     return () => { archivePlayer.onLockedInRef.current = null; };
   }, [archiveSendLockedIn, archivePlayer.onLockedInRef]);
-
-  // Wire 5-minute listen milestone to heart-nudge re-trigger
-  useEffect(() => {
-    broadcastListenMilestoneRef.current = nudge;
-    return () => { broadcastListenMilestoneRef.current = null; };
-  }, [nudge, broadcastListenMilestoneRef]);
-
-  useEffect(() => {
-    archivePlayer.onListenMilestoneRef.current = nudge;
-    return () => { archivePlayer.onListenMilestoneRef.current = null; };
-  }, [nudge, archivePlayer.onListenMilestoneRef]);
 
   useEffect(() => { setMounted(true); }, []);
 
