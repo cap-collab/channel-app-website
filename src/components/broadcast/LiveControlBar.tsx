@@ -206,6 +206,36 @@ export function LiveControlBar({
     }
   }, [peak, hasStream, audioTooLow]);
 
+  // --- Audio too hot (clipping) ---
+  // Peak sitting at or above -1 dBFS sustained for 1.5s = clipping. Catches
+  // the pattern seen in Beggar's first broadcast (peaks at +0.027 dBFS) while
+  // ignoring single transients near the ceiling.
+  const HOT_ENTER_DB = -1;
+  const HOT_EXIT_DB = -3;
+  const HOT_ENTER_MS = 1500;
+  const HOT_EXIT_MS = 1500;
+  const [audioTooHot, setAudioTooHot] = useState(false);
+  const hotSinceRef = useRef<number | null>(null);
+  const hotOkSinceRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!hasStream) {
+      setAudioTooHot(false);
+      hotSinceRef.current = null;
+      hotOkSinceRef.current = null;
+      return;
+    }
+    const now = performance.now();
+    if (peak >= HOT_ENTER_DB) {
+      hotOkSinceRef.current = null;
+      if (hotSinceRef.current === null) hotSinceRef.current = now;
+      if (!audioTooHot && now - hotSinceRef.current >= HOT_ENTER_MS) setAudioTooHot(true);
+    } else if (peak <= HOT_EXIT_DB) {
+      hotSinceRef.current = null;
+      if (hotOkSinceRef.current === null) hotOkSinceRef.current = now;
+      if (audioTooHot && now - hotOkSinceRef.current >= HOT_EXIT_MS) setAudioTooHot(false);
+    }
+  }, [peak, hasStream, audioTooHot]);
+
   // --- Dead channel (one side silent while the other is carrying audio) ---
   // Only meaningful once the stream is actually delivering signal to at least
   // one channel. Avoids warning about both channels being silent at startup.
@@ -321,6 +351,11 @@ export function LiveControlBar({
           {deadChannelSide && (
             <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
               ⚠ {deadChannelSide === 'L' ? 'Left' : 'Right'} channel is silent — check cable between mixer and interface
+            </div>
+          )}
+          {audioTooHot && (
+            <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
+              ⚠ Levels too hot — turn down your mixer master or interface gain knob
             </div>
           )}
           {audioTooLow && (
