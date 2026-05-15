@@ -5,7 +5,6 @@ import { BroadcastSlotSerialized, AudioInputMethod, RedChannelChoice } from '@/t
 import { ChannelContentClass } from '@/lib/audio-analysis';
 import { LiveControlBar } from './LiveControlBar';
 import { AudioStatusPanel } from './AudioStatusPanel';
-import { BroadcastSettingsPanel } from './BroadcastSettingsPanel';
 import { DJProfileChatPanel } from '@/components/dj-profile/DJProfileChatPanel';
 
 
@@ -23,6 +22,9 @@ interface DJControlCenterProps {
   broadcastToken: string;
   djUsername: string;
   userId?: string;
+  // tipButtonLink / onTipButtonLinkChange: kept in the prop type so existing
+  // callers stay valid, but no longer consumed — the "How can people support
+  // you?" panel was removed from the control center.
   tipButtonLink?: string;
   onTipButtonLinkChange?: (link: string) => void;
   isVenue?: boolean;
@@ -54,8 +56,6 @@ export function DJControlCenter({
   broadcastToken,
   djUsername,
   userId,
-  tipButtonLink,
-  onTipButtonLinkChange,
   isVenue = false,
   onChangeUsername,
   onChangeAudioSetup,
@@ -157,15 +157,8 @@ export function DJControlCenter({
               {audioChannelPanel}
             </div>
 
-            {/* Tip + Share side by side */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <BroadcastSettingsPanel
-                broadcastToken={broadcastToken}
-                tipButtonLink={tipButtonLink}
-                onTipButtonLinkChange={onTipButtonLinkChange}
-              />
-
-              <div className="bg-[#252525] rounded-xl p-4">
+            {/* Share Your Stream */}
+            <div className="bg-[#252525] rounded-xl p-4">
                 <h3 className="text-gray-400 text-sm font-medium mb-3">
                   Share Your Stream
                 </h3>
@@ -217,7 +210,6 @@ export function DJControlCenter({
                     @channelrad.io
                   </a>
                 </div>
-              </div>
             </div>
 
             {/* Chat — secondary; aligned with tip/share widgets. Fixed height so it

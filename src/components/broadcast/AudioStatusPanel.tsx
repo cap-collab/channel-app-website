@@ -298,7 +298,10 @@ export function AudioStatusPanel({
               </button>
             )}
           </div>
-          {redChannelChoice === 'stereo' && (
+          {/* Stereo warning. Hidden entirely once the audio check has confirmed
+              stereo — no need to nag when the test passed. Red if the check
+              detected mono, amber reminder otherwise (untested). */}
+          {redChannelChoice === 'stereo' && testResult !== 'stereo' && (
             testResult === 'mono' ? (
               <div className="mt-2 bg-red-900/50 border border-red-600 text-red-200 text-sm px-3 py-2 rounded-lg">
                 <p className="font-semibold">⚠️ Your last audio check detected a mono signal.</p>

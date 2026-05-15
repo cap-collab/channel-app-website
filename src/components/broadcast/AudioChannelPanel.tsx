@@ -90,16 +90,22 @@ export function AudioChannelPanel({
             </p>
           </div>
         )}
-        {/* Anything that isn't clearly mono-summed — including a "stereo-looking"
-            result. A 3-second check can't guarantee a genuine L/R signal, so we
-            never claim "stereo detected"; we say we couldn't verify it. */}
-        {(testResult === 'stereo' || testResult === 'ambiguous') && (
+        {testResult === 'stereo' && (
           <div className="mt-2 bg-gray-800 border border-gray-700 text-gray-300 text-xs px-3 py-2 rounded-lg">
-            <p className="font-semibold">Unable to verify stereo</p>
+            <p className="font-semibold">You seem to be in stereo</p>
             <p className="mt-0.5">
-              A quick check can&apos;t guarantee your channels carry genuinely separate
-              left and right audio. If you&apos;re sure your setup is true stereo, you can
-              select Stereo below — otherwise stay on Mono.
+              Your left and right channels carry different audio. You can select Stereo
+              below.
+            </p>
+          </div>
+        )}
+        {/* 'ambiguous' now means only one thing: too quiet to measure. */}
+        {testResult === 'ambiguous' && (
+          <div className="mt-2 bg-gray-800 border border-gray-700 text-gray-300 text-xs px-3 py-2 rounded-lg">
+            <p className="font-semibold">Couldn&apos;t run the test</p>
+            <p className="mt-0.5">
+              Your audio levels are too low to test. Turn up your output and run the
+              check again.
             </p>
           </div>
         )}

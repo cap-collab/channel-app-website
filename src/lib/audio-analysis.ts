@@ -1,12 +1,22 @@
 export type ChannelContentClass = 'stereo' | 'mono' | 'ambiguous';
 
-// Classify a 2-channel MediaStream as 'stereo' (genuine L/R separation),
-// 'mono' (L≈R, mono summed into stereo), or 'ambiguous' (insufficient signal
-// to decide). Conservative — biased toward 'ambiguous'.
+// Classify a 2-channel MediaStream as:
+//   'mono'      — L/R separation ≥ MONO_SEPARATION_DB (channels carry
+//                 essentially the same signal)
+//   'stereo'    — separation below that threshold (genuine L/R difference)
+//   'ambiguous' — couldn't run the test: audio levels too low to measure,
+//                 or no AudioContext available
+//
+// Classification is separation-only. Calibrated against real measurements:
+// a mono source through a stereo interface still measures ~21 dB separation
+// (preamp noise + gain mismatch decorrelate it), while genuine stereo content
+// measured 6–11 dB. The 18 dB threshold sits cleanly between those bands and
+// still catches bit-identical mono (30 dB+).
 //
 // Used by the Stream Optimization panel's "test my audio" button as advice to
 // the DJ. It is NOT used as a publish-time gate — the DJ's explicit choice
 // drives the RED decision.
+const MONO_SEPARATION_DB = 18;
 export async function analyseStereoContent(
   stream: MediaStream,
   durationMs: number,
@@ -61,16 +71,17 @@ export async function analyseStereoContent(
     const dB = (x: number) => 20 * Math.log10(Math.max(x, 1e-12));
     const lDb = dB(lRms), rDb = dB(rRms), mixDb = dB(mixRms);
     const r1 = (x: number) => x.toFixed(1);
+    // Too quiet to measure separation meaningfully — report 'ambiguous' so the
+    // UI tells the DJ to turn their levels up and retry.
     if (lDb < -50 || rDb < -50 || mixDb < -45) {
-      console.log(`🎛 Audio check — signal too low to decide, L ${r1(lDb)}dB / R ${r1(rDb)}dB / mix ${r1(mixDb)}dB → ambiguous`);
+      console.log(`🎛 Audio check — audio levels too low to test, L ${r1(lDb)}dB / R ${r1(rDb)}dB / mix ${r1(mixDb)}dB → ambiguous`);
       return 'ambiguous';
     }
-    // Separation = how much L-R differs from the L+R mix. >25 dB below mix
-    // means L≈R (mono summed). <15 dB means genuine stereo. In between is
-    // ambiguous.
+    // Separation = how much L-R differs from the L+R mix. Separation-only
+    // classification: ≥ MONO_SEPARATION_DB → mono, below → stereo.
     const separationDb = mixDb - dB(diffRms);
     const verdict: ChannelContentClass =
-      separationDb >= 25 ? 'mono' : separationDb <= 15 ? 'stereo' : 'ambiguous';
+      separationDb >= MONO_SEPARATION_DB ? 'mono' : 'stereo';
     console.log(`🎛 Audio check — separation ${r1(separationDb)}dB, L ${r1(lDb)}dB / R ${r1(rDb)}dB → ${verdict}`);
     return verdict;
   } finally {

@@ -143,9 +143,11 @@ export function LiveControlBar({
   // live, RED is locked into the published track; nagging about it serves no
   // purpose, and this slot is otherwise for live audio-health monitoring.
   // Severity mirrors the GO LIVE-area warning: red when the audio check
-  // actively detected mono, amber (relaxed reminder) otherwise.
+  // actively detected mono, amber (relaxed reminder) otherwise. Hidden
+  // entirely once the check has confirmed stereo.
   const showStereoRiskWarning =
-    !isLive && inputMethod === 'device' && redChannelChoice === 'stereo';
+    !isLive && inputMethod === 'device' && redChannelChoice === 'stereo'
+    && testResult !== 'stereo';
 
   const hasStream = !!stream;
   const hasStrongAudio = health.leftState === 'active' || health.rightState === 'active';
