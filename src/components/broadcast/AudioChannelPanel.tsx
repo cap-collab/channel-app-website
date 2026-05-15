@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { AudioInputMethod, RedChannelChoice } from '@/types/broadcast';
-import { analyseStereoContent, ChannelContentClass } from '@/lib/audio-analysis';
+import { analyseStereoContent, ChannelContentClass, AudioCheckReason } from '@/lib/audio-analysis';
 
 interface AudioChannelPanelProps {
   inputMethod: AudioInputMethod | null;
@@ -35,6 +35,10 @@ export function AudioChannelPanel({
   onTestResult,
 }: AudioChannelPanelProps) {
   const [testing, setTesting] = useState(false);
+  // Why the last check was 'ambiguous' — drives which message shows. Lives
+  // only here; the shared `testResult` (verdict) flows to the warning logic
+  // in AudioStatusPanel / LiveControlBar, which doesn't need the reason.
+  const [reason, setReason] = useState<AudioCheckReason | null>(null);
 
   // The panel is gear-path only. Screen-share / RTMP inputs render nothing —
   // they never use forced stereo RED, so there's nothing for the DJ to set.
@@ -44,13 +48,19 @@ export function AudioChannelPanel({
     if (!stream || testing) return;
     setTesting(true);
     onTestResult(null);
-    let result: ChannelContentClass;
+    setReason(null);
+    let verdict: ChannelContentClass;
+    let why: AudioCheckReason | null = null;
     try {
-      result = await analyseStereoContent(stream, 3000);
+      const res = await analyseStereoContent(stream, 3000);
+      verdict = res.verdict;
+      why = res.reason ?? null;
     } catch {
-      result = 'ambiguous'; // analyser failed → treat as "unable to verify"
+      verdict = 'ambiguous'; // analyser failed → treat as "couldn't run"
+      why = 'no-context';
     }
-    onTestResult(result);
+    onTestResult(verdict);
+    setReason(why);
     setTesting(false);
     // The test NEVER auto-selects Stereo — a 3-second check can't guarantee a
     // genuine L/R signal (level imbalance, mono-through-an-interface, etc. all
@@ -99,8 +109,17 @@ export function AudioChannelPanel({
             </p>
           </div>
         )}
-        {/* 'ambiguous' now means only one thing: too quiet to measure. */}
-        {testResult === 'ambiguous' && (
+        {/* 'ambiguous' = the test couldn't classify. `reason` says why. */}
+        {testResult === 'ambiguous' && reason === 'imbalanced' && (
+          <div className="mt-2 bg-gray-800 border border-gray-700 text-gray-300 text-xs px-3 py-2 rounded-lg">
+            <p className="font-semibold">One channel is silent</p>
+            <p className="mt-0.5">
+              One of your channels has little or no signal — check your cables and that
+              both left and right are connected, then run the check again.
+            </p>
+          </div>
+        )}
+        {testResult === 'ambiguous' && reason !== 'imbalanced' && (
           <div className="mt-2 bg-gray-800 border border-gray-700 text-gray-300 text-xs px-3 py-2 rounded-lg">
             <p className="font-semibold">Couldn&apos;t run the test</p>
             <p className="mt-0.5">
