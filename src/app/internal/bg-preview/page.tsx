@@ -7,9 +7,65 @@ type Palette = {
   pink: string;
   white: string;
   pink2: string;
+  // Optional opacity multipliers — boost a blob beyond its baseline opacity
+  // when the palette is low-contrast and motion needs extra punch.
+  pinkBoost?: number;
+  whiteBoost?: number;
+  pink2Boost?: number;
 };
 
 const palettes: Palette[] = [
+  {
+    name: "★ Sand + amber + chocolate",
+    pink: "rgba(220, 195, 155, ALPHA)",
+    white: "rgba(220, 155, 80, ALPHA)",
+    pink2: "rgba(110, 65, 40, ALPHA)",
+  },
+  {
+    name: "★ Amber + light sand + chocolate",
+    pink: "rgba(220, 155, 80, ALPHA)",
+    white: "rgba(235, 215, 175, ALPHA)",
+    pink2: "rgba(110, 65, 40, ALPHA)",
+  },
+  {
+    name: "★ Amber + light sand + chocolate (more punch)",
+    pink: "rgba(220, 155, 80, ALPHA)",
+    white: "rgba(240, 220, 180, ALPHA)",
+    pink2: "rgba(120, 70, 40, ALPHA)",
+    pinkBoost: 1.4,
+    whiteBoost: 1.4,
+    pink2Boost: 1.5,
+  },
+  {
+    name: "Sand + light sand + chocolate (current pick, baseline)",
+    pink: "rgba(196, 150, 95, ALPHA)",
+    white: "rgba(230, 210, 170, ALPHA)",
+    pink2: "rgba(95, 55, 35, ALPHA)",
+  },
+  {
+    name: "Sand + light sand + chocolate (more contrast)",
+    pink: "rgba(180, 130, 75, ALPHA)",
+    white: "rgba(240, 220, 180, ALPHA)",
+    pink2: "rgba(120, 70, 40, ALPHA)",
+  },
+  {
+    name: "Sand + light sand + chocolate (brighter, more visible)",
+    pink: "rgba(196, 150, 95, ALPHA)",
+    white: "rgba(245, 225, 185, ALPHA)",
+    pink2: "rgba(130, 80, 45, ALPHA)",
+    pinkBoost: 1.5,
+    whiteBoost: 1.5,
+    pink2Boost: 1.6,
+  },
+  {
+    name: "Sand + light sand + chocolate (high contrast + brighter)",
+    pink: "rgba(170, 120, 65, ALPHA)",
+    white: "rgba(250, 230, 195, ALPHA)",
+    pink2: "rgba(140, 80, 45, ALPHA)",
+    pinkBoost: 1.5,
+    whiteBoost: 1.5,
+    pink2Boost: 1.7,
+  },
   {
     name: "Current (pink)",
     pink: "rgba(217, 64, 153, ALPHA)",
@@ -271,9 +327,12 @@ export default function BgPreviewPage() {
   const p = palettes[selected];
   const motion = motions[motionIdx];
 
-  const pinkBg = `radial-gradient(ellipse 80% 60% at 50% 50%, ${fillAlpha(p.pink, 0.12)} 0%, ${fillAlpha(p.pink, 0.06)} 40%, transparent 70%)`;
-  const whiteBg = `radial-gradient(ellipse 70% 80% at 50% 50%, ${fillAlpha(p.white, 0.1)} 0%, ${fillAlpha(p.white, 0.05)} 40%, transparent 70%)`;
-  const pink2Bg = `radial-gradient(ellipse 60% 70% at 50% 50%, ${fillAlpha(p.pink2, 0.08)} 0%, ${fillAlpha(p.pink2, 0.04)} 50%, transparent 70%)`;
+  const pb = p.pinkBoost ?? 1;
+  const wb = p.whiteBoost ?? 1;
+  const p2b = p.pink2Boost ?? 1;
+  const pinkBg = `radial-gradient(ellipse 80% 60% at 50% 50%, ${fillAlpha(p.pink, 0.12 * pb)} 0%, ${fillAlpha(p.pink, 0.06 * pb)} 40%, transparent 70%)`;
+  const whiteBg = `radial-gradient(ellipse 70% 80% at 50% 50%, ${fillAlpha(p.white, 0.1 * wb)} 0%, ${fillAlpha(p.white, 0.05 * wb)} 40%, transparent 70%)`;
+  const pink2Bg = `radial-gradient(ellipse 60% 70% at 50% 50%, ${fillAlpha(p.pink2, 0.08 * p2b)} 0%, ${fillAlpha(p.pink2, 0.04 * p2b)} 50%, transparent 70%)`;
 
   return (
     <div className="relative min-h-screen w-full text-white">
