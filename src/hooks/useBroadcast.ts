@@ -36,7 +36,7 @@ export function useBroadcast(
   broadcastToken?: string,
   options?: BroadcastOptions,
   slotEndTime?: number,
-  redChannelChoice: RedChannelChoice = 'mono',
+  redChannelChoice: RedChannelChoice = 'stereo',
 ) {
   // Determine the room name to use
   const roomName = options?.customRoomName || ROOM_NAME;

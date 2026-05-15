@@ -107,9 +107,9 @@ export function BroadcastClient() {
     };
   }, [djUsername, broadcastDjUserId]);
 
-  // DJ's Stream Optimization choice. Defaults to 'mono'; the Firebase read
+  // DJ's Stream Optimization choice. Defaults to 'stereo'; the Firebase read
   // below is best-effort and only pre-fills — it never gates anything.
-  const [redChannelChoice, setRedChannelChoice] = useState<RedChannelChoice>('mono');
+  const [redChannelChoice, setRedChannelChoice] = useState<RedChannelChoice>('stereo');
   // Last audio-check result — lifted here so both the Stream Optimization panel
   // and the status line above GO LIVE can read it.
   const [testResult, setTestResult] = useState<ChannelContentClass | null>(null);
