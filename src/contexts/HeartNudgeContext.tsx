@@ -34,16 +34,21 @@ export function HeartNudgeProvider({ children }: { children: ReactNode }) {
     prevAnyPlayingRef.current = anyPlaying;
   }, [anyPlaying, nudge]);
 
-  // Visibility return: re-bump when the tab comes back to the foreground
-  // and audio is currently playing. Catches the lock-screen → unlock case.
+  // Return-to-screen: re-bump every time the user comes back and audio is
+  // playing. Covers tab switching / minimize / lock-screen (visibilitychange)
+  // and same-desktop window switching (focus).
   const anyPlayingRef = useRef(anyPlaying);
   useEffect(() => { anyPlayingRef.current = anyPlaying; }, [anyPlaying]);
   useEffect(() => {
-    const onVisibility = () => {
+    const onReturn = () => {
       if (document.visibilityState === 'visible' && anyPlayingRef.current) nudge();
     };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
+    document.addEventListener('visibilitychange', onReturn);
+    window.addEventListener('focus', onReturn);
+    return () => {
+      document.removeEventListener('visibilitychange', onReturn);
+      window.removeEventListener('focus', onReturn);
+    };
   }, [nudge]);
 
   const value = useMemo(() => ({ nudgeKey, nudge }), [nudgeKey, nudge]);

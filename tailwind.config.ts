@@ -10,14 +10,14 @@ const config: Config = {
     extend: {
       keyframes: {
         'heart-nudge': {
-          '0%, 3%': { transform: 'scale(1)' },
-          '1%': { transform: 'scale(1.3)' },
-          '2%': { transform: 'scale(0.9)' },
-          '2.5%': { transform: 'scale(1.15)' },
+          '0%, 100%': { transform: 'scale(1)' },
+          '30%': { transform: 'scale(1.3)' },
+          '60%': { transform: 'scale(0.92)' },
+          '80%': { transform: 'scale(1.12)' },
         },
       },
       animation: {
-        'heart-nudge': 'heart-nudge 20s ease-in-out 2s 3',
+        'heart-nudge': 'heart-nudge 0.8s ease-out 2s 1',
       },
       fontFamily: {
         sans: ['var(--font-geist-sans)', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
