@@ -173,8 +173,8 @@ a {
 .animate-blob-pink {
   background: radial-gradient(
     ellipse 80% 60% at 50% 50%,
-    rgba(217, 64, 153, 0.12) 0%,
-    rgba(217, 64, 153, 0.06) 40%,
+    rgba(205, 165, 115, 0.12) 0%,
+    rgba(205, 165, 115, 0.06) 40%,
     transparent 70%
   );
   animation: blob-drift-1 45s ease-in-out infinite;
@@ -185,8 +185,8 @@ a {
 .animate-blob-white {
   background: radial-gradient(
     ellipse 70% 80% at 50% 50%,
-    rgba(255, 255, 255, 0.10) 0%,
-    rgba(255, 255, 255, 0.05) 40%,
+    rgba(220, 155, 80, 0.10) 0%,
+    rgba(220, 155, 80, 0.05) 40%,
     transparent 70%
   );
   animation: blob-drift-2 55s ease-in-out infinite;
@@ -197,8 +197,8 @@ a {
 .animate-blob-pink-2 {
   background: radial-gradient(
     ellipse 60% 70% at 50% 50%,
-    rgba(217, 64, 153, 0.08) 0%,
-    rgba(217, 64, 153, 0.04) 50%,
+    rgba(85, 50, 30, 0.08) 0%,
+    rgba(85, 50, 30, 0.04) 50%,
     transparent 70%
   );
   animation: blob-drift-3 60s ease-in-out infinite;
