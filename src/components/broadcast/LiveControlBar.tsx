@@ -311,9 +311,12 @@ export function LiveControlBar({
           </div>
         </div>
 
-        {/* Reserved warning slot — keeps height even when empty so layout doesn't
-            jump when warnings come and go. Stacks multiple warnings vertically. */}
-        <div className="mt-2 min-h-[2.5rem] space-y-2">
+        {/* Warning slot. Pre-live: reserve 2.5rem so layout doesn't jump as the
+            stereo-optimization warning appears/disappears during testing.
+            Live: drop the reservation — real live-audio warnings (dead channel,
+            low audio, dropouts) are rare; a small jump when one appears is fine
+            and informative. Empty most of the time = no wasted black space. */}
+        <div className={`space-y-2 ${isLive ? '' : 'mt-2 min-h-[2.5rem]'}`}>
           {deadChannelSide && (
             <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
               ⚠ {deadChannelSide === 'L' ? 'Left' : 'Right'} channel is silent — check cable between mixer and interface
