@@ -298,26 +298,20 @@ export function AudioStatusPanel({
               </button>
             )}
           </div>
-          {/* Stereo warning. Hidden entirely once the audio check has confirmed
-              stereo — no need to nag when the test passed. Red if the check
-              detected mono, amber reminder otherwise (untested). */}
+          {/* Stream Optimization reminders. Both amber (no red severity).
+              Hidden once the audio check has confirmed the chosen mode is
+              right for the signal. */}
           {redChannelChoice === 'stereo' && testResult !== 'stereo' && (
-            testResult === 'mono' ? (
-              <div className="mt-2 bg-red-900/50 border border-red-600 text-red-200 text-sm px-3 py-2 rounded-lg">
-                <p className="font-semibold">⚠️ Your last audio check detected a mono signal.</p>
-                <p className="mt-1">
-                  Stereo is enabled. Using Stereo with this setup will cause severe
-                  overlapping audio.
-                </p>
-                <p className="mt-1">We strongly recommend switching to Mono before going live.</p>
-              </div>
-            ) : (
-              <div className="mt-2 bg-amber-900/40 border border-amber-700 text-amber-200 text-sm px-3 py-2 rounded-lg">
-                Stereo selected. Double-check your mixer and audio interface aren&apos;t set
-                to mono — that&apos;s the usual cause of stereo issues. If either is mono,
-                listeners may hear overlapping audio.
-              </div>
-            )
+            <div className="mt-2 bg-amber-900/40 border border-amber-700 text-amber-200 text-sm px-3 py-2 rounded-lg">
+              ⚠ Stereo selected — make sure your mixer and audio interface aren&apos;t set
+              to mono.
+            </div>
+          )}
+          {redChannelChoice === 'mono' && testResult !== 'mono' && (
+            <div className="mt-2 bg-amber-900/40 border border-amber-700 text-amber-200 text-sm px-3 py-2 rounded-lg">
+              ⚠ Mono selected — if your setup is stereo, weak networks may cause small
+              glitches.
+            </div>
           )}
         </div>
       )}

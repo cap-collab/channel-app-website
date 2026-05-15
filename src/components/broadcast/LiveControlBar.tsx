@@ -139,19 +139,16 @@ export function LiveControlBar({
 }: LiveControlBarProps) {
   const health = useAudioHealth(stream);
 
-  // Stereo stream optimization is enabled. The audio check can never
-  // positively verify a true stereo signal, so this warning shows whenever
-  // Stereo is the active choice on the gear path — but PRE-LIVE only, AND
-  // not during the transitional "going live / starting recording" window
-  // (the decision is already made, no point nagging). Once live, RED is
-  // locked into the published track; this slot is for live audio-health
-  // monitoring. Severity mirrors the GO LIVE-area warning: red when the
-  // audio check actively detected mono, amber (relaxed reminder) otherwise.
-  // Hidden entirely once the check has confirmed stereo.
+  // Stream Optimization reminders. Pre-live only, and not during the
+  // transitional going-live / starting-recording window (decision is already
+  // made, no point nagging). Both amber (no red severity). Each hides once
+  // the audio check confirms the chosen mode is right for the signal.
+  const showStreamOptHints =
+    !isLive && !isGoingLive && inputMethod === 'device';
   const showStereoRiskWarning =
-    !isLive && !isGoingLive
-    && inputMethod === 'device' && redChannelChoice === 'stereo'
-    && testResult !== 'stereo';
+    showStreamOptHints && redChannelChoice === 'stereo' && testResult !== 'stereo';
+  const showMonoRiskWarning =
+    showStreamOptHints && redChannelChoice === 'mono' && testResult !== 'mono';
 
   const hasStream = !!stream;
   const hasStrongAudio = health.leftState === 'active' || health.rightState === 'active';
@@ -337,15 +334,14 @@ export function LiveControlBar({
             </div>
           )}
           {showStereoRiskWarning && (
-            testResult === 'mono' ? (
-              <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
-                ⚠ Stereo stream optimization is enabled. Using Stereo optimization may cause severe overlapping audio.
-              </div>
-            ) : (
-              <div className="w-full bg-amber-900/40 border border-amber-700 rounded px-3 py-2 text-amber-200 text-sm font-semibold">
-                ⚠ Stereo selected — make sure your mixer and audio interface aren&apos;t set to mono.
-              </div>
-            )
+            <div className="w-full bg-amber-900/40 border border-amber-700 rounded px-3 py-2 text-amber-200 text-sm font-semibold">
+              ⚠ Stereo selected — make sure your mixer and audio interface aren&apos;t set to mono.
+            </div>
+          )}
+          {showMonoRiskWarning && (
+            <div className="w-full bg-amber-900/40 border border-amber-700 rounded px-3 py-2 text-amber-200 text-sm font-semibold">
+              ⚠ Mono selected — if your setup is stereo, weak networks may cause small glitches.
+            </div>
           )}
         </div>
       </div>
