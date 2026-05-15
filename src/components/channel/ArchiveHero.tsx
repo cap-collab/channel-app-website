@@ -1232,14 +1232,29 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 <p className="text-red-400 text-xs pb-2 px-2">{radioCtx.error}</p>
               )}
               {/* Same shape as the live bar: clock-time start/end + a
-                  non-seekable progress bar driven by the schedule. */}
-              {radioCtx.itemStartMs !== null && radioCtx.itemEndMs !== null && (
+                  non-seekable progress bar driven by the schedule. The
+                  slot is always rendered (empty placeholder when data
+                  isn't ready) so the layout doesn't jump when start/end
+                  times arrive. */}
+              {radioCtx.itemStartMs !== null && radioCtx.itemEndMs !== null ? (
                 <>
                   <div className="flex justify-between text-[10px] text-zinc-600 px-2 pb-0.5">
                     <span>{formatClockTime(radioCtx.itemStartMs)}</span>
                     <span>{formatClockTime(radioCtx.itemEndMs)}</span>
                   </div>
                   <ShowProgressBar startTime={radioCtx.itemStartMs} endTime={radioCtx.itemEndMs} />
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between text-[10px] text-zinc-600 px-2 pb-0.5">
+                    <span>&nbsp;</span>
+                    <span>&nbsp;</span>
+                  </div>
+                  <div className="relative w-full select-none">
+                    <div className="py-2">
+                      <div className="relative w-full h-[3px] bg-white/10 rounded-full" />
+                    </div>
+                  </div>
                 </>
               )}
             </>
@@ -1326,13 +1341,27 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     : streamError}
                 </p>
               )}
-              {currentShow && (
+              {/* Always render the time/progress slot so the layout
+                  doesn't jump while currentShow is still loading. */}
+              {currentShow ? (
                 <>
                   <div className="flex justify-between text-[10px] text-zinc-600 px-2 pb-0.5">
                     <span>{formatClockTime(currentShow.startTime)}</span>
                     <span>{formatClockTime(currentShow.endTime)}</span>
                   </div>
                   <ShowProgressBar startTime={currentShow.startTime} endTime={currentShow.endTime} />
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between text-[10px] text-zinc-600 px-2 pb-0.5">
+                    <span>&nbsp;</span>
+                    <span>&nbsp;</span>
+                  </div>
+                  <div className="relative w-full select-none">
+                    <div className="py-2">
+                      <div className="relative w-full h-[3px] bg-white/10 rounded-full" />
+                    </div>
+                  </div>
                 </>
               )}
             </>
