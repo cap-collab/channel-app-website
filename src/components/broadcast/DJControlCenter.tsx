@@ -110,6 +110,7 @@ export function DJControlCenter({
       <LiveControlBar
         stream={audioStream}
         isLive={isLive}
+        isGoingLive={isGoingLive}
         inputMethod={inputMethod}
         isRecordingMode={isRecordingMode}
         redChannelChoice={redChannelChoice}

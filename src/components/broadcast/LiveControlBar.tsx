@@ -9,6 +9,7 @@ import { buildChecklist, isChecklistAllGreen } from '@/lib/broadcast-checklist';
 interface LiveControlBarProps {
   stream: MediaStream | null;
   isLive: boolean;
+  isGoingLive?: boolean; // True during the transitional window after the DJ clicks Go Live / Start Recording, before isLive flips true.
   isRecordingMode?: boolean;
   inputMethod: AudioInputMethod | null;
   redChannelChoice?: RedChannelChoice; // DJ's Stream Optimization choice
@@ -130,6 +131,7 @@ function ChannelMeter({ label, db }: { label: 'L' | 'R'; db: number }) {
 export function LiveControlBar({
   stream,
   isLive,
+  isGoingLive = false,
   isRecordingMode = false,
   inputMethod,
   redChannelChoice,
@@ -139,14 +141,16 @@ export function LiveControlBar({
 
   // Stereo stream optimization is enabled. The audio check can never
   // positively verify a true stereo signal, so this warning shows whenever
-  // Stereo is the active choice on the gear path — but PRE-LIVE only. Once
-  // live, RED is locked into the published track; nagging about it serves no
-  // purpose, and this slot is otherwise for live audio-health monitoring.
-  // Severity mirrors the GO LIVE-area warning: red when the audio check
-  // actively detected mono, amber (relaxed reminder) otherwise. Hidden
-  // entirely once the check has confirmed stereo.
+  // Stereo is the active choice on the gear path — but PRE-LIVE only, AND
+  // not during the transitional "going live / starting recording" window
+  // (the decision is already made, no point nagging). Once live, RED is
+  // locked into the published track; this slot is for live audio-health
+  // monitoring. Severity mirrors the GO LIVE-area warning: red when the
+  // audio check actively detected mono, amber (relaxed reminder) otherwise.
+  // Hidden entirely once the check has confirmed stereo.
   const showStereoRiskWarning =
-    !isLive && inputMethod === 'device' && redChannelChoice === 'stereo'
+    !isLive && !isGoingLive
+    && inputMethod === 'device' && redChannelChoice === 'stereo'
     && testResult !== 'stereo';
 
   const hasStream = !!stream;
