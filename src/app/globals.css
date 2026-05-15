@@ -127,47 +127,25 @@ a {
   display: none;
 }
 
-/* Animated background - slow organic blob movements */
-@keyframes blob-drift-1 {
-  0%, 100% {
-    transform: translate(0%, 0%) scale(1) rotate(0deg);
-  }
-  25% {
-    transform: translate(15%, -10%) scale(1.1) rotate(45deg);
-  }
-  50% {
-    transform: translate(-5%, 15%) scale(0.95) rotate(90deg);
-  }
-  75% {
-    transform: translate(-15%, -5%) scale(1.05) rotate(135deg);
-  }
+/* Animated background — aurora sweep × multi-tempo breathing.
+   Wider translations, scale + opacity pulses on prime-ish loops
+   for a lively, polyrhythmic feel. */
+@keyframes blob-aurora-breathe-1 {
+  0%   { transform: translate(-22%, -8%) scale(1); opacity: 0.9; }
+  50%  { transform: translate(22%, 6%) scale(1.1); opacity: 1; }
+  100% { transform: translate(-22%, -8%) scale(1); opacity: 0.9; }
 }
 
-@keyframes blob-drift-2 {
-  0%, 100% {
-    transform: translate(0%, 0%) scale(1) rotate(0deg);
-  }
-  25% {
-    transform: translate(-20%, 10%) scale(1.15) rotate(-30deg);
-  }
-  50% {
-    transform: translate(10%, -15%) scale(0.9) rotate(-60deg);
-  }
-  75% {
-    transform: translate(20%, 5%) scale(1.1) rotate(-90deg);
-  }
+@keyframes blob-aurora-breathe-2 {
+  0%   { transform: translate(18%, 12%) scale(1.02); opacity: 1; }
+  50%  { transform: translate(-18%, -8%) scale(0.94); opacity: 0.8; }
+  100% { transform: translate(18%, 12%) scale(1.02); opacity: 1; }
 }
 
-@keyframes blob-drift-3 {
-  0%, 100% {
-    transform: translate(0%, 0%) scale(1);
-  }
-  33% {
-    transform: translate(-10%, -20%) scale(1.2);
-  }
-  66% {
-    transform: translate(15%, 10%) scale(0.85);
-  }
+@keyframes blob-aurora-breathe-3 {
+  0%   { transform: translate(-12%, 18%) scale(0.97); opacity: 0.85; }
+  50%  { transform: translate(18%, -12%) scale(1.08); opacity: 1; }
+  100% { transform: translate(-12%, 18%) scale(0.97); opacity: 0.85; }
 }
 
 .animate-blob-pink {
@@ -177,8 +155,8 @@ a {
     rgba(205, 165, 115, 0.06) 40%,
     transparent 70%
   );
-  animation: blob-drift-1 45s ease-in-out infinite;
-  will-change: transform;
+  animation: blob-aurora-breathe-1 23s ease-in-out infinite;
+  will-change: transform, opacity;
   filter: blur(60px);
 }
 
@@ -189,8 +167,8 @@ a {
     rgba(220, 155, 80, 0.05) 40%,
     transparent 70%
   );
-  animation: blob-drift-2 55s ease-in-out infinite;
-  will-change: transform;
+  animation: blob-aurora-breathe-2 31s ease-in-out infinite;
+  will-change: transform, opacity;
   filter: blur(80px);
 }
 
@@ -201,8 +179,8 @@ a {
     rgba(85, 50, 30, 0.04) 50%,
     transparent 70%
   );
-  animation: blob-drift-3 60s ease-in-out infinite;
-  will-change: transform;
+  animation: blob-aurora-breathe-3 41s ease-in-out infinite;
+  will-change: transform, opacity;
   filter: blur(70px);
 }
 

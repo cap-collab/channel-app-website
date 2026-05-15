@@ -88,9 +88,188 @@ function fillAlpha(template: string, a: number) {
   return template.replace("ALPHA", a.toString());
 }
 
+type Motion = {
+  name: string;
+  description: string;
+  // CSS injected into the page for this motion's keyframes
+  keyframes: string;
+  // Animation shorthand applied to each of the 3 blobs
+  blob1: string;
+  blob2: string;
+  blob3: string;
+};
+
+const motions: Motion[] = [
+  {
+    name: "Drift (current)",
+    description: "Slow translation, 45–60s loops. Calm and quiet.",
+    keyframes: `
+      @keyframes bp-drift-1 {
+        0%,100% { transform: translate(0%,0%) scale(1) rotate(0deg); }
+        25%     { transform: translate(15%,-10%) scale(1.1) rotate(45deg); }
+        50%     { transform: translate(-5%,15%) scale(0.95) rotate(90deg); }
+        75%     { transform: translate(-15%,-5%) scale(1.05) rotate(135deg); }
+      }
+      @keyframes bp-drift-2 {
+        0%,100% { transform: translate(0%,0%) scale(1) rotate(0deg); }
+        25%     { transform: translate(-20%,10%) scale(1.15) rotate(-30deg); }
+        50%     { transform: translate(10%,-15%) scale(0.9) rotate(-60deg); }
+        75%     { transform: translate(20%,5%) scale(1.1) rotate(-90deg); }
+      }
+      @keyframes bp-drift-3 {
+        0%,100% { transform: translate(0%,0%) scale(1); }
+        33%     { transform: translate(-10%,-20%) scale(1.2); }
+        66%     { transform: translate(15%,10%) scale(0.85); }
+      }
+    `,
+    blob1: "bp-drift-1 45s ease-in-out infinite",
+    blob2: "bp-drift-2 55s ease-in-out infinite",
+    blob3: "bp-drift-3 60s ease-in-out infinite",
+  },
+  {
+    name: "Breathing",
+    description: "Gentle scale pulses, like inhaling/exhaling. Reads as alive but stays calm.",
+    keyframes: `
+      @keyframes bp-breathe-1 {
+        0%,100% { transform: translate(0%,0%) scale(1); }
+        50%     { transform: translate(2%,-3%) scale(1.08); }
+      }
+      @keyframes bp-breathe-2 {
+        0%,100% { transform: translate(0%,0%) scale(1.02); }
+        50%     { transform: translate(-3%,2%) scale(0.94); }
+      }
+      @keyframes bp-breathe-3 {
+        0%,100% { transform: translate(0%,0%) scale(0.98); }
+        50%     { transform: translate(3%,3%) scale(1.06); }
+      }
+    `,
+    blob1: "bp-breathe-1 9s ease-in-out infinite",
+    blob2: "bp-breathe-2 11s ease-in-out infinite",
+    blob3: "bp-breathe-3 13s ease-in-out infinite",
+  },
+  {
+    name: "Faster drift",
+    description: "Same shape of motion as current, but on 18–24s loops. Restless without being busy.",
+    keyframes: `
+      @keyframes bp-fast-1 {
+        0%,100% { transform: translate(0%,0%) scale(1) rotate(0deg); }
+        25%     { transform: translate(10%,-7%) scale(1.06) rotate(20deg); }
+        50%     { transform: translate(-4%,10%) scale(0.97) rotate(40deg); }
+        75%     { transform: translate(-10%,-4%) scale(1.04) rotate(60deg); }
+      }
+      @keyframes bp-fast-2 {
+        0%,100% { transform: translate(0%,0%) scale(1) rotate(0deg); }
+        25%     { transform: translate(-12%,6%) scale(1.08) rotate(-15deg); }
+        50%     { transform: translate(6%,-10%) scale(0.95) rotate(-30deg); }
+        75%     { transform: translate(12%,4%) scale(1.05) rotate(-45deg); }
+      }
+      @keyframes bp-fast-3 {
+        0%,100% { transform: translate(0%,0%) scale(1); }
+        33%     { transform: translate(-7%,-12%) scale(1.1); }
+        66%     { transform: translate(10%,7%) scale(0.92); }
+      }
+    `,
+    blob1: "bp-fast-1 18s ease-in-out infinite",
+    blob2: "bp-fast-2 22s ease-in-out infinite",
+    blob3: "bp-fast-3 24s ease-in-out infinite",
+  },
+  {
+    name: "Pulse opacity",
+    description: "Slow drift plus a soft opacity heartbeat. Reads like a glow that fades and returns.",
+    keyframes: `
+      @keyframes bp-pulse-1 {
+        0%,100% { transform: translate(0%,0%) scale(1); opacity: 0.85; }
+        50%     { transform: translate(8%,-5%) scale(1.05); opacity: 1; }
+      }
+      @keyframes bp-pulse-2 {
+        0%,100% { transform: translate(0%,0%) scale(1); opacity: 1; }
+        50%     { transform: translate(-6%,4%) scale(0.97); opacity: 0.7; }
+      }
+      @keyframes bp-pulse-3 {
+        0%,100% { transform: translate(0%,0%) scale(1); opacity: 0.8; }
+        50%     { transform: translate(5%,6%) scale(1.04); opacity: 1; }
+      }
+    `,
+    blob1: "bp-pulse-1 14s ease-in-out infinite",
+    blob2: "bp-pulse-2 17s ease-in-out infinite",
+    blob3: "bp-pulse-3 12s ease-in-out infinite",
+  },
+  {
+    name: "Aurora flow",
+    description: "Each blob sweeps slowly across the viewport in a long curve. Like wind across a horizon.",
+    keyframes: `
+      @keyframes bp-aurora-1 {
+        0%   { transform: translate(-25%,-10%) scale(1) rotate(0deg); }
+        50%  { transform: translate(25%,5%) scale(1.1) rotate(20deg); }
+        100% { transform: translate(-25%,-10%) scale(1) rotate(0deg); }
+      }
+      @keyframes bp-aurora-2 {
+        0%   { transform: translate(20%,15%) scale(1) rotate(0deg); }
+        50%  { transform: translate(-20%,-10%) scale(1.05) rotate(-15deg); }
+        100% { transform: translate(20%,15%) scale(1) rotate(0deg); }
+      }
+      @keyframes bp-aurora-3 {
+        0%   { transform: translate(-15%,20%) scale(1); }
+        50%  { transform: translate(20%,-15%) scale(1.1); }
+        100% { transform: translate(-15%,20%) scale(1); }
+      }
+    `,
+    blob1: "bp-aurora-1 30s ease-in-out infinite",
+    blob2: "bp-aurora-2 36s ease-in-out infinite",
+    blob3: "bp-aurora-3 42s ease-in-out infinite",
+  },
+  {
+    name: "Multi-tempo breathing",
+    description: "Each blob breathes at a different rate (7s / 11s / 17s). Soft polyrhythm — most alive.",
+    keyframes: `
+      @keyframes bp-multi-1 {
+        0%,100% { transform: translate(0%,0%) scale(1); opacity: 0.9; }
+        50%     { transform: translate(3%,-2%) scale(1.06); opacity: 1; }
+      }
+      @keyframes bp-multi-2 {
+        0%,100% { transform: translate(0%,0%) scale(1.02); opacity: 1; }
+        50%     { transform: translate(-2%,3%) scale(0.95); opacity: 0.8; }
+      }
+      @keyframes bp-multi-3 {
+        0%,100% { transform: translate(0%,0%) scale(0.97); opacity: 0.85; }
+        50%     { transform: translate(2%,2%) scale(1.05); opacity: 1; }
+      }
+    `,
+    blob1: "bp-multi-1 7s ease-in-out infinite",
+    blob2: "bp-multi-2 11s ease-in-out infinite",
+    blob3: "bp-multi-3 17s ease-in-out infinite",
+  },
+  {
+    name: "Aurora × Multi-tempo breathing",
+    description: "Each blob sweeps across the viewport on a long arc AND breathes at its own tempo. Wide movement layered with a polyrhythmic pulse — alive, never busy.",
+    keyframes: `
+      @keyframes bp-aubr-1 {
+        0%   { transform: translate(-22%,-8%) scale(1); opacity: 0.9; }
+        50%  { transform: translate(22%,6%) scale(1.1); opacity: 1; }
+        100% { transform: translate(-22%,-8%) scale(1); opacity: 0.9; }
+      }
+      @keyframes bp-aubr-2 {
+        0%   { transform: translate(18%,12%) scale(1.02); opacity: 1; }
+        50%  { transform: translate(-18%,-8%) scale(0.94); opacity: 0.8; }
+        100% { transform: translate(18%,12%) scale(1.02); opacity: 1; }
+      }
+      @keyframes bp-aubr-3 {
+        0%   { transform: translate(-12%,18%) scale(0.97); opacity: 0.85; }
+        50%  { transform: translate(18%,-12%) scale(1.08); opacity: 1; }
+        100% { transform: translate(-12%,18%) scale(0.97); opacity: 0.85; }
+      }
+    `,
+    blob1: "bp-aubr-1 23s ease-in-out infinite",
+    blob2: "bp-aubr-2 31s ease-in-out infinite",
+    blob3: "bp-aubr-3 41s ease-in-out infinite",
+  },
+];
+
 export default function BgPreviewPage() {
   const [selected, setSelected] = useState(0);
+  const [motionIdx, setMotionIdx] = useState(0);
   const p = palettes[selected];
+  const motion = motions[motionIdx];
 
   const pinkBg = `radial-gradient(ellipse 80% 60% at 50% 50%, ${fillAlpha(p.pink, 0.12)} 0%, ${fillAlpha(p.pink, 0.06)} 40%, transparent 70%)`;
   const whiteBg = `radial-gradient(ellipse 70% 80% at 50% 50%, ${fillAlpha(p.white, 0.1)} 0%, ${fillAlpha(p.white, 0.05)} 40%, transparent 70%)`;
@@ -98,13 +277,14 @@ export default function BgPreviewPage() {
 
   return (
     <div className="relative min-h-screen w-full text-white">
+      <style>{motion.keyframes}</style>
       <div className="fixed inset-0 -z-10 overflow-hidden bg-[#1a1a1a] pointer-events-none">
         <div
           className="absolute w-[120%] h-[120%] -top-[20%] -left-[20%]"
           style={{
             background: pinkBg,
-            animation: "blob-drift-1 45s ease-in-out infinite",
-            willChange: "transform",
+            animation: motion.blob1,
+            willChange: "transform, opacity",
             filter: "blur(60px)",
           }}
         />
@@ -112,8 +292,8 @@ export default function BgPreviewPage() {
           className="absolute w-[100%] h-[100%] top-[10%] -right-[10%]"
           style={{
             background: whiteBg,
-            animation: "blob-drift-2 55s ease-in-out infinite",
-            willChange: "transform",
+            animation: motion.blob2,
+            willChange: "transform, opacity",
             filter: "blur(80px)",
           }}
         />
@@ -121,8 +301,8 @@ export default function BgPreviewPage() {
           className="absolute w-[110%] h-[110%] -bottom-[30%] left-[10%]"
           style={{
             background: pink2Bg,
-            animation: "blob-drift-3 60s ease-in-out infinite",
-            willChange: "transform",
+            animation: motion.blob3,
+            willChange: "transform, opacity",
             filter: "blur(70px)",
           }}
         />
@@ -141,14 +321,38 @@ export default function BgPreviewPage() {
 
       <div className="relative z-10 mx-auto flex max-w-2xl flex-col gap-8 px-6 py-16">
         <div>
-          <h1 className="text-3xl font-light tracking-tight">Background palette preview</h1>
+          <h1 className="text-3xl font-light tracking-tight">Background preview</h1>
           <p className="mt-2 text-sm text-white/60">
-            Same blobs, same motion, same sizing as the real site — only the colors change. Click a
-            palette below.
+            Pick a motion and a palette independently — the background updates live. Same blobs,
+            same sizing as the real site.
           </p>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div>
+          <p className="mb-2 text-xs uppercase tracking-wider text-white/40">Motion</p>
+          <div className="flex flex-col gap-2">
+            {motions.map((m, i) => (
+              <button
+                key={m.name}
+                onClick={() => setMotionIdx(i)}
+                className={`rounded-lg border px-4 py-3 text-left transition ${
+                  motionIdx === i
+                    ? "border-white/40 bg-white/5"
+                    : "border-white/10 hover:border-white/20"
+                }`}
+              >
+                <div className="text-sm">{m.name}</div>
+                <div className="mt-0.5 text-xs text-white/50">{m.description}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs uppercase tracking-wider text-white/40">Palette</p>
+        </div>
+
+        <div className="flex flex-col gap-2 -mt-6">
           {palettes.map((palette, i) => (
             <button
               key={palette.name}
