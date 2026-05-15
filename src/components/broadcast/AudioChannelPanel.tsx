@@ -101,12 +101,6 @@ export function AudioChannelPanel({
               left and right audio. If you&apos;re sure your setup is true stereo, you can
               select Stereo below — otherwise stay on Mono.
             </p>
-            <p className="mt-1">A true stereo setup means:</p>
-            <ul className="list-disc list-inside mt-0.5 space-y-0.5">
-              <li>2 separate outputs from your mixer</li>
-              <li>2 inputs into your audio interface</li>
-              <li>your mixer is NOT set to mono</li>
-            </ul>
           </div>
         )}
       </div>

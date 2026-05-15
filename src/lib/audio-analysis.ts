@@ -13,7 +13,10 @@ export async function analyseStereoContent(
 ): Promise<ChannelContentClass> {
   const Ctx: typeof AudioContext = (window as unknown as { AudioContext: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext
     || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-  if (!Ctx) return 'ambiguous';
+  if (!Ctx) {
+    console.log('🎛 Audio check — no AudioContext available, cannot run → ambiguous');
+    return 'ambiguous';
+  }
   const ctx = new Ctx();
   try {
     const src = ctx.createMediaStreamSource(stream);
@@ -45,7 +48,10 @@ export async function analyseStereoContent(
       }
     }
 
-    if (sampleCount === 0) return 'ambiguous';
+    if (sampleCount === 0) {
+      console.log('🎛 Audio check — no samples captured, cannot run → ambiguous');
+      return 'ambiguous';
+    }
     const lRms = Math.sqrt(lSumSq / sampleCount);
     const rRms = Math.sqrt(rSumSq / sampleCount);
     const diffRms = Math.sqrt(diffSumSq / sampleCount);
@@ -53,14 +59,20 @@ export async function analyseStereoContent(
     // Need real signal on BOTH channels to decide — silence on either side
     // is ambiguous. -50 dBFS floor ≈ very quiet but non-zero.
     const dB = (x: number) => 20 * Math.log10(Math.max(x, 1e-12));
-    if (dB(lRms) < -50 || dB(rRms) < -50 || dB(mixRms) < -45) return 'ambiguous';
+    const lDb = dB(lRms), rDb = dB(rRms), mixDb = dB(mixRms);
+    const r1 = (x: number) => x.toFixed(1);
+    if (lDb < -50 || rDb < -50 || mixDb < -45) {
+      console.log(`🎛 Audio check — signal too low to decide, L ${r1(lDb)}dB / R ${r1(rDb)}dB / mix ${r1(mixDb)}dB → ambiguous`);
+      return 'ambiguous';
+    }
     // Separation = how much L-R differs from the L+R mix. >25 dB below mix
     // means L≈R (mono summed). <15 dB means genuine stereo. In between is
     // ambiguous.
-    const separationDb = dB(mixRms) - dB(diffRms);
-    if (separationDb >= 25) return 'mono';
-    if (separationDb <= 15) return 'stereo';
-    return 'ambiguous';
+    const separationDb = mixDb - dB(diffRms);
+    const verdict: ChannelContentClass =
+      separationDb >= 25 ? 'mono' : separationDb <= 15 ? 'stereo' : 'ambiguous';
+    console.log(`🎛 Audio check — separation ${r1(separationDb)}dB, L ${r1(lDb)}dB / R ${r1(rDb)}dB → ${verdict}`);
+    return verdict;
   } finally {
     try { await ctx.close(); } catch { /* swallow */ }
   }
