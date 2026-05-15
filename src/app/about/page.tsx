@@ -4,6 +4,7 @@ import ScrollReveal from "@/components/ScrollReveal";
 import FAQAccordion from "@/components/FAQAccordion";
 import { Header } from "@/components/Header";
 import { AboutEmailSignup } from "@/components/AboutEmailSignup";
+import { AnimatedBackground } from "@/components/AnimatedBackground";
 
 export const metadata: Metadata = {
   title: "About",
@@ -32,10 +33,11 @@ const faqItems = [
 export default function About() {
   return (
     <div className="min-h-screen">
+      <AnimatedBackground />
       <Header position="sticky" />
 
       {/* About Section */}
-      <section id="about-me" className="pb-24 px-6 bg-black pt-12">
+      <section id="about-me" className="pb-24 px-6 pt-12">
         <ScrollReveal>
           <div className="max-w-3xl mx-auto">
             <div className="space-y-6 text-zinc-400 leading-relaxed">
