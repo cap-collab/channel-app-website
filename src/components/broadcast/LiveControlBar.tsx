@@ -177,7 +177,11 @@ export function LiveControlBar({
   // Warnings use hysteresis so messages don't flicker on momentary changes.
   // Each warning must "enter" by sustaining its trigger for `enterMs` and
   // "exit" by sustaining its clear condition for `exitMs`.
+  // RMS-based peak — perceived loudness, used for the low-audio warning.
   const peak = Math.max(health.leftPeakDb, health.rightPeakDb);
+  // True peak — loudest sample, used for the clipping ("too hot") warning.
+  // Always ≥ RMS peak; this is what actually clips the codec when at 0 dBFS.
+  const truePeak = Math.max(health.leftTruePeakDb, health.rightTruePeakDb);
 
   // --- Audio too low ---
   const LOW_ENTER_DB = -40;
@@ -207,9 +211,10 @@ export function LiveControlBar({
   }, [peak, hasStream, audioTooLow]);
 
   // --- Audio too hot (clipping) ---
-  // Peak sitting at or above -1 dBFS sustained for 1.5s = clipping. Catches
-  // the pattern seen in Beggar's first broadcast (peaks at +0.027 dBFS) while
-  // ignoring single transients near the ceiling.
+  // True peak at or above -1 dBFS sustained for 1.5s = clipping. Catches the
+  // pattern seen in Beggar's first broadcast (true peaks at +0.027 dBFS) while
+  // ignoring single transients near the ceiling. Uses TRUE peak, not RMS,
+  // because a single sample at 1.0 clips the codec regardless of average level.
   const HOT_ENTER_DB = -1;
   const HOT_EXIT_DB = -3;
   const HOT_ENTER_MS = 1500;
@@ -225,16 +230,16 @@ export function LiveControlBar({
       return;
     }
     const now = performance.now();
-    if (peak >= HOT_ENTER_DB) {
+    if (truePeak >= HOT_ENTER_DB) {
       hotOkSinceRef.current = null;
       if (hotSinceRef.current === null) hotSinceRef.current = now;
       if (!audioTooHot && now - hotSinceRef.current >= HOT_ENTER_MS) setAudioTooHot(true);
-    } else if (peak <= HOT_EXIT_DB) {
+    } else if (truePeak <= HOT_EXIT_DB) {
       hotSinceRef.current = null;
       if (hotOkSinceRef.current === null) hotOkSinceRef.current = now;
       if (audioTooHot && now - hotOkSinceRef.current >= HOT_EXIT_MS) setAudioTooHot(false);
     }
-  }, [peak, hasStream, audioTooHot]);
+  }, [truePeak, hasStream, audioTooHot]);
 
   // --- Dead channel (one side silent while the other is carrying audio) ---
   // Only meaningful once the stream is actually delivering signal to at least
@@ -318,8 +323,8 @@ export function LiveControlBar({
 
           {/* Middle: L/R meters */}
           <div className="space-y-1 min-w-0">
-            <ChannelMeter label="L" db={health.leftPeakDb} />
-            <ChannelMeter label="R" db={health.rightPeakDb} />
+            <ChannelMeter label="L" db={health.leftTruePeakDb} />
+            <ChannelMeter label="R" db={health.rightTruePeakDb} />
           </div>
 
           {/* Right: health + dropouts */}

@@ -37,6 +37,19 @@ export function SystemAudioCapture({ onStream, onError, onBack }: SystemAudioCap
         return;
       }
 
+      // Log what we actually got back — diagnostic for "no audio" reports.
+      // For tab/system audio there's no friendly device label, but channel
+      // count + sample rate + track state still pin most failure modes.
+      const track = audioTracks[0];
+      const settings = track?.getSettings?.() ?? {};
+      console.log('🖥 Captured system audio:', {
+        label: track?.label,
+        channelCount: settings.channelCount,
+        sampleRate: settings.sampleRate,
+        readyState: track?.readyState,
+        muted: track?.muted,
+      });
+
       onStream(stream);
     } catch (error) {
       setIsCapturing(false);

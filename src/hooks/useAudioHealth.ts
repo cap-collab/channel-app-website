@@ -7,8 +7,15 @@ type ChannelState = 'active' | 'silent' | 'weak';
 export interface AudioHealth {
   leftLevel: number;      // 0-1 instantaneous RMS of L channel
   rightLevel: number;     // 0-1 instantaneous RMS of R channel
-  leftPeakDb: number;     // peak dB over last 500ms (L), e.g. -12.3
-  rightPeakDb: number;    // peak dB over last 500ms (R)
+  // RMS held over 500ms — perceived loudness. Used for silence/weak/active
+  // classification, dropout detection, the audio-health badge.
+  leftPeakDb: number;
+  rightPeakDb: number;
+  // True peak held over 500ms — the loudest single sample. Used for the
+  // visual meter bars and the clipping warning. True peak is always ≥ RMS;
+  // for music with transients the gap is typically 3–9 dB.
+  leftTruePeakDb: number;
+  rightTruePeakDb: number;
   leftState: ChannelState;
   rightState: ChannelState;
   mono: boolean;          // true if one channel active while the other is silent
@@ -45,6 +52,8 @@ export function useAudioHealth(stream: MediaStream | null): AudioHealth {
     rightLevel: 0,
     leftPeakDb: -100,
     rightPeakDb: -100,
+    leftTruePeakDb: -100,
+    rightTruePeakDb: -100,
     leftState: 'silent',
     rightState: 'silent',
     mono: false,
@@ -59,9 +68,12 @@ export function useAudioHealth(stream: MediaStream | null): AudioHealth {
   const rightAnalyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
-  // Ring buffers for peak-hold (500ms of samples)
+  // Ring buffers for peak-hold (500ms of samples) — RMS-derived (perceived loudness).
   const leftPeakBufRef = useRef<number[]>([]);
   const rightPeakBufRef = useRef<number[]>([]);
+  // Parallel ring buffers tracking true peak (max abs sample value per frame).
+  const leftTruePeakBufRef = useRef<number[]>([]);
+  const rightTruePeakBufRef = useRef<number[]>([]);
 
   // Dropout tracking — both channels silent for >DROPOUT_MIN_MS
   const silenceStartRef = useRef<number | null>(null);
@@ -116,6 +128,20 @@ export function useAudioHealth(stream: MediaStream | null): AudioHealth {
       return Math.sqrt(sum / bytes.length);
     };
 
+    // Max absolute sample value in the frame — true peak (0..1).
+    // Used for clipping detection: a single sample at 1.0 means digital
+    // clipping, regardless of average loudness. Byte resolution gives
+    // ~1/128 granularity which is fine at the top of the scale; the gap
+    // between adjacent quantized values is < 0.1 dB near 0 dBFS.
+    const computeTruePeak = (bytes: Uint8Array): number => {
+      let peak = 0;
+      for (let i = 0; i < bytes.length; i++) {
+        const sample = Math.abs(bytes[i] - 128) / 128;
+        if (sample > peak) peak = sample;
+      }
+      return peak;
+    };
+
     const tick = () => {
       if (audioContext.state === 'suspended') {
         audioContext.resume().catch(() => {});
@@ -128,8 +154,14 @@ export function useAudioHealth(stream: MediaStream | null): AudioHealth {
       const rightRms = computeRms(rightData);
       const leftDb = rmsToDb(leftRms);
       const rightDb = rmsToDb(rightRms);
+      const leftTrue = computeTruePeak(leftData);
+      const rightTrue = computeTruePeak(rightData);
+      // Convert true-peak (0..1) to dBFS the same way as RMS — same formula
+      // works since both are normalized linear amplitudes.
+      const leftTrueDb = rmsToDb(leftTrue);
+      const rightTrueDb = rmsToDb(rightTrue);
 
-      // Peak hold — 500ms ring buffer
+      // Peak hold — 500ms ring buffer (RMS-based, for perceived loudness)
       const now = performance.now();
       const peakWindowMs = 500;
       const maxSamples = Math.ceil(peakWindowMs / 16); // ~30 samples at 60fps
@@ -139,6 +171,13 @@ export function useAudioHealth(stream: MediaStream | null): AudioHealth {
       if (rightPeakBufRef.current.length > maxSamples) rightPeakBufRef.current.shift();
       const leftPeakDb = Math.max(...leftPeakBufRef.current);
       const rightPeakDb = Math.max(...rightPeakBufRef.current);
+      // Same 500ms hold for true peak, parallel buffer.
+      leftTruePeakBufRef.current.push(leftTrueDb);
+      rightTruePeakBufRef.current.push(rightTrueDb);
+      if (leftTruePeakBufRef.current.length > maxSamples) leftTruePeakBufRef.current.shift();
+      if (rightTruePeakBufRef.current.length > maxSamples) rightTruePeakBufRef.current.shift();
+      const leftTruePeakDb = Math.max(...leftTruePeakBufRef.current);
+      const rightTruePeakDb = Math.max(...rightTruePeakBufRef.current);
 
       const leftState = classify(leftPeakDb);
       const rightState = classify(rightPeakDb);
@@ -189,6 +228,8 @@ export function useAudioHealth(stream: MediaStream | null): AudioHealth {
         rightLevel: rightRms,
         leftPeakDb,
         rightPeakDb,
+        leftTruePeakDb,
+        rightTruePeakDb,
         leftState,
         rightState,
         mono,
@@ -217,6 +258,8 @@ export function useAudioHealth(stream: MediaStream | null): AudioHealth {
       rightAnalyserRef.current = null;
       leftPeakBufRef.current = [];
       rightPeakBufRef.current = [];
+      leftTruePeakBufRef.current = [];
+      rightTruePeakBufRef.current = [];
       silenceStartRef.current = null;
       dropoutTimestampsRef.current = [];
       totalDropoutsRef.current = 0;

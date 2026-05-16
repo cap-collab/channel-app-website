@@ -98,6 +98,22 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
         video: false,
       });
 
+      // Log what we actually got back — when a DJ reports "no audio," this
+      // single line tells us whether the requested device was honored, the
+      // channel count, sample rate, and whether the track is live. Silent-
+      // success failures (a "successful" stream that produces no samples) are
+      // hard to diagnose otherwise.
+      const track = stream.getAudioTracks()[0];
+      const settings = track?.getSettings?.() ?? {};
+      console.log('🎙 Captured device audio:', {
+        label: track?.label,
+        deviceId: settings.deviceId?.slice(0, 12),
+        channelCount: settings.channelCount,
+        sampleRate: settings.sampleRate,
+        readyState: track?.readyState,
+        muted: track?.muted,
+      });
+
       onStream(stream);
     } catch (error) {
       setIsCapturing(false);
