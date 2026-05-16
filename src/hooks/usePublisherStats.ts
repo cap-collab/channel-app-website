@@ -36,18 +36,10 @@ interface StallEvent {
 }
 
 export interface PublisherStatsPayload {
-  collectedFrom: number;
-  collectedTo: number;
-  durationSec: number;
-  totalSamples: number;
-  stallEvents: StallEvent[];
-  summary: {
-    totalPacketsSent: number;
-    totalPacketsLost: number;
-    peakJitter: number;
-    avgBitrate: number;
-    stallCount: number;
-  };
+  packetsLost: number;
+  stallCount: number;
+  peakJitter: number;
+  avgBitrate: number;
 }
 
 export function usePublisherStats(room: Room | null, isLive: boolean) {
@@ -168,25 +160,15 @@ export function usePublisherStats(room: Room | null, isLive: boolean) {
       if (!startMs || samples.length === 0) return null;
 
       const last = samples[samples.length - 1];
-      const totalPacketsSent = last.packetsSent;
-      const totalPacketsLost = last.packetsLost;
       const peakJitter = samples.reduce((m, s) => Math.max(m, s.jitter), 0);
       const durationSec = last.t / 1000;
-      const avgBitrate = durationSec > 0 ? (last.bytesSent * 8) / durationSec : 0;
+      const avgBitrate = durationSec > 0 ? Math.round((last.bytesSent * 8) / durationSec) : 0;
 
       const payload: PublisherStatsPayload = {
-        collectedFrom: startMs,
-        collectedTo: startMs + last.t,
-        durationSec,
-        totalSamples: samples.length,
-        stallEvents: stalls.slice(0, 200),  // hard cap to keep doc small
-        summary: {
-          totalPacketsSent,
-          totalPacketsLost,
-          peakJitter,
-          avgBitrate: Math.round(avgBitrate),
-          stallCount: stalls.length,
-        },
+        packetsLost: last.packetsLost,
+        stallCount: stalls.length,
+        peakJitter,
+        avgBitrate,
       };
 
       // Reset for the next broadcast (in case the hook is reused)

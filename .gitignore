@@ -39,3 +39,6 @@ next-env.d.ts
 media-worker/node_modules/
 .claude/
 scripts/output/
+
+# local-only artist source files (kept around for re-injection; never commit)
+src/recording/
