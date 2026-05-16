@@ -90,6 +90,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const [heroDisplayedArchive, setHeroDisplayedArchive] = useState<ArchiveSerialized | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const cumulativeTimeRef = useRef(0);
+  const cumulativeTimeArchiveIdRef = useRef<string | null>(null);
   const gateSecondsRef = useRef(0);
   const streamCountedRef = useRef<string | null>(null);
   const retryCountRef = useRef(0);
@@ -223,6 +224,14 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   // HeartNudgeContext, so a separate listen-duration nudge is redundant.
   useEffect(() => {
     if (!isPlaying || !currentArchive) return;
+
+    // Reset cumulative time whenever the archive identity changes so each
+    // archive starts its own 15-min countdown.
+    if (cumulativeTimeArchiveIdRef.current !== currentArchive.id) {
+      cumulativeTimeArchiveIdRef.current = currentArchive.id;
+      cumulativeTimeRef.current = 0;
+      archiveLockedInFiredRef.current = null;
+    }
 
     const interval = setInterval(() => {
       cumulativeTimeRef.current += 1;

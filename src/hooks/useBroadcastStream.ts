@@ -139,6 +139,7 @@ export function useBroadcastStream(
   const artworkPreloadRef = useRef<HTMLImageElement | null>(null);
   const artworkRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const broadcastCumulativeTimeRef = useRef(0);
+  const broadcastTimerShowIdRef = useRef<string | null>(null);
   const broadcastStreamCountedRef = useRef<string | null>(null);
   const broadcastLockedInFiredRef = useRef<string | null>(null);
   const [autoResumePending, setAutoResumePending] = useState(false);
@@ -1016,8 +1017,11 @@ export function useBroadcastStream(
   useEffect(() => {
     if (!isPlaying || !currentShow) return;
 
-    // Reset cumulative time when show changes
-    if (broadcastStreamCountedRef.current !== null && broadcastStreamCountedRef.current !== currentShow.id) {
+    // Reset cumulative time whenever the show identity changes — including
+    // the first time we see a show in this session — so each show starts
+    // its own 15-min countdown.
+    if (broadcastTimerShowIdRef.current !== currentShow.id) {
+      broadcastTimerShowIdRef.current = currentShow.id;
       broadcastCumulativeTimeRef.current = 0;
       broadcastLockedInFiredRef.current = null;
     }

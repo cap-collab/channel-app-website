@@ -265,6 +265,8 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
       // milestone triggers are fresh.
       playingArchiveIdRef.current = id;
       cumulativeSecRef.current = 0;
+      streamCountedForRef.current = null;
+      lockedInFiredForRef.current = null;
     }
   }, [radio.currentItem?.archiveId]);
   useEffect(() => {
