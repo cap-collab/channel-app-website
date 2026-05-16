@@ -375,7 +375,7 @@ export function LiveControlBar({
           )}
           {showStereoRiskWarning && (
             <div className="w-full bg-amber-900/40 border border-amber-700 rounded px-3 py-2 text-amber-200 text-sm font-semibold">
-              ⚠ Stereo selected — make sure your mixer and audio interface aren&apos;t set to mono.
+              ⚠ Stereo selected — if your signal is actually mono, you risk audio echoing or bleeding.
             </div>
           )}
           {showMonoRiskWarning && (
