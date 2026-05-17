@@ -4,10 +4,11 @@ const BRAND = "Channel";
 const HOME_TITLE = "Channel — Human Radio";
 const DEFAULT_DESCRIPTION = "Left-field electronic music from underground curators. No ads. No algorithms.";
 // Small square Channel logo used as the fallback OG image when a dynamic
-// page (DJ/collective/archive/etc.) has no per-entity photo. 180x180 so
-// Facebook/Messenger pick the compact left-thumbnail card layout
-// (anything above ~600px on either side triggers their big banner).
-const FALLBACK_IMAGE = "/apple-touch-icon.png";
+// page (DJ/collective/archive/etc.) has no per-entity photo. 128x128 so
+// iMessage/Facebook/Messenger pick the compact left-thumbnail card layout
+// (anything above ~200px on either side can trigger the big banner on
+// iMessage specifically; FB tolerates up to ~600px).
+const FALLBACK_IMAGE = "/og-image.png";
 
 // Messenger/Facebook ignore og:image:width/height hints and render layout
 // from the actual image's dimensions. Firebase-hosted DJ photos are 640px+
@@ -43,9 +44,7 @@ export function makeOG({
   const ogTitle = title ? `${title} — ${BRAND}` : HOME_TITLE;
   // Always emit an og:image so social platforms don't scrape a random image
   // (the page logo, a random <img>, etc.) when a DJ/collective has no photo.
-  // Declare 200x200 dimensions — Messenger/Facebook only pick the compact
-  // left-thumbnail layout when both sides are below ~200px; anything bigger
-  // (including a square 400x400) renders as a giant rectangle on top.
+  // Declare 128x128 dimensions — iMessage triggers big-banner above ~200px.
   // Twitter is forced to `summary` (small square card) for the same reason.
   const ogImage = image ? thumbnailize(image) : FALLBACK_IMAGE;
   return {
@@ -60,7 +59,7 @@ export function makeOG({
       title: ogTitle,
       description,
       ...(path ? { url: path } : {}),
-      images: [{ url: ogImage, width: 200, height: 200 }],
+      images: [{ url: ogImage, width: 128, height: 128 }],
     },
     twitter: {
       card: "summary",

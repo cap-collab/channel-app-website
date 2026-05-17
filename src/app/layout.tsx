@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://channel-app.com",
     siteName: "Channel",
-    images: [{ url: "/og-image.png", width: 256, height: 256, alt: "Channel" }],
+    images: [{ url: "/og-image.png", width: 128, height: 128, alt: "Channel" }],
   },
   twitter: {
     card: "summary",
