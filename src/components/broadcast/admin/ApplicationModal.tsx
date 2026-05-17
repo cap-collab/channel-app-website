@@ -56,7 +56,7 @@ export function ApplicationModal({ application, onClose, onStatusChange }: Appli
     setError(null);
 
     try {
-      const result = await onStatusChange(application.id, 'approved', { selectedSlot });
+      await onStatusChange(application.id, 'approved', { selectedSlot });
 
       // Format time in DJ's timezone for the email
       const djTimezone = application.timezone || 'America/New_York';
