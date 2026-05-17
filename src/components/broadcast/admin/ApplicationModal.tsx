@@ -69,69 +69,21 @@ export function ApplicationModal({ application, onClose, onStatusChange }: Appli
       const formattedStart = formatTimeInTimezone(selectedSlot.start, djTimezone, { hour: 'numeric', minute: '2-digit' });
       const formattedEnd = formatTimeInTimezone(selectedSlot.end, djTimezone, { hour: 'numeric', minute: '2-digit' });
 
-      const broadcastUrl = result?.broadcastUrl || '[Broadcast URL will be provided]';
-
       // Open mailto with approval email
       openMailto(
         `You're scheduled to livestream on Channel — ${formattedDate}`,
-        `Hi ${application.djName},
+        `Hi,
 
-You're officially scheduled to livestream on Channel!
+Thanks for reaching out. I just approved your slot on ${formattedDate}.
+
+Looking forward to having you on!
+Cap
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Show: ${application.showName || application.djName}
 Date: ${formattedDate}
 Time: ${formattedStart} – ${formattedEnd} ${djTz}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. COMPLETE YOUR DJ PROFILE
-
-Your DJ profile is what listeners see on our calendar, in your show details, and while you're live. A complete profile helps people connect with you and support your work.
-
-Please take a few minutes to set up your DJ profile. IMPORTANT: Sign up using THIS email address (${application.email}) so we can link your profile to your scheduled show.
-→ https://channel-app.com/studio
-
-• Connect Stripe so you can receive listener support during your set. If Stripe isn't connected, listeners can still send support — but payouts will be delayed until you finish setup.
-  See our setup guide: https://channel-app.com/stripe-setup
-
-• Add a profile photo (this shows up during your set)
-• Write a short bio (who you are / what you play)
-• Add a promo text
-• Add anything you want to show on your personal DJ page
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-2. PREPARE YOUR LIVE STREAM
-
-You'll broadcast using your private link below. Do not share this link.
-
-Your broadcast link:
-${broadcastUrl}
-
-We strongly recommend:
-• Opening the link ahead of time
-• Doing a quick test stream (sound levels, connection, device)
-• Using the same setup you'll use for the live set
-
-→ Full streaming setup guide: https://channel-app.com/streaming-guide
-
-Need help? Contact support@channel-app.com
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-3. DAY OF THE SHOW
-
-• Join a few minutes early
-• Once you hit "Go Live," listeners will be able to tune in, chat, and support you in real time
-• You'll see live feedback and support messages during the set
-• Share your live stream URL: https://channel-app.com/
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-That's it — we're excited to have you on Channel.
-
-See you on air,
-– The Channel Team`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
       );
 
       onClose();
@@ -152,34 +104,14 @@ See you on air,
 
       // Open mailto with profile claim approval email
       openMailto(
-        'Welcome to Channel — Your DJ Profile is Approved',
-        `Hi ${application.djName},
+        'Your DJ profile on Channel is approved',
+        `Hi,
 
-Great news — your DJ profile claim on Channel has been approved!
+Thanks for reaching out. I just approved your DJ profile on Channel.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Sign in with ${application.email} to finish setting it up: https://channel-app.com/studio
 
-COMPLETE YOUR DJ PROFILE
-
-Your DJ profile is what listeners see on our calendar, in your show details, and while you're live. A complete profile helps people connect with you and support your work.
-
-Please take a few minutes to set up your DJ profile. IMPORTANT: Sign up using THIS email address (${application.email}) so we can link your profile.
-→ https://channel-app.com/studio
-
-• Connect Stripe so you can receive listener support during your set. If Stripe isn't connected, listeners can still send support — but payouts will be delayed until you finish setup.
-  See our setup guide: https://channel-app.com/stripe-setup
-
-• Add a profile photo
-• Write a short bio (who you are / what you play)
-• Add a promo text
-• Add anything you want to show on your personal DJ page
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Need help? Contact support@channel-app.com
-
-See you on Channel,
-– The Channel Team`
+Cap`
       );
 
       onClose();
