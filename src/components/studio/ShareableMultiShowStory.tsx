@@ -76,7 +76,7 @@ function drawCanvas(
   const fontSize = Math.round(11 * S);
 
   if (logoImg) {
-    const logoH = 36; // match single-show card; independent of text scale
+    const logoH = 26; // match single-show card; independent of text scale
     const logoW = logoImg.naturalWidth * (logoH / logoImg.naturalHeight);
     ctx.drawImage(logoImg, pad, line1CenterY - logoH / 2, logoW, logoH);
   }

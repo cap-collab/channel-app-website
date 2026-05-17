@@ -83,9 +83,9 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
               <Image
                 src="/logo-white.png"
                 alt="CHANNEL"
-                width={400}
-                height={80}
-                className="h-6 w-auto"
+                width={1006}
+                height={153}
+                className="h-5 w-auto"
                 priority
               />
             </Link>
@@ -99,9 +99,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
                 className="hidden md:flex h-6 items-center text-gray-400 hover:text-white transition-colors relative z-[1000]"
                 style={{ pointerEvents: 'auto' }}
               >
-                {/* logo-white.png has 7px top / 15px bottom transparent padding, so the
-                    letterforms' optical centre sits ~1px above the icon's flex centre */}
-                <InstagramIcon size={18} className="-translate-y-px" />
+                <InstagramIcon size={18} />
               </a>
             )}
           </div>

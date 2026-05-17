@@ -98,7 +98,7 @@ function drawCanvas(
   const fontSize = Math.round(11 * S);
 
   if (logoImg) {
-    const logoH = Math.round(24 * S / 2);
+    const logoH = Math.round(18 * S / 2);
     const logoW = logoImg.naturalWidth * (logoH / logoImg.naturalHeight);
     ctx.drawImage(logoImg, pad, line1CenterY - logoH / 2, logoW, logoH);
   }
