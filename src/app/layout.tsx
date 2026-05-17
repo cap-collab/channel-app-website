@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     images: [{ url: "/og-image.png", width: 600, height: 600, alt: "Channel" }],
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "Channel — Human Radio",
     description: "Left-field electronic music from underground curators. No ads. No algorithms.",
     images: ["/og-image.png"],
