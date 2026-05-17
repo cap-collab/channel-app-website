@@ -141,21 +141,33 @@ function FloatingHeart({
             transform: scale(0.3);
             opacity: 1;
           }
-          15% {
-            transform: scale(1.15);
+          10% {
+            transform: scale(1.25);
             opacity: 1;
           }
-          25% {
+          18% {
             transform: scale(0.95);
             opacity: 1;
           }
-          35% {
+          25% {
             transform: scale(1);
             opacity: 1;
           }
-          50% {
-            transform: scale(1);
+          40% {
+            transform: scale(0.85);
             opacity: 1;
+          }
+          55% {
+            transform: scale(1.25);
+            opacity: 1;
+          }
+          65% {
+            transform: scale(0.95);
+            opacity: 1;
+          }
+          75% {
+            transform: scale(1);
+            opacity: 0.9;
           }
           100% {
             transform: scale(0.5);
