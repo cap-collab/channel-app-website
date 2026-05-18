@@ -14,12 +14,6 @@ body {
   min-height: 100vh;
 }
 
-/* Disable iOS rubber-band overscroll bounce at the top/bottom of the page. */
-html,
-body {
-  overscroll-behavior-y: none;
-}
-
 /* Link styles */
 a {
   transition: color 0.2s;
