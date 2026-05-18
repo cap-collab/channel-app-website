@@ -180,20 +180,6 @@ function buildMissingItems(info: DjInfo): string | null {
   return `${items[0]}, ${items[1]}, and ${items[2]}`;
 }
 
-// Build profile setup bullet for 48h reminder (only lists what's missing)
-function buildProfileSetupBullet(info: DjInfo): string | null {
-  const missing: string[] = [];
-  if (!info.hasPhoto) missing.push('a picture');
-  if (!info.hasGenres) missing.push('music genres');
-  if (!info.hasTipLink) missing.push('how people can support you');
-
-  if (missing.length === 0) return null;
-  const list = missing.length === 1 ? missing[0]
-    : missing.length === 2 ? `${missing[0]} and ${missing[1]}`
-    : `${missing[0]}, ${missing[1]}, and ${missing[2]}`;
-  return `Update your profile — add ${list}`;
-}
-
 // Format date for email display
 function formatDate(timestamp: number, timezone: string): string {
   return new Date(timestamp).toLocaleDateString('en-US', {
@@ -407,7 +393,6 @@ async function run48hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
           profileUrl: null,
           startTime: formatDate(target.startTime, djTimezone),
           timeRange: formatTimeRange(target.startTime, target.endTime, djTimezone),
-          profileSetupHint: buildProfileSetupBullet(djInfo),
         });
 
         if (success) { result.sent++; } else { result.errors.push(`Failed to send 48h reminder to ${target.email}`); }

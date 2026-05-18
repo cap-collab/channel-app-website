@@ -749,8 +749,7 @@ export async function sendBroadcast48HourReminderEmail({
   showName,
   startTime,
   timeRange,
-  profileSetupHint,
-}: BroadcastReminderEmailParams & { profileSetupHint?: string | null }) {
+}: BroadcastReminderEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
     return false;
