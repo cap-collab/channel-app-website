@@ -1610,135 +1610,137 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               )}
             </div>
 
-            {/* Venues & Collectives */}
-            {(djVenues.length > 0 || djCollectives.length > 0) && (
-              <div className="flex flex-wrap gap-2 mt-4">
-                {djVenues.map((venue) => (
-                  <Link
-                    key={`venue-${venue.id}`}
-                    href={`/venue/${venue.slug}`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/50 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:border-white/20 transition-colors text-xs"
+            {/* Footer row: socials on the left, venues/collectives pinned to
+                the right. Pushed to the bottom of the right column so it aligns
+                with the bottom of the profile pic on desktop. */}
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 mt-6 md:mt-auto md:pt-6">
+              <div className="flex flex-wrap items-center gap-5">
+                {socialLinks.instagram && (
+                  <a
+                    href={`https://instagram.com/${socialLinks.instagram.replace("@", "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-zinc-400 hover:text-white transition-colors"
+                    title="Instagram"
                   >
-                    <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                    {venue.name}
-                  </Link>
-                ))}
-                {djCollectives.map((col) => (
-                  <Link
-                    key={`collective-${col.id}`}
-                    href={`/collective/${col.slug}`}
-                    className="flex items-center gap-1.5 pl-1 pr-3 py-1 bg-zinc-900/50 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:border-white/20 transition-colors text-xs"
+                    <InstagramIcon size={20} />
+                  </a>
+                )}
+                {socialLinks.soundcloud && (
+                  <a
+                    href={socialLinks.soundcloud}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-zinc-400 hover:text-white transition-colors"
+                    title="SoundCloud"
                   >
-                    {col.photo ? (
-                      <Image
-                        src={col.photo}
-                        alt={col.name}
-                        width={18}
-                        height={18}
-                        className="w-[18px] h-[18px] rounded-full object-cover flex-shrink-0"
-                        unoptimized
-                      />
-                    ) : (
-                      <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                    )}
-                    {col.name}
-                  </Link>
-                ))}
+                    <SoundCloudIcon size={20} />
+                  </a>
+                )}
+                {socialLinks.mixcloud && (
+                  <a
+                    href={socialLinks.mixcloud}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-zinc-400 hover:text-white transition-colors"
+                    title="Mixcloud"
+                  >
+                    <MixcloudIcon size={20} />
+                  </a>
+                )}
+                {socialLinks.bandcamp && (
+                  <a
+                    href={socialLinks.bandcamp}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-zinc-400 hover:text-white transition-colors"
+                    title="Bandcamp"
+                  >
+                    <BandcampIcon size={20} />
+                  </a>
+                )}
+                {socialLinks.youtube && (
+                  <a
+                    href={socialLinks.youtube}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-zinc-400 hover:text-white transition-colors"
+                    title="YouTube"
+                  >
+                    <YouTubeIcon size={20} />
+                  </a>
+                )}
+                {socialLinks.residentAdvisor && (
+                  <a
+                    href={socialLinks.residentAdvisor}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-zinc-400 hover:text-white transition-colors text-sm font-bold"
+                    title="Resident Advisor"
+                  >
+                    RA
+                  </a>
+                )}
+                {socialLinks.website && (
+                  <a
+                    href={socialLinks.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-zinc-400 hover:text-white transition-colors"
+                    title={isTwitterLink(socialLinks.website) ? "Twitter" : "Website"}
+                  >
+                    {isTwitterLink(socialLinks.website) ? <TwitterIcon size={20} /> : <GlobeIcon size={20} />}
+                  </a>
+                )}
+                {socialLinks.bookingEmail && (
+                  <a
+                    href={`mailto:${socialLinks.bookingEmail}`}
+                    className="text-zinc-400 hover:text-white transition-colors"
+                    title="Booking Email"
+                  >
+                    <MailIcon size={20} />
+                  </a>
+                )}
               </div>
-            )}
 
-            {/* Social icons — pushed to the bottom of the right column so they
-                align with the bottom of the profile pic on desktop. */}
-            <div className="flex flex-wrap gap-5 mt-6 md:mt-auto md:pt-6">
-              {socialLinks.instagram && (
-                <a
-                  href={`https://instagram.com/${socialLinks.instagram.replace("@", "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-zinc-400 hover:text-white transition-colors"
-                  title="Instagram"
-                >
-                  <InstagramIcon size={20} />
-                </a>
-              )}
-              {socialLinks.soundcloud && (
-                <a
-                  href={socialLinks.soundcloud}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-zinc-400 hover:text-white transition-colors"
-                  title="SoundCloud"
-                >
-                  <SoundCloudIcon size={20} />
-                </a>
-              )}
-              {socialLinks.mixcloud && (
-                <a
-                  href={socialLinks.mixcloud}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-zinc-400 hover:text-white transition-colors"
-                  title="Mixcloud"
-                >
-                  <MixcloudIcon size={20} />
-                </a>
-              )}
-              {socialLinks.bandcamp && (
-                <a
-                  href={socialLinks.bandcamp}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-zinc-400 hover:text-white transition-colors"
-                  title="Bandcamp"
-                >
-                  <BandcampIcon size={20} />
-                </a>
-              )}
-              {socialLinks.youtube && (
-                <a
-                  href={socialLinks.youtube}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-zinc-400 hover:text-white transition-colors"
-                  title="YouTube"
-                >
-                  <YouTubeIcon size={20} />
-                </a>
-              )}
-              {socialLinks.residentAdvisor && (
-                <a
-                  href={socialLinks.residentAdvisor}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-zinc-400 hover:text-white transition-colors text-sm font-bold"
-                  title="Resident Advisor"
-                >
-                  RA
-                </a>
-              )}
-              {socialLinks.website && (
-                <a
-                  href={socialLinks.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-zinc-400 hover:text-white transition-colors"
-                  title={isTwitterLink(socialLinks.website) ? "Twitter" : "Website"}
-                >
-                  {isTwitterLink(socialLinks.website) ? <TwitterIcon size={20} /> : <GlobeIcon size={20} />}
-                </a>
-              )}
-              {socialLinks.bookingEmail && (
-                <a
-                  href={`mailto:${socialLinks.bookingEmail}`}
-                  className="text-zinc-400 hover:text-white transition-colors"
-                  title="Booking Email"
-                >
-                  <MailIcon size={20} />
-                </a>
+              {(djVenues.length > 0 || djCollectives.length > 0) && (
+                <div className="flex flex-wrap items-center gap-2 ml-auto">
+                  {djVenues.map((venue) => (
+                    <Link
+                      key={`venue-${venue.id}`}
+                      href={`/venue/${venue.slug}`}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/50 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:border-white/20 transition-colors text-xs"
+                    >
+                      <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      {venue.name}
+                    </Link>
+                  ))}
+                  {djCollectives.map((col) => (
+                    <Link
+                      key={`collective-${col.id}`}
+                      href={`/collective/${col.slug}`}
+                      className="flex items-center gap-1.5 pl-1 pr-3 py-1 bg-zinc-900/50 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:border-white/20 transition-colors text-xs"
+                    >
+                      {col.photo ? (
+                        <Image
+                          src={col.photo}
+                          alt={col.name}
+                          width={18}
+                          height={18}
+                          className="w-[18px] h-[18px] rounded-full object-cover flex-shrink-0"
+                          unoptimized
+                        />
+                      ) : (
+                        <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      )}
+                      {col.name}
+                    </Link>
+                  ))}
+                </div>
               )}
             </div>
           </div>
