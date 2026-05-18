@@ -2,13 +2,70 @@
 
 import { useState } from "react";
 
+// =============================================================================
+// PROD BASELINE — locked. Matches src/components/AnimatedBackground.tsx and the
+// .animate-blob-* classes in src/app/globals.css exactly. Don't drift from these
+// without also updating prod.
+// =============================================================================
+const PROD_PINK = "rgba(220, 155, 80, ALPHA)";
+const PROD_WHITE = "rgba(235, 215, 175, ALPHA)";
+const PROD_PINK2 = "rgba(110, 65, 40, ALPHA)";
+
+function fillAlpha(template: string, a: number) {
+  return template.replace("ALPHA", a.toString());
+}
+
+// =============================================================================
+// WAVE-VISIBILITY VARIANTS — each variant is an extra layer on top of the prod
+// blobs (or a swap of the prod blob keyframes) intended to make the breathing
+// motion more visible without changing colors.
+// =============================================================================
+type Variant = {
+  name: string;
+  description: string;
+};
+
+const variants: Variant[] = [
+  {
+    name: "Baseline (prod, no extra)",
+    description: "Exactly what's live today. Use this as your reference.",
+  },
+  {
+    name: "Opacity + scale boost",
+    description:
+      "Same motion, bigger breath. Opacity swings 0.6→1.0 (was 0.8→1.0) and scale swings up to 1.25 (was 1.10). Each inhale is visibly larger and brighter.",
+  },
+  {
+    name: "Blur tween on inhale",
+    description:
+      "Blob sharpens on the breath peak then blurs back out. Filter blur tweens 80px↔45px in sync with the breath — your eye reads 'thing getting solid' as motion.",
+  },
+  {
+    name: "Bloom/glow on inhale",
+    description:
+      "Each blob gets a soft outer glow that brightens on its inhale. Same translation/scale as prod, but the breath becomes a pulsing halo.",
+  },
+  {
+    name: "Shimmer — single drift (cheap)",
+    description:
+      "Static noise rendered once, then drifts laterally via cheap GPU transform. No SMIL, no per-frame turbulence recalc. Reads as flowing grain.",
+  },
+  {
+    name: "Shimmer — parallax (cheap)",
+    description:
+      "Two static noise layers drifting in opposite directions at different speeds. Interference reads as fluid current. Still cheap — just two GPU translates.",
+  },
+];
+
+// =============================================================================
+// ADVANCED PLAYGROUND — palette + motion options. Hidden behind a toggle.
+// Reuse this when exploring color/motion changes for the whole background.
+// =============================================================================
 type Palette = {
   name: string;
   pink: string;
   white: string;
   pink2: string;
-  // Optional opacity multipliers — boost a blob beyond its baseline opacity
-  // when the palette is low-contrast and motion needs extra punch.
   pinkBoost?: number;
   whiteBoost?: number;
   pink2Boost?: number;
@@ -22,7 +79,7 @@ const palettes: Palette[] = [
     pink2: "rgba(110, 65, 40, ALPHA)",
   },
   {
-    name: "★ Amber + light sand + chocolate",
+    name: "★ Amber + light sand + chocolate (PROD)",
     pink: "rgba(220, 155, 80, ALPHA)",
     white: "rgba(235, 215, 175, ALPHA)",
     pink2: "rgba(110, 65, 40, ALPHA)",
@@ -35,12 +92,6 @@ const palettes: Palette[] = [
     pinkBoost: 1.4,
     whiteBoost: 1.4,
     pink2Boost: 1.5,
-  },
-  {
-    name: "Sand + light sand + chocolate (current pick, baseline)",
-    pink: "rgba(196, 150, 95, ALPHA)",
-    white: "rgba(230, 210, 170, ALPHA)",
-    pink2: "rgba(95, 55, 35, ALPHA)",
   },
   {
     name: "Sand + light sand + chocolate (more contrast)",
@@ -140,16 +191,10 @@ const palettes: Palette[] = [
   },
 ];
 
-function fillAlpha(template: string, a: number) {
-  return template.replace("ALPHA", a.toString());
-}
-
 type Motion = {
   name: string;
   description: string;
-  // CSS injected into the page for this motion's keyframes
   keyframes: string;
-  // Animation shorthand applied to each of the 3 blobs
   blob1: string;
   blob2: string;
   blob3: string;
@@ -157,7 +202,7 @@ type Motion = {
 
 const motions: Motion[] = [
   {
-    name: "Drift (current)",
+    name: "Drift",
     description: "Slow translation, 45–60s loops. Calm and quiet.",
     keyframes: `
       @keyframes bp-drift-1 {
@@ -205,7 +250,7 @@ const motions: Motion[] = [
   },
   {
     name: "Faster drift",
-    description: "Same shape of motion as current, but on 18–24s loops. Restless without being busy.",
+    description: "Same shape of motion as current, but on 18–24s loops.",
     keyframes: `
       @keyframes bp-fast-1 {
         0%,100% { transform: translate(0%,0%) scale(1) rotate(0deg); }
@@ -231,7 +276,7 @@ const motions: Motion[] = [
   },
   {
     name: "Pulse opacity",
-    description: "Slow drift plus a soft opacity heartbeat. Reads like a glow that fades and returns.",
+    description: "Slow drift plus a soft opacity heartbeat.",
     keyframes: `
       @keyframes bp-pulse-1 {
         0%,100% { transform: translate(0%,0%) scale(1); opacity: 0.85; }
@@ -252,7 +297,7 @@ const motions: Motion[] = [
   },
   {
     name: "Aurora flow",
-    description: "Each blob sweeps slowly across the viewport in a long curve. Like wind across a horizon.",
+    description: "Each blob sweeps slowly across the viewport in a long curve.",
     keyframes: `
       @keyframes bp-aurora-1 {
         0%   { transform: translate(-25%,-10%) scale(1) rotate(0deg); }
@@ -276,7 +321,7 @@ const motions: Motion[] = [
   },
   {
     name: "Multi-tempo breathing",
-    description: "Each blob breathes at a different rate (7s / 11s / 17s). Soft polyrhythm — most alive.",
+    description: "Each blob breathes at a different rate (7s / 11s / 17s).",
     keyframes: `
       @keyframes bp-multi-1 {
         0%,100% { transform: translate(0%,0%) scale(1); opacity: 0.9; }
@@ -296,8 +341,8 @@ const motions: Motion[] = [
     blob3: "bp-multi-3 17s ease-in-out infinite",
   },
   {
-    name: "Aurora × Multi-tempo breathing",
-    description: "Each blob sweeps across the viewport on a long arc AND breathes at its own tempo. Wide movement layered with a polyrhythmic pulse — alive, never busy.",
+    name: "Aurora × Multi-tempo breathing (PROD)",
+    description: "Wide aurora sweep + polyrhythmic breathing. This is what's live.",
     keyframes: `
       @keyframes bp-aubr-1 {
         0%   { transform: translate(-22%,-8%) scale(1); opacity: 0.9; }
@@ -321,50 +366,203 @@ const motions: Motion[] = [
   },
 ];
 
-export default function BgPreviewPage() {
-  const [selected, setSelected] = useState(0);
-  const [motionIdx, setMotionIdx] = useState(0);
-  const p = palettes[selected];
-  const motion = motions[motionIdx];
+// Prod-matching defaults for the advanced playground
+const PROD_PALETTE_IDX = 1;
+const PROD_MOTION_IDX = 6;
 
+export default function BgPreviewPage() {
+  const [variantIdx, setVariantIdx] = useState(0);
+  const [advanced, setAdvanced] = useState(false);
+  const [paletteIdx, setPaletteIdx] = useState(PROD_PALETTE_IDX);
+  const [motionIdx, setMotionIdx] = useState(PROD_MOTION_IDX);
+
+  // ---- Background source: locked prod, OR advanced playground when toggled ----
+  const useAdvancedBg = advanced;
+  const p = palettes[paletteIdx];
+  const m = motions[motionIdx];
   const pb = p.pinkBoost ?? 1;
   const wb = p.whiteBoost ?? 1;
   const p2b = p.pink2Boost ?? 1;
-  const pinkBg = `radial-gradient(ellipse 80% 60% at 50% 50%, ${fillAlpha(p.pink, 0.12 * pb)} 0%, ${fillAlpha(p.pink, 0.06 * pb)} 40%, transparent 70%)`;
-  const whiteBg = `radial-gradient(ellipse 70% 80% at 50% 50%, ${fillAlpha(p.white, 0.1 * wb)} 0%, ${fillAlpha(p.white, 0.05 * wb)} 40%, transparent 70%)`;
-  const pink2Bg = `radial-gradient(ellipse 60% 70% at 50% 50%, ${fillAlpha(p.pink2, 0.08 * p2b)} 0%, ${fillAlpha(p.pink2, 0.04 * p2b)} 50%, transparent 70%)`;
+
+  const pinkBg = useAdvancedBg
+    ? `radial-gradient(ellipse 80% 60% at 50% 50%, ${fillAlpha(p.pink, 0.12 * pb)} 0%, ${fillAlpha(p.pink, 0.06 * pb)} 40%, transparent 70%)`
+    : `radial-gradient(ellipse 80% 60% at 50% 50%, ${fillAlpha(PROD_PINK, 0.12)} 0%, ${fillAlpha(PROD_PINK, 0.06)} 40%, transparent 70%)`;
+  const whiteBg = useAdvancedBg
+    ? `radial-gradient(ellipse 70% 80% at 50% 50%, ${fillAlpha(p.white, 0.1 * wb)} 0%, ${fillAlpha(p.white, 0.05 * wb)} 40%, transparent 70%)`
+    : `radial-gradient(ellipse 70% 80% at 50% 50%, ${fillAlpha(PROD_WHITE, 0.1)} 0%, ${fillAlpha(PROD_WHITE, 0.05)} 40%, transparent 70%)`;
+  const pink2Bg = useAdvancedBg
+    ? `radial-gradient(ellipse 60% 70% at 50% 50%, ${fillAlpha(p.pink2, 0.08 * p2b)} 0%, ${fillAlpha(p.pink2, 0.04 * p2b)} 50%, transparent 70%)`
+    : `radial-gradient(ellipse 60% 70% at 50% 50%, ${fillAlpha(PROD_PINK2, 0.08)} 0%, ${fillAlpha(PROD_PINK2, 0.04)} 50%, transparent 70%)`;
+
+  // ---- Variant keyframes (only used in the prod-locked view) ----
+  const variantCss = `
+    /* Variant 0 — prod baseline */
+    @keyframes bp-prod-1 {
+      0%   { transform: translate(-22%, -8%) scale(1);   opacity: 0.9; }
+      50%  { transform: translate(22%, 6%)  scale(1.1);  opacity: 1; }
+      100% { transform: translate(-22%, -8%) scale(1);   opacity: 0.9; }
+    }
+    @keyframes bp-prod-2 {
+      0%   { transform: translate(18%, 12%) scale(1.02); opacity: 1; }
+      50%  { transform: translate(-18%, -8%) scale(0.94); opacity: 0.8; }
+      100% { transform: translate(18%, 12%) scale(1.02); opacity: 1; }
+    }
+    @keyframes bp-prod-3 {
+      0%   { transform: translate(-12%, 18%) scale(0.97); opacity: 0.85; }
+      50%  { transform: translate(18%, -12%) scale(1.08); opacity: 1; }
+      100% { transform: translate(-12%, 18%) scale(0.97); opacity: 0.85; }
+    }
+    /* Variant 1 — opacity + scale boost */
+    @keyframes bp-boost-1 {
+      0%   { transform: translate(-22%, -8%) scale(0.9);  opacity: 0.6; }
+      50%  { transform: translate(22%, 6%)  scale(1.25); opacity: 1; }
+      100% { transform: translate(-22%, -8%) scale(0.9);  opacity: 0.6; }
+    }
+    @keyframes bp-boost-2 {
+      0%   { transform: translate(18%, 12%) scale(1.1);  opacity: 1; }
+      50%  { transform: translate(-18%, -8%) scale(0.8); opacity: 0.55; }
+      100% { transform: translate(18%, 12%) scale(1.1);  opacity: 1; }
+    }
+    @keyframes bp-boost-3 {
+      0%   { transform: translate(-12%, 18%) scale(0.85); opacity: 0.55; }
+      50%  { transform: translate(18%, -12%) scale(1.2);  opacity: 1; }
+      100% { transform: translate(-12%, 18%) scale(0.85); opacity: 0.55; }
+    }
+    /* Variant 2 — blur tween */
+    @keyframes bp-blur-1 {
+      0%   { transform: translate(-22%, -8%) scale(1);   opacity: 0.9; filter: blur(60px); }
+      50%  { transform: translate(22%, 6%)  scale(1.1); opacity: 1;   filter: blur(35px); }
+      100% { transform: translate(-22%, -8%) scale(1);   opacity: 0.9; filter: blur(60px); }
+    }
+    @keyframes bp-blur-2 {
+      0%   { transform: translate(18%, 12%) scale(1.02); opacity: 1;   filter: blur(80px); }
+      50%  { transform: translate(-18%, -8%) scale(0.94); opacity: 0.8; filter: blur(45px); }
+      100% { transform: translate(18%, 12%) scale(1.02); opacity: 1;   filter: blur(80px); }
+    }
+    @keyframes bp-blur-3 {
+      0%   { transform: translate(-12%, 18%) scale(0.97); opacity: 0.85; filter: blur(70px); }
+      50%  { transform: translate(18%, -12%) scale(1.08); opacity: 1;   filter: blur(40px); }
+      100% { transform: translate(-12%, 18%) scale(0.97); opacity: 0.85; filter: blur(70px); }
+    }
+    /* Variant 3 — bloom halos */
+    @keyframes bp-bloom-1 { 0%,100% { opacity: 0; } 50% { opacity: 0.55; } }
+    @keyframes bp-bloom-2 { 0%,100% { opacity: 0.5; } 50% { opacity: 0; } }
+    @keyframes bp-bloom-3 { 0%,100% { opacity: 0; } 50% { opacity: 0.45; } }
+    /* Variants 4 & 5 — shimmer drift. Static SVG noise translated laterally; no per-frame turbulence math. */
+    @keyframes bp-shimmer-drift-a {
+      0%   { transform: translate3d(0%, 0, 0); }
+      50%  { transform: translate3d(-12%, -1%, 0); }
+      100% { transform: translate3d(0%, 0, 0); }
+    }
+    @keyframes bp-shimmer-drift-b {
+      0%   { transform: translate3d(-12%, -1%, 0); }
+      50%  { transform: translate3d(0%, 1%, 0); }
+      100% { transform: translate3d(-12%, -1%, 0); }
+    }
+  `;
+
+  // Pick keyframes for the prod-locked view; bypass them in advanced mode.
+  const blob1Anim = useAdvancedBg
+    ? m.blob1
+    : (() => {
+        switch (variantIdx) {
+          case 1: return "bp-boost-1 23s ease-in-out infinite";
+          case 2: return "bp-blur-1 23s ease-in-out infinite";
+          default: return "bp-prod-1 23s ease-in-out infinite";
+        }
+      })();
+  const blob2Anim = useAdvancedBg
+    ? m.blob2
+    : (() => {
+        switch (variantIdx) {
+          case 1: return "bp-boost-2 31s ease-in-out infinite";
+          case 2: return "bp-blur-2 31s ease-in-out infinite";
+          default: return "bp-prod-2 31s ease-in-out infinite";
+        }
+      })();
+  const blob3Anim = useAdvancedBg
+    ? m.blob3
+    : (() => {
+        switch (variantIdx) {
+          case 1: return "bp-boost-3 41s ease-in-out infinite";
+          case 2: return "bp-blur-3 41s ease-in-out infinite";
+          default: return "bp-prod-3 41s ease-in-out infinite";
+        }
+      })();
+
+  // Blur is keyframe-controlled only on the "blur tween" variant
+  const blob1Filter = !useAdvancedBg && variantIdx === 2 ? undefined : "blur(60px)";
+  const blob2Filter = !useAdvancedBg && variantIdx === 2 ? undefined : "blur(80px)";
+  const blob3Filter = !useAdvancedBg && variantIdx === 2 ? undefined : "blur(70px)";
 
   return (
     <div className="relative min-h-screen w-full text-white">
-      <style>{motion.keyframes}</style>
+      <style>{`${variantCss}${useAdvancedBg ? m.keyframes : ""}`}</style>
       <div className="fixed inset-0 -z-10 overflow-hidden bg-[#1a1a1a] pointer-events-none">
         <div
           className="absolute w-[120%] h-[120%] -top-[20%] -left-[20%]"
           style={{
             background: pinkBg,
-            animation: motion.blob1,
-            willChange: "transform, opacity",
-            filter: "blur(60px)",
+            animation: blob1Anim,
+            willChange: "transform, opacity, filter",
+            filter: blob1Filter,
           }}
         />
         <div
           className="absolute w-[100%] h-[100%] top-[10%] -right-[10%]"
           style={{
             background: whiteBg,
-            animation: motion.blob2,
-            willChange: "transform, opacity",
-            filter: "blur(80px)",
+            animation: blob2Anim,
+            willChange: "transform, opacity, filter",
+            filter: blob2Filter,
           }}
         />
         <div
           className="absolute w-[110%] h-[110%] -bottom-[30%] left-[10%]"
           style={{
             background: pink2Bg,
-            animation: motion.blob3,
-            willChange: "transform, opacity",
-            filter: "blur(70px)",
+            animation: blob3Anim,
+            willChange: "transform, opacity, filter",
+            filter: blob3Filter,
           }}
         />
+
+        {/* Variant 3 — bloom halos */}
+        {!useAdvancedBg && variantIdx === 3 && (
+          <>
+            <div
+              className="absolute w-[120%] h-[120%] -top-[20%] -left-[20%]"
+              style={{
+                background: `radial-gradient(ellipse 70% 50% at 50% 50%, ${fillAlpha(PROD_PINK, 0.22)} 0%, ${fillAlpha(PROD_PINK, 0.08)} 35%, transparent 65%)`,
+                filter: "blur(40px)",
+                animation: "bp-bloom-1 23s ease-in-out infinite",
+                willChange: "opacity",
+                mixBlendMode: "screen",
+              }}
+            />
+            <div
+              className="absolute w-[100%] h-[100%] top-[10%] -right-[10%]"
+              style={{
+                background: `radial-gradient(ellipse 60% 70% at 50% 50%, ${fillAlpha(PROD_WHITE, 0.2)} 0%, ${fillAlpha(PROD_WHITE, 0.07)} 35%, transparent 65%)`,
+                filter: "blur(50px)",
+                animation: "bp-bloom-2 31s ease-in-out infinite",
+                willChange: "opacity",
+                mixBlendMode: "screen",
+              }}
+            />
+            <div
+              className="absolute w-[110%] h-[110%] -bottom-[30%] left-[10%]"
+              style={{
+                background: `radial-gradient(ellipse 50% 60% at 50% 50%, ${fillAlpha(PROD_PINK2, 0.18)} 0%, ${fillAlpha(PROD_PINK2, 0.06)} 40%, transparent 65%)`,
+                filter: "blur(45px)",
+                animation: "bp-bloom-3 41s ease-in-out infinite",
+                willChange: "opacity",
+                mixBlendMode: "screen",
+              }}
+            />
+          </>
+        )}
+
         <svg className="absolute inset-0 w-full h-full opacity-[0.02] pointer-events-none">
           <filter id="noise-preview">
             <feTurbulence
@@ -376,137 +574,229 @@ export default function BgPreviewPage() {
           </filter>
           <rect width="100%" height="100%" filter="url(#noise-preview)" />
         </svg>
+
+        {/* Variant 4 — single-drift shimmer. Static noise, GPU translate only. */}
+        {!useAdvancedBg && variantIdx === 4 && (
+          <svg
+            className="absolute pointer-events-none"
+            style={{
+              top: "-10%",
+              left: "-25%",
+              width: "150%",
+              height: "120%",
+              opacity: 0.08,
+              animation: "bp-shimmer-drift-a 45s ease-in-out infinite",
+              willChange: "transform",
+            }}
+          >
+            <filter id="noise-shimmer-a">
+              <feTurbulence
+                type="fractalNoise"
+                baseFrequency="0.014 0.022"
+                numOctaves={2}
+                stitchTiles="stitch"
+              />
+              <feColorMatrix type="matrix" values="0 0 0 0 0.86  0 0 0 0 0.7  0 0 0 0 0.45  0 0 0 0.5 0" />
+            </filter>
+            <rect width="100%" height="100%" filter="url(#noise-shimmer-a)" />
+          </svg>
+        )}
+
+        {/* Variant 5 — parallax shimmer. Two static noise layers drifting opposite directions. */}
+        {!useAdvancedBg && variantIdx === 5 && (
+          <>
+            <svg
+              className="absolute pointer-events-none"
+              style={{
+                top: "-10%",
+                left: "-25%",
+                width: "150%",
+                height: "120%",
+                opacity: 0.07,
+                animation: "bp-shimmer-drift-a 50s ease-in-out infinite",
+                willChange: "transform",
+              }}
+            >
+              <filter id="noise-shimmer-p1">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.012 0.02"
+                  numOctaves={2}
+                  stitchTiles="stitch"
+                  seed={1}
+                />
+                <feColorMatrix type="matrix" values="0 0 0 0 0.86  0 0 0 0 0.7  0 0 0 0 0.45  0 0 0 0.5 0" />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#noise-shimmer-p1)" />
+            </svg>
+            <svg
+              className="absolute pointer-events-none"
+              style={{
+                top: "-10%",
+                left: "-25%",
+                width: "150%",
+                height: "120%",
+                opacity: 0.05,
+                animation: "bp-shimmer-drift-b 32s ease-in-out infinite",
+                willChange: "transform",
+              }}
+            >
+              <filter id="noise-shimmer-p2">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.022 0.014"
+                  numOctaves={2}
+                  stitchTiles="stitch"
+                  seed={7}
+                />
+                <feColorMatrix type="matrix" values="0 0 0 0 0.92  0 0 0 0 0.85  0 0 0 0 0.7  0 0 0 0.5 0" />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#noise-shimmer-p2)" />
+            </svg>
+          </>
+        )}
       </div>
 
       <div className="relative z-10 mx-auto flex max-w-2xl flex-col gap-8 px-6 py-16">
         <div>
-          <h1 className="text-3xl font-light tracking-tight">Background preview</h1>
+          <h1 className="text-3xl font-light tracking-tight">Background — wave A/B</h1>
           <p className="mt-2 text-sm text-white/60">
-            Pick a motion and a palette independently — the background updates live. Same blobs,
-            same sizing as the real site.
+            Prod colors and prod motion are locked. Each variant adds an extra layer on top to make
+            the breathing more visible.
           </p>
         </div>
 
-        <div>
-          <p className="mb-2 text-xs uppercase tracking-wider text-white/40">Motion</p>
-          <div className="flex flex-col gap-2">
-            {motions.map((m, i) => (
-              <button
-                key={m.name}
-                onClick={() => setMotionIdx(i)}
-                className={`rounded-lg border px-4 py-3 text-left transition ${
-                  motionIdx === i
-                    ? "border-white/40 bg-white/5"
-                    : "border-white/10 hover:border-white/20"
-                }`}
-              >
-                <div className="text-sm">{m.name}</div>
-                <div className="mt-0.5 text-xs text-white/50">{m.description}</div>
-              </button>
-            ))}
+        {!advanced && (
+          <div>
+            <p className="mb-2 text-xs uppercase tracking-wider text-white/40">Variant</p>
+            <div className="flex flex-col gap-2">
+              {variants.map((v, i) => (
+                <button
+                  key={v.name}
+                  onClick={() => setVariantIdx(i)}
+                  className={`rounded-lg border px-4 py-3 text-left transition ${
+                    variantIdx === i
+                      ? "border-white/40 bg-white/5"
+                      : "border-white/10 hover:border-white/20"
+                  }`}
+                >
+                  <div className="text-sm">{v.name}</div>
+                  <div className="mt-0.5 text-xs text-white/50">{v.description}</div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-
-        <div>
-          <p className="mb-2 text-xs uppercase tracking-wider text-white/40">Palette</p>
-        </div>
-
-        <div className="flex flex-col gap-2 -mt-6">
-          {palettes.map((palette, i) => (
-            <button
-              key={palette.name}
-              onClick={() => setSelected(i)}
-              className={`rounded-lg border px-4 py-3 text-left transition ${
-                selected === i
-                  ? "border-white/40 bg-white/5"
-                  : "border-white/10 hover:border-white/20"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm">{palette.name}</span>
-                <div className="flex gap-1.5">
-                  <span
-                    className="h-4 w-4 rounded-full"
-                    style={{ background: fillAlpha(palette.pink, 1) }}
-                  />
-                  <span
-                    className="h-4 w-4 rounded-full"
-                    style={{ background: fillAlpha(palette.white, 1) }}
-                  />
-                  <span
-                    className="h-4 w-4 rounded-full"
-                    style={{ background: fillAlpha(palette.pink2, 1) }}
-                  />
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
+        )}
 
         <div className="rounded-lg border border-white/10 bg-black/40 p-4 text-xs text-white/50 backdrop-blur">
-          <p className="mb-2 text-white/70">Sample content:</p>
+          <p className="mb-2 text-white/70">Sample content (for legibility check):</p>
           <p>
-            Channel is an online radio station and creative collective. The blobs drift slowly —
-            give it a moment to see motion. Pick the palette that feels right and we&apos;ll apply
-            it to the site.
+            Channel is an online radio station and creative collective. Watch the background for at
+            least one full breath cycle (~25s) to compare variants fairly.
           </p>
         </div>
 
-        <div className="rounded-lg border border-white/10 bg-black/40 p-4 backdrop-blur">
-          <p className="mb-3 text-sm text-white/80">Accent swatches (replacing pink #D94099)</p>
-
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <div
-                className="h-12 w-12 rounded"
-                style={{ background: "#DC9B50" }}
-              />
-              <div className="text-xs">
-                <div className="text-white">#DC9B50 — brand accent (new)</div>
-                <div className="text-white/50">used in stations, progress bars, brand UI</div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div
-                className="h-12 w-12 rounded"
-                style={{ background: "#E5AB66" }}
-              />
-              <div className="text-xs">
-                <div className="text-white">#E5AB66 — brand accent hover</div>
-                <div className="text-white/50">slightly lighter for hover states</div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div
-                className="h-12 w-12 rounded"
-                style={{ background: "#F59E0B" }}
-              />
-              <div className="text-xs">
-                <div className="text-white">Tailwind amber-500 (#F59E0B)</div>
-                <div className="text-white/50">used in mockup screens — brighter, more orange</div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div
-                className="h-12 w-12 rounded"
-                style={{ background: "#FCD34D" }}
-              />
-              <div className="text-xs">
-                <div className="text-white">Tailwind amber-300 (#FCD34D)</div>
-                <div className="text-white/50">lighter mockup accent</div>
-              </div>
-            </div>
-          </div>
-
-          <p className="mt-4 text-xs text-white/50">
-            Note: the brand accent (#DC9B50) and Tailwind&apos;s amber-500 are close but not identical
-            — amber-500 is brighter/more orange. If you want them to match exactly, I can switch the
-            mockup classes to use #DC9B50 directly.
-          </p>
+        <div>
+          <button
+            onClick={() => setAdvanced((v) => !v)}
+            className="text-xs uppercase tracking-wider text-white/40 hover:text-white/70 transition"
+          >
+            {advanced ? "▾ Hide advanced playground" : "▸ Show advanced (palette + motion)"}
+          </button>
         </div>
+
+        {advanced && (
+          <>
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wider text-white/40">Motion</p>
+              <div className="flex flex-col gap-2">
+                {motions.map((mo, i) => (
+                  <button
+                    key={mo.name}
+                    onClick={() => setMotionIdx(i)}
+                    className={`rounded-lg border px-4 py-3 text-left transition ${
+                      motionIdx === i
+                        ? "border-white/40 bg-white/5"
+                        : "border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    <div className="text-sm">{mo.name}</div>
+                    <div className="mt-0.5 text-xs text-white/50">{mo.description}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wider text-white/40">Palette</p>
+              <div className="flex flex-col gap-2">
+                {palettes.map((palette, i) => (
+                  <button
+                    key={palette.name}
+                    onClick={() => setPaletteIdx(i)}
+                    className={`rounded-lg border px-4 py-3 text-left transition ${
+                      paletteIdx === i
+                        ? "border-white/40 bg-white/5"
+                        : "border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">{palette.name}</span>
+                      <div className="flex gap-1.5">
+                        <span
+                          className="h-4 w-4 rounded-full"
+                          style={{ background: fillAlpha(palette.pink, 1) }}
+                        />
+                        <span
+                          className="h-4 w-4 rounded-full"
+                          style={{ background: fillAlpha(palette.white, 1) }}
+                        />
+                        <span
+                          className="h-4 w-4 rounded-full"
+                          style={{ background: fillAlpha(palette.pink2, 1) }}
+                        />
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-white/10 bg-black/40 p-4 backdrop-blur">
+              <p className="mb-3 text-sm text-white/80">Accent swatches (replacing pink #D94099)</p>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded" style={{ background: "#DC9B50" }} />
+                  <div className="text-xs">
+                    <div className="text-white">#DC9B50 — brand accent (new)</div>
+                    <div className="text-white/50">used in stations, progress bars, brand UI</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded" style={{ background: "#E5AB66" }} />
+                  <div className="text-xs">
+                    <div className="text-white">#E5AB66 — brand accent hover</div>
+                    <div className="text-white/50">slightly lighter for hover states</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded" style={{ background: "#F59E0B" }} />
+                  <div className="text-xs">
+                    <div className="text-white">Tailwind amber-500 (#F59E0B)</div>
+                    <div className="text-white/50">brighter, more orange</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded" style={{ background: "#FCD34D" }} />
+                  <div className="text-xs">
+                    <div className="text-white">Tailwind amber-300 (#FCD34D)</div>
+                    <div className="text-white/50">lighter mockup accent</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
