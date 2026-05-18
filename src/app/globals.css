@@ -184,6 +184,27 @@ a {
   filter: blur(70px);
 }
 
+/* Parallax shimmer — two static noise layers drift in opposite directions.
+   Turbulence runs once at mount; only the GPU transform changes per frame. */
+@keyframes bg-shimmer-drift-a {
+  0%   { transform: translate3d(0%, 0, 0); }
+  50%  { transform: translate3d(-12%, -1%, 0); }
+  100% { transform: translate3d(0%, 0, 0); }
+}
+@keyframes bg-shimmer-drift-b {
+  0%   { transform: translate3d(-12%, -1%, 0); }
+  50%  { transform: translate3d(0%, 1%, 0); }
+  100% { transform: translate3d(-12%, -1%, 0); }
+}
+.animate-shimmer-a {
+  animation: bg-shimmer-drift-a 50s ease-in-out infinite;
+  will-change: transform;
+}
+.animate-shimmer-b {
+  animation: bg-shimmer-drift-b 32s ease-in-out infinite;
+  will-change: transform;
+}
+
 /* Fade in animation for streaming guide */
 @keyframes fadeIn {
   from {
@@ -266,6 +287,8 @@ a {
   .animate-blob-pink,
   .animate-blob-white,
   .animate-blob-pink-2,
+  .animate-shimmer-a,
+  .animate-shimmer-b,
   .animate-fadeIn,
   .animate-bpm-pulse,
   .animate-bpm-ping,

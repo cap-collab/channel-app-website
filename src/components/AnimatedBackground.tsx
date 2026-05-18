@@ -18,6 +18,41 @@ export function AnimatedBackground() {
         className="absolute w-[110%] h-[110%] -bottom-[30%] left-[10%] animate-blob-pink-2"
       />
 
+      {/* Parallax shimmer — two static noise layers drifting in opposite directions.
+          Reads as fluid current; turbulence math runs once. */}
+      <svg
+        className="absolute animate-shimmer-a pointer-events-none"
+        style={{ top: "-10%", left: "-25%", width: "150%", height: "120%", opacity: 0.07 }}
+      >
+        <filter id="bg-shimmer-1">
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.012 0.02"
+            numOctaves={2}
+            stitchTiles="stitch"
+            seed={1}
+          />
+          <feColorMatrix type="matrix" values="0 0 0 0 0.86  0 0 0 0 0.7  0 0 0 0 0.45  0 0 0 0.5 0" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#bg-shimmer-1)" />
+      </svg>
+      <svg
+        className="absolute animate-shimmer-b pointer-events-none"
+        style={{ top: "-10%", left: "-25%", width: "150%", height: "120%", opacity: 0.05 }}
+      >
+        <filter id="bg-shimmer-2">
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.022 0.014"
+            numOctaves={2}
+            stitchTiles="stitch"
+            seed={7}
+          />
+          <feColorMatrix type="matrix" values="0 0 0 0 0.92  0 0 0 0 0.85  0 0 0 0 0.7  0 0 0 0.5 0" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#bg-shimmer-2)" />
+      </svg>
+
       {/* Subtle noise texture overlay */}
       <svg className="absolute inset-0 w-full h-full opacity-[0.02] pointer-events-none">
         <filter id="noise">
