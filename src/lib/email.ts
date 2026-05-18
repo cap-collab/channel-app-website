@@ -776,20 +776,14 @@ export async function sendBroadcast48HourReminderEmail({
             Use the studio to get set up: <a href="https://channel-app.com/studio" style="color: #555; font-size: 14px; text-decoration: underline;">channel-app.com/studio</a>
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">
-            ${profileSetupHint ? `<tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; ${profileSetupHint}</td>
-            </tr>` : ''}
             <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; <strong>Pick a strong image and a good show name.</strong> It's what people see first, and it shapes how your show stands out.</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Test your audio capture by doing a short recording</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Test your audio setup by doing a short recording</td>
             </tr>
             <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Prepare to go live" ahead of time to avoid any surprises</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Preview what your show will look like</td>
             </tr>
             <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG and tag us <a href="https://www.instagram.com/channelrad.io" style="color: #555; text-decoration: underline;">@channelrad.io</a></td>
@@ -882,86 +876,6 @@ export async function sendBroadcast1WeekReminderEmail({
     return true;
   } catch (error) {
     console.error("Error sending broadcast 1-week reminder email:", error);
-    return false;
-  }
-}
-
-export async function sendBroadcastReminderEmail({
-  to,
-  djName,
-  showName,
-  startTime,
-  timeRange,
-}: BroadcastReminderEmailParams) {
-  if (!resend) {
-    console.warn("Email service not configured - skipping email");
-    return false;
-  }
-
-  const content = `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
-      <tr>
-        <td style="padding: 32px;">
-          <p style="margin: 0 0 16px; font-size: 16px; color: #1a1a1a;">
-            Hi ${djName},
-          </p>
-          <p style="margin: 0 0 20px; font-size: 16px; color: #1a1a1a;">
-            Quick reminder — you're live on Channel tomorrow.
-          </p>
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #ffffff; border: 1px solid #e5e5e5; margin-bottom: 24px;">
-            <tr>
-              <td style="padding: 16px;">
-                <p style="margin: 0 0 4px; font-size: 16px; font-weight: 700; color: #1a1a1a;">${showName}</p>
-                <p style="margin: 0 0 2px; font-size: 14px; color: #666;">${startTime}</p>
-                <p style="margin: 0; font-size: 14px; color: #666;">${timeRange}</p>
-              </td>
-            </tr>
-          </table>
-          <p style="margin: 0 0 4px; font-size: 14px; color: #1a1a1a;">
-            Use the studio to get set up: <a href="https://channel-app.com/studio" style="color: #555; font-size: 14px; text-decoration: underline;">channel-app.com/studio</a>
-          </p>
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">
-            <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Edit your profile info if you want to update anything</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; <strong>Test your audio capture</strong> by doing a short recording</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Prepare to go live" ahead of time to avoid any surprises</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Preview what your show will look like</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG and tag us <a href="https://www.instagram.com/channelrad.io" style="color: #555; text-decoration: underline;">@channelrad.io</a></td>
-            </tr>
-          </table>
-          <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
-            See you tomorrow, Cap
-          </p>
-        </td>
-      </tr>
-    </table>
-  `;
-
-  try {
-    const { error } = await resend.emails.send({
-      from: FROM_EMAIL_DJ,
-      to,
-      subject: `Reminder: ${showName} tomorrow on Channel`,
-      html: wrapEmailContent(content, "You're receiving this because you have a scheduled show on Channel Radio."),
-      headers: getUnsubscribeHeaders("dj"),
-    });
-
-    if (error) {
-      console.error("Error sending broadcast reminder email:", error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error sending broadcast reminder email:", error);
     return false;
   }
 }

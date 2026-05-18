@@ -4,7 +4,6 @@ import { Timestamp } from 'firebase-admin/firestore';
 import {
   sendBroadcast1WeekReminderEmail,
   sendBroadcast48HourReminderEmail,
-  sendBroadcastReminderEmail,
   sendBroadcast2HourReminderEmail,
   sendPostBroadcastEmail,
 } from '@/lib/email';
@@ -286,20 +285,16 @@ export async function GET(request: NextRequest) {
     // ── Phase 0: 48h reminders ────────────────────────────────────
     const phase0 = await run48hReminders(db, now);
 
-    // ── Phase 1: 24h reminders (paused — redundant with 48h email) ──
-    const phase1: PhaseResult = { sent: 0, skipped: 0, errors: [] };
-
     // ── Phase 2: 2h reminders ─────────────────────────────────────
     const phase2 = await run2hReminders(db, now);
 
     // ── Phase 3: Post-broadcast thank you (paused — Cap doesn't want it) ──
     const phase3: PhaseResult = { sent: 0, skipped: 0, errors: [] };
 
-    const allErrors = [...phaseWeek.errors, ...phase0.errors, ...phase1.errors, ...phase2.errors, ...phase3.errors];
+    const allErrors = [...phaseWeek.errors, ...phase0.errors, ...phase2.errors, ...phase3.errors];
 
     console.log(`[broadcast-emails] Phase -1 (1wk): sent=${phaseWeek.sent}, skipped=${phaseWeek.skipped}`);
     console.log(`[broadcast-emails] Phase 0 (48h): sent=${phase0.sent}, skipped=${phase0.skipped}`);
-    console.log(`[broadcast-emails] Phase 1 (24h): sent=${phase1.sent}, skipped=${phase1.skipped}`);
     console.log(`[broadcast-emails] Phase 2 (2h): sent=${phase2.sent}, skipped=${phase2.skipped}`);
     console.log(`[broadcast-emails] Phase 3 (post): sent=${phase3.sent}, skipped=${phase3.skipped}`);
 
@@ -307,7 +302,6 @@ export async function GET(request: NextRequest) {
       success: true,
       phaseWeek: { sent: phaseWeek.sent, skipped: phaseWeek.skipped },
       phase0: { sent: phase0.sent, skipped: phase0.skipped },
-      phase1: { sent: phase1.sent, skipped: phase1.skipped },
       phase2: { sent: phase2.sent, skipped: phase2.skipped },
       phase3: { sent: phase3.sent, skipped: phase3.skipped },
       errors: allErrors.length > 0 ? allErrors : undefined,
@@ -426,61 +420,6 @@ async function run48hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
       reminder48hEmailSentAt: now,
       reminder48hEmailSentForDay: dedup.currentDay,
     });
-  }
-
-  return result;
-}
-
-// ── Phase 1: 24h reminders (paused — kept for easy re-enable) ───────
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function run24hReminders(db: FirebaseFirestore.Firestore, now: number): Promise<PhaseResult> {
-  const result: PhaseResult = { sent: 0, skipped: 0, errors: [] };
-
-  // Window: 22-26h from now (wide enough for 2h cron cycle)
-  const windowStart = Timestamp.fromMillis(now + 22 * 60 * 60 * 1000);
-  const windowEnd = Timestamp.fromMillis(now + 26 * 60 * 60 * 1000);
-
-  const snapshot = await db
-    .collection('broadcast-slots')
-    .where('status', '==', 'scheduled')
-    .where('startTime', '>=', windowStart)
-    .where('startTime', '<=', windowEnd)
-    .get();
-
-  for (const doc of snapshot.docs) {
-    const slot = doc.data();
-
-    if (slot.broadcastType === 'restream') { result.skipped++; continue; }
-    if (slot.reminderEmailSentAt) { result.skipped++; continue; }
-
-    const showName = slot.showName || 'Your show';
-    const broadcastUrl = `${APP_URL}/broadcast/live?token=${slot.broadcastToken}`;
-    const targets = await getDjEmailTargets(db, slot);
-
-    for (const target of targets) {
-      try {
-        const djInfo = await lookupDjInfo(db, target.email);
-        const djUsername = target.djUsername || djInfo.username;
-        const djTimezone = djInfo.timezone;
-
-        const success = await sendBroadcastReminderEmail({
-          to: target.email,
-          djName: djInfo.name || target.djName,
-          showName,
-          broadcastUrl,
-          profileUrl: djUsername ? `${APP_URL}/dj/${djUsername}` : null,
-          startTime: formatDate(target.startTime, djTimezone),
-          timeRange: formatTimeRange(target.startTime, target.endTime, djTimezone),
-        });
-
-        if (success) { result.sent++; } else { result.errors.push(`Failed to send 24h reminder to ${target.email}`); }
-      } catch (error) {
-        result.errors.push(`Error sending 24h reminder to ${target.email}: ${error}`);
-      }
-    }
-
-    await doc.ref.update({ reminderEmailSentAt: now });
   }
 
   return result;
