@@ -467,6 +467,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   // Tab state for claimed profiles (with email)
   const [activeTab, setActiveTab] = useState<'timeline' | 'chat'>('timeline');
   const [pastActivitiesExpanded, setPastActivitiesExpanded] = useState(false);
+  const [upcomingExpanded, setUpcomingExpanded] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [loveCount, setLoveCount] = useState(0);
 
@@ -1582,7 +1583,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             </div>
           </div>
 
-          <div className="md:col-span-8 flex flex-col">
+          <div className="md:col-span-8 flex flex-col md:h-full">
             {/* Large: DJ Name */}
             <h1 className="text-4xl sm:text-7xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-4 break-words">
               {profile.chatUsername}
@@ -1649,6 +1650,97 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                 ))}
               </div>
             )}
+
+            {/* Social icons — pushed to the bottom of the right column so they
+                align with the bottom of the profile pic on desktop. */}
+            <div className="flex flex-wrap gap-5 mt-6 md:mt-auto md:pt-6">
+              {socialLinks.instagram && (
+                <a
+                  href={`https://instagram.com/${socialLinks.instagram.replace("@", "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-zinc-400 hover:text-white transition-colors"
+                  title="Instagram"
+                >
+                  <InstagramIcon size={20} />
+                </a>
+              )}
+              {socialLinks.soundcloud && (
+                <a
+                  href={socialLinks.soundcloud}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-zinc-400 hover:text-white transition-colors"
+                  title="SoundCloud"
+                >
+                  <SoundCloudIcon size={20} />
+                </a>
+              )}
+              {socialLinks.mixcloud && (
+                <a
+                  href={socialLinks.mixcloud}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-zinc-400 hover:text-white transition-colors"
+                  title="Mixcloud"
+                >
+                  <MixcloudIcon size={20} />
+                </a>
+              )}
+              {socialLinks.bandcamp && (
+                <a
+                  href={socialLinks.bandcamp}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-zinc-400 hover:text-white transition-colors"
+                  title="Bandcamp"
+                >
+                  <BandcampIcon size={20} />
+                </a>
+              )}
+              {socialLinks.youtube && (
+                <a
+                  href={socialLinks.youtube}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-zinc-400 hover:text-white transition-colors"
+                  title="YouTube"
+                >
+                  <YouTubeIcon size={20} />
+                </a>
+              )}
+              {socialLinks.residentAdvisor && (
+                <a
+                  href={socialLinks.residentAdvisor}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-zinc-400 hover:text-white transition-colors text-sm font-bold"
+                  title="Resident Advisor"
+                >
+                  RA
+                </a>
+              )}
+              {socialLinks.website && (
+                <a
+                  href={socialLinks.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-zinc-400 hover:text-white transition-colors"
+                  title={isTwitterLink(socialLinks.website) ? "Twitter" : "Website"}
+                >
+                  {isTwitterLink(socialLinks.website) ? <TwitterIcon size={20} /> : <GlobeIcon size={20} />}
+                </a>
+              )}
+              {socialLinks.bookingEmail && (
+                <a
+                  href={`mailto:${socialLinks.bookingEmail}`}
+                  className="text-zinc-400 hover:text-white transition-colors"
+                  title="Booking Email"
+                >
+                  <MailIcon size={20} />
+                </a>
+              )}
+            </div>
           </div>
         </section>
 
@@ -2088,7 +2180,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
         {(upcomingShows.length > 0) && (
           <section className="mb-6">
             <div className="space-y-3">
-              {upcomingShows.map((item) => {
+              {(upcomingExpanded ? upcomingShows : upcomingShows.slice(0, 3)).map((item) => {
                 if (item.feedType === "event") {
                   const event = item as ChannelEvent & { feedType: "event"; feedStatus: "upcoming" };
                   const headerVenue = event.linkedVenues?.[0]?.venueName || event.venueName || null;
@@ -2486,6 +2578,26 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                 return null;
               })}
             </div>
+            {upcomingShows.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setUpcomingExpanded((v) => !v)}
+                aria-expanded={upcomingExpanded}
+                className="mt-3 text-zinc-400 hover:text-white transition-colors text-xs uppercase tracking-wider flex items-center gap-1"
+              >
+                {upcomingExpanded ? "see less" : `see ${upcomingShows.length - 3} more`}
+                <svg
+                  width={12}
+                  height={12}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  className={`transition-transform ${upcomingExpanded ? "rotate-180" : ""}`}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            )}
           </section>
         )}
 
@@ -2856,99 +2968,6 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
         )}
           </>
         )}
-
-        {/* FOOTER: SOCIALS */}
-        <footer className="border-t border-white/10 pt-6 flex flex-col items-center">
-          {/* Social Grid - Icons Only */}
-          <div className="flex flex-wrap justify-center gap-6 max-w-md mb-4">
-            {socialLinks.instagram && (
-              <a
-                href={`https://instagram.com/${socialLinks.instagram.replace("@", "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-zinc-400 hover:text-white transition-colors"
-                title="Instagram"
-              >
-                <InstagramIcon size={20} />
-              </a>
-            )}
-            {socialLinks.soundcloud && (
-              <a
-                href={socialLinks.soundcloud}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-zinc-400 hover:text-white transition-colors"
-                title="SoundCloud"
-              >
-                <SoundCloudIcon size={20} />
-              </a>
-            )}
-            {socialLinks.mixcloud && (
-              <a
-                href={socialLinks.mixcloud}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-zinc-400 hover:text-white transition-colors"
-                title="Mixcloud"
-              >
-                <MixcloudIcon size={20} />
-              </a>
-            )}
-            {socialLinks.bandcamp && (
-              <a
-                href={socialLinks.bandcamp}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-zinc-400 hover:text-white transition-colors"
-                title="Bandcamp"
-              >
-                <BandcampIcon size={20} />
-              </a>
-            )}
-            {socialLinks.youtube && (
-              <a
-                href={socialLinks.youtube}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-zinc-400 hover:text-white transition-colors"
-                title="YouTube"
-              >
-                <YouTubeIcon size={20} />
-              </a>
-            )}
-            {socialLinks.residentAdvisor && (
-              <a
-                href={socialLinks.residentAdvisor}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-zinc-400 hover:text-white transition-colors text-sm font-bold"
-                title="Resident Advisor"
-              >
-                RA
-              </a>
-            )}
-            {socialLinks.website && (
-              <a
-                href={socialLinks.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-zinc-400 hover:text-white transition-colors"
-                title={isTwitterLink(socialLinks.website) ? "Twitter" : "Website"}
-              >
-                {isTwitterLink(socialLinks.website) ? <TwitterIcon size={20} /> : <GlobeIcon size={20} />}
-              </a>
-            )}
-            {socialLinks.bookingEmail && (
-              <a
-                href={`mailto:${socialLinks.bookingEmail}`}
-                className="text-zinc-400 hover:text-white transition-colors"
-                title="Booking Email"
-              >
-                <MailIcon size={20} />
-              </a>
-            )}
-          </div>
-        </footer>
 
         {/* Auto-profile banner - at bottom */}
         {isAutoProfile && (
