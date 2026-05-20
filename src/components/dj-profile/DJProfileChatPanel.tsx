@@ -398,7 +398,7 @@ export function DJProfileChatPanel({
       {/* Pinned show vibe */}
       {showVibe?.trim() && (
         <div className="flex-shrink-0">
-          <VibeBanner vibe={showVibe} />
+          <VibeBanner vibe={showVibe} djName={djUsername} />
         </div>
       )}
 

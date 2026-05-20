@@ -236,7 +236,7 @@ export function FloatingChat() {
           {/* Pinned show vibe — only while a show is live */}
           {isLive && currentShow?.showVibe?.trim() && (
             <div className="flex-shrink-0">
-              <VibeBanner vibe={currentShow.showVibe} />
+              <VibeBanner vibe={currentShow.showVibe} djName={liveDjName} />
             </div>
           )}
 
