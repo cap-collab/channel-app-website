@@ -409,6 +409,10 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
     isArchivePlayback: false,
   });
 
+  // The show-vibe message is pinned at the top, not shown in the scrolling feed.
+  const vibeMessage = messages.find(m => m.messageType === 'vibe') || null;
+  const feedMessages = messages.filter(m => m.messageType !== 'vibe');
+
   const { shows: scheduleShows, loading: scheduleLoading, selectedDate, setSelectedDate } = useBroadcastSchedule({
     ...(jumpToEarliestShow && { jumpToEarliestShow: true }),
     ...(initialScheduleDate && { initialDate: initialScheduleDate }),
@@ -446,7 +450,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   }, [messages, activeTab]);
 
   // Check if any message arrived in the last hour
-  const hasRecentMessages = messages.length > 0 && (Date.now() - messages[messages.length - 1].timestamp) < 3600000;
+  const hasRecentMessages = feedMessages.length > 0 && (Date.now() - feedMessages[feedMessages.length - 1].timestamp) < 3600000;
 
   // Track player bar visibility — GlobalBroadcastBar shows when this scrolls out of view.
   // Re-run when `mounted` changes so the observer attaches after the ref element renders.
@@ -835,10 +839,10 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
         {/* Tab Content */}
         {activeTab === 'chat' ? (
           <div className={`flex flex-col ${hasRecentMessages ? 'h-[45dvh] lg:h-[38dvh]' : 'h-[29dvh] lg:h-[23dvh]'}`}>
-            {/* Pinned show vibe — only while a show is live */}
-            {isLive && currentShow?.showVibe?.trim() && (
+            {/* Pinned show vibe — the vibe message posted at go-live */}
+            {vibeMessage && (
               <div className="flex-shrink-0">
-                <VibeBanner vibe={currentShow.showVibe} djName={djName} />
+                <VibeBanner vibe={vibeMessage.message} djName={vibeMessage.username} />
               </div>
             )}
             {/* Auth states */}
@@ -896,13 +900,13 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
               <>
                 {/* Messages */}
                 <div ref={messagesContainerRef} className="flex-1 overflow-y-auto overscroll-y-contain">
-                  {messages.length === 0 ? (
+                  {feedMessages.length === 0 ? (
                     <div className="flex items-center justify-center py-12 text-zinc-500">
                       <p>No messages yet. Start the conversation!</p>
                     </div>
                   ) : (
                     <div className="divide-y divide-white/5">
-                      {messages.map((msg) => (
+                      {feedMessages.map((msg) => (
                         <HeroChatMessage
                           key={msg.id}
                           message={msg}

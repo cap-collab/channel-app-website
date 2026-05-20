@@ -29,7 +29,6 @@ interface DJProfileChatPanelProps {
   isChannelUser?: boolean;
   tipLink?: string | null;
   onLoveCountChange?: (count: number) => void;
-  showVibe?: string;
 }
 
 // Reserved usernames that cannot be registered (case-insensitive)
@@ -304,7 +303,6 @@ export function DJProfileChatPanel({
   currentShowStartTime,
   tipLink,
   onLoveCountChange,
-  showVibe,
 }: DJProfileChatPanelProps) {
   const isBroadcasting = !!broadcastToken;
 
@@ -322,6 +320,10 @@ export function DJProfileChatPanel({
   useEffect(() => {
     onLoveCountChange?.(loveCount);
   }, [loveCount, onLoveCountChange]);
+
+  // The show-vibe message is pinned at the top, not shown in the scrolling feed.
+  const vibeMessage = messages.find(m => m.messageType === 'vibe') || null;
+  const feedMessages = messages.filter(m => m.messageType !== 'vibe');
 
   const [inputValue, setInputValue] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -395,10 +397,10 @@ export function DJProfileChatPanel({
 
   return (
     <div className="flex flex-col h-full max-h-[60vh]">
-      {/* Pinned show vibe */}
-      {showVibe?.trim() && (
+      {/* Pinned show vibe — the vibe message posted at go-live */}
+      {vibeMessage && (
         <div className="flex-shrink-0">
-          <VibeBanner vibe={showVibe} djName={djUsername} />
+          <VibeBanner vibe={vibeMessage.message} djName={vibeMessage.username} />
         </div>
       )}
 
@@ -412,7 +414,7 @@ export function DJProfileChatPanel({
       {/* Messages */}
       <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
         {(() => {
-          if (messages.length === 0) {
+          if (feedMessages.length === 0) {
             return (
               <div className="flex items-center justify-center h-full text-gray-500">
                 <div className="text-center p-6">
@@ -426,7 +428,7 @@ export function DJProfileChatPanel({
           }
           return (
             <div className="divide-y divide-white/5">
-              {messages.map((msg) => (
+              {feedMessages.map((msg) => (
                 <ChatMessage
                   key={msg.id}
                   message={msg}

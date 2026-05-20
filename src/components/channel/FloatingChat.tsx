@@ -138,6 +138,10 @@ export function FloatingChat() {
   })();
   const messageCount = messages.filter(m => m.timestamp >= dailyResetCutoff).length;
 
+  // The show-vibe message is pinned at the top, not shown in the scrolling feed.
+  const vibeMessage = messages.find(m => m.messageType === 'vibe') || null;
+  const feedMessages = messages.filter(m => m.messageType !== 'vibe');
+
   // Auto-scroll chat
   useEffect(() => {
     if (!isOpen) return;
@@ -233,10 +237,10 @@ export function FloatingChat() {
             </button>
           </div>
 
-          {/* Pinned show vibe — only while a show is live */}
-          {isLive && currentShow?.showVibe?.trim() && (
+          {/* Pinned show vibe — the vibe message posted at go-live */}
+          {vibeMessage && (
             <div className="flex-shrink-0">
-              <VibeBanner vibe={currentShow.showVibe} djName={liveDjName} />
+              <VibeBanner vibe={vibeMessage.message} djName={vibeMessage.username} />
             </div>
           )}
 
@@ -282,13 +286,13 @@ export function FloatingChat() {
           ) : (
             <div className="flex flex-col flex-1 min-h-0">
               <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
-                {messages.length === 0 ? (
+                {feedMessages.length === 0 ? (
                   <div className="flex items-center justify-center py-12 text-zinc-500">
                     <p>No messages yet. Start the conversation!</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-white/5">
-                    {messages.map((msg) => (
+                    {feedMessages.map((msg) => (
                       <HeroChatMessage
                         key={msg.id}
                         message={msg}

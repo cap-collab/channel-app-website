@@ -309,7 +309,6 @@ export function DJControlCenter({
                   isVenue={isVenue}
                   onChangeUsername={onChangeUsername}
                   currentShowStartTime={slot.startTime}
-                  showVibe={vibeLocked ? vibeInput : slot.showVibe}
                 />
               </div>
             )}

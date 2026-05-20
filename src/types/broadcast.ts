@@ -115,6 +115,8 @@ export interface BroadcastSlot {
   showImageUrl?: string;
   // DJ-entered free-text mood/vibe; locked once set
   showVibe?: string;
+  // True once the vibe has been posted as a chat message (posted at go-live)
+  vibeMessagePosted?: boolean;
   // Recording (for downloadable audio files)
   egressId?: string;              // HLS egress ID
   recordingEgressId?: string;     // MP4 file egress ID (legacy, for backward compat)
@@ -250,7 +252,7 @@ export interface AudioDevice {
 }
 
 // Chat message types for DJ chat
-export type ChatMessageType = 'chat' | 'love' | 'tip' | 'lockedin';
+export type ChatMessageType = 'chat' | 'love' | 'tip' | 'lockedin' | 'vibe';
 
 export interface ChatMessage {
   id?: string;
