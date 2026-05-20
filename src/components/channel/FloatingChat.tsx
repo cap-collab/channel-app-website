@@ -330,8 +330,8 @@ export function FloatingChat() {
       </div>
 
       {/* Chat button — the standard chat-bubble FAB. When a show is live, a
-          soft red pulsing border rings the FAB, the DJ avatar takes the
-          center, and a chat-bubble badge sits in the bottom-right corner. */}
+          soft red pulsing border rings the FAB and a small DJ avatar sits in
+          the bottom-right corner. */}
       <button
         onClick={handleToggle}
         aria-label={isLive && liveDjName ? `${liveDjName} is live — open chat` : 'Open chat'}
@@ -341,7 +341,7 @@ export function FloatingChat() {
         {isLive && !isOpen && (
           <span
             aria-hidden
-            className="animate-dj-presence absolute -inset-px rounded-full border border-red-500/70 pointer-events-none"
+            className="animate-dj-presence absolute -inset-px rounded-full border border-red-500/85 pointer-events-none"
           />
         )}
 
@@ -351,37 +351,28 @@ export function FloatingChat() {
           </svg>
         ) : (
           <>
-            {isLive ? (
-              /* Live DJ avatar — small rounded photo, same size as the
-                 chat-bubble icon it replaces (smaller than the FAB). */
-              <span className="block w-4 h-4 md:w-5 md:h-5 rounded-full overflow-hidden bg-zinc-800">
+            {/* Chat-bubble icon — always at the FAB center */}
+            <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+
+            {/* Live DJ avatar — bottom-right badge, mirrors the count badge */}
+            {isLive && (
+              <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full overflow-hidden bg-zinc-800 border border-white/10">
                 {liveDjPhoto ? (
                   <Image
                     src={liveDjPhoto}
                     alt={liveDjName || 'Live DJ'}
-                    width={20}
-                    height={20}
+                    width={16}
+                    height={16}
                     className="w-full h-full object-cover"
                     unoptimized
                   />
                 ) : (
-                  <span className="flex items-center justify-center w-full h-full text-[9px] font-bold text-white">
+                  <span className="flex items-center justify-center w-full h-full text-[8px] font-bold text-white">
                     {(liveDjName || 'L').charAt(0).toUpperCase()}
                   </span>
                 )}
-              </span>
-            ) : (
-              <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            )}
-
-            {/* Chat-bubble badge — bottom-right while live, mirrors the count badge */}
-            {isLive && (
-              <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-zinc-700 border border-white/10 flex items-center justify-center">
-                <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
               </span>
             )}
 

@@ -208,8 +208,8 @@ a {
 /* DJ presence — soft red pulsing border ring around the live chat FAB.
    Opacity-only breath, no scale, so the thin ring stays crisp. */
 @keyframes dj-presence-pulse {
-  0%, 100% { opacity: 0.3; }
-  50%      { opacity: 0.85; }
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 1; }
 }
 .animate-dj-presence {
   animation: dj-presence-pulse 2.4s ease-in-out infinite;
