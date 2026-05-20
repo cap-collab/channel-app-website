@@ -812,7 +812,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         {!hideSubtitle && (
           <p className="text-sm md:text-base text-zinc-400 mt-1">
             {subtitleVibe
-              ? `${subtitleVibe.name ? `${subtitleVibe.name}: ` : ''}"${subtitleVibe.vibe}"`
+              ? `"${subtitleVibe.vibe}"${subtitleVibe.name ? `, ${subtitleVibe.name}` : ''}`
               : 'No ads. No algorithms. Just people with great taste.'}
           </p>
         )}

@@ -409,8 +409,12 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
     isArchivePlayback: false,
   });
 
-  // The show-vibe message is pinned at the top, not shown in the scrolling feed.
-  const vibeMessage = messages.find(m => m.messageType === 'vibe') || null;
+  // The show-vibe message is pinned at the top, not shown in the scrolling
+  // feed. Only pin it while a show is live AND the message belongs to the
+  // currently-live slot — otherwise a stale vibe from a past slot lingers.
+  const vibeMessage = (isLive && currentShow?.id
+    ? messages.find(m => m.messageType === 'vibe' && m.djSlotId === currentShow.id)
+    : null) || null;
   const feedMessages = messages.filter(m => m.messageType !== 'vibe');
 
   const { shows: scheduleShows, loading: scheduleLoading, selectedDate, setSelectedDate } = useBroadcastSchedule({

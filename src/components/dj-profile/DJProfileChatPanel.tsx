@@ -321,8 +321,12 @@ export function DJProfileChatPanel({
     onLoveCountChange?.(loveCount);
   }, [loveCount, onLoveCountChange]);
 
-  // The show-vibe message is pinned at the top, not shown in the scrolling feed.
-  const vibeMessage = messages.find(m => m.messageType === 'vibe') || null;
+  // The show-vibe message is pinned at the top, not shown in the scrolling
+  // feed. Only pin the vibe for this panel's own broadcast slot — otherwise a
+  // stale vibe from a past slot lingers.
+  const vibeMessage = (broadcastSlotId
+    ? messages.find(m => m.messageType === 'vibe' && m.djSlotId === broadcastSlotId)
+    : null) || null;
   const feedMessages = messages.filter(m => m.messageType !== 'vibe');
 
   const [inputValue, setInputValue] = useState('');
