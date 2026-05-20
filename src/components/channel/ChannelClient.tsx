@@ -160,12 +160,12 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
   }, [getMatchingGenres]);
 
   // Sort archives by priority and genre match
-  // - No genre filter: high priority first, medium below
-  // - Genre filter: high+genre match first, then medium+genre match, then no match
-  // Low-priority archives are dropped — ArchiveHero is the only consumer and
-  // we don't want them surfacing in the carousel.
+  // - No genre filter: high priority first, medium next, low last
+  // - Genre filter: high+genre match first, then medium+genre match, then no
+  //   match; low priority always sits at the very bottom
+  // Within every tier, archives stay ordered most-recent-first.
   const { archives, featuredArchive } = useMemo(() => {
-    const sourceArchives = rawArchives.filter((a) => (a.priority || 'medium') !== 'low');
+    const sourceArchives = rawArchives;
     if (sourceArchives.length === 0) return { archives: sourceArchives, featuredArchive: rawFeaturedArchive };
 
     const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
