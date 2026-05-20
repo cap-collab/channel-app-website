@@ -321,37 +321,55 @@ export function FloatingChat() {
         </div>
       </div>
 
-      {/* DJ presence button — the live DJ's avatar with a red border heartbeat
-          and a name pill overlapping the top while a show is live. */}
+      {/* DJ presence button — editorial 'ON AIR' treatment: the live DJ's
+          avatar inside a heartbeat-pulsing red ring, a sharp-edged LIVE
+          placard, and a speech-bubble badge marking it as chat. */}
       {isLive && !isOpen ? (
         <button
           onClick={handleToggle}
           aria-label={liveDjName ? `${liveDjName} is live — open chat` : 'Live now — open chat'}
-          className="fixed bottom-4 right-4 z-[199] w-[56px] h-[56px] flex items-center justify-center"
+          className="fixed bottom-6 right-6 z-[199] w-11 h-11 flex items-center justify-center"
         >
-          <span className="animate-dj-presence relative w-[56px] h-[56px] rounded-full border-2 border-red-600 bg-zinc-800 overflow-hidden flex items-center justify-center text-zinc-400">
+          {/* Avatar — shrunk 20% (56px → 44px) */}
+          <span className="relative w-11 h-11 rounded-full bg-zinc-800 overflow-hidden flex items-center justify-center text-zinc-400">
             {liveDjPhoto ? (
               <Image
                 src={liveDjPhoto}
                 alt={liveDjName || 'Live DJ'}
-                width={56}
-                height={56}
+                width={44}
+                height={44}
                 className="w-full h-full object-cover"
                 unoptimized
               />
             ) : (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             )}
           </span>
 
-          {/* Status pill — overlaps the top of the avatar */}
-          {liveDjName && (
-            <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 max-w-[80px] px-1.5 py-0.5 rounded-full bg-red-600 text-white text-[9px] font-bold uppercase tracking-wide leading-none truncate">
-              {liveDjName}
-            </span>
-          )}
+          {/* Pulsing red border ring — sits above the avatar so only the
+              border throbs, not the photo. */}
+          <span
+            aria-hidden
+            className="animate-dj-presence absolute inset-0 rounded-full border-2 border-red-600 pointer-events-none"
+          />
+
+          {/* LIVE placard — sharp-edged 'ON AIR' style, no rounded corners */}
+          <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-[2px] bg-red-600 text-white text-[8px] font-bold uppercase tracking-[0.12em] leading-none">
+            Live
+          </span>
+
+          {/* Speech-bubble badge — white outline on dark, overlaps the
+              bottom-right of the avatar so it reads as chat. */}
+          <span
+            aria-hidden
+            className="absolute -bottom-1 -right-1 w-[18px] h-[18px] rounded-full bg-zinc-900 flex items-center justify-center ring-2 ring-zinc-950"
+          >
+            <svg className="w-[11px] h-[11px] text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </span>
         </button>
       ) : (
         <button
