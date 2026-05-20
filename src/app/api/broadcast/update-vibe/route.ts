@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Vibe cannot be empty' }, { status: 400 });
     }
 
+    // Vibe lives on broadcast-slots only — studio-sessions is recording-only
+    // and has no listener chat.
     const snapshot = await db.collection('broadcast-slots')
       .where('broadcastToken', '==', broadcastToken)
       .limit(1)

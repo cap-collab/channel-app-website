@@ -6,6 +6,7 @@ import { ChatMessageSerialized } from '@/types/broadcast';
 import { AuthModal } from '@/components/AuthModal';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
 import { TipButton } from '@/components/channel/TipButton';
+import { VibeBanner } from '@/components/channel/VibeBanner';
 
 
 interface DJProfileChatPanelProps {
@@ -28,6 +29,7 @@ interface DJProfileChatPanelProps {
   isChannelUser?: boolean;
   tipLink?: string | null;
   onLoveCountChange?: (count: number) => void;
+  showVibe?: string;
 }
 
 // Reserved usernames that cannot be registered (case-insensitive)
@@ -302,6 +304,7 @@ export function DJProfileChatPanel({
   currentShowStartTime,
   tipLink,
   onLoveCountChange,
+  showVibe,
 }: DJProfileChatPanelProps) {
   const isBroadcasting = !!broadcastToken;
 
@@ -392,6 +395,13 @@ export function DJProfileChatPanel({
 
   return (
     <div className="flex flex-col h-full max-h-[60vh]">
+      {/* Pinned show vibe */}
+      {showVibe?.trim() && (
+        <div className="flex-shrink-0">
+          <VibeBanner vibe={showVibe} />
+        </div>
+      )}
+
       {/* Error display */}
       {error && (
         <div className="bg-red-900/50 text-red-200 px-4 py-2 text-sm flex-shrink-0">
