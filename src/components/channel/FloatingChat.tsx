@@ -329,79 +329,60 @@ export function FloatingChat() {
         </div>
       </div>
 
-      {/* DJ presence button — editorial 'ON AIR' treatment: the live DJ's
-          avatar inside a heartbeat-pulsing red ring, a sharp-edged LIVE
-          placard, and a speech-bubble badge marking it as chat. */}
-      {isLive && !isOpen ? (
-        <button
-          onClick={handleToggle}
-          aria-label={liveDjName ? `${liveDjName} is live — open chat` : 'Live now — open chat'}
-          className="fixed bottom-6 right-6 z-[199] w-11 h-11 flex items-center justify-center"
-        >
-          {/* Avatar — shrunk 20% (56px → 44px) */}
-          <span className="relative w-11 h-11 rounded-full bg-zinc-800 overflow-hidden flex items-center justify-center text-zinc-400">
-            {liveDjPhoto ? (
-              <Image
-                src={liveDjPhoto}
-                alt={liveDjName || 'Live DJ'}
-                width={44}
-                height={44}
-                className="w-full h-full object-cover"
-                unoptimized
-              />
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-            )}
-          </span>
-
-          {/* Pulsing red border ring — sits above the avatar so only the
-              border throbs, not the photo. */}
-          <span
-            aria-hidden
-            className="animate-dj-presence absolute inset-0 rounded-full border-2 border-red-600 pointer-events-none"
-          />
-
-          {/* LIVE placard — sharp-edged 'ON AIR' style, no rounded corners */}
-          <span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-[2px] bg-red-600 text-white text-[8px] font-bold uppercase tracking-[0.12em] leading-none">
-            Live
-          </span>
-
-          {/* Speech-bubble badge — white outline on dark, overlaps the
-              bottom-right of the avatar so it reads as chat. */}
-          <span
-            aria-hidden
-            className="absolute -bottom-1 -right-1 w-[18px] h-[18px] rounded-full bg-zinc-900 flex items-center justify-center ring-2 ring-zinc-950"
-          >
-            <svg className="w-[11px] h-[11px] text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-          </span>
-        </button>
-      ) : (
-        <button
-          onClick={handleToggle}
-          className="fixed bottom-4 right-4 z-[199] w-10 h-10 md:w-12 md:h-12 rounded-full bg-zinc-800/80 backdrop-blur border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700/80 transition-colors"
-        >
-          {isOpen ? (
+      {/* Chat button — the standard chat-bubble FAB in every state. When a
+          show is live, a tiny DJ avatar with a soft red heartbeat glow sits
+          in the top-right corner. */}
+      <button
+        onClick={handleToggle}
+        aria-label={isLive && liveDjName ? `${liveDjName} is live — open chat` : 'Open chat'}
+        className="fixed bottom-4 right-4 z-[199] w-10 h-10 md:w-12 md:h-12 rounded-full bg-zinc-800/80 backdrop-blur border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700/80 transition-colors"
+      >
+        {isOpen ? (
+          <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          <>
             <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
-          ) : (
-            <>
-              <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              {messageCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-zinc-700 border border-white/10 text-[10px] text-white font-medium flex items-center justify-center">
-                  {messageCount}
+
+            {/* Live DJ avatar — top-right corner, ~24px, no border/shadow,
+                with a soft glowing red heartbeat ring behind it. */}
+            {isLive && (
+              <span className="absolute -top-2 -right-2 w-6 h-6">
+                {/* Soft glowing red pulse — blurred, sits behind the avatar */}
+                <span
+                  aria-hidden
+                  className="animate-dj-presence absolute -inset-1 rounded-full bg-red-600 blur-[3px]"
+                />
+                <span className="relative block w-6 h-6 rounded-full overflow-hidden bg-zinc-800">
+                  {liveDjPhoto ? (
+                    <Image
+                      src={liveDjPhoto}
+                      alt={liveDjName || 'Live DJ'}
+                      width={24}
+                      height={24}
+                      className="w-full h-full object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <span className="flex items-center justify-center w-full h-full text-[10px] font-bold text-white">
+                      {(liveDjName || 'L').charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </span>
-              )}
-            </>
-          )}
-        </button>
-      )}
+              </span>
+            )}
+
+            {messageCount > 0 && (
+              <span className="absolute -bottom-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-zinc-700 border border-white/10 text-[10px] text-white font-medium flex items-center justify-center">
+                {messageCount}
+              </span>
+            )}
+          </>
+        )}
+      </button>
 
       <AuthModal
         isOpen={showAuthModal}
