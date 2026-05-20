@@ -48,15 +48,6 @@ export async function PATCH(request: NextRequest) {
         updates.venueSlug = v.slug || null;
       }
     }
-    // Audio channel mode — admin correction of the probed mono/stereo verdict.
-    // Drives restream encoding. 'mono' | 'stereo' | null (null = unknown).
-    if (body.audioMode !== undefined) {
-      if (body.audioMode === 'mono' || body.audioMode === 'stereo' || body.audioMode === null) {
-        updates.audioMode = body.audioMode;
-      } else {
-        return NextResponse.json({ error: 'audioMode must be "mono", "stereo", or null' }, { status: 400 });
-      }
-    }
     // Scene assignment override (null → inherit from DJs; [] → no scene; [ids] → pinned)
     if (body.sceneIdsOverride !== undefined) {
       if (body.sceneIdsOverride === null) {

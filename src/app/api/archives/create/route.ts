@@ -120,9 +120,6 @@ export async function POST(request: NextRequest) {
       stationId: slotData.stationId || STATION_ID,
       priority: 'medium',
       showImageUrl: slotData.showImageUrl || null,
-      // Not probed here; backfill or an admin edit on /broadcast/admin →
-      // Archives fills it. null ⇒ restreams fall back to stereo.
-      audioMode: null,
     });
 
     return NextResponse.json({

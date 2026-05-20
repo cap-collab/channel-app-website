@@ -327,37 +327,6 @@ export async function POST(request: NextRequest) {
               console.error('[webhook] Normalize error:', normError);
             }
 
-            // Probe the recording's audio channels (mono vs true stereo) so
-            // restreams of this archive publish a matching Opus track — mono
-            // content as a 1-channel track avoids stereo RED bleed. Probes the
-            // effective recordingUrl (post-normalize, if swapped above). Best
-            // effort: failure / inconclusive ⇒ audioMode stays null and the
-            // restream falls back to stereo.
-            let audioMode: 'mono' | 'stereo' | null = null;
-            try {
-              if (restreamWorkerUrl) {
-                const probeRes = await fetch(`${restreamWorkerUrl}/probe`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${cronSecret}`,
-                  },
-                  body: JSON.stringify({ url: recordingUrl }),
-                });
-                const probeResult = await probeRes.json();
-                if (!probeRes.ok) {
-                  console.error(`[webhook] Probe failed (${probeRes.status}) for ${recordingUrl}:`, probeResult);
-                } else if (probeResult.audioMode === 'mono' || probeResult.audioMode === 'stereo') {
-                  audioMode = probeResult.audioMode;
-                  console.log(`[webhook] Probe: ${recordingUrl} ⇒ audioMode=${audioMode} (separation=${probeResult.separationDb}dB)`);
-                } else {
-                  console.log(`[webhook] Probe inconclusive for ${recordingUrl}: audioMode=null`);
-                }
-              }
-            } catch (probeError) {
-              console.error('[webhook] Probe error:', probeError);
-            }
-
             // Create archive for the recording
             try {
               const showName = (slotData?.showName as string) || 'Untitled Show';
@@ -477,9 +446,6 @@ export async function POST(request: NextRequest) {
               if (typeof slotData?.redMode === 'string') {
                 archiveDoc.redMode = slotData.redMode;
               }
-
-              // Probed mono/stereo verdict (null when inconclusive/unavailable).
-              archiveDoc.audioMode = audioMode;
 
               await archivesRef.add(archiveDoc);
 

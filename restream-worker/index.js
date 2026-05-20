@@ -1,12 +1,7 @@
 import express from 'express';
 import { spawn, execSync } from 'child_process';
 import { writeFileSync, readFileSync, unlinkSync } from 'fs';
-import {
-  IngressClient,
-  IngressInput,
-  IngressAudioOptions,
-  IngressAudioEncodingPreset,
-} from 'livekit-server-sdk';
+import { IngressClient, IngressInput } from 'livekit-server-sdk';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 
 const app = express();
@@ -54,24 +49,17 @@ app.post('/start', authenticate, async (req, res) => {
 
 /**
  * Core "start this restream now" logic. Extracted from the /start handler so
- * /schedule can reuse it when its timer fires. Returns
- * { slotId, ingressId, audioMode } on success. Throws (with optional
- * .statusCode) on failure.
+ * /schedule can reuse it when its timer fires. Returns { slotId, ingressId }
+ * on success. Throws (with optional .statusCode) on failure.
  */
 async function startSlot(params) {
-  const { slotId, archiveUrl, roomName, apiKey, apiSecret, livekitHost, appUrl, endTime, audioMode } = params || {};
+  const { slotId, archiveUrl, roomName, apiKey, apiSecret, livekitHost, appUrl, endTime } = params || {};
 
   if (!slotId || !archiveUrl || !roomName || !apiKey || !apiSecret || !livekitHost) {
     const err = new Error('Missing required fields');
     err.statusCode = 400;
     throw err;
   }
-
-  // Resolve channel count from the archive's probed audioMode. Only an explicit
-  // 'mono' verdict publishes a 1-channel track; 'stereo', null, and missing all
-  // fall back to stereo — forcing mono onto genuine stereo is the unsafe
-  // direction, the bleed bug only happens forcing stereo onto mono.
-  const channels = audioMode === 'mono' ? 1 : 2;
 
   // If there's a pending scheduled start for this slot, cancel it first —
   // we're starting now, timer is obsolete.
@@ -96,17 +84,6 @@ async function startSlot(params) {
       roomName,
       participantIdentity: `restream-${slotId}`,
       participantName: 'Restream',
-      // Pin the Opus encoder to match the archive's channel count. A mono
-      // archive ⇒ mono preset ⇒ genuine 1-channel Opus track, so stereo RED
-      // redundancy can't bleed. Default ingress encoding is otherwise stereo.
-      audio: new IngressAudioOptions({
-        encodingOptions: {
-          case: 'preset',
-          value: channels === 1
-            ? IngressAudioEncodingPreset.OPUS_MONO_64KBS
-            : IngressAudioEncodingPreset.OPUS_STEREO_96KBPS,
-        },
-      }),
     });
     ingressId = ingress.ingressId;
     const rtmpBase = (ingress.url && ingress.url.length > 0)
@@ -136,7 +113,6 @@ async function startSlot(params) {
       intentionalStop: false,
       archiveAttempts: 0,
       archiveRetryTimer: null,
-      channels, // 1 or 2 — keeps the silence pad's layout matching the archive
     };
     activeStreams.set(slotId, entry);
 
@@ -145,7 +121,7 @@ async function startSlot(params) {
       const attemptNum = entry.archiveAttempts;
       const startedAt = Date.now();
       console.log(`[restream] Archive FFmpeg attempt ${attemptNum}/${ARCHIVE_MAX_ATTEMPTS} for slot ${slotId}`);
-      const proc = makeFfmpeg(archiveUrl, rtmpTarget, { channels });
+      const proc = makeFfmpeg(archiveUrl, rtmpTarget);
       proc.stderr.on('data', (data) => {
         console.log(`[restream][ffmpeg ${slotId}] ${data.toString().trim()}`);
       });
@@ -163,14 +139,7 @@ async function startSlot(params) {
           const current = activeStreams.get(slotId);
           if (current && current === entry && !current.silenceFfmpeg && current.slotEndTimer) {
             console.log(`[restream] Archive done before slot.endTime — padding with silence for slot ${slotId}`);
-            // Match the silence layout to the archive's channel count — a
-            // mid-stream channel-count change would disrupt the ingress.
-            const silenceLayout = entry.channels === 1 ? 'mono' : 'stereo';
-            const silenceFfmpeg = makeFfmpeg(
-              `anullsrc=r=48000:cl=${silenceLayout}`,
-              rtmpTarget,
-              { silence: true, channels: entry.channels },
-            );
+            const silenceFfmpeg = makeFfmpeg('anullsrc=r=48000:cl=stereo', rtmpTarget, { silence: true });
             silenceFfmpeg.stderr.on('data', (data) => {
               console.log(`[restream][silence ${slotId}] ${data.toString().trim()}`);
             });
@@ -265,7 +234,7 @@ async function startSlot(params) {
       console.log(`[restream] No slot-end timer for ${slotId} (appUrl=${!!appUrl}, endTime=${endTime})`);
     }
 
-    return { slotId, ingressId, audioMode: channels === 1 ? 'mono' : 'stereo' };
+    return { slotId, ingressId };
   } catch (err) {
     console.error(`[restream] Failed to start for slot ${slotId}:`, err);
     // If we got as far as creating the ingress but failed before handing off
@@ -297,18 +266,13 @@ function makeFfmpeg(source, rtmpTarget, options = {}) {
   const inputArgs = options.silence
     ? ['-re', '-f', 'lavfi', '-i', source]
     : ['-re', ...reconnectArgs, '-i', source];
-  // channels: 1 for mono archives (genuine 1-channel AAC ⇒ LiveKit publishes a
-  // mono Opus track, no stereo RED bleed), 2 otherwise. Default 2 keeps old
-  // behaviour for any caller that doesn't pass it. Mono needs less bitrate.
-  const channels = options.channels === 1 ? 1 : 2;
-  const bitrate = channels === 1 ? '96k' : '128k';
   return spawn('ffmpeg', [
     ...inputArgs,
     '-vn',
     '-c:a', 'aac',
-    '-b:a', bitrate,
+    '-b:a', '128k',
     '-ar', '48000',
-    '-ac', String(channels),
+    '-ac', '2',
     '-f', 'flv',
     '-loglevel', 'warning',
     rtmpTarget,
@@ -777,140 +741,6 @@ app.post('/normalize', authenticate, async (req, res) => {
     [tmpIn, tmpOut, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
     console.error(`[normalize] Failed:`, err);
     respond(500, { error: err.message });
-  }
-});
-
-// POST /probe — detect whether an archive's audio is mono or true stereo.
-// Two-stage: (1) ffprobe channel count — 1 channel ⇒ mono; (2) for 2-channel
-// files, measure L-R separation on a 60s sample from the middle of the track
-// and compare against MONO_SEPARATION_DB (mirrors src/lib/audio-analysis.ts).
-// Returns { channels, separationDb, audioMode: 'mono' | 'stereo' | null }.
-// audioMode is null when the probe is inconclusive (too quiet / unreadable) —
-// callers must treat null as "unknown" and default restreams to stereo.
-// Accepts { r2Key } (download from R2, used by the webhook) OR { url }
-// (probe a public URL directly, used by the backfill script).
-const MONO_SEPARATION_DB = 18; // ≥ this ⇒ L and R carry the same signal (mono)
-
-app.post('/probe', authenticate, async (req, res) => {
-  const { r2Key, url, callbackUrl, callbackContext } = req.body || {};
-  if (!r2Key && !url) {
-    return res.status(400).json({ error: 'r2Key or url required' });
-  }
-
-  // Async-by-callback mode: respond 202 immediately, POST the result to
-  // callbackUrl when done. Mirrors /normalize so Vercel callers don't have to
-  // hold a fetch handle open. No callbackUrl ⇒ synchronous response.
-  const isAsyncMode = !!callbackUrl;
-  if (isAsyncMode) {
-    res.status(202).json({ accepted: true, r2Key: r2Key || null, url: url || null });
-  }
-  const fireCallback = (payload) => {
-    if (!callbackUrl) return;
-    const secret = SHARED_SECRET;
-    if (!secret) {
-      console.warn(`[probe] callbackUrl set but SHARED_SECRET missing; skipping callback`);
-      return;
-    }
-    fetch(callbackUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${secret}` },
-      body: JSON.stringify({ ...payload, callbackContext }),
-    })
-      .then((r) => {
-        if (!r.ok) console.error(`[probe] callback to ${callbackUrl} returned ${r.status}`);
-        else console.log(`[probe] callback delivered to ${callbackUrl}`);
-      })
-      .catch((e) => console.error(`[probe] callback to ${callbackUrl} failed:`, e?.message || e));
-  };
-  const respond = (status, payload) => {
-    if (!res.headersSent) res.status(status).json(payload);
-    fireCallback(payload);
-  };
-
-  const tmpIn = `/tmp/probe-in-${Date.now()}.mp4`;
-  let downloaded = false;
-
-  try {
-    // --- 1. Resolve the input. r2Key ⇒ download to /tmp; url ⇒ probe directly. ---
-    let input;
-    if (r2Key) {
-      const s3 = new S3Client({
-        region: 'auto',
-        endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-        credentials: {
-          accessKeyId: process.env.R2_ACCESS_KEY_ID,
-          secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-        },
-      });
-      const bucket = process.env.R2_BUCKET_NAME;
-      const resp = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: r2Key }));
-      const body = Buffer.from(await resp.Body.transformToByteArray());
-      writeFileSync(tmpIn, body);
-      downloaded = true;
-      input = tmpIn;
-      console.log(`[probe] Downloaded ${(body.length / 1024 / 1024).toFixed(1)}MB for ${r2Key}`);
-    } else {
-      input = url;
-      console.log(`[probe] Probing URL directly: ${url}`);
-    }
-
-    // --- 2. ffprobe the channel count of the first audio stream. ---
-    const channelsRaw = execSync(
-      `ffprobe -v error -select_streams a:0 -show_entries stream=channels -of csv=p=0 "${input}"`,
-      { encoding: 'utf-8' }
-    ).trim();
-    const channels = parseInt(channelsRaw, 10);
-    if (!Number.isFinite(channels) || channels < 1) {
-      console.warn(`[probe] Could not read channel count (got "${channelsRaw}") — audioMode=null`);
-      return respond(200, { channels: null, separationDb: null, audioMode: null });
-    }
-
-    // 1-channel file is unambiguously mono.
-    if (channels === 1) {
-      console.log(`[probe] ${input}: 1 channel ⇒ mono`);
-      return respond(200, { channels: 1, separationDb: null, audioMode: 'mono' });
-    }
-
-    // --- 3. 2-channel: measure L-R separation on a 60s mid-track sample. ---
-    // mid = 0.5*(L+R), side = 0.5*(L-R). RMS of each via astats. A large
-    // mid−side gap means L≈R (mono summed into a stereo container).
-    // Sample from 30s in to skip intros; 60s is plenty to characterise.
-    const statsOut = execSync(
-      `ffmpeg -hide_banner -nostats -ss 30 -t 60 -i "${input}" ` +
-      `-filter_complex "[0:a]pan=mono|c0=0.5*c0+0.5*c1,astats=metadata=1:reset=0[mid];` +
-      `[0:a]pan=mono|c0=0.5*c0-0.5*c1,astats=metadata=1:reset=0[side]" ` +
-      `-map "[mid]" -f null - -map "[side]" -f null - 2>&1`,
-      { encoding: 'utf-8' }
-    );
-    // astats prints "RMS level dB: <value>" once per output stream (mid then side).
-    const rmsMatches = [...statsOut.matchAll(/RMS level dB:\s*(-?\d+\.?\d*|-?inf)/gi)];
-    if (rmsMatches.length < 2) {
-      console.warn(`[probe] Could not parse RMS levels (found ${rmsMatches.length}) — audioMode=null`);
-      return respond(200, { channels, separationDb: null, audioMode: null });
-    }
-    const midDb = rmsMatches[0][1] === '-inf' ? -Infinity : parseFloat(rmsMatches[0][1]);
-    const sideDb = rmsMatches[1][1] === '-inf' ? -Infinity : parseFloat(rmsMatches[1][1]);
-
-    // Too quiet to classify: mid signal essentially silent.
-    if (!Number.isFinite(midDb) || midDb < -50) {
-      console.warn(`[probe] Mid channel too quiet (${midDb} dB) — audioMode=null`);
-      return respond(200, { channels, separationDb: null, audioMode: null });
-    }
-
-    // side = -inf ⇒ L and R are bit-identical ⇒ definitively mono.
-    const separationDb = Number.isFinite(sideDb) ? midDb - sideDb : Infinity;
-    const audioMode = separationDb >= MONO_SEPARATION_DB ? 'mono' : 'stereo';
-    console.log(`[probe] ${input}: 2ch mid=${midDb}dB side=${sideDb}dB separation=${separationDb}dB ⇒ ${audioMode}`);
-    return respond(200, {
-      channels,
-      separationDb: Number.isFinite(separationDb) ? Number(separationDb.toFixed(1)) : null,
-      audioMode,
-    });
-  } catch (err) {
-    console.error(`[probe] Failed:`, err?.message || err);
-    return respond(200, { channels: null, separationDb: null, audioMode: null });
-  } finally {
-    if (downloaded) { try { unlinkSync(tmpIn); } catch {} }
   }
 });
 

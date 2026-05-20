@@ -569,8 +569,6 @@ function ArchiveCard({
   const [genreInput, setGenreInput] = useState(primaryDj?.genres?.join(', ') || '');
   const [locationInput, setLocationInput] = useState(primaryDj?.location || '');
   const [venueIdInput, setVenueIdInput] = useState(archive.venueId || '');
-  // Audio mode: 'mono' | 'stereo' | '' (= unknown/null). Drives restream encoding.
-  const [audioModeInput, setAudioModeInput] = useState(archive.audioMode || '');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -587,7 +585,6 @@ function ArchiveCard({
       genres,
       location: locationInput.trim(),
       venueId: venueIdInput,
-      audioMode: audioModeInput === '' ? null : audioModeInput,
     });
     setIsSaving(false);
     setIsEditing(false);
@@ -627,7 +624,6 @@ function ArchiveCard({
     setGenreInput(primaryDj?.genres?.join(', ') || '');
     setLocationInput(primaryDj?.location || '');
     setVenueIdInput(archive.venueId || '');
-    setAudioModeInput(archive.audioMode || '');
     setIsEditing(true);
   };
 
@@ -709,7 +705,7 @@ function ArchiveCard({
                   className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div>
                 <select
                   value={venueIdInput}
                   onChange={(e) => setVenueIdInput(e.target.value)}
@@ -721,19 +717,6 @@ function ArchiveCard({
                       {v.name}
                     </option>
                   ))}
-                </select>
-                {/* Audio mode — drives mono/stereo encoding when this archive
-                    is restreamed. Auto-detected at creation; correct it here
-                    if a restream sounds wrong. */}
-                <select
-                  value={audioModeInput}
-                  onChange={(e) => setAudioModeInput(e.target.value)}
-                  title="Audio mode for restreams"
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
-                >
-                  <option value="">Audio: Unknown (restream as stereo)</option>
-                  <option value="stereo">Audio: Stereo</option>
-                  <option value="mono">Audio: Mono</option>
                 </select>
               </div>
               <div className="flex items-center gap-2 justify-end">
@@ -769,28 +752,6 @@ function ArchiveCard({
                     Private
                   </span>
                 )}
-                {/* Audio mode — only meaningful if this archive is restreamed.
-                    Mono/Unknown nudge the admin to confirm before scheduling. */}
-                <span
-                  className={`px-2 py-0.5 text-xs rounded border ${
-                    archive.audioMode === 'stereo'
-                      ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800'
-                      : archive.audioMode === 'mono'
-                        ? 'bg-amber-900/30 text-amber-400 border-amber-800'
-                        : 'bg-gray-900/30 text-gray-500 border-gray-700'
-                  }`}
-                  title={
-                    archive.audioMode
-                      ? `Audio detected as ${archive.audioMode} — used when this archive is restreamed`
-                      : 'Audio not detected — restreams fall back to stereo. Confirm before scheduling a restream.'
-                  }
-                >
-                  {archive.audioMode === 'stereo'
-                    ? 'Stereo'
-                    : archive.audioMode === 'mono'
-                      ? 'Mono'
-                      : 'Audio: Unknown'}
-                </span>
                 <select
                   value={currentPriority}
                   onChange={(e) => onPriorityChange(archive.id, e.target.value as ArchivePriority)}

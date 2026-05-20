@@ -102,10 +102,6 @@ export async function POST(request: NextRequest) {
       priority: 'low',
       // Carry the resolved Opus RED decision from the studio-session, if recorded.
       ...(typeof slotData.redMode === 'string' ? { redMode: slotData.redMode } : {}),
-      // Not probed here (no restream-worker hop on this path); backfill or an
-      // admin edit on /broadcast/admin → Archives fills it. null ⇒ restreams
-      // fall back to stereo.
-      audioMode: null,
     }, { merge: true });
 
     return NextResponse.json({
