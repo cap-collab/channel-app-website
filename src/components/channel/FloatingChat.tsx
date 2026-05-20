@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, FormEvent } from 'react';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -30,6 +31,12 @@ export function FloatingChat() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const liveDjName = currentDJ || currentShow?.djName || null;
+  // Live DJ photo — mirrors the hero/Media-Session priority.
+  const liveDjPhoto =
+    currentShow?.liveDjPhotoUrl ||
+    currentShow?.restreamDjs?.find((dj) => dj.photoUrl)?.photoUrl ||
+    currentShow?.showImageUrl ||
+    null;
 
   // Follow venue multi-DJ slot transitions (mirror ChannelClient).
   const [liveDJChatRoom, setLiveDJChatRoom] = useState(() => computeDJChatRoom(currentShow ?? null));
@@ -314,28 +321,61 @@ export function FloatingChat() {
         </div>
       </div>
 
-      {/* Floating button */}
-      <button
-        onClick={handleToggle}
-        className="fixed bottom-4 right-4 z-[199] w-10 h-10 md:w-12 md:h-12 rounded-full bg-zinc-800/80 backdrop-blur border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700/80 transition-colors"
-      >
-        {isOpen ? (
-          <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        ) : (
-          <>
-            <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            {messageCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-zinc-700 border border-white/10 text-[10px] text-white font-medium flex items-center justify-center">
-                {messageCount}
-              </span>
+      {/* DJ presence button — the live DJ's avatar with a red border heartbeat
+          and a name pill overlapping the top while a show is live. */}
+      {isLive && !isOpen ? (
+        <button
+          onClick={handleToggle}
+          aria-label={liveDjName ? `${liveDjName} is live — open chat` : 'Live now — open chat'}
+          className="fixed bottom-4 right-4 z-[199] w-[56px] h-[56px] flex items-center justify-center"
+        >
+          <span className="animate-dj-presence relative w-[56px] h-[56px] rounded-full border-2 border-red-600 bg-zinc-800 overflow-hidden flex items-center justify-center text-zinc-400">
+            {liveDjPhoto ? (
+              <Image
+                src={liveDjPhoto}
+                alt={liveDjName || 'Live DJ'}
+                width={56}
+                height={56}
+                className="w-full h-full object-cover"
+                unoptimized
+              />
+            ) : (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
             )}
-          </>
-        )}
-      </button>
+          </span>
+
+          {/* Status pill — overlaps the top of the avatar */}
+          {liveDjName && (
+            <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 max-w-[80px] px-1.5 py-0.5 rounded-full bg-red-600 text-white text-[9px] font-bold uppercase tracking-wide leading-none truncate">
+              {liveDjName}
+            </span>
+          )}
+        </button>
+      ) : (
+        <button
+          onClick={handleToggle}
+          className="fixed bottom-4 right-4 z-[199] w-10 h-10 md:w-12 md:h-12 rounded-full bg-zinc-800/80 backdrop-blur border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700/80 transition-colors"
+        >
+          {isOpen ? (
+            <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <>
+              <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              {messageCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-zinc-700 border border-white/10 text-[10px] text-white font-medium flex items-center justify-center">
+                  {messageCount}
+                </span>
+              )}
+            </>
+          )}
+        </button>
+      )}
 
       <AuthModal
         isOpen={showAuthModal}
