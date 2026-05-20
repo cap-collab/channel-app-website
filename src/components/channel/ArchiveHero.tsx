@@ -792,6 +792,16 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
   const showName = useLiveData ? liveShowName : displayedArchive.showName;
 
+  // Subtitle vibe — a live show's vibe takes priority; otherwise fall back to
+  // the currently-playing archive-radio archive's vibe.
+  const liveVibe = isLive && currentShow?.showVibe?.trim()
+    ? { name: liveDjName, vibe: currentShow.showVibe.trim() }
+    : null;
+  const radioVibe = !liveVibe && radioArchive?.showVibe?.trim()
+    ? { name: radioPrimaryDj?.name ?? null, vibe: radioArchive.showVibe.trim() }
+    : null;
+  const subtitleVibe = liveVibe ?? radioVibe;
+
   return (
     <>
     <section className="relative z-10 px-4 pt-6 pb-2">
@@ -801,8 +811,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         </h2>
         {!hideSubtitle && (
           <p className="text-sm md:text-base text-zinc-400 mt-1">
-            {isLive && currentShow?.showVibe?.trim()
-              ? `${liveDjName ? `${liveDjName}: ` : ''}"${currentShow.showVibe.trim()}"`
+            {subtitleVibe
+              ? `${subtitleVibe.name ? `${subtitleVibe.name}: ` : ''}"${subtitleVibe.vibe}"`
               : 'No ads. No algorithms. Just people with great taste.'}
           </p>
         )}
