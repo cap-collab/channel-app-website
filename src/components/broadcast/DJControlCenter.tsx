@@ -190,52 +190,6 @@ export function DJControlCenter({
               {audioChannelPanel}
             </div>
 
-            {/* About this show — DJ-entered vibe, locked once saved */}
-            {slot && (
-              <div className="bg-[#252525] rounded-xl p-4">
-                <h3 className="text-gray-400 text-sm font-medium mb-1">
-                  About this show
-                </h3>
-                <p className="text-gray-500 text-xs mb-3">
-                  Optional. Share a few words about the mood, direction, or headspace for this broadcast.
-                </p>
-                {vibeLocked ? (
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-white text-sm flex-1">{vibeInput}</p>
-                    <span className="text-[10px] uppercase tracking-wider text-gray-500 border border-white/10 rounded-full px-2 py-0.5 flex-shrink-0">
-                      Locked
-                    </span>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={vibeInput}
-                        onChange={(e) => { setVibeInput(e.target.value); if (vibeError) setVibeError(null); }}
-                        onKeyDown={(e) => { if (e.key === 'Enter' && vibeInput.trim() && !savingVibe) { e.preventDefault(); handleSaveVibe(); } }}
-                        maxLength={120}
-                        className="flex-1 min-w-0 bg-[#1a1a1a] border border-white/10 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-white/30"
-                      />
-                      <button
-                        onClick={handleSaveVibe}
-                        disabled={!vibeInput.trim() || savingVibe}
-                        className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg transition-colors text-xs flex-shrink-0"
-                      >
-                        {savingVibe ? 'Saving...' : 'Save'}
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between mt-1">
-                      {vibeError
-                        ? <span className="text-red-400 text-xs">{vibeError}</span>
-                        : <span />}
-                      <span className="text-gray-600 text-xs">{vibeInput.length}/120</span>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
             {/* Share Your Stream */}
             <div className="bg-[#252525] rounded-xl p-4">
                 <h3 className="text-gray-400 text-sm font-medium mb-3">
@@ -290,6 +244,52 @@ export function DJControlCenter({
                   </a>
                 </div>
             </div>
+
+            {/* About this show — DJ-entered vibe, locked once saved */}
+            {slot && (
+              <div className="bg-[#252525] rounded-xl p-4">
+                <h3 className="text-gray-400 text-sm font-medium mb-1">
+                  About this show
+                </h3>
+                <p className="text-gray-500 text-xs mb-3">
+                  Optional. Share a few words about the mood, direction, or headspace for this broadcast.
+                </p>
+                {vibeLocked ? (
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-white text-sm flex-1">{vibeInput}</p>
+                    <span className="text-[10px] uppercase tracking-wider text-gray-500 border border-white/10 rounded-full px-2 py-0.5 flex-shrink-0">
+                      Locked
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={vibeInput}
+                        onChange={(e) => { setVibeInput(e.target.value); if (vibeError) setVibeError(null); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && vibeInput.trim() && !savingVibe) { e.preventDefault(); handleSaveVibe(); } }}
+                        maxLength={120}
+                        className="flex-1 min-w-0 bg-[#1a1a1a] border border-white/10 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-white/30"
+                      />
+                      <button
+                        onClick={handleSaveVibe}
+                        disabled={!vibeInput.trim() || savingVibe}
+                        className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg transition-colors text-xs flex-shrink-0"
+                      >
+                        {savingVibe ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      {vibeError
+                        ? <span className="text-red-400 text-xs">{vibeError}</span>
+                        : <span />}
+                      <span className="text-gray-600 text-xs">{vibeInput.length}/120</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Chat — secondary; aligned with tip/share widgets. Fixed height so it
                 doesn't dominate the page. DJ focus should stay on audio monitoring. */}
