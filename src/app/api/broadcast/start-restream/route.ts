@@ -87,9 +87,16 @@ export async function POST(request: NextRequest) {
     // the slot's cached copy — archives can be normalized/re-hosted after a slot
     // is scheduled, and the stale copy breaks the worker with "Missing required fields".
     let archiveUrl: string | undefined = slot.archiveRecordingUrl;
+    // audioMode drives the worker's mono/stereo encoding decision. 'mono' ⇒
+    // 1-channel publish (no stereo RED bleed); 'stereo'/null/missing ⇒ stereo.
+    let archiveAudioMode: 'mono' | 'stereo' | null = null;
     if (slot.archiveId) {
       const archiveDoc = await db.collection('archives').doc(slot.archiveId).get();
-      const freshUrl = archiveDoc.exists ? archiveDoc.data()?.recordingUrl : undefined;
+      const archiveData = archiveDoc.exists ? archiveDoc.data() : undefined;
+      const freshUrl = archiveData?.recordingUrl;
+      if (archiveData?.audioMode === 'mono' || archiveData?.audioMode === 'stereo') {
+        archiveAudioMode = archiveData.audioMode;
+      }
       if (freshUrl) {
         if (freshUrl !== slot.archiveRecordingUrl) {
           console.log(`[start-restream] slot ${slotId}: using fresh archive URL (slot had stale copy)`);
@@ -133,6 +140,8 @@ export async function POST(request: NextRequest) {
       livekitHost,
       appUrl,
       endTime: endTimeMs,
+      // null/missing ⇒ worker defaults to stereo (safe).
+      audioMode: archiveAudioMode,
     };
 
     // deferStart: caller says the slot's startTime is in the future and
@@ -191,8 +200,8 @@ export async function POST(request: NextRequest) {
       throw new Error(`Worker returned ${workerResp.status}: ${err}`);
     }
 
-    const workerData = await workerResp.json() as { ingressId?: string };
-    console.log(`[start-restream] Worker started for slot ${slotId} (RTMP ingress ${workerData.ingressId})`);
+    const workerData = await workerResp.json() as { ingressId?: string; audioMode?: 'mono' | 'stereo' };
+    console.log(`[start-restream] Worker started for slot ${slotId} (RTMP ingress ${workerData.ingressId}, audioMode ${workerData.audioMode})`);
 
     // Start the HLS egress here rather than deferring to the track_published
     // webhook. The webhook path is unreliable in practice — LiveKit signs
@@ -270,6 +279,7 @@ export async function POST(request: NextRequest) {
       restreamWorkerId: slotId,
       restreamIngressId: workerData.ingressId || FieldValue.delete(),
       restreamEgressId: restreamEgressId || FieldValue.delete(),
+      restreamAudioMode: workerData.audioMode || FieldValue.delete(),
     });
 
     return NextResponse.json({

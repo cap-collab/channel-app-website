@@ -143,6 +143,7 @@ export interface BroadcastSlot {
   restreamIngressId?: string;     // LiveKit ingress ID for URL playback (legacy)
   restreamWorkerId?: string;      // Restream worker slot ID (set by start-restream)
   restreamEgressId?: string;      // LiveKit HLS egress ID (set by webhook on track_published)
+  restreamAudioMode?: 'mono' | 'stereo'; // Resolved mono/stereo mode used for this restream run (set by start-restream)
   streamCount?: number;            // Number of streams (counted after 5+ min playback)
   sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
 }
@@ -337,6 +338,12 @@ export interface Archive {
   venueId?: string | null;
   venueName?: string | null;
   venueSlug?: string | null;
+  // Audio channel mode, probed once at archive creation (ffprobe channel count
+  // + L-R separation). Drives restream encoding: 'mono' content is published as
+  // a genuine 1-channel Opus track so stereo RED redundancy can't bleed.
+  // null/undefined = not probed (pre-backfill or manual archives) → restreams
+  // fall back to stereo. Admin-editable on /broadcast/admin → Archives.
+  audioMode?: 'mono' | 'stereo' | null;
 }
 
 // Serialized version for API responses (same as Archive since all fields are already serialized)
