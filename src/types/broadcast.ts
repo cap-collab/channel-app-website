@@ -113,6 +113,8 @@ export interface BroadcastSlot {
   currentDjSlotId?: string;      // ID of the currently active DJ slot
   // Show image (used for archives)
   showImageUrl?: string;
+  // DJ-entered free-text mood/vibe; locked once set
+  showVibe?: string;
   // Recording (for downloadable audio files)
   egressId?: string;              // HLS egress ID
   recordingEgressId?: string;     // MP4 file egress ID (legacy, for backward compat)
@@ -170,6 +172,8 @@ export interface BroadcastSlotSerialized {
   currentDjSlotId?: string;
   // Show image (used for archives)
   showImageUrl?: string;
+  // DJ-entered free-text mood/vibe; locked once set
+  showVibe?: string;
   // Recording (for downloadable audio files)
   egressId?: string;
   recordingEgressId?: string;
@@ -312,6 +316,7 @@ export interface Archive {
   createdAt: number;             // Unix ms - when archive was created
   stationId: string;             // 'channel-main'
   showImageUrl?: string;         // Show image (from broadcast slot)
+  showVibe?: string;             // Show vibe, carried from the broadcast slot
   streamCount?: number;          // Number of streams (counted after 5+ min playback)
   // Recording-only mode fields
   isPublic?: boolean;            // Default true for live broadcasts, false for recordings until published

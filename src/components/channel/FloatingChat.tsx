@@ -11,6 +11,7 @@ import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 import { computeDJChatRoom } from '@/lib/broadcast-utils';
 import { HeroChatMessage } from './LiveBroadcastHero';
+import { VibeBanner } from './VibeBanner';
 import { AuthModal } from '@/components/AuthModal';
 
 export function FloatingChat() {
@@ -211,9 +212,9 @@ export function FloatingChat() {
           isOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
-        <div className="max-w-lg mx-auto bg-zinc-900 border border-white/10 rounded-t-xl overflow-hidden" style={{ height: '60vh' }}>
+        <div className="max-w-lg mx-auto bg-zinc-900 border border-white/10 rounded-t-xl overflow-hidden flex flex-col" style={{ height: '60vh' }}>
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-white">Chat</span>
               {messageCount > 0 && (
@@ -231,6 +232,13 @@ export function FloatingChat() {
               </svg>
             </button>
           </div>
+
+          {/* Pinned show vibe — only while a show is live */}
+          {isLive && currentShow?.showVibe?.trim() && (
+            <div className="flex-shrink-0">
+              <VibeBanner vibe={currentShow.showVibe} />
+            </div>
+          )}
 
           {/* Content */}
           {profileLoading ? (
@@ -272,7 +280,7 @@ export function FloatingChat() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col" style={{ height: 'calc(60vh - 49px)' }}>
+            <div className="flex flex-col flex-1 min-h-0">
               <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
                 {messages.length === 0 ? (
                   <div className="flex items-center justify-center py-12 text-zinc-500">

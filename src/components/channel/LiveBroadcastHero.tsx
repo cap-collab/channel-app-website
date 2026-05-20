@@ -11,6 +11,7 @@ import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { BroadcastSchedule } from './BroadcastSchedule';
 import { FloatingHearts } from './FloatingHearts';
+import { VibeBanner } from './VibeBanner';
 import { TipButton } from './TipButton';
 import { AuthModal } from '@/components/AuthModal';
 import { ChatMessageSerialized } from '@/types/broadcast';
@@ -834,6 +835,12 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
         {/* Tab Content */}
         {activeTab === 'chat' ? (
           <div className={`flex flex-col ${hasRecentMessages ? 'h-[45dvh] lg:h-[38dvh]' : 'h-[29dvh] lg:h-[23dvh]'}`}>
+            {/* Pinned show vibe — only while a show is live */}
+            {isLive && currentShow?.showVibe?.trim() && (
+              <div className="flex-shrink-0">
+                <VibeBanner vibe={currentShow.showVibe} />
+              </div>
+            )}
             {/* Auth states */}
             {!isAuthenticated ? (
               <div className="flex-1 flex items-center justify-center p-6">

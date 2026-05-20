@@ -800,7 +800,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           {titleOverride ?? 'Human Radio'}
         </h2>
         {!hideSubtitle && (
-          <p className="text-sm md:text-base text-zinc-400 mt-1">No ads. No algorithms. Just people with great taste.</p>
+          <p className="text-sm md:text-base text-zinc-400 mt-1">
+            {isLive && currentShow?.showVibe?.trim()
+              ? currentShow.showVibe
+              : 'No ads. No algorithms. Just people with great taste.'}
+          </p>
         )}
       </div>
       <div className={`${homepage ? 'max-w-[845px]' : 'max-w-3xl'} mx-auto`}>
