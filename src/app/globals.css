@@ -205,14 +205,14 @@ a {
   will-change: transform;
 }
 
-/* DJ presence — soft glowing red heartbeat ring behind the live DJ avatar.
-   A blurred red glow whose opacity/scale gently throbs like a heartbeat. */
+/* DJ presence — soft red pulsing border ring around the live chat FAB.
+   Opacity-only breath, no scale, so the thin ring stays crisp. */
 @keyframes dj-presence-pulse {
-  0%, 100% { opacity: 0.45; transform: scale(0.92); }
-  50%      { opacity: 0.9;  transform: scale(1.18); }
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 0.85; }
 }
 .animate-dj-presence {
-  animation: dj-presence-pulse 1.8s ease-in-out infinite;
+  animation: dj-presence-pulse 2.4s ease-in-out infinite;
 }
 
 /* Fade in animation for streaming guide */

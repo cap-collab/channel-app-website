@@ -330,13 +330,21 @@ export function FloatingChat() {
       </div>
 
       {/* Chat button — the standard chat-bubble FAB in every state. When a
-          show is live, a tiny DJ avatar with a soft red heartbeat glow sits
-          in the top-right corner. */}
+          show is live, a soft red pulsing border rings the FAB and a small
+          square DJ avatar sits in the top-right corner. */}
       <button
         onClick={handleToggle}
         aria-label={isLive && liveDjName ? `${liveDjName} is live — open chat` : 'Open chat'}
-        className="fixed bottom-4 right-4 z-[199] w-10 h-10 md:w-12 md:h-12 rounded-full bg-zinc-800/80 backdrop-blur border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700/80 transition-colors"
+        className="fixed bottom-6 right-6 z-[199] w-10 h-10 md:w-12 md:h-12 rounded-full bg-zinc-800/80 backdrop-blur border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700/80 transition-colors"
       >
+        {/* Soft pulsing red border ring around the FAB while live */}
+        {isLive && !isOpen && (
+          <span
+            aria-hidden
+            className="animate-dj-presence absolute -inset-px rounded-full border border-red-500/70 pointer-events-none"
+          />
+        )}
+
         {isOpen ? (
           <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -347,36 +355,33 @@ export function FloatingChat() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
 
-            {/* Live DJ avatar — top-right corner, ~24px, no border/shadow,
-                with a soft glowing red heartbeat ring behind it. */}
+            {/* Live DJ avatar — top-right corner, ~24px square, no border/shadow */}
             {isLive && (
-              <span className="absolute -top-2 -right-2 w-6 h-6">
-                {/* Soft glowing red pulse — blurred, sits behind the avatar */}
-                <span
-                  aria-hidden
-                  className="animate-dj-presence absolute -inset-1 rounded-full bg-red-600 blur-[3px]"
-                />
-                <span className="relative block w-6 h-6 rounded-full overflow-hidden bg-zinc-800">
-                  {liveDjPhoto ? (
-                    <Image
-                      src={liveDjPhoto}
-                      alt={liveDjName || 'Live DJ'}
-                      width={24}
-                      height={24}
-                      className="w-full h-full object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    <span className="flex items-center justify-center w-full h-full text-[10px] font-bold text-white">
-                      {(liveDjName || 'L').charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </span>
+              <span className="absolute -top-2 -right-2 block w-6 h-6 overflow-hidden bg-zinc-800">
+                {liveDjPhoto ? (
+                  <Image
+                    src={liveDjPhoto}
+                    alt={liveDjName || 'Live DJ'}
+                    width={24}
+                    height={24}
+                    className="w-full h-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <span className="flex items-center justify-center w-full h-full text-[10px] font-bold text-white">
+                    {(liveDjName || 'L').charAt(0).toUpperCase()}
+                  </span>
+                )}
               </span>
             )}
 
+            {/* Message count — bottom-right while live, top-right otherwise */}
             {messageCount > 0 && (
-              <span className="absolute -bottom-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-zinc-700 border border-white/10 text-[10px] text-white font-medium flex items-center justify-center">
+              <span
+                className={`absolute min-w-[16px] h-4 px-1 rounded-full bg-zinc-700 border border-white/10 text-[10px] text-white font-medium flex items-center justify-center ${
+                  isLive ? '-bottom-1 -right-1' : '-top-1 -right-1'
+                }`}
+              >
                 {messageCount}
               </span>
             )}
