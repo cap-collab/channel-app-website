@@ -582,17 +582,22 @@ export async function POST(request: NextRequest) {
           djSlotId: doc.id,
         };
         // Post to the DJ room (if resolvable) and to the global broadcast feed.
+        // Store the message doc IDs so an edit can update them in place.
+        const postedIds: Record<string, unknown> = { vibeMessagePosted: true };
         if (djRoom && djRoom !== 'channelbroadcast') {
-          await db.collection('chats').doc(djRoom).collection('messages').add({
+          const djMsg = await db.collection('chats').doc(djRoom).collection('messages').add({
             ...messageData,
             stationId: djRoom,
           });
+          postedIds.vibeMessageRoom = djRoom;
+          postedIds.vibeMessageId = djMsg.id;
         }
-        await db.collection('chats').doc('channelbroadcast').collection('messages').add({
+        const bcMsg = await db.collection('chats').doc('channelbroadcast').collection('messages').add({
           ...messageData,
           stationId: 'channelbroadcast',
         });
-        await doc.ref.update({ vibeMessagePosted: true });
+        postedIds.vibeMessageBroadcastId = bcMsg.id;
+        await doc.ref.update(postedIds);
         console.log('[go-live] ✅ Posted show vibe message');
       }
     } catch (vibeError) {

@@ -802,7 +802,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         {!hideSubtitle && (
           <p className="text-sm md:text-base text-zinc-400 mt-1">
             {isLive && currentShow?.showVibe?.trim()
-              ? currentShow.showVibe
+              ? `${liveDjName ? `${liveDjName}: ` : ''}"${currentShow.showVibe.trim()}"`
               : 'No ads. No algorithms. Just people with great taste.'}
           </p>
         )}

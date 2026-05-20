@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 
-// POST - Save the show vibe onto a broadcast slot. Locked once set: a slot
-// that already has a non-empty showVibe is not overwritten.
+// POST - Save the show vibe onto a broadcast slot. Editable any time; if the
+// vibe has already been posted as a chat message (at go-live), the posted
+// message is updated in place so the pinned message stays current.
 export async function POST(request: NextRequest) {
   try {
     const db = getAdminDb();
@@ -40,18 +41,32 @@ export async function POST(request: NextRequest) {
     const slotDoc = snapshot.docs[0];
     const slotData = slotDoc.data();
 
-    // Lock rule — once a vibe is set it cannot be changed.
-    const existing = slotData.showVibe;
-    if (typeof existing === 'string' && existing.trim()) {
-      return NextResponse.json(
-        { error: 'Vibe already set', showVibe: existing, locked: true },
-        { status: 409 },
-      );
-    }
-
     await slotDoc.ref.update({ showVibe: trimmed });
 
-    return NextResponse.json({ success: true, showVibe: trimmed, locked: true });
+    // If the vibe was already posted to chat, update those messages in place
+    // so the pinned message reflects the edit. Best-effort.
+    if (slotData.vibeMessagePosted) {
+      try {
+        if (slotData.vibeMessageRoom && slotData.vibeMessageId) {
+          await db.collection('chats')
+            .doc(slotData.vibeMessageRoom)
+            .collection('messages')
+            .doc(slotData.vibeMessageId)
+            .update({ message: trimmed });
+        }
+        if (slotData.vibeMessageBroadcastId) {
+          await db.collection('chats')
+            .doc('channelbroadcast')
+            .collection('messages')
+            .doc(slotData.vibeMessageBroadcastId)
+            .update({ message: trimmed });
+        }
+      } catch (msgError) {
+        console.error('[update-vibe] Failed to update posted vibe message:', msgError);
+      }
+    }
+
+    return NextResponse.json({ success: true, showVibe: trimmed });
   } catch (error) {
     console.error('[update-vibe] Error:', error);
     return NextResponse.json({ error: 'Failed to update vibe' }, { status: 500 });

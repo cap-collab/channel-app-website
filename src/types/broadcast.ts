@@ -113,10 +113,14 @@ export interface BroadcastSlot {
   currentDjSlotId?: string;      // ID of the currently active DJ slot
   // Show image (used for archives)
   showImageUrl?: string;
-  // DJ-entered free-text mood/vibe; locked once set
+  // DJ-entered free-text mood/vibe; editable any time
   showVibe?: string;
-  // True once the vibe has been posted as a chat message (posted at go-live)
+  // Vibe chat message tracking — set once posted at go-live so later edits
+  // can update the posted message in place.
   vibeMessagePosted?: boolean;
+  vibeMessageRoom?: string;        // DJ chat room the vibe message was posted to
+  vibeMessageId?: string;          // doc ID of the vibe message in the DJ room
+  vibeMessageBroadcastId?: string; // doc ID of the vibe message in channelbroadcast
   // Recording (for downloadable audio files)
   egressId?: string;              // HLS egress ID
   recordingEgressId?: string;     // MP4 file egress ID (legacy, for backward compat)
