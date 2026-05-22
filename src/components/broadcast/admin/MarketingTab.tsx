@@ -200,7 +200,6 @@ export function MarketingTab({ slots }: MarketingTabProps) {
     return slots
       .filter(s => {
         if (s.status === 'missed') return false;
-        if (s.broadcastType === 'restream') return false;
         return s.startTime >= weekRange.start.getTime() && s.startTime < weekRange.end.getTime();
       })
       .sort((a, b) => a.startTime - b.startTime);
@@ -358,8 +357,20 @@ export function MarketingTab({ slots }: MarketingTabProps) {
       djName: string;
       handle: string;
       sharingEnabled: boolean;
+      isRestream: boolean;
     }> = [];
     for (const s of weekSlots) {
+      const isRestream = s.broadcastType === 'restream';
+      if (isRestream) {
+        rows.push({
+          key: s.id,
+          djName: s.djName || s.showName || 'Restream',
+          handle: '',
+          sharingEnabled: false,
+          isRestream: true,
+        });
+        continue;
+      }
       const handles = getInstagramHandles(s, slotIgCache, djInfoCache);
       const sharingEnabled = djInfoCache[s.id]?.metaOptIn !== false;
       if (s.broadcastType === 'venue' && s.djSlots?.length) {
@@ -372,6 +383,7 @@ export function MarketingTab({ slots }: MarketingTabProps) {
             djName,
             handle: found?.handle || '',
             sharingEnabled,
+            isRestream: false,
           });
         }
       } else {
@@ -382,6 +394,7 @@ export function MarketingTab({ slots }: MarketingTabProps) {
           djName,
           handle: handles[0]?.handle || '',
           sharingEnabled,
+          isRestream: false,
         });
       }
     }
@@ -415,7 +428,9 @@ export function MarketingTab({ slots }: MarketingTabProps) {
                 className="grid grid-cols-[1fr_auto_auto] gap-3 items-center"
               >
                 <span className="text-gray-300 truncate">{r.djName}</span>
-                {r.handle ? (
+                {r.isRestream ? (
+                  <span className="text-gray-600 italic">restream</span>
+                ) : r.handle ? (
                   <a
                     href={`https://instagram.com/${r.handle}`}
                     target="_blank"
@@ -427,20 +442,26 @@ export function MarketingTab({ slots }: MarketingTabProps) {
                 ) : (
                   <span className="text-gray-600 italic">no IG</span>
                 )}
-                <span
-                  className={
-                    r.sharingEnabled
-                      ? 'text-green-400/80'
-                      : 'text-yellow-400/80'
-                  }
-                  title={
-                    r.sharingEnabled
-                      ? 'IG/Meta sharing enabled'
-                      : 'DJ opted out of IG/Meta sharing'
-                  }
-                >
-                  {r.sharingEnabled ? 'sharing on' : 'opted out'}
-                </span>
+                {r.isRestream ? (
+                  <span className="text-gray-500" title="Restream — no marketing assets">
+                    —
+                  </span>
+                ) : (
+                  <span
+                    className={
+                      r.sharingEnabled
+                        ? 'text-green-400/80'
+                        : 'text-yellow-400/80'
+                    }
+                    title={
+                      r.sharingEnabled
+                        ? 'IG/Meta sharing enabled'
+                        : 'DJ opted out of IG/Meta sharing'
+                    }
+                  >
+                    {r.sharingEnabled ? 'sharing on' : 'opted out'}
+                  </span>
+                )}
               </li>
             ))}
           </ul>

@@ -20,21 +20,37 @@ interface ResidentsGridProps {
 
 export function ResidentsGrid({ items }: ResidentsGridProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [hasOverflow, setHasOverflow] = useState(false);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
   const [pageCount, setPageCount] = useState(1);
   const [activePage, setActivePage] = useState(0);
+  // Desktop = 3 cols per row, mobile = 2. The carousel holds 2 rows, so it
+  // overflows once items exceed 2 * colsPerRow. Tracked via matchMedia rather
+  // than DOM measurement so the layout decision is correct on the first paint
+  // (no carousel flash before measuring).
+  const [isDesktop, setIsDesktop] = useState(true);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const apply = () => setIsDesktop(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  const colsPerRow = isDesktop ? 3 : 2;
+  // Carousel only when it can't fit in 2 rows — otherwise a plain wrapping
+  // grid puts everyone side by side. Mobile with many DJs still gets the
+  // 2-row horizontal-scroll carousel.
+  const hasOverflow = items.length > colsPerRow * 2;
 
   const measure = () => {
     const el = scrollRef.current;
     if (!el) return;
-    const overflow = el.scrollWidth > el.clientWidth + 1;
-    setHasOverflow(overflow);
     const left = el.scrollLeft;
     setCanLeft(left > 0);
     setCanRight(left < el.scrollWidth - el.clientWidth - 1);
-    if (overflow && el.clientWidth > 0) {
+    if (hasOverflow && el.clientWidth > 0) {
       const pages = Math.max(1, Math.ceil(el.scrollWidth / el.clientWidth));
       setPageCount(pages);
       setActivePage(Math.min(pages - 1, Math.round(left / el.clientWidth)));
@@ -55,7 +71,8 @@ export function ResidentsGrid({ items }: ResidentsGridProps) {
       el.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", measure);
     };
-  }, [items.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length, hasOverflow]);
 
   const scrollByPage = (dir: 1 | -1) => {
     const el = scrollRef.current;
@@ -69,7 +86,17 @@ export function ResidentsGrid({ items }: ResidentsGridProps) {
         ref={scrollRef}
         className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0 scrollbar-hide"
       >
-        <div className="grid grid-rows-2 grid-flow-col gap-3 auto-cols-[calc(50%-0.375rem)] md:auto-cols-[calc(33.333%-0.5rem)]">
+        {/* Carousel layout (2 rows, columns flow horizontally) is used while the
+            content overflows — keeps the photo-first cards readable on mobile.
+            Once everything fits, switch to a plain wrapping grid so the cards
+            sit side by side in a single row instead of a fixed 2-row block. */}
+        <div
+          className={
+            hasOverflow
+              ? "grid grid-rows-2 grid-flow-col gap-3 auto-cols-[calc(50%-0.375rem)] md:auto-cols-[calc(33.333%-0.5rem)]"
+              : "grid grid-cols-2 md:grid-cols-3 gap-3"
+          }
+        >
           {items.map((it) => {
             // Fallback when no photo: 3-people icon for collectives, person silhouette for DJs.
             const placeholderSvg = it.isCollective ? (
