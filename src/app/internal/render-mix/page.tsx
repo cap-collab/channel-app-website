@@ -245,7 +245,7 @@ function RenderMixInner() {
         src="/logo-white.svg"
         alt="CHANNEL"
         className="absolute top-5 right-5 drop-shadow-lg"
-        style={{ height: 60 }}
+        style={{ height: 51 }}
       />
     </div>
   );
@@ -282,7 +282,7 @@ function SquareCover({
         src="/logo-white.svg"
         alt="CHANNEL"
         className="absolute drop-shadow-lg"
-        style={{ height: 86, top: 29, right: 29 }}
+        style={{ height: 73, top: 29, right: 29 }}
       />
     </div>
   );
