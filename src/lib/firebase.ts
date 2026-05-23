@@ -1,6 +1,6 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, OAuthProvider, Auth } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { initializeFirestore, getFirestore, Firestore } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -24,9 +24,18 @@ let googleProvider: GoogleAuthProvider | null = null;
 let appleProvider: OAuthProvider | null = null;
 
 if (isConfigured) {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  const isFresh = getApps().length === 0;
+  app = isFresh ? initializeApp(firebaseConfig) : getApps()[0];
   auth = getAuth(app);
-  db = getFirestore(app);
+  // Auto-detect long-polling. Default WebChannel transport silently hangs on
+  // some mobile networks / carrier proxies (handshake never completes, the
+  // promise never settles, sections below the hero never render). With this
+  // flag the SDK probes and falls back to long-polling when WebChannel is
+  // blocked. Must run on first init only — calling initializeFirestore after
+  // getFirestore on the same app throws "already initialized".
+  db = isFresh
+    ? initializeFirestore(app, { experimentalAutoDetectLongPolling: true })
+    : getFirestore(app);
   storage = getStorage(app);
   googleProvider = new GoogleAuthProvider();
   appleProvider = new OAuthProvider("apple.com");
