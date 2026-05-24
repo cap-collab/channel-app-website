@@ -226,14 +226,7 @@ export function GlobalBroadcastBar() {
 
   if (!barMode) return null;
 
-  // On the homepage `/` (canonical radio page), keep the sticky bar hidden
-  // until the listener has actually engaged or scrolled past the inline
-  // player. Reveal triggers: something is playing/loaded, the inline hero
-  // bar has scrolled out of view, or the listener navigates to another
-  // page (pathname check handles the last one automatically).
-  const nothingEngaged =
-    !isLivePlaying && !isArchivePlaying && !isRadioPlaying && !archivePlayer.currentArchive;
-  const hiddenOnRadio = pathname === '/' && heroBarVisible && nothingEngaged;
+  const hiddenOnRadio = false;
 
   const showLiveBar = barMode === 'live';
 
