@@ -33,7 +33,6 @@ export function GlobalBroadcastBar() {
   const {
     isLive, isStreaming, isPlaying, isLoading, toggle,
     showName, djName, tipLink, currentShow,
-    heroBarVisible,
     onLockedInRef: broadcastLockedInRef,
   } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
