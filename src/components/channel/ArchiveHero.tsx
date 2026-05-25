@@ -927,14 +927,17 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </span>
               </div>
             ) : (
-              // Slide 1 → archive (listener-picked or alternative).
-              <div className="flex items-center gap-1.5 bg-white px-2 py-0.5">
-                <svg className="w-3 h-3 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              // Slide 1 → archive playback (listener-picked or
+              // alternative). Keep the original transparent-bg pill —
+              // the new rectangular shells are reserved for the
+              // live/radio sources.
+              <div className="flex items-center gap-1.5">
+                <svg className="w-3 h-3 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="18" height="5" rx="1" />
                   <path d="M5 8v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
                   <path d="M10 12h4" />
                 </svg>
-                <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-500">
+                <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
                   Archive
                 </span>
               </div>
@@ -1043,6 +1046,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                             archive={radioArchive}
                             sceneSlugs={resolveArchiveScenes(radioArchive, djSceneMap)}
                             onPlay={() => { void radioCtx?.toggle(); }}
+                            isPlaying={!!radioCtx?.isPlaying}
+                            isLiveOrRadio={true}
                           />
                         );
                       })()}
@@ -1074,6 +1079,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                         <HeroSlide
                           archive={secondHeroArchive}
                           sceneSlugs={resolveArchiveScenes(secondHeroArchive, djSceneMap)}
+                          isPlaying={slide1Identity === 'radio'
+                            ? !!radioCtx?.isPlaying
+                            : (archivePlayer.isPlaying && archivePlayer.currentArchive?.id === secondHeroArchive.id)}
+                          isLiveOrRadio={slide1Identity === 'radio'}
                           onPlay={() => {
                             // When slide 1 IS the radio archive (live is on,
                             // listener hasn't picked their own archive),
@@ -1633,10 +1642,19 @@ function HeroSlide({
   archive,
   sceneSlugs,
   onPlay,
+  isPlaying,
+  // True when this slide represents the live/radio source (radio
+  // archive on slide 0 when offline, or slide-1 mirroring the radio
+  // archive while live is on). When false this is a listener-picked
+  // archive — keep the old chrome (center play disc, no dancing bars,
+  // smaller show name, no glyph-padding reserve).
+  isLiveOrRadio,
 }: {
   archive: ArchiveSerialized;
   sceneSlugs?: string[];
   onPlay: () => void;
+  isPlaying?: boolean;
+  isLiveOrRadio: boolean;
 }) {
   const primaryDj = archive.djs[0];
   const djName = archive.djs.map(d => d.name).join(', ');
@@ -1665,11 +1683,18 @@ function HeroSlide({
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
-          <DancingBars />
-          {/* Show name — top left */}
-          <div className="absolute top-2 left-2 right-9 drop-shadow-lg">
-            <span className="text-[17px] font-bold text-white uppercase tracking-wide block truncate">{archive.showName}</span>
-          </div>
+          {isLiveOrRadio && <DancingBars />}
+          {/* Show name — top left. Larger + reserved glyph padding for
+              live/radio; original small style for archive playback. */}
+          {isLiveOrRadio ? (
+            <div className="absolute top-2 left-2 right-9 drop-shadow-lg">
+              <span className="text-[17px] font-bold text-white uppercase tracking-wide block truncate">{archive.showName}</span>
+            </div>
+          ) : (
+            <div className="absolute top-2 left-2 drop-shadow-lg">
+              <span className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</span>
+            </div>
+          )}
           {/* Scene glyph — top right */}
           {sceneSlugs && sceneSlugs.some((s) => s !== 'grid') && (
             <div className="absolute top-2 right-2 flex items-center gap-1.5 drop-shadow-lg text-white">
@@ -1678,6 +1703,18 @@ function HeroSlide({
                   <SceneGlyph slug={slug} />
                 </span>
               ))}
+            </div>
+          )}
+          {/* Center play disc — archive playback only, restoring old
+              chrome (live/radio hides this in favor of the bars and
+              the player bar's play button). */}
+          {!isLiveOrRadio && !isPlaying && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
+                <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
             </div>
           )}
           {/* Mood tags — hidden for now (testing) */}
