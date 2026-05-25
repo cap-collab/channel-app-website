@@ -20,6 +20,7 @@ import { findActiveDjSlot } from '@/lib/broadcast-utils';
 import { DJImageOverlay, ScrollingShowName, ScrollingDJName } from './LiveBroadcastHero';
 import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
+import { DancingBars } from './DancingBars';
 import { AuthModal } from '@/components/AuthModal';
 import { ArchiveSerialized } from '@/types/broadcast';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
@@ -869,71 +870,74 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               </button>
             );
           })()}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center">
             {/* Pill matches what the visible slide is showing:
                   Slide 0 + isLive → Live (red dot, BPM if available)
                   Slide 0 + !isLive → Restream (radio archive playing on
                     the schedule)
                   Slide 1 → Archive (a recorded archive, not live), or
-                    Restream when slide 1 IS the radio's archive. */}
+                    Restream when slide 1 IS the radio's archive.
+                Pill shells are rectangular with straight corners
+                (no rounded-*). LIVE = white text on red. RADIO /
+                RESTREAM / ARCHIVE = grey text on white. */}
             {heroIndex === 0 && isLive ? (
               isRestream ? (
-                <>
-                  <svg className="w-3 h-3 text-zinc-400 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <div className="flex items-center gap-1.5 bg-white px-2 py-0.5">
+                  <svg className="w-3 h-3 text-zinc-500 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                     <path d="M3 3v5h5" />
                   </svg>
-                  <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
+                  <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-500">
                     Restream{liveBPM ? <span className="md:hidden"> {liveBPM} BPM</span> : null}
                   </span>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="flex items-center gap-1.5 bg-red-600 px-2 py-0.5">
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
                   </span>
-                  <span className="text-xs font-mono uppercase tracking-tighter font-bold text-red-500">
+                  <span className="text-xs font-mono uppercase tracking-tighter font-bold text-white">
                     Live{liveBPM ? <span className="md:hidden"> {liveBPM} BPM</span> : null}
                   </span>
-                </>
+                </div>
               )
             ) : heroIndex === 0 ? (
               // Slide 0 + offline → archive radio. Red pulsing dot + RADIO.
-              <>
+              <div className="flex items-center gap-1.5 bg-white px-2 py-0.5">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
                 </span>
-                <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
+                <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-500">
                   Radio
                 </span>
-              </>
+              </div>
             ) : slide1Identity === 'radio' ? (
               // Slide 1 = the radio's currently-playing archive (live is
               // on, listener hasn't picked their own archive). It's the
               // radio card visually, so use the radio pill.
-              <>
+              <div className="flex items-center gap-1.5 bg-white px-2 py-0.5">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
                 </span>
-                <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
+                <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-500">
                   Radio
                 </span>
-              </>
+              </div>
             ) : (
               // Slide 1 → archive (listener-picked or alternative).
-              <>
-                <svg className="w-3 h-3 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <div className="flex items-center gap-1.5 bg-white px-2 py-0.5">
+                <svg className="w-3 h-3 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="18" height="5" rx="1" />
                   <path d="M5 8v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
                   <path d="M10 12h4" />
                 </svg>
-                <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-400">
+                <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-500">
                   Archive
                 </span>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -991,9 +995,26 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                               />
                               <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
                               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
-                              <div className="absolute top-2 left-2 drop-shadow-lg">
-                                <span className="text-sm font-bold text-white uppercase tracking-wide">{showName}</span>
+                              <DancingBars />
+                              <div className="absolute top-2 left-2 right-9 drop-shadow-lg">
+                                <span className="text-[17px] font-bold text-white uppercase tracking-wide block truncate">{showName}</span>
                               </div>
+                              {/* Scene glyph — top right (mirrors HeroSlide). */}
+                              {(() => {
+                                const u = liveDjProfileUsername?.toLowerCase().replace(/\s+/g, '');
+                                const slugs = u ? (djSceneMap.byUsername.get(u) || []) : [];
+                                const visible = slugs.filter((s) => s !== 'grid');
+                                if (visible.length === 0) return null;
+                                return (
+                                  <div className="absolute top-2 right-2 flex items-center gap-1.5 drop-shadow-lg text-white">
+                                    {visible.map((slug) => (
+                                      <span key={slug} className="text-lg leading-none inline-flex items-center">
+                                        <SceneGlyph slug={slug} />
+                                      </span>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
                               <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
                             </>
                           ) : (
@@ -1043,16 +1064,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                               }
                             }}
                             aria-label={slideIsPlaying ? 'Pause' : 'Play this'}
-                            className="absolute inset-0 flex items-center justify-center transition-opacity hover:bg-black/30"
-                          >
-                            {!slideIsPlaying && (
-                              <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
-                                <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                                  <path d="M8 5v14l11-7z" />
-                                </svg>
-                              </div>
-                            )}
-                          </button>
+                            className="absolute inset-0 transition-opacity hover:bg-black/30"
+                          />
                         );
                       })()}
                     </div>
@@ -1101,16 +1114,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                                 }
                               }}
                               aria-label={slideIsPlaying ? 'Pause' : (slideIsRadio ? 'Play radio' : 'Play this archive')}
-                              className="absolute inset-0 flex items-center justify-center transition-opacity hover:bg-black/30"
-                            >
-                              {!slideIsPlaying && (
-                                <div className="w-12 h-12 rounded-full bg-black/40 border border-white/30 flex items-center justify-center drop-shadow-lg">
-                                  <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M8 5v14l11-7z" />
-                                  </svg>
-                                </div>
-                              )}
-                            </button>
+                              className="absolute inset-0 transition-opacity hover:bg-black/30"
+                            />
                           );
                         })()}
                       </div>
@@ -1660,9 +1665,10 @@ function HeroSlide({
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
+          <DancingBars />
           {/* Show name — top left */}
-          <div className="absolute top-2 left-2 drop-shadow-lg">
-            <span className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</span>
+          <div className="absolute top-2 left-2 right-9 drop-shadow-lg">
+            <span className="text-[17px] font-bold text-white uppercase tracking-wide block truncate">{archive.showName}</span>
           </div>
           {/* Scene glyph — top right */}
           {sceneSlugs && sceneSlugs.some((s) => s !== 'grid') && (
