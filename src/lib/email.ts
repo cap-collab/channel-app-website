@@ -203,6 +203,9 @@ interface ShowStartingEmailParams {
   stationName: string;
   stationId: string;
   streamingUrl?: string; // For dj-radio shows: the external station's URL
+  // Recipient is on the live DJ's affiliation list (not a watchlist match).
+  // Changes the footer copy; subject + body stay the same.
+  isAffiliated?: boolean;
 }
 
 export async function sendShowStartingEmail({
@@ -215,6 +218,7 @@ export async function sendShowStartingEmail({
   stationName,
   stationId,
   streamingUrl,
+  isAffiliated,
 }: ShowStartingEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -237,7 +241,9 @@ export async function sendShowStartingEmail({
   } else {
     buttonUrl = getStationWebsiteUrl(stationId);
   }
-  const buttonText = "Tune In";
+  // On Channel broadcasts listeners can send love in-app; on external
+  // stations they can't, so keep the plain CTA there.
+  const buttonText = isChannelRadio ? "Tune in & send love" : "Tune In";
 
   // Station accent colors for fallback avatar (same as watchlist digest)
   const stationAccentColors: Record<string, string> = {
@@ -289,7 +295,12 @@ export async function sendShowStartingEmail({
       from: FROM_EMAIL,
       to,
       subject: `${djUsername || djName ? djDisplayName : displayName} is live on ${stationName}`,
-      html: wrapEmailContent(content, "You're receiving this because you saved this show."),
+      html: wrapEmailContent(
+        content,
+        isAffiliated
+          ? "You're receiving this because you're an affiliated artist."
+          : "You're receiving this because you saved this show.",
+      ),
       headers: getUnsubscribeHeaders("alerts"),
     });
 

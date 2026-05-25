@@ -420,6 +420,7 @@ export async function GET(request: NextRequest) {
       for (const show of liveShows) {
         // Check if user has this show favorited
         let matched = false;
+        let matchedViaAffiliation = false;
 
         // Check "show" type favorites (exact show name + station match)
         for (const fav of showFavorites) {
@@ -460,7 +461,10 @@ export async function GET(request: NextRequest) {
           if (affiliatedRecipients?.has(userId)) {
             const optOut =
               (userData.emailNotifications as Record<string, unknown> | undefined)?.affiliatedGoLive === false;
-            if (!optOut) matched = true;
+            if (!optOut) {
+              matched = true;
+              matchedViaAffiliation = true;
+            }
           }
         }
 
@@ -494,6 +498,7 @@ export async function GET(request: NextRequest) {
           stationName: show.stationName,
           stationId: show.stationId,
           streamingUrl: show.streamingUrl,
+          isAffiliated: matchedViaAffiliation,
         });
 
         if (success) {
