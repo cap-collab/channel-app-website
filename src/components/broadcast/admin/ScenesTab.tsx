@@ -161,6 +161,27 @@ export function ScenesTab() {
     [authedFetch, fetchDjs]
   );
 
+  const handleSetAffiliation = useCallback(
+    async (dj: DjForScenesAdmin, affiliatedWithUid: string | null) => {
+      setDjs((prev) =>
+        prev.map((d) =>
+          d.userId === dj.userId ? { ...d, affiliatedWithUid: affiliatedWithUid ?? undefined } : d
+        )
+      );
+
+      try {
+        const res = await authedFetch('/api/admin/scenes/dj-affiliation', {
+          method: 'PATCH',
+          body: JSON.stringify({ userId: dj.userId, affiliatedWithUid }),
+        });
+        if (!res.ok) throw new Error('Failed to update');
+      } catch {
+        await fetchDjs();
+      }
+    },
+    [authedFetch, fetchDjs]
+  );
+
   const handleToggleCollectiveScene = useCallback(
     async (collective: CollectiveForScenesAdmin, sceneId: string) => {
       const current = collective.sceneIds ?? [];
@@ -236,16 +257,20 @@ export function ScenesTab() {
             djs={residents}
             emptyLabel="No residents in this view."
             scenes={scenes}
+            allDjs={djs}
             onToggle={handleToggleDjScene}
             onSetResidency={handleSetResidency}
+            onSetAffiliation={handleSetAffiliation}
           />
           <DjGroup
             title="Not residents"
             djs={nonResidents}
             emptyLabel="No non-resident DJs in this view."
             scenes={scenes}
+            allDjs={djs}
             onToggle={handleToggleDjScene}
             onSetResidency={handleSetResidency}
+            onSetAffiliation={handleSetAffiliation}
           />
           <CollectiveGroup
             title="Collectives"
@@ -290,15 +315,23 @@ function SceneSwitcherPill({
 function DjRow({
   dj,
   scenes,
+  allDjs,
   onToggle,
   onSetResidency,
+  onSetAffiliation,
 }: {
   dj: DjForScenesAdmin;
   scenes: SceneSerialized[];
+  allDjs: DjForScenesAdmin[];
   onToggle: (dj: DjForScenesAdmin, sceneId: string) => void;
   onSetResidency: (dj: DjForScenesAdmin, cadence: ResidencyCadence | null) => void;
+  onSetAffiliation: (dj: DjForScenesAdmin, affiliatedWithUid: string | null) => void;
 }) {
   const cadence = dj.residencyCadence;
+  const affiliationOptions = useMemo(
+    () => allDjs.filter((d) => d.userId !== dj.userId),
+    [allDjs, dj.userId]
+  );
   return (
     <div className="flex items-center gap-4 px-4 py-3 bg-[#1f1f1f] rounded-lg border border-gray-800">
       <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-800 flex-shrink-0">
@@ -341,6 +374,11 @@ function DjRow({
         <div className="text-[10px] text-gray-500 whitespace-nowrap">
           Next show: {formatNextSlot(dj.nextSlotStart)}
         </div>
+        <AffiliationPicker
+          value={dj.affiliatedWithUid ?? null}
+          options={affiliationOptions}
+          onChange={(uid) => onSetAffiliation(dj, uid)}
+        />
       </div>
       <div className="flex flex-wrap gap-1.5 justify-end">
         {scenes.map((scene) => {
@@ -370,15 +408,19 @@ function DjGroup({
   djs,
   emptyLabel,
   scenes,
+  allDjs,
   onToggle,
   onSetResidency,
+  onSetAffiliation,
 }: {
   title: string;
   djs: DjForScenesAdmin[];
   emptyLabel: string;
   scenes: SceneSerialized[];
+  allDjs: DjForScenesAdmin[];
   onToggle: (dj: DjForScenesAdmin, sceneId: string) => void;
   onSetResidency: (dj: DjForScenesAdmin, cadence: ResidencyCadence | null) => void;
+  onSetAffiliation: (dj: DjForScenesAdmin, affiliatedWithUid: string | null) => void;
 }) {
   return (
     <div>
@@ -395,12 +437,42 @@ function DjGroup({
               key={dj.userId}
               dj={dj}
               scenes={scenes}
+              allDjs={allDjs}
               onToggle={onToggle}
               onSetResidency={onSetResidency}
+              onSetAffiliation={onSetAffiliation}
             />
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function AffiliationPicker({
+  value,
+  options,
+  onChange,
+}: {
+  value: string | null;
+  options: DjForScenesAdmin[];
+  onChange: (uid: string | null) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] text-gray-500 whitespace-nowrap">Affiliated with</span>
+      <select
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="bg-gray-800 text-gray-200 text-[11px] rounded border border-gray-700 px-1.5 py-0.5 max-w-[160px]"
+      >
+        <option value="">— none —</option>
+        {options.map((o) => (
+          <option key={o.userId} value={o.userId}>
+            {o.chatUsername || o.name || o.displayName}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

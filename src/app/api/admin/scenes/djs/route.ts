@@ -36,6 +36,7 @@ export interface DjForScenesAdmin {
   role: string;
   sceneIds: string[];
   residencyCadence?: ResidencyCadence;
+  affiliatedWithUid?: string;
   // Soonest upcoming Channel slot for this DJ (Unix ms). Undefined if none.
   nextSlotStart?: number;
 }
@@ -102,6 +103,11 @@ export async function GET(request: NextRequest) {
       }
       const nextSlotStart = candidates.length ? Math.min(...candidates) : undefined;
 
+      const affiliatedWithUid =
+        typeof data.djProfile?.affiliatedWithUid === 'string' && data.djProfile.affiliatedWithUid
+          ? data.djProfile.affiliatedWithUid
+          : undefined;
+
       djs.push({
         userId: doc.id,
         displayName: data.chatUsername || data.name || data.email || '(no name)',
@@ -112,6 +118,7 @@ export async function GET(request: NextRequest) {
         role: data.role,
         sceneIds: Array.isArray(data.djProfile?.sceneIds) ? data.djProfile.sceneIds : [],
         residencyCadence,
+        affiliatedWithUid,
         nextSlotStart,
       });
     });

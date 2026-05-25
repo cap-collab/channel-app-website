@@ -342,6 +342,46 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 4b. Build affiliated-artist sets per live show.
+    // For each live show whose live DJ has uid X, the set is the union of:
+    //   - X's own affiliatedWithUid (the artist X is affiliated with)
+    //   - every DJ-role user Y where Y.djProfile.affiliatedWithUid === X (X's affiliates)
+    //   - every DJ-role user Z where Z.djProfile.affiliatedWithUid === X.djProfile.affiliatedWithUid (siblings under the same artist)
+    // Users in this set get the same "show starting" email regardless of their watchlist.
+    // Recipients still need emailNotifications.showStarting === true AND
+    // emailNotifications.affiliatedGoLive !== false (the per-user opt-out).
+    const affiliatedByLiveDjUid = new Map<string, string>(); // liveDjUid → their affiliatedWithUid
+    const affiliatesByUid = new Map<string, Set<string>>();  // uid → set of users affiliated TO this uid
+    for (const djUser of djUsers) {
+      const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
+      const aff = djProfile?.affiliatedWithUid as string | undefined;
+      if (!aff) continue;
+      affiliatedByLiveDjUid.set(djUser.id, aff);
+      const bucket = affiliatesByUid.get(aff) ?? new Set<string>();
+      bucket.add(djUser.id);
+      affiliatesByUid.set(aff, bucket);
+    }
+
+    const affiliatedRecipientsByShowId = new Map<string, Set<string>>();
+    for (const show of liveShows) {
+      if (!show.djUserId) continue;
+      const recipients = new Set<string>();
+      // X's own affiliation (the artist X is affiliated with)
+      const xAffiliation = affiliatedByLiveDjUid.get(show.djUserId);
+      if (xAffiliation) recipients.add(xAffiliation);
+      // X's direct affiliates
+      const directAffiliates = affiliatesByUid.get(show.djUserId);
+      if (directAffiliates) directAffiliates.forEach((uid) => recipients.add(uid));
+      // Siblings sharing X's affiliation
+      if (xAffiliation) {
+        const siblings = affiliatesByUid.get(xAffiliation);
+        if (siblings) siblings.forEach((uid) => recipients.add(uid));
+      }
+      // Don't email the live DJ themselves
+      recipients.delete(show.djUserId);
+      if (recipients.size > 0) affiliatedRecipientsByShowId.set(show.showId, recipients);
+    }
+
     // 5. Get all users with showStarting email notifications enabled
     const usersWithNotifications = await queryUsersWhere(
       "emailNotifications.showStarting",
@@ -409,6 +449,18 @@ export async function GET(request: NextRequest) {
               matched = true;
               break;
             }
+          }
+        }
+
+        // Affiliated-artist fan-out: if this user is in the live DJ's
+        // affiliation set, deliver the email unless they opted out via
+        // emailNotifications.affiliatedGoLive === false.
+        if (!matched) {
+          const affiliatedRecipients = affiliatedRecipientsByShowId.get(show.showId);
+          if (affiliatedRecipients?.has(userId)) {
+            const optOut =
+              (userData.emailNotifications as Record<string, unknown> | undefined)?.affiliatedGoLive === false;
+            if (!optOut) matched = true;
           }
         }
 

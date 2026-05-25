@@ -91,6 +91,7 @@ export interface UserDocument {
     popularity?: boolean;
     djOnline?: boolean;
     djInsiders?: boolean;
+    affiliatedGoLive?: boolean;
   };
   lastWatchlistEmailAt?: Date;
   lastDjOnlineEmailAt?: Record<string, number>; // { [djUserId]: timestamp }
@@ -111,6 +112,10 @@ export interface UserDocument {
     residency?: {
       cadence: 'monthly' | 'quarterly';
     };
+    // Affiliated artist — uid of another DJ-role user. Bidirectional/sibling
+    // notifications are derived from this single field at email-send time
+    // (see show-starting-emails cron).
+    affiliatedWithUid?: string | null;
   };
   // Recording quota tracking (for self-service recording feature)
   recordingQuota?: {
