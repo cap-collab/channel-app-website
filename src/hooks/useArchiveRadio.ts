@@ -310,12 +310,23 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       setIsLoading(true);
       active.src = current.item.recordingUrl;
       // Wait for metadata so seek works reliably (esp. on Safari/iOS).
+      // 10s timeout guards against stalled fetches on flaky mobile
+      // networks — without it the spinner would hang forever because
+      // neither loadedmetadata nor error fires. On timeout we proceed
+      // to play() anyway; if the network is truly broken, play()
+      // rejects and the catch below surfaces a recoverable error.
       await new Promise<void>((resolve) => {
-        const onReady = () => {
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
           active.removeEventListener('loadedmetadata', onReady);
           active.removeEventListener('error', onReady);
+          clearTimeout(timer);
           resolve();
         };
+        const onReady = () => finish();
+        const timer = setTimeout(finish, 10000);
         active.addEventListener('loadedmetadata', onReady);
         active.addEventListener('error', onReady);
       });
