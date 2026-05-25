@@ -423,7 +423,7 @@ export function GlobalBroadcastBar() {
         {radioCtx.itemDurationSec > 0 && (
           <div className="relative w-full h-[2px] bg-white/10">
             <div
-              className="absolute inset-y-0 left-0 bg-white"
+              className="absolute inset-y-0 left-0 bg-zinc-400/60"
               style={{ width: `${Math.min(100, (radioCtx.itemSeekSec / radioCtx.itemDurationSec) * 100)}%` }}
             />
           </div>

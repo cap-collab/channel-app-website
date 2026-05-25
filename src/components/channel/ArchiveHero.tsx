@@ -190,7 +190,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
     <div className="relative w-full select-none">
       <div className="py-2">
         <div className="relative w-full h-[3px] bg-white/10 rounded-full">
-          <div className="absolute inset-y-0 left-0 bg-red-600 rounded-full" style={{ width: `${progress * 100}%` }} />
+          <div className="absolute inset-y-0 left-0 bg-zinc-400/60 rounded-full" style={{ width: `${progress * 100}%` }} />
         </div>
       </div>
     </div>

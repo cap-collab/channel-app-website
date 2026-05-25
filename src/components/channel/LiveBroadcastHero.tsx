@@ -345,7 +345,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
   return (
     <div className="relative w-full h-[3px] bg-white/10">
       <div
-        className="absolute inset-y-0 left-0 bg-red-600"
+        className="absolute inset-y-0 left-0 bg-zinc-400/60"
         style={{ width: `${progress * 100}%` }}
       />
     </div>
