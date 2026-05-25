@@ -11,12 +11,12 @@ export function DancingBars() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-[28%] w-4/5 h-10 lg:h-14"
+      className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-[40%] w-4/5 h-[46px] lg:h-[64px]"
     >
-      {/* Bar row — items-end so bars grow upward from a shared baseline.
-          justify-between distributes the 100 bars evenly across the full
-          80% container width. */}
-      <div className="absolute inset-0 flex items-end justify-between">
+      {/* Bar row — items-center so bars expand symmetrically from a
+          centerline (mirror top + bottom). justify-between distributes
+          the 100 bars evenly across the full 80% container width. */}
+      <div className="absolute inset-0 flex items-center justify-between">
         {Array.from({ length: BAR_COUNT }).map((_, i) => (
           <span
             key={i}
@@ -38,7 +38,7 @@ export function DancingBars() {
           width: 2px;
           height: 100%;
           background: rgba(255, 255, 255, 0.18);
-          transform-origin: bottom;
+          transform-origin: center;
           animation-name: bars-equalize;
           animation-iteration-count: infinite;
           animation-direction: alternate;
