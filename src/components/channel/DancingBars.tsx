@@ -37,7 +37,7 @@ export function DancingBars() {
         .bars-bar {
           width: 2px;
           height: 100%;
-          background: rgba(255, 255, 255, 0.18);
+          background: rgba(255, 255, 255, 0.12);
           transform-origin: center;
           animation-name: bars-equalize;
           animation-iteration-count: infinite;
