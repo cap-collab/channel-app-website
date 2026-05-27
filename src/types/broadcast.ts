@@ -393,7 +393,8 @@ export interface ArchiveRadioLoop {
   catalogStats: {
     highCount: number;           // # high archives included (each contributes 2 items)
     mediumCount: number;         // # medium archives (each contributes 1 item)
-    totalItems: number;          // = highCount * 2 + mediumCount
+    interstitialCount: number;   // # interstitials interleaved between archives
+    totalItems: number;          // = highCount * 2 + mediumCount + interstitialCount
   };
   items: ScheduleItem[];
 }

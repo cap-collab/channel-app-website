@@ -327,26 +327,39 @@ export function GlobalBroadcastBar() {
   // zinc-400 "Restream" label). Same play, scrolling text, profile link,
   // love button, tip widgets.
   if (barMode === 'radio' && radioCtx) {
-    const radioTitle = radioArchive?.showName || radioCtx.currentItem?.title || 'Archive radio';
-    const radioDjs = radioArchive?.djs?.map((d) => d.name).join(', ')
-      || radioCtx.currentItem?.djs?.map((d) => d.name).join(', ')
-      || '';
-    const profileSlug = radioDjProfileUsername;
+    // Interlude state: scheduled audio clip between archive shows. Show
+    // channel branding, hide DJ-specific actions (no DJ to love/tip/visit).
+    const isInterlude = radioCtx.currentItem?.kind === 'interstitial';
+    const radioTitle = isInterlude
+      ? 'interlude'
+      : (radioArchive?.showName || radioCtx.currentItem?.title || 'Archive radio');
+    const radioDjs = isInterlude
+      ? 'channel radio'
+      : (radioArchive?.djs?.map((d) => d.name).join(', ')
+        || radioCtx.currentItem?.djs?.map((d) => d.name).join(', ')
+        || '');
+    const profileSlug = isInterlude ? '' : radioDjProfileUsername;
     // Scene glyph — prefer the resolved archive doc; fall back to the
     // schedule item's denormalized sceneSlugs on pages where ArchiveHero
-    // hasn't fed the radio context.
-    const radioSceneSlug = radioArchive
-      ? pickSceneSlug(resolveArchiveScenes(radioArchive, djSceneMap))
-      : pickSceneSlug(radioCtx.currentItem?.sceneSlugs ?? []);
+    // hasn't fed the radio context. Hidden during interludes.
+    const radioSceneSlug = isInterlude
+      ? null
+      : (radioArchive
+        ? pickSceneSlug(resolveArchiveScenes(radioArchive, djSceneMap))
+        : pickSceneSlug(radioCtx.currentItem?.sceneSlugs ?? []));
     return (
       <div className={`z-[99] bg-black border-b border-white/10 overflow-hidden transition-all duration-200 ${hiddenOnRadio ? 'opacity-0 -translate-y-full h-0 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
         <div className="flex items-center gap-0.5 sm:gap-3 py-2 px-1">
           <div className="flex items-center ml-1 flex-shrink-0">
-            {radioSceneSlug && (
+            {radioSceneSlug ? (
               <div className="w-[27px] h-[27px] flex items-center justify-center bg-white text-black flex-shrink-0">
                 <SceneGlyph slug={radioSceneSlug} className="!w-5 !h-5" />
               </div>
-            )}
+            ) : isInterlude ? (
+              // Reserve the 27x27 slot during interludes so the bar layout
+              // doesn't shift between scene-glyph archives and interludes.
+              <div className="w-[27px] h-[27px] flex-shrink-0" aria-hidden="true" />
+            ) : null}
             <button
               onClick={() => { void radioCtx.toggle(); }}
               className="h-[27px] pl-2 pr-1 flex items-center justify-center transition-colors"
@@ -392,21 +405,23 @@ export function GlobalBroadcastBar() {
             </Link>
           )}
 
-          {/* Love button */}
-          <div className="relative flex-shrink-0">
-            <button
-              onClick={() => handleRadioSendLove()}
-              className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
-            >
-              <svg key={`r-${nudgeKey}`} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${radioCtx.isPlaying && nudgeKey > 0 && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-              </svg>
-            </button>
-            <FloatingHearts trigger={radioHeartTrigger} />
-          </div>
+          {/* Love button — hidden during interludes (no DJ to send love to). */}
+          {!isInterlude && (
+            <div className="relative flex-shrink-0">
+              <button
+                onClick={() => handleRadioSendLove()}
+                className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
+              >
+                <svg key={`r-${nudgeKey}`} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${radioCtx.isPlaying && nudgeKey > 0 && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+              </button>
+              <FloatingHearts trigger={radioHeartTrigger} />
+            </div>
+          )}
 
           {/* Tip — only when the current radio DJ has a tip link */}
-          {radioTipLink && (
+          {!isInterlude && radioTipLink && (
             <a
               href={radioTipLink}
               target="_blank"

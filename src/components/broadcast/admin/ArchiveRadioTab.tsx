@@ -28,7 +28,7 @@ interface LoopDoc {
   generatedAtMs?: number;
   generatedBy?: 'cron' | 'admin';
   locked?: boolean;
-  catalogStats?: { highCount: number; mediumCount: number; totalItems: number } | null;
+  catalogStats?: { highCount: number; mediumCount: number; interstitialCount?: number; totalItems: number } | null;
   items?: Array<UIItem>;
 }
 
@@ -37,7 +37,7 @@ interface LoopSummary {
   loopNumber: number;
   startTimeMs: number;
   totalDurationSec: number;
-  catalogStats?: { highCount: number; mediumCount: number; totalItems: number } | null;
+  catalogStats?: { highCount: number; mediumCount: number; interstitialCount?: number; totalItems: number } | null;
   locked: boolean;
 }
 
@@ -416,7 +416,7 @@ export function ArchiveRadioTab() {
           const isSelected = selectedLoopNumber === l.loopNumber;
           const stats = l.catalogStats;
           const summary = stats
-            ? `${stats.highCount}H · ${stats.mediumCount}M`
+            ? `${stats.highCount}H · ${stats.mediumCount}M${stats.interstitialCount ? ` · ${stats.interstitialCount}I` : ''}`
             : '—';
           return (
             <button

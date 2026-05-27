@@ -82,7 +82,7 @@ async function resolveCurrentRadioArchiveId(
         generatedAtMs: Number(data.generatedAtMs ?? 0),
         generatedBy: (data.generatedBy as 'cron' | 'admin') ?? 'cron',
         locked: Boolean(data.locked),
-        catalogStats: { highCount: 0, mediumCount: 0, totalItems: items.length },
+        catalogStats: { highCount: 0, mediumCount: 0, interstitialCount: 0, totalItems: items.length },
         items,
       });
     }

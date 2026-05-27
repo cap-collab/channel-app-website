@@ -323,6 +323,7 @@ export interface GenerateLoopResult {
   startTimeMs: number;
   highCount: number;
   mediumCount: number;
+  interstitialCount: number;
   warnings: string[];
   skipped?: 'locked';
 }
@@ -383,6 +384,7 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
         startTimeMs: Number(data.startTimeMs ?? 0),
         highCount: 0,
         mediumCount: 0,
+        interstitialCount: 0,
         warnings: [],
         skipped: 'locked',
       };
@@ -390,7 +392,24 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
   }
 
   const archives = await loadEligibleArchives();
-  const result = buildLoop({ archives });
+  const interstitials: Interstitial[] = [];
+  try {
+    const ixSnap = await db.collection(INTERSTITIALS_COLLECTION).get();
+    for (const doc of ixSnap.docs) {
+      const d = doc.data();
+      if (!d.url || !d.durationSec) continue;
+      interstitials.push({
+        id: doc.id,
+        url: d.url,
+        durationSec: Number(d.durationSec),
+        label: d.label,
+        uploadedAtMs: Number(d.uploadedAtMs ?? 0),
+      });
+    }
+  } catch {
+    // Collection doesn't exist yet — fine, skip interstitials.
+  }
+  const result = buildLoop({ archives, interstitials });
   const startTimeMs = await resolveLoopStartMs(loopNumber, args.startTimeMsOverride);
   const generatedAtMs = Date.now();
 
@@ -403,6 +422,7 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
       startOffsetSec: it.startOffsetSec,
     };
     if (it.archiveId) obj.archiveId = it.archiveId;
+    if (it.interstitialId) obj.interstitialId = it.interstitialId;
     if (it.title) obj.title = it.title;
     if (it.djs?.length) obj.djs = it.djs.map((dj) => {
       const o: Record<string, unknown> = { name: dj.name };
@@ -427,6 +447,7 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
     catalogStats: {
       highCount: result.highCount,
       mediumCount: result.mediumCount,
+      interstitialCount: result.interstitialCount,
       totalItems: result.items.length,
     },
     items: cleanItems,
@@ -439,6 +460,7 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
     startTimeMs,
     highCount: result.highCount,
     mediumCount: result.mediumCount,
+    interstitialCount: result.interstitialCount,
     warnings: result.warnings,
   };
 }

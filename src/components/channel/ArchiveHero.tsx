@@ -1029,12 +1029,22 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                           )}
                         </button>
                       ) : (() => {
-                        // Slide 0 = archive radio. Prefer the resolved archive
-                        // doc so we render a real HeroSlide (DJ overlay, scene
-                        // glyphs, photo). While the schedule loads, fall back
-                        // to the SSR-resolved radio archive (so the image
-                        // matches what's actually playing on first paint),
-                        // then to the featured archive as a last resort.
+                        // Slide 0 = archive radio. During an interlude (clip
+                        // scheduled between archive shows) render a station-ID
+                        // slide instead of resolving an archive.
+                        if (radioCtx?.currentItem?.kind === 'interstitial') {
+                          return (
+                            <InterludeSlide
+                              onPlay={() => { void radioCtx?.toggle(); }}
+                            />
+                          );
+                        }
+                        // Prefer the resolved archive doc so we render a real
+                        // HeroSlide (DJ overlay, scene glyphs, photo). While
+                        // the schedule loads, fall back to the SSR-resolved
+                        // radio archive (so the image matches what's actually
+                        // playing on first paint), then to the featured
+                        // archive as a last resort.
                         const liveRadioId = radioCtx?.currentItem?.archiveId;
                         const seedId = initialRadioArchiveId ?? null;
                         const radioArchive =
@@ -1635,6 +1645,38 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
     </section>
     </>
+  );
+}
+
+// Station-ID slide rendered when the radio schedule is on an interlude clip.
+// Same aspect / chrome as HeroSlide so swapping in/out doesn't shift layout.
+// Exported so the /internal/crossfade-test preview can mount it directly.
+export function InterludeSlide({ onPlay }: { onPlay: () => void }) {
+  return (
+    <button
+      onClick={onPlay}
+      className="relative w-full aspect-[16/9] lg:aspect-[5/2] overflow-hidden border border-white/10 flex-shrink-0 text-left"
+    >
+      <Image
+        src="/interludes/channel-bg-1080x1080.png"
+        alt="channel radio interlude"
+        fill
+        className="object-cover"
+        sizes="(max-width: 768px) 100vw, 768px"
+        priority
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
+      <DancingBars />
+      {/* Top-left show name — matches isLiveOrRadio HeroSlide chrome. */}
+      <div className="absolute top-2 left-2 right-9 drop-shadow-lg">
+        <span className="text-[17px] font-bold text-white uppercase tracking-wide block truncate">interlude</span>
+      </div>
+      {/* Centered channel logo overlay. */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <Image src="/logo-white.png" alt="channel" width={120} height={120} className="opacity-90 drop-shadow-lg" />
+      </div>
+    </button>
   );
 }
 

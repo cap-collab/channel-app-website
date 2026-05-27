@@ -28,6 +28,18 @@ const RESYNC_DRIFT_SEC = 2;
 // When the current loop has less than this remaining, ask the server to make
 // sure the next loop exists. Belt-and-suspenders for the cron.
 const ENSURE_NEXT_LEAD_MS = 6 * 60 * 60 * 1000;
+// Crossfade duration between consecutive items (archive↔interlude↔archive).
+// We start the next item playing CROSSFADE_MS before the current item ends,
+// ramping volumes in opposite directions over this window. Shorter items
+// still get the fade — see plan for edge cases at very short durations.
+const CROSSFADE_MS = 5000;
+// Interlude clips play at 80% gain when alone (shows play at 100%) so the
+// interlude doesn't blast vs music. During a crossfade the interlude ducks
+// further to INTERLUDE_GAIN * INTERLUDE_FADE_DUCK so the show fading in/out
+// alongside it isn't competed with.
+const INTERLUDE_GAIN = 0.52;
+const INTERLUDE_FADE_DUCK = 0.8;
+const INTERLUDE_FADE_GAIN = INTERLUDE_GAIN * INTERLUDE_FADE_DUCK; // 0.42
 
 interface UseArchiveRadioResult {
   ready: boolean;
@@ -85,6 +97,7 @@ function deserializeLoop(id: string, data: Record<string, unknown> | undefined):
     catalogStats: {
       highCount: Number(stats.highCount ?? 0),
       mediumCount: Number(stats.mediumCount ?? 0),
+      interstitialCount: Number(stats.interstitialCount ?? 0),
       totalItems: Number(stats.totalItems ?? items.length),
     },
     items,
@@ -221,7 +234,19 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   // Remember the current item's id+offset so we can detect when the schedule
   // mutates the *currently playing* slot (rare; admin reorder edge case).
   const playingKeyRef = useRef<string | null>(null);
-  const boundaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Crossfade scheduling: two timers + a rAF for the volume ramp.
+  //   fadeStartTimer fires CROSSFADE_MS before the boundary — starts the next
+  //     element playing at volume 0 and kicks off the ramp.
+  //   hardSwapTimer fires at the boundary — cleans up the outgoing element
+  //     and flips activeKey regardless of ramp state.
+  //   rafId tracks the ongoing volume ramp.
+  const fadeStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hardSwapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafIdRef = useRef<number | null>(null);
+  // Set when a fade has been kicked off for a given incoming item, cleared at
+  // hard-swap. Prevents the per-second effect re-run from starting a second
+  // fade-start timer for the same boundary.
+  const fadeInFlightForKeyRef = useRef<string | null>(null);
   const preloadedNextKeyRef = useRef<string | null>(null);
   // Belt-and-suspenders: we ping `/api/admin/archive-radio-loop/ensure-next`
   // when the current loop is within ENSURE_NEXT_LEAD_MS of its end and no
@@ -242,7 +267,18 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   const attachStateListeners = useCallback((el: HTMLAudioElement) => {
     el.addEventListener('pause', () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
-      if (el === active) setIsPlaying(false);
+      if (el === active) {
+        // Mirror onPause cleanup from the belt-and-suspenders effect below —
+        // an externally driven pause (registry, OS audio session) must also
+        // cancel any in-flight crossfade.
+        if (fadeStartTimerRef.current) { clearTimeout(fadeStartTimerRef.current); fadeStartTimerRef.current = null; }
+        if (hardSwapTimerRef.current) { clearTimeout(hardSwapTimerRef.current); hardSwapTimerRef.current = null; }
+        if (rafIdRef.current !== null) { cancelAnimationFrame(rafIdRef.current); rafIdRef.current = null; }
+        fadeInFlightForKeyRef.current = null;
+        if (audioARef.current) audioARef.current.volume = 1;
+        if (audioBRef.current) audioBRef.current.volume = 1;
+        setIsPlaying(false);
+      }
     });
     el.addEventListener('play', () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
@@ -341,6 +377,9 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
           try { active.currentTime = desiredOffset; } catch { /* ignore seek errors */ }
         }
       }
+      // .volume survives src changes — reset before play in case a prior fade
+      // left this element at a partial volume.
+      active.volume = 1;
       await active.play();
       playingKeyRef.current = key;
       setIsPlaying(true);
@@ -362,8 +401,16 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   const pause = useCallback(() => {
     const a = audioARef.current;
     const b = audioBRef.current;
+    // Cancel any in-flight crossfade so a future resume starts cleanly.
+    if (fadeStartTimerRef.current) { clearTimeout(fadeStartTimerRef.current); fadeStartTimerRef.current = null; }
+    if (hardSwapTimerRef.current) { clearTimeout(hardSwapTimerRef.current); hardSwapTimerRef.current = null; }
+    if (rafIdRef.current !== null) { cancelAnimationFrame(rafIdRef.current); rafIdRef.current = null; }
+    fadeInFlightForKeyRef.current = null;
     a?.pause();
     b?.pause();
+    // Reset volumes so a future play() doesn't start silent.
+    if (a) a.volume = 1;
+    if (b) b.volume = 1;
     setIsPlaying(false);
   }, []);
 
@@ -375,8 +422,13 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     }
   }, [isPlaying, pause, play]);
 
-  // Preload the next item ~PRELOAD_LEAD_SEC before its boundary, then schedule
-  // a swap timer that pauses the current element and starts the standby one.
+  // Preload the next item, then schedule a 5s crossfade ending at the boundary.
+  // Two timers split the work:
+  //   1. fadeStart (boundary − CROSSFADE_MS): start standby at volume 0, kick
+  //      off the rAF ramp, swap playingKeyRef to the incoming item.
+  //   2. hardSwap (boundary): clean up outgoing, lock incoming at full volume,
+  //      flip activeKeyRef. Runs regardless of ramp state — ensures clean
+  //      handoff even if the rAF was throttled/cancelled.
   useEffect(() => {
     if (!opts.active || !isPlaying) return;
     if (!current || !next) return;
@@ -395,42 +447,103 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       }
     }
 
-    // Schedule the swap. The boundary is when current.item.startOffsetSec +
-    // current.item.durationSec elapses against the loop's startTimeMs.
     const boundaryMs = current.loop.startTimeMs + (current.item.startOffsetSec + current.item.durationSec) * 1000;
-    const delay = Math.max(MIN_BOUNDARY_LEAD_MS, boundaryMs - Date.now());
-    if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
-    boundaryTimerRef.current = setTimeout(() => {
-      const active = getActive();
-      const standbyEl = getStandby();
-      if (!active || !standbyEl) return;
+    const fadeStartMs = boundaryMs - CROSSFADE_MS;
+    const fadeDelay = Math.max(MIN_BOUNDARY_LEAD_MS, fadeStartMs - Date.now());
+    const swapDelay = Math.max(MIN_BOUNDARY_LEAD_MS, boundaryMs - Date.now());
+
+    // Per-side max gain for this crossfade. Interludes use INTERLUDE_FADE_GAIN
+    // (ducked vs INTERLUDE_GAIN) so the show fading in/out doesn't compete.
+    // After the hard-swap, an incoming interlude gets snapped to INTERLUDE_GAIN
+    // for its alone-middle (handled in hardSwap).
+    const outGain = current.item.kind === 'interstitial' ? INTERLUDE_FADE_GAIN : 1;
+    const inFadeGain = next.item.kind === 'interstitial' ? INTERLUDE_FADE_GAIN : 1;
+    const inAloneGain = next.item.kind === 'interstitial' ? INTERLUDE_GAIN : 1;
+
+    // If a fade has already started for this incoming item (this effect
+    // re-runs every second as nowMs ticks), don't reschedule the fade-start.
+    // The hard-swap timer is idempotent — safe to re-set.
+    const fadeAlreadyStarted = fadeInFlightForKeyRef.current === nextKey;
+
+    if (!fadeAlreadyStarted && fadeStartTimerRef.current) clearTimeout(fadeStartTimerRef.current);
+    if (hardSwapTimerRef.current) clearTimeout(hardSwapTimerRef.current);
+
+    if (!fadeAlreadyStarted) fadeStartTimerRef.current = setTimeout(() => {
+      const outgoing = getActive();
+      const incoming = getStandby();
+      if (!outgoing || !incoming) return;
       try {
-        active.pause();
-        active.removeAttribute('src');
-        active.load(); // free decoder
-      } catch { /* ignore */ }
-      // Swap which element is "active".
-      activeKeyRef.current = activeKeyRef.current === 'A' ? 'B' : 'A';
-      try {
-        standbyEl.currentTime = 0;
-        const p = standbyEl.play();
+        incoming.currentTime = 0;
+        incoming.volume = 0;
+        const p = incoming.play();
         if (p && typeof p.catch === 'function') {
           p.catch((err) => {
-            console.warn('[useArchiveRadio] boundary play() rejected', err);
+            console.warn('[useArchiveRadio] fade-start play() rejected', err);
           });
         }
-        playingKeyRef.current = nextKey;
-        preloadedNextKeyRef.current = null;
       } catch (err) {
-        console.warn('[useArchiveRadio] boundary swap failed', err);
+        console.warn('[useArchiveRadio] fade-start failed', err);
+        return;
       }
-    }, delay);
+      // Mark the incoming as the perceived current — re-syncs key off it.
+      playingKeyRef.current = nextKey;
+      fadeInFlightForKeyRef.current = nextKey;
+
+      const startedAt = performance.now();
+      const tick = (t: number) => {
+        const p = Math.min(1, Math.max(0, (t - startedAt) / CROSSFADE_MS));
+        // Equal-power crossfade scaled by each side's max gain. Interlude
+        // side uses INTERLUDE_FADE_GAIN so it ducks under the show.
+        outgoing.volume = outGain * Math.sqrt(1 - p);
+        incoming.volume = inFadeGain * Math.sqrt(p);
+        if (p < 1) {
+          rafIdRef.current = requestAnimationFrame(tick);
+        } else {
+          rafIdRef.current = null;
+        }
+      };
+      rafIdRef.current = requestAnimationFrame(tick);
+    }, fadeDelay);
+
+    hardSwapTimerRef.current = setTimeout(() => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      const outgoing = getActive();
+      const incoming = getStandby();
+      if (!outgoing || !incoming) return;
+      try {
+        outgoing.volume = 0;
+        outgoing.pause();
+        outgoing.removeAttribute('src');
+        outgoing.load(); // free decoder
+      } catch { /* ignore */ }
+      try {
+        // Snap incoming to its alone-volume (interludes sit at INTERLUDE_GAIN,
+        // shows at 1.0). This is the "after the fade" steady-state level.
+        incoming.volume = inAloneGain;
+      } catch { /* ignore */ }
+      // Flip which element is "active".
+      activeKeyRef.current = activeKeyRef.current === 'A' ? 'B' : 'A';
+      playingKeyRef.current = nextKey;
+      preloadedNextKeyRef.current = null;
+      fadeInFlightForKeyRef.current = null;
+    }, swapDelay);
 
     return () => {
-      if (boundaryTimerRef.current) {
-        clearTimeout(boundaryTimerRef.current);
-        boundaryTimerRef.current = null;
+      if (fadeStartTimerRef.current) {
+        clearTimeout(fadeStartTimerRef.current);
+        fadeStartTimerRef.current = null;
       }
+      if (hardSwapTimerRef.current) {
+        clearTimeout(hardSwapTimerRef.current);
+        hardSwapTimerRef.current = null;
+      }
+      // Note: leave rafIdRef alone here. The effect re-runs on every
+      // current/next/isPlaying change including mid-fade ticks; cancelling
+      // the rAF on every re-run would kill a live fade. The rAF tears down
+      // naturally when it reaches p=1, or via pause()/unmount.
     };
   }, [current, next, isPlaying, opts.active, getActive, getStandby, itemKey]);
 
@@ -459,6 +572,28 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return;
       if (!isPlaying) return;
+      // If we backgrounded mid-crossfade, the rAF was paused and elements may
+      // be stuck at partial volume. Snap the fade to completion so we land in
+      // a sane state before running the standard drift/key-mismatch checks.
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+        const outgoing = getActive();
+        const incoming = getStandby();
+        if (outgoing) {
+          try { outgoing.volume = 0; outgoing.pause(); outgoing.removeAttribute('src'); outgoing.load(); } catch { /* ignore */ }
+        }
+        if (incoming) {
+          try { incoming.volume = 1; } catch { /* ignore */ }
+        }
+        activeKeyRef.current = activeKeyRef.current === 'A' ? 'B' : 'A';
+        if (fadeInFlightForKeyRef.current) {
+          playingKeyRef.current = fadeInFlightForKeyRef.current;
+        }
+        fadeInFlightForKeyRef.current = null;
+        preloadedNextKeyRef.current = null;
+        if (hardSwapTimerRef.current) { clearTimeout(hardSwapTimerRef.current); hardSwapTimerRef.current = null; }
+      }
       const live = resolveCurrent(currentLoop, nextLoop, Date.now());
       if (!live) return;
       const liveKey = itemKey(live.loop, live.index, live.item);
@@ -475,7 +610,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [opts.active, isPlaying, currentLoop, nextLoop, getActive, itemKey, playCurrent]);
+  }, [opts.active, isPlaying, currentLoop, nextLoop, getActive, getStandby, itemKey, playCurrent]);
 
   // Keep the user's play state honest if the browser pauses us (network drop,
   // OS audio session loss). We don't auto-resume — that surprises listeners.
@@ -491,7 +626,18 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     const onPause = (el: HTMLAudioElement) => () => {
       // Only treat as a real pause if the element was supposed to be active.
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
-      if (el === active) setIsPlaying(false);
+      if (el === active) {
+        // If something paused us mid-crossfade (audio-exclusive registry,
+        // OS audio session loss), cancel the fade plumbing so a future
+        // resume doesn't fight a still-running ramp.
+        if (fadeStartTimerRef.current) { clearTimeout(fadeStartTimerRef.current); fadeStartTimerRef.current = null; }
+        if (hardSwapTimerRef.current) { clearTimeout(hardSwapTimerRef.current); hardSwapTimerRef.current = null; }
+        if (rafIdRef.current !== null) { cancelAnimationFrame(rafIdRef.current); rafIdRef.current = null; }
+        fadeInFlightForKeyRef.current = null;
+        if (audioARef.current) audioARef.current.volume = 1;
+        if (audioBRef.current) audioBRef.current.volume = 1;
+        setIsPlaying(false);
+      }
     };
     const onPlay = (el: HTMLAudioElement) => () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
@@ -590,7 +736,9 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   // Tear down on unmount.
   useEffect(() => {
     return () => {
-      if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
+      if (fadeStartTimerRef.current) clearTimeout(fadeStartTimerRef.current);
+      if (hardSwapTimerRef.current) clearTimeout(hardSwapTimerRef.current);
+      if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
       const a = audioARef.current;
       const b = audioBRef.current;
       try { a?.pause(); } catch { /* ignore */ }

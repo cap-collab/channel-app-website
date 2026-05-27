@@ -265,6 +265,7 @@ export function tallyRecentPlays(days: ArchiveScheduleDay[]): Map<string, number
 
 export interface BuildLoopOptions {
   archives: EligibleArchive[];
+  interstitials?: Interstitial[];   // empty/undefined = no interludes inserted
   rng?: () => number;
 }
 
@@ -273,6 +274,7 @@ export interface BuildLoopResult {
   totalDurationSec: number;
   highCount: number;
   mediumCount: number;
+  interstitialCount: number;        // # interstitials inserted between archives
   warnings: string[];
 }
 
@@ -363,7 +365,7 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
 
   if (totalEntries === 0) {
     warnings.push('no eligible archives');
-    return { items: [], totalDurationSec: 0, highCount: 0, mediumCount: 0, warnings };
+    return { items: [], totalDurationSec: 0, highCount: 0, mediumCount: 0, interstitialCount: 0, warnings };
   }
 
   const archiveToItem = (a: EligibleArchive, startOffsetSec: number): ScheduleItem => ({
@@ -434,6 +436,33 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   // Same-DJ adjacency pass.
   items = spaceSameDj(items);
 
+  // Interleave interstitials between consecutive archive entries. One picked at
+  // random from the pool per insertion point; no insertion after the last entry
+  // so the loop doesn't end on an interlude before wrap-around. With one
+  // interlude in the pool, that single clip is used everywhere; with more,
+  // variety is automatic.
+  const interstitialPool = opts.interstitials ?? [];
+  let interstitialCount = 0;
+  if (interstitialPool.length > 0 && items.length > 1) {
+    const withInterludes: ScheduleItem[] = [];
+    for (let i = 0; i < items.length; i++) {
+      withInterludes.push(items[i]);
+      if (i < items.length - 1) {
+        const ix = interstitialPool[Math.floor(rng() * interstitialPool.length)];
+        withInterludes.push({
+          kind: 'interstitial',
+          interstitialId: ix.id,
+          recordingUrl: ix.url,
+          durationSec: ix.durationSec,
+          startOffsetSec: 0, // recomputed cumulatively below
+          title: ix.label,
+        });
+        interstitialCount++;
+      }
+    }
+    items = withInterludes;
+  }
+
   // Recompute startOffsetSec cumulatively now that order is final.
   let cursor = 0;
   for (const it of items) {
@@ -446,6 +475,7 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     totalDurationSec: cursor,
     highCount,
     mediumCount,
+    interstitialCount,
     warnings,
   };
 }
