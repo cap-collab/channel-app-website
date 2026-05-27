@@ -212,7 +212,7 @@ export function HeroChatMessage({
             {message.username}
           </span>
           {isCurrentlyLiveDJ && (
-            <span className="inline-block w-2 h-2 bg-red-500 rounded-full ml-1 animate-pulse align-middle" title="Live DJ" />
+            <span className="inline-block w-2.5 h-2.5 bg-red-500 rounded-full ml-1 animate-pulse align-middle" title="Live DJ" />
           )}
           <span className="text-white ml-1.5">{message.message}</span>
         </p>
@@ -746,9 +746,9 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                   <path d="M3 3v5h5" />
                 </svg>
               ) : (
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
                 </span>
               )}
               {broadcastBPM && (

@@ -171,7 +171,10 @@ function ShowRow({ slot }: { slot: DisplaySlot }) {
             <path d="M3 3v5h5" />
           </svg>
         ) : isLive ? (
-          <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+          </span>
         ) : (
           <span className="w-2 h-2 bg-red-600/40 rounded-full" />
         )}

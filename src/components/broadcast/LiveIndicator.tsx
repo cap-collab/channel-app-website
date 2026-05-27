@@ -269,7 +269,10 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-red-600 px-3 py-1 rounded-full">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-white" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+                </span>
                 <span className="text-white font-bold text-sm">LIVE</span>
               </div>
               <span className="text-white font-mono text-lg">{formatDuration(duration)}</span>

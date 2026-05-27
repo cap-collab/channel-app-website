@@ -274,8 +274,8 @@ export function GlobalBroadcastBar() {
           {/* Live indicator + BPM */}
           <div className="flex items-center gap-0.5 flex-shrink-0">
             <span className="relative flex h-4 w-4 sm:h-[18px] sm:w-[18px] items-center justify-center">
-              <span className="animate-ping absolute inline-flex h-2 w-2 sm:h-[9px] sm:w-[9px] rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 sm:h-[9px] sm:w-[9px] bg-red-600" />
+              <span className="animate-live-pulse absolute inline-flex h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] rounded-full bg-red-400" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] bg-red-500" />
             </span>
             {broadcastBPM && (
               <span className="text-xs font-mono uppercase tracking-tighter font-bold text-red-500 whitespace-nowrap">
@@ -380,8 +380,8 @@ export function GlobalBroadcastBar() {
               stream. No BPM. */}
           <div className="flex items-center gap-0.5 flex-shrink-0">
             <span className="relative flex h-4 w-4 sm:h-[18px] sm:w-[18px] items-center justify-center">
-              <span className="animate-ping absolute inline-flex h-2 w-2 sm:h-[9px] sm:w-[9px] rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 sm:h-[9px] sm:w-[9px] bg-red-600" />
+              <span className="animate-live-pulse absolute inline-flex h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] rounded-full bg-red-400" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] bg-red-500" />
             </span>
           </div>
 

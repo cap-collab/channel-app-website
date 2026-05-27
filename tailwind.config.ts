@@ -10,14 +10,20 @@ const config: Config = {
     extend: {
       keyframes: {
         'heart-nudge': {
-          '0%, 100%': { transform: 'scale(1)' },
-          '30%': { transform: 'scale(1.3)' },
-          '60%': { transform: 'scale(0.92)' },
-          '80%': { transform: 'scale(1.12)' },
+          '0%, 100%': { transform: 'scale(1)',    filter: 'brightness(1)' },
+          '25%':      { transform: 'scale(1.55)', filter: 'brightness(1.4)' },
+          '55%':      { transform: 'scale(0.9)',  filter: 'brightness(1.1)' },
+          '80%':      { transform: 'scale(1.2)',  filter: 'brightness(1.25)' },
+        },
+        'live-pulse': {
+          '0%':   { transform: 'scale(1)',   opacity: '0.9' },
+          '70%':  { transform: 'scale(2.4)', opacity: '0.15' },
+          '100%': { transform: 'scale(2.6)', opacity: '0' },
         },
       },
       animation: {
-        'heart-nudge': 'heart-nudge 0.8s ease-out 2s 1',
+        'heart-nudge': 'heart-nudge 1.2s ease-out 2s 1',
+        'live-pulse': 'live-pulse 1.1s cubic-bezier(0, 0, 0.2, 1) infinite',
       },
       fontFamily: {
         sans: ['var(--font-geist-sans)', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],

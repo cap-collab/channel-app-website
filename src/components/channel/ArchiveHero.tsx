@@ -846,9 +846,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-tighter font-bold transition-colors text-red-500 hover:text-red-400"
                 >
                   Switch to Live Radio
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
                   </span>
                   {liveBPM ? `${liveBPM} BPM` : ''}
                 </button>
@@ -862,9 +862,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 Switch to
                 {/* Pulsing red dot — same one used for Live, makes it
                     obvious that the radio is currently going. */}
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
                 </span>
                 Radio
               </button>
@@ -893,9 +893,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 bg-red-600 px-2 py-0.5">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-white" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
                   </span>
                   <span className="text-xs font-mono uppercase tracking-tighter font-bold text-white">
                     Live{liveBPM ? <span className="md:hidden"> {liveBPM} BPM</span> : null}
@@ -905,9 +905,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             ) : heroIndex === 0 ? (
               // Slide 0 + offline → archive radio. Red pulsing dot + RADIO.
               <div className="flex items-center gap-1.5 bg-white px-2 py-0.5">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
                 </span>
                 <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-500">
                   Radio
@@ -918,9 +918,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               // on, listener hasn't picked their own archive). It's the
               // radio card visually, so use the radio pill.
               <div className="flex items-center gap-1.5 bg-white px-2 py-0.5">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
                 </span>
                 <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-500">
                   Radio
@@ -1226,9 +1226,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     Wrapper matches icon hit-area so spacing in the row stays
                     even across dot + icon siblings. */}
                 <div className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center flex-shrink-0">
-                  <span className="relative flex h-2 w-2 sm:h-[18px] sm:w-[18px] items-center justify-center">
-                    <span className="animate-ping absolute inline-flex h-2 w-2 sm:h-[9px] sm:w-[9px] rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 sm:h-[9px] sm:w-[9px] bg-red-600" />
+                  <span className="relative flex h-2.5 w-2.5 sm:h-[18px] sm:w-[18px] items-center justify-center">
+                    <span className="animate-live-pulse absolute inline-flex h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] rounded-full bg-red-400" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] bg-red-500" />
                   </span>
                 </div>
                 {radioDjUsernameNormalized && (
@@ -1321,9 +1321,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     spacing in the row stays even across dot + icon siblings;
                     auto-width lets the BPM label render on a single line. */}
                 <div className="min-w-7 h-7 sm:min-w-10 sm:h-10 flex items-center justify-center gap-1 flex-shrink-0 px-1">
-                  <span className="relative flex h-2 w-2 sm:h-[18px] sm:w-[18px] items-center justify-center">
-                    <span className="animate-ping absolute inline-flex h-2 w-2 sm:h-[9px] sm:w-[9px] rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 sm:h-[9px] sm:w-[9px] bg-red-600" />
+                  <span className="relative flex h-2.5 w-2.5 sm:h-[18px] sm:w-[18px] items-center justify-center">
+                    <span className="animate-live-pulse absolute inline-flex h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] rounded-full bg-red-400" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] bg-red-500" />
                   </span>
                   {liveBPM && (
                     <span className="hidden md:inline text-xs font-mono uppercase tracking-tighter font-bold text-red-500 whitespace-nowrap">
@@ -1842,9 +1842,9 @@ export function ArchiveGridCard({
         {/* Top right: Live badge + BPM (only on live cards) */}
         {isLiveCard && (
           <div className="absolute top-1 right-1 md:top-1.5 md:right-1.5 flex items-center gap-1 drop-shadow-lg">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-600" />
+            <span className="relative flex h-2 w-2">
+              <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
             </span>
             <span className="text-[10px] font-mono uppercase tracking-tighter font-bold text-red-500">
               Live{cardLiveBPM ? ` ${cardLiveBPM} BPM` : ''}
