@@ -295,6 +295,10 @@ interface DJProfile {
   // Collectives that are also part of this collective's roster. Reused from the
   // existing admin "Linked Collectives" field and rendered alongside resident DJs.
   linkedCollectives?: { collectiveId: string; collectiveName: string; collectiveSlug?: string; collectivePhoto?: string | null }[];
+  // Collective-only: venues this collective is associated with (mirror of the
+  // admin "Linked Venues" field on the collective doc). Used to surface linked
+  // venues on the profile, since venues won't list a collective as a resident.
+  linkedVenues?: { venueId: string; venueName: string }[];
   // Collective-only: the slug used for archive matching (distinct from
   // chatUsername, which displays the collective's pretty name).
   collectiveSlug?: string;
@@ -586,6 +590,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               owners: Array.isArray(cData.owners) ? cData.owners : [],
               residentDJs: Array.isArray(cData.residentDJs) ? cData.residentDJs : [],
               linkedCollectives: Array.isArray(cData.linkedCollectives) ? cData.linkedCollectives : [],
+              linkedVenues: Array.isArray(cData.linkedVenues) ? cData.linkedVenues : [],
               collectiveSlug: cData.slug,
             });
             setLoading(false);
@@ -791,6 +796,25 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       const upcomingShows: UpcomingShow[] = [];
       const seenIds = new Set<string>();
 
+      // Collective fan-out: a collective's upcoming shows = the union of its
+      // residents' upcoming shows (online + IRL), since broadcast slots only
+      // carry a single DJ reference, not a collective link. Build per-resident
+      // matchers up front so both the broadcast-slot loop and the external-
+      // shows loop can use them.
+      const isCollective = djProfile.profileType === 'collective';
+      const residentUids = isCollective
+        ? new Set((djProfile.residentDJs || []).map(r => r.djUserId).filter((u): u is string => !!u))
+        : new Set<string>();
+      const residentUsernames = isCollective
+        ? (djProfile.residentDJs || [])
+            .map(r => (r.djUsername || '').replace(/[\s-]+/g, '').toLowerCase())
+            .filter(Boolean)
+        : [];
+      const residentNames = isCollective
+        ? (djProfile.residentDJs || []).map(r => r.djName).filter(Boolean)
+        : [];
+      const residentUsernameSet = new Set(residentUsernames);
+
       // 1. Fetch broadcast slots from Firebase (Channel Radio)
       if (db) {
         try {
@@ -823,7 +847,20 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               (data.djEmail && djProfile.email && data.djEmail.toLowerCase() === djProfile.email.toLowerCase()) ||
               restreamDjMatch;
 
-            if (isMatch) {
+            // Collective profile: also match any slot whose DJ (or one of the
+            // restream DJs) is a resident of this collective.
+            const matchesResident = isCollective && (
+              (data.djUserId && residentUids.has(data.djUserId)) ||
+              (data.djUsername && residentUsernameSet.has(String(data.djUsername).replace(/[\s-]+/g, '').toLowerCase())) ||
+              (data.djName && residentNames.some(n => containsMatch(data.djName, n))) ||
+              (data.restreamDjs && Array.isArray(data.restreamDjs) && data.restreamDjs.some((dj: { userId?: string; username?: string; name?: string }) =>
+                (dj.userId && residentUids.has(dj.userId)) ||
+                (dj.username && residentUsernameSet.has(dj.username.replace(/[\s-]+/g, '').toLowerCase())) ||
+                (dj.name && residentNames.some(n => containsMatch(dj.name || '', n)))
+              ))
+            );
+
+            if (isMatch || matchesResident) {
               const id = `broadcast-${docSnap.id}`;
               seenIds.add(id);
 
@@ -895,7 +932,12 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           show.djUsername === normalizedProfileUsername ||
           show.additionalDjUsernames?.includes(normalizedProfileUsername);
         const matchesByStation = collectiveStationId !== null && show.stationId === collectiveStationId;
-        if (matchesByDj || matchesByStation) {
+        // Collective profile: also include shows hosted by any resident DJ.
+        const matchesByResident = isCollective && (
+          (show.djUsername && residentUsernameSet.has(show.djUsername)) ||
+          (show.additionalDjUsernames && show.additionalDjUsernames.some(u => residentUsernameSet.has(u)))
+        );
+        if (matchesByDj || matchesByStation || matchesByResident) {
           const id = `external-${show.id}`;
           if (seenIds.has(id)) return;
           seenIds.add(id);
@@ -1141,11 +1183,29 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       const normalizedUsername = djProfile.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
       const djUserId = djProfile.uid.startsWith("pending-") ? undefined : djProfile.uid;
 
+      // When the profile being viewed is a collective, also match events/venues
+      // that reference this collective by id or slug — they wouldn't list the
+      // collective in their `djs` array. Doc id is `uid` minus the
+      // `collective-` prefix the loader adds; slug comes from the collective doc.
+      const isCollectiveProfile = djProfile.profileType === 'collective';
+      const collectiveDocId = isCollectiveProfile && djProfile.uid.startsWith('collective-')
+        ? djProfile.uid.slice('collective-'.length)
+        : undefined;
+      const collectiveSlug = isCollectiveProfile ? (djProfile.collectiveSlug || normalizedUsername) : undefined;
+
       const matchesDJ = (refs: EventDJRef[] | undefined): boolean => {
         if (!refs || refs.length === 0) return false;
         return refs.some(ref =>
           (ref.djUsername && ref.djUsername === normalizedUsername) ||
           (djUserId && ref.djUserId && ref.djUserId === djUserId)
+        );
+      };
+
+      const matchesCollectiveRef = (refs: { collectiveId?: string; collectiveSlug?: string }[] | undefined): boolean => {
+        if (!isCollectiveProfile || !refs || refs.length === 0) return false;
+        return refs.some(ref =>
+          (collectiveDocId && ref.collectiveId === collectiveDocId) ||
+          (collectiveSlug && ref.collectiveSlug && ref.collectiveSlug.toLowerCase() === collectiveSlug.toLowerCase())
         );
       };
 
@@ -1160,11 +1220,16 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
         const venuePhotoMap: Record<string, string> = {};
         const slugMap: Record<string, string> = {};
         const matchedVenues: Venue[] = [];
+        // For a collective profile, venues are linked via the collective doc's
+        // own `linkedVenues` array rather than via venue.residentDJs.
+        const collectiveLinkedVenueIds = new Set(
+          isCollectiveProfile ? (djProfile.linkedVenues || []).map(v => v.venueId).filter(Boolean) : []
+        );
         venuesSnapshot.forEach((doc) => {
           const data = doc.data();
           if (data.photo) venuePhotoMap[doc.id] = data.photo;
           if (data.slug) slugMap[doc.id] = data.slug;
-          if (matchesDJ(data.residentDJs)) {
+          if (matchesDJ(data.residentDJs) || collectiveLinkedVenueIds.has(doc.id)) {
             matchedVenues.push({
               id: doc.id,
               name: data.name,
@@ -1210,7 +1275,10 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
         const now = Date.now();
         eventsSnapshot.forEach((doc) => {
           const data = doc.data();
-          if (matchesDJ(data.djs)) {
+          const matchesPrimaryCollective =
+            isCollectiveProfile && collectiveDocId && data.collectiveId === collectiveDocId;
+          const matchesLinkedCollective = matchesCollectiveRef(data.linkedCollectives);
+          if (matchesDJ(data.djs) || matchesPrimaryCollective || matchesLinkedCollective) {
             const event: ChannelEvent = {
               id: doc.id,
               name: data.name,
