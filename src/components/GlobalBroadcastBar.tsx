@@ -275,7 +275,7 @@ export function GlobalBroadcastBar() {
           <div className="flex items-center gap-0.5 flex-shrink-0">
             <span className="relative flex h-4 w-4 sm:h-[18px] sm:w-[18px] items-center justify-center">
               <span className="animate-live-pulse absolute inline-flex h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] rounded-full bg-red-400" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] bg-red-500" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
             </span>
             {broadcastBPM && (
               <span className="text-xs font-mono uppercase tracking-tighter font-bold text-red-500 whitespace-nowrap">
@@ -381,7 +381,7 @@ export function GlobalBroadcastBar() {
           <div className="flex items-center gap-0.5 flex-shrink-0">
             <span className="relative flex h-4 w-4 sm:h-[18px] sm:w-[18px] items-center justify-center">
               <span className="animate-live-pulse absolute inline-flex h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] rounded-full bg-red-400" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] bg-red-500" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
             </span>
           </div>
 

@@ -86,7 +86,7 @@ export function LiveShowCard({
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
             <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]"></span>
           </span>
           <span className="text-[10px] font-mono text-red-500 uppercase tracking-tighter font-bold">Live</span>
           {bpm && (

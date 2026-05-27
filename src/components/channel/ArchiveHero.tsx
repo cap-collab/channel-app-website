@@ -848,7 +848,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   Switch to Live Radio
                   <span className="relative flex h-2 w-2">
                     <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]" />
                   </span>
                   {liveBPM ? `${liveBPM} BPM` : ''}
                 </button>
@@ -864,7 +864,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     obvious that the radio is currently going. */}
                 <span className="relative flex h-2 w-2">
                   <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]" />
                 </span>
                 Radio
               </button>
@@ -907,7 +907,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               <div className="flex items-center gap-1.5 bg-white px-2 py-0.5">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
                 </span>
                 <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-500">
                   Radio
@@ -920,7 +920,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               <div className="flex items-center gap-1.5 bg-white px-2 py-0.5">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
                 </span>
                 <span className="text-xs font-mono uppercase tracking-tighter font-bold text-zinc-500">
                   Radio
@@ -1228,7 +1228,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 <div className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center flex-shrink-0">
                   <span className="relative flex h-2.5 w-2.5 sm:h-[18px] sm:w-[18px] items-center justify-center">
                     <span className="animate-live-pulse absolute inline-flex h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] rounded-full bg-red-400" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] bg-red-500" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
                   </span>
                 </div>
                 {radioDjUsernameNormalized && (
@@ -1323,7 +1323,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 <div className="min-w-7 h-7 sm:min-w-10 sm:h-10 flex items-center justify-center gap-1 flex-shrink-0 px-1">
                   <span className="relative flex h-2.5 w-2.5 sm:h-[18px] sm:w-[18px] items-center justify-center">
                     <span className="animate-live-pulse absolute inline-flex h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] rounded-full bg-red-400" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] bg-red-500" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
                   </span>
                   {liveBPM && (
                     <span className="hidden md:inline text-xs font-mono uppercase tracking-tighter font-bold text-red-500 whitespace-nowrap">
@@ -1844,7 +1844,7 @@ export function ArchiveGridCard({
           <div className="absolute top-1 right-1 md:top-1.5 md:right-1.5 flex items-center gap-1 drop-shadow-lg">
             <span className="relative flex h-2 w-2">
               <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]" />
             </span>
             <span className="text-[10px] font-mono uppercase tracking-tighter font-bold text-red-500">
               Live{cardLiveBPM ? ` ${cardLiveBPM} BPM` : ''}

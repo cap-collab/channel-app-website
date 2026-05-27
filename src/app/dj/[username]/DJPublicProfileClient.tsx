@@ -1867,7 +1867,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                     <>
                       <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
                         <span className="animate-live-pulse absolute inline-flex h-full w-full rounded-full bg-red-400" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
                       </span>
                       <span className="text-red-500 font-bold">Live</span>
                     </>

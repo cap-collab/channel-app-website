@@ -16,8 +16,8 @@ const config: Config = {
           '80%':      { transform: 'scale(1.2)',  filter: 'brightness(1.25)' },
         },
         'live-pulse': {
-          '0%':   { transform: 'scale(1)',   opacity: '0.9' },
-          '70%':  { transform: 'scale(2.4)', opacity: '0.15' },
+          '0%':   { transform: 'scale(1)',   opacity: '1' },
+          '70%':  { transform: 'scale(2.4)', opacity: '0.2' },
           '100%': { transform: 'scale(2.6)', opacity: '0' },
         },
       },
