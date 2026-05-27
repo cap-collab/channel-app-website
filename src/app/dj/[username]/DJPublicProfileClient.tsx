@@ -1645,13 +1645,6 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               )}
             </div>
 
-            {/* When DJ has no bio, surface venues/collectives between the
-                metadata and the social row instead of pinning them to the
-                footer (where they'd collide visually with the socials). */}
-            {!hasBio && hasVenuesOrCollectives && (
-              <div className="mb-6 -mt-2">{venuesAndCollectivesRow}</div>
-            )}
-
             {/* Medium: Bio */}
             <div className="max-w-xl space-y-4">
               {profile.djProfile.bio && (
@@ -1661,8 +1654,10 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
             {/* Footer row: socials on the left, venues/collectives pinned to
                 the right. Pushed to the bottom of the right column so it aligns
-                with the bottom of the profile pic on desktop. */}
+                with the bottom of the profile pic on desktop. When the DJ has
+                no bio, the pin row sits before the socials instead. */}
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 mt-6 md:mt-auto md:pt-6">
+              {!hasBio && hasVenuesOrCollectives && venuesAndCollectivesRow}
               <div className="flex flex-wrap items-center gap-5">
                 {socialLinks.instagram && (
                   <a
