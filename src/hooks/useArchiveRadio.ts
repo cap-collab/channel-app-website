@@ -501,7 +501,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       // flips during the next ~100ms (iOS auto-pause).
       const outWhich = outgoing === audioARef.current ? 'A' : 'B';
       const inWhich = incoming === audioARef.current ? 'A' : 'B';
-      console.log('[radio-debug] FADE-START outgoing=', outWhich,
+      console.log('[radio-debug] FADE-START outgoing=', outWhich, 'incoming=', inWhich,
         'out.kind=', current.item.kind, 'in.kind=', next.item.kind,
         'in.src=', next.item.recordingUrl.slice(-40),
         'in.readyState(before)=', incoming.readyState,
@@ -579,7 +579,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       // [radio-debug] hard-swap point.
       const outWhich = outgoing === audioARef.current ? 'A' : 'B';
       const inWhich = incoming === audioARef.current ? 'A' : 'B';
-      console.log('[radio-debug] HARD-SWAP outgoing=', outWhich, 'in.paused=', incoming.paused, 'in.currentTime=', incoming.currentTime.toFixed(2), 'out.paused=', outgoing.paused, 'out.currentTime=', outgoing.currentTime.toFixed(2), 'inAloneGain=', inAloneGain);
+      console.log('[radio-debug] HARD-SWAP outgoing=', outWhich, 'incoming=', inWhich, 'in.paused=', incoming.paused, 'in.currentTime=', incoming.currentTime.toFixed(2), 'out.paused=', outgoing.paused, 'out.currentTime=', outgoing.currentTime.toFixed(2), 'inAloneGain=', inAloneGain);
       try {
         outgoing.volume = 0;
         outgoing.pause();
