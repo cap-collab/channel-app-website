@@ -343,6 +343,10 @@ interface LoopPlan {
   // Soft cap on loop duration. Set when a NEXT anchor exists in 48h — the
   // following loop will truncate this one, so we don't need to fill all 47h+.
   maxDurationSec: number | null;
+  // Earliest moment this loop is allowed to start (= max(now, prevLoopEnd)).
+  // Used as a final clamp after the anchor two-pass shift in generateLoop so
+  // the new doc never overlaps the previous loop.
+  earliestStartMs: number;
   reason: 'override' | 'first-loop' | 'aligned-subset' | 'aligned-anchor-fallback' | 'no-anchor-back-to-back';
 }
 
@@ -364,16 +368,18 @@ async function resolveLoopPlan(
   interstitials: Interstitial[],
 ): Promise<LoopPlan> {
   if (typeof args.startTimeMsOverride === 'number') {
-    return { startTimeMs: args.startTimeMsOverride, anchor: null, preAnchorArchiveIds: null, maxDurationSec: null, reason: 'override' };
+    return { startTimeMs: args.startTimeMsOverride, anchor: null, preAnchorArchiveIds: null, maxDurationSec: null, earliestStartMs: args.startTimeMsOverride, reason: 'override' };
   }
   const nowMs = args.nowMsOverride ?? Date.now();
   if (args.loopNumber <= 1) {
-    return { startTimeMs: nowMs, anchor: null, preAnchorArchiveIds: null, maxDurationSec: null, reason: 'first-loop' };
+    return { startTimeMs: nowMs, anchor: null, preAnchorArchiveIds: null, maxDurationSec: null, earliestStartMs: nowMs, reason: 'first-loop' };
   }
   const db = getAdminDb();
   if (!db) throw new Error('database not configured');
 
   // Previous loop's natural end is the back-to-back fallback startTime.
+  // Loop N must never start before loop N-1 has finished — otherwise the new
+  // doc overlaps the currently-playing one and listeners get yanked mid-loop.
   const prev = await db.collection(LOOP_COLLECTION).doc(loopDocId(args.loopNumber - 1)).get();
   let prevNaturalEnd = nowMs;
   if (prev.exists) {
@@ -382,11 +388,16 @@ async function resolveLoopPlan(
     const totalDurationSec = Number(data.totalDurationSec ?? 0);
     prevNaturalEnd = prevStart + totalDurationSec * 1000;
   }
+  // Earliest moment loop N is allowed to start. Used to filter anchors and to
+  // clamp the resolved startTimeMs so we never overlap loop N-1.
+  const earliestStartMs = Math.max(nowMs, prevNaturalEnd);
 
-  // Look for the first anchor in the next 28h from "now".
-  const anchorHorizonMs = nowMs + 28 * 3600 * 1000;
-  const anchors = await loadAnchors(db, nowMs);
-  const firstAnchor = anchors.find((a) => a.endTimeMs > nowMs && a.endTimeMs <= anchorHorizonMs);
+  // Look for the first anchor that lands AFTER loop N-1 ends. Anchors before
+  // earliestStartMs belong to the previous loop's window — picking them would
+  // place loop N inside loop N-1.
+  const anchorHorizonMs = earliestStartMs + 28 * 3600 * 1000;
+  const anchors = await loadAnchors(db, earliestStartMs);
+  const firstAnchor = anchors.find((a) => a.endTimeMs > earliestStartMs && a.endTimeMs <= anchorHorizonMs);
 
   // Cap detection: if ANOTHER anchor exists in the next 48h (past the first
   // one), the cron will generate a NEXT loop that truncates this one. We cap
@@ -403,19 +414,19 @@ async function resolveLoopPlan(
 
   if (!firstAnchor) {
     // No anchor in window → back-to-back from prev's natural end.
-    return { startTimeMs: prevNaturalEnd, anchor: null, preAnchorArchiveIds: null, maxDurationSec: null, reason: 'no-anchor-back-to-back' };
+    return { startTimeMs: prevNaturalEnd, anchor: null, preAnchorArchiveIds: null, maxDurationSec: null, earliestStartMs, reason: 'no-anchor-back-to-back' };
   }
 
   // Compute the dead-zone window for the cron-run day, in UTC.
-  // 1am PT = 08:00 UTC, 4am PT = 11:00 UTC (using PST/PDT-aware math is
-  // overkill; PT is UTC-8 in winter, UTC-7 in summer. We use UTC-7 as a
-  // simplification since this is approximate — half-hour shifts don't break
-  // anything, just nudge the search window slightly).
+  // 1am PT = 08:00 UTC, 4am PT = 11:00 UTC (PST/PDT-aware math is overkill;
+  // we use UTC-7 as a simplification).
+  // The window also has to be >= earliestStartMs so loop N doesn't overlap
+  // loop N-1 even if the dead zone falls during N-1's window.
   const cronDay = new Date(nowMs);
   cronDay.setUTCHours(0, 0, 0, 0);
   const dayStartUtcMs = cronDay.getTime();
-  const windowStartMs = dayStartUtcMs + 8 * 3600 * 1000;   // 08:00 UTC = 1am PT
-  const windowEndMs = dayStartUtcMs + 11 * 3600 * 1000;    // 11:00 UTC = 4am PT
+  const windowStartMs = Math.max(earliestStartMs, dayStartUtcMs + 8 * 3600 * 1000);   // 08:00 UTC = 1am PT
+  const windowEndMs = Math.max(windowStartMs, dayStartUtcMs + 11 * 3600 * 1000);      // 11:00 UTC = 4am PT
 
   const avgInterludeSec = interstitials.length === 0
     ? 0
@@ -441,6 +452,7 @@ async function resolveLoopPlan(
       anchor: firstAnchor,
       preAnchorArchiveIds: result.archiveIds,
       maxDurationSec,
+      earliestStartMs,
       reason: 'aligned-subset',
     };
   }
@@ -450,6 +462,7 @@ async function resolveLoopPlan(
     anchor: firstAnchor,
     preAnchorArchiveIds: null,
     maxDurationSec,
+    earliestStartMs,
     reason: 'aligned-anchor-fallback',
   };
 }
@@ -591,6 +604,13 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
       const anchorInterludeOffset = result.items[anchorArchiveIdx - 1].startOffsetSec;
       startTimeMs = plan.anchor.endTimeMs - anchorInterludeOffset * 1000;
     }
+  }
+  // Final clamp: never let the two-pass anchor shift drag startTimeMs before
+  // the previous loop's natural end. Without this, picking an anchor close to
+  // the previous loop's tail (or any pre-anchor subset that overshoots) writes
+  // a doc that overlaps the currently-playing loop — listeners get yanked.
+  if (startTimeMs < plan.earliestStartMs) {
+    startTimeMs = plan.earliestStartMs;
   }
   const generatedAtMs = Date.now();
 
