@@ -106,6 +106,9 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const resumePositionRef = useRef(0);
   const playbackStartedAtRef = useRef<number | null>(null);
   const archiveLockedInFiredRef = useRef<string | null>(null);
+  // Last MediaSession metadata signature we wrote. Skipping no-op rewrites
+  // avoids iOS yanking the audio session under rapid metadata churn.
+  const lastMediaSessionSigRef = useRef<string | null>(null);
   const onLockedInRef = useRef<(() => void) | null>(null);
   const onArchiveEndedRef = useRef<((endedArchive: ArchiveSerialized) => void) | null>(null);
   // Snapshot of the currently-playing archive for use inside audio event
@@ -358,12 +361,18 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         ]
       : [{ src: fallbackArtworkUrl, sizes: '128x128', type: 'image/png' }];
 
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: currentArchive.showName || 'Archive',
-      artist: djNames || undefined,
-      album: 'channel radio',
-      artwork,
-    });
+    const title = currentArchive.showName || 'Archive';
+    const artist = djNames || undefined;
+    const sig = `archive|${title}|${artist || ''}|${artwork[0].src}`;
+    if (sig !== lastMediaSessionSigRef.current) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title,
+        artist,
+        album: 'channel radio',
+        artwork,
+      });
+      lastMediaSessionSigRef.current = sig;
+    }
 
     if (isPlaying) {
       navigator.mediaSession.playbackState = 'playing';

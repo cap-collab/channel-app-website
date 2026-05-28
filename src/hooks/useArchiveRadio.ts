@@ -260,6 +260,10 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   // next-loop doc exists. Track which loopNumber we've already pinged for so
   // we don't spam the endpoint every second.
   const ensureNextPingedForRef = useRef<number | null>(null);
+  // Last MediaSession metadata signature we wrote. Skipping no-op rewrites
+  // matters on iOS: rapid `navigator.mediaSession.metadata = ...` churn can
+  // make iOS think the audio session is unstable and unilaterally pause it.
+  const lastMediaSessionSigRef = useRef<string | null>(null);
 
   // Lazily create both audio elements on first activation. Created with iOS
   // attrs set up-front (matches feedback_ios_mediasession + the existing
@@ -771,17 +775,20 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     const djPhoto = item.djs?.find((d) => d.photoUrl)?.photoUrl;
     const rawArtwork = item.artworkUrl || djPhoto;
     const artworkSrc = rawArtwork ? proxy(rawArtwork) : fallback;
-    try {
-      // [radio-debug] log every mediaSession metadata change. iOS may rebind
-      // its audio session to a different element when metadata flips.
-      console.log('[radio-debug] mediaSession.metadata <-', item.kind, '"' + (item.title || '') + '"', 'artwork=', artworkSrc.slice(-40));
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: item.title || 'Archive radio',
-        artist,
-        album: 'channel — archive radio',
-        artwork: [{ src: artworkSrc, sizes: '128x128', type: 'image/png' }],
-      });
-    } catch { /* ignore */ }
+    const title = item.title || 'Archive radio';
+    const sig = `radio|${title}|${artist || ''}|${artworkSrc}`;
+    if (sig !== lastMediaSessionSigRef.current) {
+      try {
+        console.log('[radio-debug] mediaSession.metadata <-', item.kind, '"' + title + '"', 'artwork=', artworkSrc.slice(-40));
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title,
+          artist,
+          album: 'channel — archive radio',
+          artwork: [{ src: artworkSrc, sizes: '128x128', type: 'image/png' }],
+        });
+        lastMediaSessionSigRef.current = sig;
+      } catch { /* ignore */ }
+    }
     // Reflect intent via playbackState so iOS Control Center keeps the Now
     // Playing entry visible while paused (instead of dropping it when the
     // <audio> element pauses).

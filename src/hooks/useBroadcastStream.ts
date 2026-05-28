@@ -138,6 +138,9 @@ export function useBroadcastStream(
   const userPausedRef = useRef(false); // Track user-initiated pauses vs browser auto-pause
   const artworkPreloadRef = useRef<HTMLImageElement | null>(null);
   const artworkRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Last MediaSession metadata signature we wrote. Skipping no-op rewrites
+  // avoids iOS yanking the audio session under rapid metadata churn.
+  const lastMediaSessionSigRef = useRef<string | null>(null);
   const broadcastCumulativeTimeRef = useRef(0);
   const broadcastTimerShowIdRef = useRef<string | null>(null);
   const broadcastStreamCountedRef = useRef<string | null>(null);
@@ -829,14 +832,20 @@ export function useBroadcastStream(
         url.startsWith('/') ? url : `/_next/image?url=${encodeURIComponent(url)}&w=128&q=75`;
 
       const setMetadata = (imgSrc: string) => {
+        const title = currentShow.showName || 'Live Broadcast';
+        const artist = currentDJ || undefined;
+        const artworkSrc = proxyUrl(imgSrc);
+        const sig = `live|${title}|${artist || ''}|${artworkSrc}`;
+        if (sig === lastMediaSessionSigRef.current) return;
         navigator.mediaSession.metadata = new MediaMetadata({
-          title: currentShow.showName || 'Live Broadcast',
-          artist: currentDJ || undefined,
+          title,
+          artist,
           album: 'channel radio',
           artwork: [
-            { src: proxyUrl(imgSrc), sizes: '128x128', type: 'image/png' },
+            { src: artworkSrc, sizes: '128x128', type: 'image/png' },
           ],
         });
+        lastMediaSessionSigRef.current = sig;
       };
 
       // Cancel any in-flight preload/retry from a previous show
