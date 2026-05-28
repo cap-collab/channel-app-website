@@ -165,6 +165,20 @@ export function FloatingChat() {
     setIsOpen(prev => !prev);
   }, [isAuthenticated]);
 
+  // External triggers (e.g. inline player bar's chat button) ask the FAB to
+  // open via a custom DOM event — same pattern Tuner/MobileMenu use.
+  useEffect(() => {
+    const handler = () => {
+      if (!isAuthenticated) {
+        setShowAuthModal(true);
+        return;
+      }
+      setIsOpen(true);
+    };
+    document.addEventListener('openchat', handler);
+    return () => document.removeEventListener('openchat', handler);
+  }, [isAuthenticated]);
+
   const handleSetUsername = useCallback(async () => {
     const trimmed = usernameInput.trim();
     if (!trimmed) return;

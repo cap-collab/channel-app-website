@@ -1366,14 +1366,25 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   </button>
                   <FloatingHearts trigger={heartTrigger} />
                 </div>
-                {tipLink && (
+                {tipLink ? (
                   <TipButton
                     djUsername={djName || 'DJ'}
                     tipLink={tipLink}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
                     iconClassName="w-4 h-4 sm:w-[18px] sm:h-[18px]"
                   />
-                )}
+                ) : useLiveData && isLive ? (
+                  <button
+                    type="button"
+                    onClick={() => document.dispatchEvent(new CustomEvent('openchat'))}
+                    aria-label="Open chat"
+                    className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors flex-shrink-0"
+                  >
+                    <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </button>
+                ) : null}
               </div>
               {streamError && (
                 <p className="text-red-400 text-xs pb-2 px-2">
@@ -1487,14 +1498,25 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   </button>
                   <FloatingHearts trigger={heartTrigger} />
                 </div>
-                {tipLink && (
+                {tipLink ? (
                   <TipButton
                     djUsername={djName || 'DJ'}
                     tipLink={tipLink}
                     className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-green-300 transition-colors text-green-400 flex-shrink-0"
                     iconClassName="w-4 h-4 sm:w-[18px] sm:h-[18px]"
                   />
-                )}
+                ) : useLiveData && isLive ? (
+                  <button
+                    type="button"
+                    onClick={() => document.dispatchEvent(new CustomEvent('openchat'))}
+                    aria-label="Open chat"
+                    className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors flex-shrink-0"
+                  >
+                    <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </button>
+                ) : null}
               </div>
               <div className="flex justify-between text-[10px] text-zinc-600 px-2 pb-0.5">
                 <span>{formatTime(archivePlayer.currentArchive?.id === displayedArchive.id ? archivePlayer.currentTime : 0)}</span>
