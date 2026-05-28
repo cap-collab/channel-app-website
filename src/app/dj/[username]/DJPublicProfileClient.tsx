@@ -21,7 +21,7 @@ import { Archive } from "@/types/broadcast";
 import { getStationById, getMetadataKeyByStationId } from "@/lib/stations";
 import { useBPM } from "@/contexts/BPMContext";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
-import { Venue, Collective, Event as ChannelEvent, EventDJRef, EventVenueRef, CollectiveRef } from "@/types/events";
+import { Venue, Collective, Event as ChannelEvent, EventDJRef, CollectiveRef } from "@/types/events";
 import { ResidentsGrid } from "@/components/dj/ResidentsGrid";
 // Icon components (inline SVGs to avoid external dependencies)
 
