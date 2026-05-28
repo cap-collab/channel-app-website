@@ -545,17 +545,19 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
     preAnchorArchiveIds: plan.preAnchorArchiveIds ?? undefined,
   });
 
-  // Two-pass exact alignment. The MITM helper used the AVERAGE interlude
-  // duration as a stand-in for the actual chosen interludes, so the cumulative
-  // offset of the anchor interlude diverges slightly from the original plan.
-  // Find the anchor interlude in the built items array and shift startTimeMs
-  // so that anchor_interlude.startOffsetSec lands EXACTLY on anchor.endTimeMs.
+  // Two-pass exact alignment. The MITM picked the pre-anchor subset using the
+  // average interlude duration as a stand-in; the actual interludes random-
+  // picked by buildLoop differ slightly. Find the anchor interlude (= the
+  // interstitial immediately before the curated/anchor archive) in the built
+  // items array and shift startTimeMs so its audible fade-in begins exactly
+  // at anchor.endTimeMs.
+  //
+  // The schedule's startOffsetSec already encodes "when audio becomes
+  // audible" (CROSSFADE_SEC subtracted between transitions in buildLoop's
+  // cumulative pass). So aligning the schedule offset with the anchor moment
+  // also aligns the audible fade-in moment — no extra CROSSFADE shift needed.
   let startTimeMs = plan.startTimeMs;
   if (plan.anchor && plan.preAnchorArchiveIds !== null) {
-    // Anchor interlude = the interlude immediately preceding the curated/
-    // anchor archive in the items array. The anchor archive is identifiable
-    // by its archiveId matching plan.anchor.curatedArchiveId (when set) OR by
-    // its position right after the pre-anchor archives.
     let anchorArchiveIdx = -1;
     if (plan.anchor.curatedArchiveId) {
       anchorArchiveIdx = result.items.findIndex(
@@ -563,17 +565,11 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
       );
     }
     if (anchorArchiveIdx < 0) {
-      // No curated id, or curated id not found. Fall back to the archive at
-      // position (preAnchorIds.length × 2) — each preAnchor archive is
-      // followed by an interleave interlude.
       const preLen = plan.preAnchorArchiveIds.length;
-      anchorArchiveIdx = preLen * 2; // [arc, ins, arc, ins, ...] → first arc after preLen × 2 items
+      anchorArchiveIdx = preLen * 2;
     }
     if (anchorArchiveIdx > 0 && result.items[anchorArchiveIdx - 1].kind === 'interstitial') {
       const anchorInterludeOffset = result.items[anchorArchiveIdx - 1].startOffsetSec;
-      // Shift startTime: we want anchor_interlude.actualStartTime =
-      // anchor.endTimeMs. actualStartTime = startTimeMs + offset × 1000.
-      // → new startTimeMs = anchor.endTimeMs - offset × 1000.
       startTimeMs = plan.anchor.endTimeMs - anchorInterludeOffset * 1000;
     }
   }
