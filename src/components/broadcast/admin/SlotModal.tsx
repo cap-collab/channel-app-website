@@ -1848,7 +1848,10 @@ Cap`;
             ) : (
               <button
                 type="button"
-                onClick={() => setPostLivePickerOpen((v) => !v)}
+                onClick={() => {
+                  setPostLivePickerOpen((v) => !v);
+                  if (!archivesLoaded) fetchArchives();
+                }}
                 className="text-xs text-gray-300 hover:text-white px-3 py-1.5 border border-white/15 rounded"
               >
                 {postLivePickerOpen ? 'Cancel' : 'Pick archive…'}
