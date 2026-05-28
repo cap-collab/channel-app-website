@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { InterludeSlide } from '@/components/channel/ArchiveHero';
 
-// Mirrors the PROD radio path after the dual-element crossfade was removed:
-// one <audio> element, hard-cut at item boundaries. No fade, no second
-// element. This is what useBroadcastStream does too (stable on iOS).
+// Mirrors the new prod radio path: dual <audio> elements (A and B) with the
+// standby preloading the next item. At boundary: pause active, play standby,
+// swap roles. Gapless because standby is already buffered. No crossfade.
 //
-// Use "Force next boundary" to advance to the next item without waiting
-// for the natural end.
+// Use "Force next boundary" to advance without waiting for natural duration.
 const ARCHIVE_A_URL =
   'https://media.channel-app.com/recordings/channel-radio/channel-radio-2026-05-16T022806.mp4';
 const ARCHIVE_A_DURATION_SEC = 5512;
@@ -23,24 +22,26 @@ const INTERLUDES = [
 ];
 
 const INTERLUDE_GAIN = 0.52;
-// Seconds of archive A before we hand off to the interlude when not forced.
+// Seconds of archive A before the boundary fires naturally.
 const A_PRE_SEC = 8;
 
 type Stage = 'idle' | 'archive-a' | 'interlude' | 'archive-b' | 'done';
 
-type Item =
-  | { kind: 'archive'; label: string; url: string; gain: number }
-  | { kind: 'interlude'; label: string; url: string; gain: number; durationSec: number };
-
 export default function CrossfadeTestPage() {
   const [stage, setStage] = useState<Stage>('idle');
   const [log, setLog] = useState<string[]>([]);
-  const [vol, setVol] = useState(0);
+  const [aVol, setAVol] = useState(0);
+  const [bVol, setBVol] = useState(0);
   const [interludeIdx, setInterludeIdx] = useState(0);
 
-  // Single <audio> element — same as new prod path.
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Two <audio> elements that swap roles each boundary.
+  const audioARef = useRef<HTMLAudioElement | null>(null);
+  const audioBRef = useRef<HTMLAudioElement | null>(null);
+  const activeKeyRef = useRef<'A' | 'B'>('A');
   const boundaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track the next-up item so Force-next picks the right thing.
+  const nextItemRef = useRef<{ url: string; gain: number; label: string; isInterlude: boolean } | null>(null);
+  const lastItemRef = useRef<'archive-a' | 'interlude' | 'archive-b' | null>(null);
 
   const append = (msg: string) => {
     setLog((l) => [...l, `${new Date().toISOString().slice(11, 23)}  ${msg}`]);
@@ -49,116 +50,137 @@ export default function CrossfadeTestPage() {
   useEffect(() => {
     return () => {
       if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
-      audioRef.current?.pause();
+      audioARef.current?.pause();
+      audioBRef.current?.pause();
     };
   }, []);
 
-  const ensureAudio = () => {
-    if (audioRef.current) return audioRef.current;
+  const mkAudio = (label: string) => {
     const a = new Audio();
     a.crossOrigin = 'anonymous';
     a.preload = 'auto';
     a.setAttribute('playsinline', '');
     a.setAttribute('webkit-playsinline', '');
-    a.addEventListener('pause', () => append(`PAUSE event currentTime=${a.currentTime.toFixed(2)} readyState=${a.readyState}`));
-    a.addEventListener('error', () => append(`ERROR ${a.error?.code} ${a.error?.message ?? ''}`));
-    audioRef.current = a;
+    a.addEventListener('error', () => append(`${label} ERROR ${a.error?.code} ${a.error?.message ?? ''}`));
+    a.addEventListener('pause', () => append(`${label} PAUSE currentTime=${a.currentTime.toFixed(2)} readyState=${a.readyState}`));
+    a.addEventListener('play', () => append(`${label} PLAY currentTime=${a.currentTime.toFixed(2)} readyState=${a.readyState}`));
     return a;
   };
 
-  // Hard-cut to a new item: set src, wait for metadata, play.
-  const playItem = async (item: Item) => {
-    const a = ensureAudio();
-    append(`hard-cut → ${item.kind}: ${item.label}`);
-    a.src = item.url;
-    await new Promise<void>((resolve) => {
-      const onReady = () => { a.removeEventListener('loadedmetadata', onReady); resolve(); };
-      a.addEventListener('loadedmetadata', onReady);
-      setTimeout(() => { a.removeEventListener('loadedmetadata', onReady); resolve(); }, 5000);
-    });
-    a.volume = item.gain;
-    setVol(item.gain);
-    try {
-      await a.play();
-      append(`PLAY resolved, readyState=${a.readyState}, currentTime=${a.currentTime.toFixed(2)}`);
-    } catch (e) {
-      append(`PLAY rejected: ${(e as Error)?.name} ${(e as Error)?.message}`);
+  const ensureAudio = () => {
+    if (!audioARef.current) audioARef.current = mkAudio('A');
+    if (!audioBRef.current) audioBRef.current = mkAudio('B');
+    return { A: audioARef.current!, B: audioBRef.current! };
+  };
+
+  const getActive = () => (activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current);
+  const getStandby = () => (activeKeyRef.current === 'A' ? audioBRef.current : audioARef.current);
+  const which = (el: HTMLAudioElement) => (el === audioARef.current ? 'A' : 'B');
+
+  // Preload an item on the standby element. Mirrors the prod boundary effect's
+  // `standby.src = next.url; standby.load();`.
+  const preloadStandby = (url: string, label: string) => {
+    const standby = getStandby();
+    if (!standby) return;
+    if (standby.src === url) {
+      append(`standby (${which(standby)}) already has ${label}`);
+      return;
+    }
+    append(`standby (${which(standby)}) preload ${label}`);
+    standby.src = url;
+    standby.load();
+  };
+
+  // Boundary swap: pause active, play standby (already buffered), flip roles.
+  const swap = (nextGain: number, label: string) => {
+    const active = getActive();
+    const standby = getStandby();
+    if (!active || !standby) return;
+    append(`SWAP: pause ${which(active)} @${active.currentTime.toFixed(2)}, play ${which(standby)} (${label})`);
+    try { active.pause(); } catch { /* noop */ }
+    activeKeyRef.current = activeKeyRef.current === 'A' ? 'B' : 'A';
+    try { standby.currentTime = 0; } catch { /* noop */ }
+    standby.volume = nextGain;
+    if (activeKeyRef.current === 'A') { setAVol(nextGain); setBVol(0); }
+    else { setAVol(0); setBVol(nextGain); }
+    const p = standby.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch((e) => append(`standby.play() rejected: ${(e as Error)?.name} ${(e as Error)?.message}`));
     }
   };
 
   const start = async () => {
     setLog([]);
-    setStage('idle');
+    activeKeyRef.current = 'A';
+    lastItemRef.current = 'archive-a';
     const interlude = INTERLUDES[interludeIdx];
-    append(`user gesture: starting test (interlude="${interlude.label}")`);
+    append(`user gesture: starting (interlude="${interlude.label}")`);
 
-    // Step 1: play archive A. Seek to near the end so the natural boundary
-    // also exercises the hard-cut after A_PRE_SEC.
-    const a = ensureAudio();
-    a.src = ARCHIVE_A_URL;
+    const { A, B } = ensureAudio();
+    void B; // B exists for later preload
+    A.volume = 1;
+    B.volume = 0;
+    setAVol(1);
+    setBVol(0);
+
+    // Load + seek archive A.
+    A.src = ARCHIVE_A_URL;
     await new Promise<void>((resolve) => {
-      const onReady = () => { a.removeEventListener('loadedmetadata', onReady); resolve(); };
-      a.addEventListener('loadedmetadata', onReady);
-      setTimeout(() => { a.removeEventListener('loadedmetadata', onReady); resolve(); }, 5000);
+      const onReady = () => { A.removeEventListener('loadedmetadata', onReady); resolve(); };
+      A.addEventListener('loadedmetadata', onReady);
+      setTimeout(() => { A.removeEventListener('loadedmetadata', onReady); resolve(); }, 5000);
     });
     const aSeekTarget = Math.max(0, ARCHIVE_A_DURATION_SEC - A_PRE_SEC - 1);
-    try { a.currentTime = aSeekTarget; } catch (e) { append(`seek failed: ${e}`); }
+    try { A.currentTime = aSeekTarget; } catch (e) { append(`seek failed: ${e}`); }
     append(`A seeked to ${aSeekTarget.toFixed(1)}s of ${ARCHIVE_A_DURATION_SEC}s`);
-    a.volume = 1;
-    setVol(1);
     setStage('archive-a');
     try {
-      await a.play();
-      append(`A playing — will hard-cut in ${A_PRE_SEC}s (or tap Force next)`);
+      await A.play();
     } catch (e) {
       append(`A play() rejected: ${(e as Error)?.name} ${(e as Error)?.message}`);
       return;
     }
 
-    // Schedule a natural boundary after A_PRE_SEC. The "force next" button
-    // can also trigger this manually.
-    scheduleNext('interlude');
+    // Preload interlude on standby (B) — same as prod does in its boundary effect.
+    preloadStandby(interlude.url, `interlude "${interlude.label}"`);
+    nextItemRef.current = { url: interlude.url, gain: INTERLUDE_GAIN, label: interlude.label, isInterlude: true };
+
+    // Schedule natural boundary at A_PRE_SEC.
+    scheduleBoundary(A_PRE_SEC * 1000);
   };
 
-  const scheduleNext = (target: 'interlude' | 'archive-b') => {
+  const scheduleBoundary = (delayMs: number) => {
     if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
-    const delay = target === 'interlude' ? A_PRE_SEC * 1000 : (INTERLUDES[interludeIdx].durationSec - 1) * 1000;
-    append(`boundary timer set: ${target} in ${(delay / 1000).toFixed(1)}s`);
-    boundaryTimerRef.current = setTimeout(() => advance(target), delay);
+    append(`boundary timer set in ${(delayMs / 1000).toFixed(1)}s`);
+    boundaryTimerRef.current = setTimeout(() => {
+      void advance();
+    }, delayMs);
   };
 
-  const advance = async (target: 'interlude' | 'archive-b') => {
+  const advance = () => {
     if (boundaryTimerRef.current) {
       clearTimeout(boundaryTimerRef.current);
       boundaryTimerRef.current = null;
     }
-    if (target === 'interlude') {
-      const interlude = INTERLUDES[interludeIdx];
+    const nx = nextItemRef.current;
+    if (!nx) return;
+    if (nx.isInterlude) {
+      swap(nx.gain, `interlude "${nx.label}"`);
       setStage('interlude');
-      await playItem({
-        kind: 'interlude',
-        label: interlude.label,
-        url: interlude.url,
-        gain: INTERLUDE_GAIN,
-        durationSec: interlude.durationSec,
-      });
-      scheduleNext('archive-b');
+      lastItemRef.current = 'interlude';
+      // Now preload archive B on the new standby.
+      preloadStandby(ARCHIVE_B_URL, 'archive B');
+      nextItemRef.current = { url: ARCHIVE_B_URL, gain: 1, label: 'archive B', isInterlude: false };
+      scheduleBoundary((INTERLUDES[interludeIdx].durationSec - 1) * 1000);
     } else {
+      swap(nx.gain, nx.label);
       setStage('archive-b');
-      await playItem({
-        kind: 'archive',
-        label: 'archive B',
-        url: ARCHIVE_B_URL,
-        gain: 1,
-      });
+      lastItemRef.current = 'archive-b';
+      nextItemRef.current = null;
       append('archive B playing — test complete');
-      setStage('done');
+      // After ~6s, mark done.
+      setTimeout(() => setStage('done'), 6000);
     }
-  };
-
-  const forceNext = () => {
-    if (stage === 'archive-a') void advance('interlude');
-    else if (stage === 'interlude') void advance('archive-b');
   };
 
   const stop = () => {
@@ -166,7 +188,8 @@ export default function CrossfadeTestPage() {
       clearTimeout(boundaryTimerRef.current);
       boundaryTimerRef.current = null;
     }
-    audioRef.current?.pause();
+    audioARef.current?.pause();
+    audioBRef.current?.pause();
     setStage('done');
     append('stopped');
   };
@@ -174,9 +197,9 @@ export default function CrossfadeTestPage() {
   return (
     <div className="min-h-screen bg-black text-white p-8">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold mb-2">Single-element hard-cut test</h1>
+        <h1 className="text-2xl font-bold mb-2">Dual-element preload + hard-cut test</h1>
         <p className="text-zinc-400 text-sm mb-6">
-          Mirrors the new prod radio path: one &lt;audio&gt; element, hard-cut between items. Use &quot;Force next boundary&quot; to advance without waiting.
+          Mirrors the new prod radio path: two &lt;audio&gt; elements (A and B), standby preloads next item, boundary pauses active + plays standby. Gapless. No crossfade.
         </p>
 
         <div className="mb-4 flex items-center gap-3">
@@ -202,13 +225,6 @@ export default function CrossfadeTestPage() {
             Start test
           </button>
           <button
-            onClick={forceNext}
-            className="px-4 py-2 bg-yellow-500 text-black font-bold hover:bg-yellow-400 disabled:opacity-50"
-            disabled={stage !== 'archive-a' && stage !== 'interlude'}
-          >
-            Force next boundary
-          </button>
-          <button
             onClick={stop}
             className="px-4 py-2 bg-zinc-800 text-white font-bold hover:bg-zinc-700 disabled:opacity-50"
             disabled={stage === 'idle' || stage === 'done'}
@@ -218,8 +234,9 @@ export default function CrossfadeTestPage() {
         </div>
 
         <div className="mb-6">
-          <div className="text-sm text-zinc-400 mb-1">Stage: <span className="text-white font-mono">{stage}</span></div>
-          <VolumeBar label="audio" vol={vol} color="bg-blue-500" />
+          <div className="text-sm text-zinc-400 mb-1">Stage: <span className="text-white font-mono">{stage}</span> · active: <span className="text-white font-mono">{activeKeyRef.current}</span></div>
+          <VolumeBar label="element A" vol={aVol} color="bg-blue-500" />
+          <VolumeBar label="element B" vol={bVol} color="bg-green-500" />
         </div>
 
         <div className="mb-6">
@@ -255,7 +272,7 @@ export default function CrossfadeTestPage() {
           <ul className="mt-2 space-y-1 font-mono">
             <li>Archive A: {ARCHIVE_A_URL}</li>
             <li>Archive A duration: {ARCHIVE_A_DURATION_SEC}s</li>
-            <li>A_PRE_SEC (audible before boundary): {A_PRE_SEC}s</li>
+            <li>A_PRE_SEC: {A_PRE_SEC}s</li>
             <li>Interlude: {INTERLUDES[interludeIdx].url}</li>
             <li>Interlude duration: {INTERLUDES[interludeIdx].durationSec}s</li>
             <li>Archive B: {ARCHIVE_B_URL}</li>
