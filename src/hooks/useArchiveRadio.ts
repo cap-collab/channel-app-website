@@ -234,7 +234,18 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     });
     el.addEventListener('play', () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
-      if (el === active) setIsPlaying(true);
+      if (el === active) {
+        setIsPlaying(true);
+      } else {
+        // iOS quirk: reassigning .src + .load() on a recently-paused <audio>
+        // element can auto-resume playback. Happens specifically on short
+        // items (interludes ~20s) where the standby element hasn't had time
+        // to "cool down" before the next preload. Belt-and-suspenders: any
+        // non-active element that starts playing on its own gets paused
+        // immediately. No-op in normal flow (active is flipped before we
+        // call standby.play() at boundary swap).
+        try { el.pause(); } catch { /* ignore */ }
+      }
     });
   }, []);
 
