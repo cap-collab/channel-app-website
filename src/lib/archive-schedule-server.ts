@@ -332,8 +332,20 @@ export interface GenerateLoopResult {
   skipped?: 'locked';
 }
 
-// Look up the previous loop's end time. Falls back to `now` when no previous
-// loop exists (i.e. this is the first loop ever generated).
+// Resolve when loop N should start. The algorithm aligns each loop's first
+// item boundary to a live-block end ("anchor") so the listener-side handoff
+// when live ends lands on an interlude + curated archive at offset 0.
+//
+//   1. Compute prevNaturalEnd = previous loop's start + duration.
+//   2. Query upcoming anchors (block ends from broadcast-slots). If any anchor
+//      lies AFTER prevStart, the first such anchor is the new loop's start —
+//      even if it falls BEFORE prevNaturalEnd. That truncates the previous
+//      loop, which is the desired behaviour: listeners during the truncation
+//      moment are transitioning to/from live anyway.
+//   3. No anchor in the foreseeable future → fall back to prevNaturalEnd
+//      (legacy back-to-back behaviour).
+//
+// The override arg lets admin tooling pin a specific startTimeMs.
 async function resolveLoopStartMs(loopNumber: number, override?: number): Promise<number> {
   if (typeof override === 'number') return override;
   if (loopNumber <= 1) return Date.now();
@@ -346,9 +358,18 @@ async function resolveLoopStartMs(loopNumber: number, override?: number): Promis
     return Date.now();
   }
   const data = prev.data() ?? {};
-  const startTimeMs = Number(data.startTimeMs ?? 0);
+  const prevStart = Number(data.startTimeMs ?? 0);
   const totalDurationSec = Number(data.totalDurationSec ?? 0);
-  return startTimeMs + totalDurationSec * 1000;
+  const prevNaturalEnd = prevStart + totalDurationSec * 1000;
+
+  // Look for the first anchor strictly after prevStart. Search a 48h window
+  // from prevStart (matches the lookahead in loadAnchors).
+  const anchors = await loadAnchors(db, prevStart);
+  const firstAnchorAfterStart = anchors.find((a) => a.endTimeMs > prevStart);
+  if (firstAnchorAfterStart) {
+    return firstAnchorAfterStart.endTimeMs;
+  }
+  return prevNaturalEnd;
 }
 
 // Find the highest loopNumber currently stored. Returns 0 when the collection
@@ -455,7 +476,6 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
   const result = buildLoop({
     archives,
     interstitials,
-    loopStartTimeMs: startTimeMs,
     anchors,
   });
   const generatedAtMs = Date.now();

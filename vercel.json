@@ -38,7 +38,7 @@
     },
     {
       "path": "/api/cron/generate-archive-schedule",
-      "schedule": "0 23 * * *"
+      "schedule": "0 8 * * *"
     }
   ]
 }
