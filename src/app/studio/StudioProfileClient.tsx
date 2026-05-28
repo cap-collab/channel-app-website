@@ -2314,30 +2314,44 @@ export function StudioProfileClient() {
               )}
             </div>
             <div className="mt-4 flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
-              >
-                Upload a pre-recording
-              </button>
-              <Link
-                href="/record"
-                className={`flex-1 block text-white text-center py-3 rounded font-medium transition-colors border ${
-                  upcomingShows.some(s => !s.isExternal)
-                    ? "bg-green-600 hover:bg-green-500 border-green-500"
-                    : "bg-gray-800 hover:bg-gray-700 border-gray-700"
-                }`}
-              >
-                Test audio capture
-              </Link>
-              {isResident && !upcomingShows.some(s => !s.isExternal) && (
-                <Link
-                  href="/studio/livestream"
-                  className="flex-1 block bg-green-600 text-white text-center py-3 rounded font-medium hover:bg-green-500 transition-colors border border-green-500"
-                >
-                  Book your next show
-                </Link>
-              )}
+              {(() => {
+                const hasImminentShow = upcomingShows.some(
+                  s => !s.isExternal && s.startTime - Date.now() < 30 * 60 * 1000
+                );
+                const hasUpcomingOwnShow = upcomingShows.some(s => !s.isExternal);
+                return (
+                  <>
+                    <button
+                      onClick={() => setShowUploadModal(true)}
+                      className="flex-1 block bg-gray-800 text-white text-center py-3 rounded font-medium hover:bg-gray-700 transition-colors border border-gray-700"
+                    >
+                      Upload a pre-recording
+                    </button>
+                    <Link
+                      href="/record"
+                      className={`flex-1 block text-white text-center py-3 rounded font-medium transition-colors border ${
+                        hasUpcomingOwnShow && !hasImminentShow
+                          ? "bg-green-600 hover:bg-green-500 border-green-500"
+                          : "bg-gray-800 hover:bg-gray-700 border-gray-700"
+                      }`}
+                    >
+                      Test audio capture
+                    </Link>
+                    {isResident && !hasUpcomingOwnShow && (
+                      <Link
+                        href="/studio/livestream"
+                        className={`flex-1 block text-white text-center py-3 rounded font-medium transition-colors border ${
+                          hasImminentShow
+                            ? "bg-gray-800 hover:bg-gray-700 border-gray-700"
+                            : "bg-green-600 hover:bg-green-500 border-green-500"
+                        }`}
+                      >
+                        Book your next show
+                      </Link>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </section>
 
@@ -2426,12 +2440,21 @@ export function StudioProfileClient() {
                           )}
                         </div>
                       ) : !show.isExternal && show.broadcastToken ? (
-                        <Link
-                          href={`/broadcast/live?token=${show.broadcastToken}`}
-                          className="inline-flex items-center gap-2 mt-3 bg-green-600 hover:bg-green-500 text-white text-sm font-medium px-4 py-2 rounded transition-colors"
-                        >
-                          {Date.now() >= show.startTime ? "Go Live" : "Prepare to Go Live"} &rarr;
-                        </Link>
+                        (() => {
+                          const isImminent = show.startTime - Date.now() < 30 * 60 * 1000;
+                          return (
+                            <Link
+                              href={`/broadcast/live?token=${show.broadcastToken}`}
+                              className={
+                                isImminent
+                                  ? "inline-flex items-center gap-2 mt-3 bg-green-600 hover:bg-green-500 text-white text-base font-medium px-8 py-4 rounded transition-colors"
+                                  : "inline-flex items-center gap-2 mt-3 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium px-4 py-2 rounded transition-colors border border-gray-700"
+                              }
+                            >
+                              {isImminent ? "Go Live" : "Prepare to Go Live"} &rarr;
+                            </Link>
+                          );
+                        })()
                       ) : null}
                       {canEdit && show.slotId && !isRestream && (
                         <div className="mt-3 bg-[#252525] rounded p-3">
