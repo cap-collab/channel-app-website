@@ -8,9 +8,6 @@ import { Show } from "@/types";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { AuthModal } from "@/components/AuthModal";
-import { createHostedAudio } from "@/lib/audio-host";
-
-const AUDIO_HOST_ID = "browsing-mode-audio-host";
 
 interface BrowsingModePopupProps {
   onClose: () => void;
@@ -89,7 +86,7 @@ export function BrowsingModePopup({ onClose }: BrowsingModePopupProps) {
 
     const loadPromises = STATIONS.map((station) => {
       return new Promise<void>((resolve) => {
-        const audio = createHostedAudio(AUDIO_HOST_ID);
+        const audio = new Audio();
         audio.preload = "auto";
         audio.crossOrigin = "anonymous";
         audio.volume = 1;

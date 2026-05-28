@@ -9,9 +9,6 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { captureEvent } from '@/lib/posthog';
 import { registerAudio, pauseOthers } from '@/lib/audio-exclusive';
-import { attachToAudioHost, createHostedAudio } from '@/lib/audio-host';
-
-const AUDIO_HOST_ID = 'archive-player-audio-host';
 
 function getFirebaseApp() {
   if (getApps().length === 0) {
@@ -138,7 +135,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
 
   const getAudio = useCallback(() => {
     if (!audioRef.current) {
-      const audio = createHostedAudio(AUDIO_HOST_ID);
+      const audio = new Audio();
       audio.preload = 'metadata';
 
       audio.addEventListener('timeupdate', () => {
@@ -216,8 +213,6 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
 
       audioRef.current = audio;
       registerAudio('archive', audio);
-    } else if (!audioRef.current.parentNode) {
-      attachToAudioHost(audioRef.current, AUDIO_HOST_ID);
     }
     return audioRef.current;
   }, []);
