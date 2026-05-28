@@ -98,6 +98,8 @@ function deserializeLoop(id: string, data: Record<string, unknown> | undefined):
       highCount: Number(stats.highCount ?? 0),
       mediumCount: Number(stats.mediumCount ?? 0),
       interstitialCount: Number(stats.interstitialCount ?? 0),
+      alignedAnchorCount: stats.alignedAnchorCount === undefined ? undefined : Number(stats.alignedAnchorCount),
+      missedAnchorCount: stats.missedAnchorCount === undefined ? undefined : Number(stats.missedAnchorCount),
       totalItems: Number(stats.totalItems ?? items.length),
     },
     items,

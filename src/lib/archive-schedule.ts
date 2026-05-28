@@ -263,10 +263,53 @@ export function tallyRecentPlays(days: ArchiveScheduleDay[]): Map<string, number
 // apart so the listener doesn't hear the same show twice in quick succession.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// A live-broadcast block boundary surfaced by computeLiveBlocks. Each boundary
+// is a moment the loop must align an item-start to so the listener-side
+// handoff lands cleanly on an interlude + a fresh archive at offset 0.
+export interface LiveBlockBoundary {
+  endTimeMs: number;
+  curatedArchiveId: string | null;  // optional admin pick for the post-block archive
+}
+
+// Group contiguous live broadcast-slots into blocks (consecutive slots whose
+// gap is < joinGapMs). Emits one boundary per block — at the endTime of the
+// final slot — carrying that slot's postLiveArchiveId so the builder can
+// honour the admin's curation choice.
+export function computeLiveBlocks(
+  slots: Array<{ startTimeMs: number; endTimeMs: number; postLiveArchiveId: string | null }>,
+  joinGapMs = 60_000,
+): LiveBlockBoundary[] {
+  if (slots.length === 0) return [];
+  const sorted = slots.slice().sort((a, b) => a.startTimeMs - b.startTimeMs);
+  const out: LiveBlockBoundary[] = [];
+  let curEnd = sorted[0].endTimeMs;
+  let curCurated = sorted[0].postLiveArchiveId;
+  for (let i = 1; i < sorted.length; i++) {
+    const next = sorted[i];
+    if (next.startTimeMs - curEnd < joinGapMs) {
+      // Same block — extend; the LAST slot's curated id wins.
+      curEnd = Math.max(curEnd, next.endTimeMs);
+      curCurated = next.postLiveArchiveId;
+    } else {
+      out.push({ endTimeMs: curEnd, curatedArchiveId: curCurated });
+      curEnd = next.endTimeMs;
+      curCurated = next.postLiveArchiveId;
+    }
+  }
+  out.push({ endTimeMs: curEnd, curatedArchiveId: curCurated });
+  return out;
+}
+
 export interface BuildLoopOptions {
   archives: EligibleArchive[];
   interstitials?: Interstitial[];   // empty/undefined = no interludes inserted
   rng?: () => number;
+  // Loop alignment: pass loopStartTimeMs + anchors to make item boundaries
+  // land at live-block ends. Without these, the builder runs in legacy mode
+  // (back-to-back archives + interleaved interludes, no alignment).
+  loopStartTimeMs?: number;
+  anchors?: LiveBlockBoundary[];    // sorted asc by endTimeMs
+  alignmentToleranceSec?: number;   // default 10
 }
 
 export interface BuildLoopResult {
@@ -275,6 +318,8 @@ export interface BuildLoopResult {
   highCount: number;
   mediumCount: number;
   interstitialCount: number;        // # interstitials inserted between archives
+  alignedAnchorCount: number;       // # anchors aligned within tolerance
+  missedAnchorCount: number;        // # anchors found but couldn't be aligned
   warnings: string[];
 }
 
@@ -365,7 +410,7 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
 
   if (totalEntries === 0) {
     warnings.push('no eligible archives');
-    return { items: [], totalDurationSec: 0, highCount: 0, mediumCount: 0, interstitialCount: 0, warnings };
+    return { items: [], totalDurationSec: 0, highCount: 0, mediumCount: 0, interstitialCount: 0, alignedAnchorCount: 0, missedAnchorCount: 0, warnings };
   }
 
   const archiveToItem = (a: EligibleArchive, startOffsetSec: number): ScheduleItem => ({
@@ -436,31 +481,152 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   // Same-DJ adjacency pass.
   items = spaceSameDj(items);
 
-  // Interleave interstitials between consecutive archive entries. One picked at
-  // random from the pool per insertion point; no insertion after the last entry
-  // so the loop doesn't end on an interlude before wrap-around. With one
-  // interlude in the pool, that single clip is used everywhere; with more,
-  // variety is automatic.
   const interstitialPool = opts.interstitials ?? [];
-  let interstitialCount = 0;
-  if (interstitialPool.length > 0 && items.length > 1) {
-    const withInterludes: ScheduleItem[] = [];
-    for (let i = 0; i < items.length; i++) {
-      withInterludes.push(items[i]);
-      if (i < items.length - 1) {
-        const ix = interstitialPool[Math.floor(rng() * interstitialPool.length)];
-        withInterludes.push({
-          kind: 'interstitial',
-          interstitialId: ix.id,
-          recordingUrl: ix.url,
-          durationSec: ix.durationSec,
-          startOffsetSec: 0, // recomputed cumulatively below
-          title: ix.label,
-        });
-        interstitialCount++;
+  const tolSec = opts.alignmentToleranceSec ?? 10;
+  const pickInterstitial = (): ScheduleItem | null => {
+    if (interstitialPool.length === 0) return null;
+    const ix = interstitialPool[Math.floor(rng() * interstitialPool.length)];
+    return {
+      kind: 'interstitial',
+      interstitialId: ix.id,
+      recordingUrl: ix.url,
+      durationSec: ix.durationSec,
+      startOffsetSec: 0, // recomputed cumulatively below
+      title: ix.label,
+    };
+  };
+  // Average interlude duration drives the subset-sum window math (we don't
+  // know which one will be picked at each transition). Falls back to 0 when
+  // pool is empty so the search treats windows as archive-only.
+  const avgInterstitialSec = interstitialPool.length === 0
+    ? 0
+    : interstitialPool.reduce((s, i) => s + i.durationSec, 0) / interstitialPool.length;
+
+  // ── Anchor-aware path ──────────────────────────────────────────────────────
+  // Triggered when caller passed both loopStartTimeMs and at least one anchor.
+  // Without those we fall through to the legacy back-to-back interleave below.
+  const anchorOffsets: { offsetSec: number; curatedArchiveId: string | null }[] = [];
+  if (opts.loopStartTimeMs !== undefined && opts.anchors && opts.anchors.length > 0) {
+    // Estimated loop span = 1.5 × sum of archive durations. Anchors past this
+    // are deferred to the next loop's generation.
+    const totalArchiveSec = items.reduce((s, it) => s + it.durationSec, 0);
+    const spanMaxSec = totalArchiveSec * 1.5;
+    for (const a of opts.anchors) {
+      const off = (a.endTimeMs - opts.loopStartTimeMs) / 1000;
+      if (off > 0 && off <= spanMaxSec) {
+        anchorOffsets.push({ offsetSec: off, curatedArchiveId: a.curatedArchiveId });
       }
     }
-    items = withInterludes;
+    // Anchors are expected sorted by endTimeMs but enforce here.
+    anchorOffsets.sort((a, b) => a.offsetSec - b.offsetSec);
+  }
+
+  let interstitialCount = 0;
+  let alignedAnchorCount = 0;
+  let missedAnchorCount = 0;
+  const output: ScheduleItem[] = [];
+
+  if (anchorOffsets.length > 0) {
+    const queue = items.slice(); // post-spaceSameDj archive items
+    const lookupByArchiveId = new Map<string, EligibleArchive>();
+    for (const a of opts.archives) lookupByArchiveId.set(a.id, a);
+
+    const popMatchByArchiveId = (id: string): ScheduleItem | null => {
+      const idx = queue.findIndex((it) => it.archiveId === id);
+      if (idx >= 0) return queue.splice(idx, 1)[0];
+      // Not in the queue (already taken or never in the sequenced pool) —
+      // fall back to building a fresh item from the catalog. Returns null if
+      // the id isn't in the catalog either.
+      const cat = lookupByArchiveId.get(id);
+      if (!cat) return null;
+      return archiveToItem(cat, 0);
+    };
+    const popRandom = (): ScheduleItem | null => {
+      if (queue.length === 0) return null;
+      const idx = Math.floor(rng() * queue.length);
+      return queue.splice(idx, 1)[0];
+    };
+
+    let cursor = 0;
+    for (const anchor of anchorOffsets) {
+      const window = anchor.offsetSec - cursor;
+      if (window <= 0) {
+        // We've already overshot this anchor (multiple anchors clustered, or
+        // the previous fill bled past). Skip this anchor — listener loses
+        // alignment here but we keep generating.
+        missedAnchorCount++;
+        warnings.push(`anchor at ${Math.round(anchor.offsetSec)}s already past cursor ${Math.round(cursor)}s`);
+        continue;
+      }
+
+      // Search the queue for an ordered subset whose summed durations
+      // (+ inter-item interlude duration) fit `window` within `tolSec`.
+      const fillResult = findWindowFill(queue, window, avgInterstitialSec, tolSec);
+      if (fillResult.miss > tolSec) {
+        missedAnchorCount++;
+        warnings.push(`anchor at ${Math.round(anchor.offsetSec)}s: best fit misses by ${Math.round(fillResult.miss)}s (window ${Math.round(window)}s)`);
+      } else {
+        alignedAnchorCount++;
+      }
+
+      // Push the fill sequence, interleaving an interlude between each pair.
+      // Remove the chosen items from `queue` (in reverse-index order to keep
+      // remaining indices valid).
+      const chosen = fillResult.indices
+        .slice()
+        .sort((a, b) => b - a)
+        .map((i) => queue.splice(i, 1)[0])
+        .reverse(); // restore original chosen-order
+      for (let i = 0; i < chosen.length; i++) {
+        output.push(chosen[i]);
+        cursor += chosen[i].durationSec;
+        if (i < chosen.length - 1) {
+          const ins = pickInterstitial();
+          if (ins) { output.push(ins); cursor += ins.durationSec; interstitialCount++; }
+        }
+      }
+
+      // At the anchor: interlude + curated-or-random archive at offset 0.
+      const anchorInterlude = pickInterstitial();
+      if (anchorInterlude) {
+        output.push(anchorInterlude);
+        cursor += anchorInterlude.durationSec;
+        interstitialCount++;
+      }
+      const anchorArchive = (anchor.curatedArchiveId && popMatchByArchiveId(anchor.curatedArchiveId))
+        || popRandom();
+      if (anchorArchive) {
+        output.push(anchorArchive);
+        cursor += anchorArchive.durationSec;
+      } else {
+        warnings.push(`anchor at ${Math.round(anchor.offsetSec)}s: no archive available to place`);
+      }
+    }
+
+    // Tail: pack whatever's left in queue with interleaved interludes.
+    for (let i = 0; i < queue.length; i++) {
+      output.push(queue[i]);
+      cursor += queue[i].durationSec;
+      if (i < queue.length - 1) {
+        const ins = pickInterstitial();
+        if (ins) { output.push(ins); cursor += ins.durationSec; interstitialCount++; }
+      }
+    }
+    items = output;
+  } else {
+    // Legacy path: interleave one interlude between every pair of consecutive
+    // archives. No anchor alignment requested.
+    if (interstitialPool.length > 0 && items.length > 1) {
+      const withInterludes: ScheduleItem[] = [];
+      for (let i = 0; i < items.length; i++) {
+        withInterludes.push(items[i]);
+        if (i < items.length - 1) {
+          const ins = pickInterstitial();
+          if (ins) { withInterludes.push(ins); interstitialCount++; }
+        }
+      }
+      items = withInterludes;
+    }
   }
 
   // Recompute startOffsetSec cumulatively now that order is final.
@@ -476,8 +642,62 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     highCount,
     mediumCount,
     interstitialCount,
+    alignedAnchorCount,
+    missedAnchorCount,
     warnings,
   };
+}
+
+// Find an ordered subset of `queue` (preserving original order) whose summed
+// durations + avgInterstitialSec gaps fit `windowSec` within `tolSec`. DFS
+// with branch-and-bound and a node cap so wall-time stays predictable.
+//
+// Returns the chosen indices into `queue` and the absolute miss (in seconds).
+// When the best found exceeds tolSec, the caller still uses it but flags a
+// warning.
+function findWindowFill(
+  queue: ScheduleItem[],
+  windowSec: number,
+  avgInterstitialSec: number,
+  tolSec: number,
+): { indices: number[]; miss: number } {
+  // Best (closest) match so far.
+  let bestIndices: number[] = [];
+  let bestMiss = Number.POSITIVE_INFINITY;
+  let nodes = 0;
+  const NODE_CAP = 5000;
+
+  const score = (sumSec: number, count: number): { total: number; miss: number } => {
+    // Effective total adds gaps between items (count - 1 interludes).
+    const total = sumSec + Math.max(0, count - 1) * avgInterstitialSec;
+    return { total, miss: Math.abs(total - windowSec) };
+  };
+
+  const dfs = (startIdx: number, chosen: number[], sumSec: number) => {
+    if (nodes++ > NODE_CAP) return;
+    const s = score(sumSec, chosen.length);
+    if (s.miss < bestMiss) {
+      bestMiss = s.miss;
+      bestIndices = chosen.slice();
+      if (bestMiss <= tolSec) return; // early exit on good-enough match
+    }
+    if (s.total >= windowSec) return; // any further item only grows total
+    for (let i = startIdx; i < queue.length; i++) {
+      if (bestMiss <= tolSec) return;
+      chosen.push(i);
+      dfs(i + 1, chosen, sumSec + queue[i].durationSec);
+      chosen.pop();
+    }
+  };
+  dfs(0, [], 0);
+
+  // Empty selection is always a candidate (score = windowSec miss).
+  const emptyScore = score(0, 0);
+  if (emptyScore.miss < bestMiss) {
+    bestMiss = emptyScore.miss;
+    bestIndices = [];
+  }
+  return { indices: bestIndices, miss: bestMiss };
 }
 
 // Find the item playing at `nowMs` inside a loop. Returns null when nowMs is

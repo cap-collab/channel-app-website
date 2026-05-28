@@ -136,6 +136,8 @@ export function AdminDashboard() {
     archiveRecordingUrl?: string;
     archiveDuration?: number;
     restreamDjs?: ArchiveDJ[];
+    // Radio loop alignment
+    postLiveArchiveId?: string;
   }) => {
     if (!user) return;
 
@@ -167,6 +169,7 @@ export function AdminDashboard() {
           archiveRecordingUrl: data.archiveRecordingUrl,
           archiveDuration: data.archiveDuration,
           restreamDjs: data.restreamDjs,
+          postLiveArchiveId: data.postLiveArchiveId,
         });
         savedSlotId = selectedSlot.id;
       }

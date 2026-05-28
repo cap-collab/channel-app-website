@@ -145,6 +145,10 @@ export interface BroadcastSlot {
   restreamEgressId?: string;      // LiveKit HLS egress ID (set by webhook on track_published)
   streamCount?: number;            // Number of streams (counted after 5+ min playback)
   sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
+  // Admin-curated archive that plays at the loop anchor right after this slot's
+  // contiguous live block ends. Read by the archive-radio loop generator; empty
+  // means the generator picks a random archive at the anchor.
+  postLiveArchiveId?: string;
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -201,6 +205,7 @@ export interface BroadcastSlotSerialized {
   restreamDjs?: ArchiveDJ[];      // All DJs from the archive (for multi-DJ restream display)
   streamCount?: number;            // Number of streams (counted after 5+ min playback)
   sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
+  postLiveArchiveId?: string;     // see BroadcastSlot.postLiveArchiveId
 }
 
 // Recording status type
@@ -394,7 +399,9 @@ export interface ArchiveRadioLoop {
     highCount: number;           // # high archives included (each contributes 2 items)
     mediumCount: number;         // # medium archives (each contributes 1 item)
     interstitialCount: number;   // # interstitials interleaved between archives
-    totalItems: number;          // = highCount * 2 + mediumCount + interstitialCount
+    alignedAnchorCount?: number; // # live-block boundaries the loop aligned to within tolerance
+    missedAnchorCount?: number;  // # anchors the cron found but couldn't align (warning)
+    totalItems: number;          // = highCount * 2 + mediumCount + interstitialCount + anchor items
   };
   items: ScheduleItem[];
 }

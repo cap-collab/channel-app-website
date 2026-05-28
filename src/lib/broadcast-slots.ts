@@ -67,6 +67,8 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     archiveId: data.archiveId as string | undefined,
     archiveRecordingUrl: data.archiveRecordingUrl as string | undefined,
     archiveDuration: data.archiveDuration as number | undefined,
+    // Radio loop alignment
+    postLiveArchiveId: data.postLiveArchiveId as string | undefined,
   };
 }
 
@@ -104,6 +106,8 @@ export async function createSlot(data: {
   archiveRecordingUrl?: string;
   archiveDuration?: number;
   restreamDjs?: ArchiveDJ[];
+  // Radio loop alignment
+  postLiveArchiveId?: string;
 }): Promise<{ slot: BroadcastSlotSerialized; broadcastUrl: string }> {
   if (!db) throw new Error('Firestore not initialized');
 
@@ -199,6 +203,8 @@ export async function createSlot(data: {
       archiveDuration: data.archiveDuration || null,
       restreamDjs: data.restreamDjs || null,
     }),
+    // Radio loop alignment (any broadcast type)
+    postLiveArchiveId: data.postLiveArchiveId || null,
   };
 
   const docRef = await addDoc(collection(db, COLLECTION), slotData);
@@ -228,6 +234,7 @@ export async function createSlot(data: {
     archiveRecordingUrl: data.archiveRecordingUrl,
     archiveDuration: data.archiveDuration,
     restreamDjs: data.restreamDjs,
+    postLiveArchiveId: data.postLiveArchiveId,
   };
 
   // All slots use token URLs
@@ -252,6 +259,8 @@ export async function updateSlot(
     archiveRecordingUrl: string;
     archiveDuration: number;
     restreamDjs: ArchiveDJ[];
+    // Radio loop alignment
+    postLiveArchiveId: string;
   }>
 ): Promise<void> {
   if (!db) throw new Error('Firestore not initialized');
@@ -346,6 +355,9 @@ export async function updateSlot(
   if (updates.archiveRecordingUrl !== undefined) updateData.archiveRecordingUrl = updates.archiveRecordingUrl || null;
   if (updates.archiveDuration !== undefined) updateData.archiveDuration = updates.archiveDuration || null;
   if (updates.restreamDjs !== undefined) updateData.restreamDjs = updates.restreamDjs || null;
+
+  // Radio loop alignment — empty string clears curation
+  if (updates.postLiveArchiveId !== undefined) updateData.postLiveArchiveId = updates.postLiveArchiveId || null;
 
   await updateDoc(doc(db, COLLECTION, slotId), updateData);
 }

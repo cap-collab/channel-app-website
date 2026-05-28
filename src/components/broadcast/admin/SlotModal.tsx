@@ -25,6 +25,9 @@ interface SlotModalProps {
     archiveRecordingUrl?: string;
     archiveDuration?: number;
     restreamDjs?: ArchiveDJ[];
+    // Curated archive that plays at the radio loop anchor right after this
+    // slot's contiguous live block ends. Empty string clears the curation.
+    postLiveArchiveId?: string;
   }) => Promise<void>;
   onDelete?: (slotId: string) => Promise<void>;
   initialStartTime?: Date;
@@ -285,6 +288,10 @@ export function SlotModal({
   const [archiveSearchQuery, setArchiveSearchQuery] = useState('');
   const [archiveDateFilter, setArchiveDateFilter] = useState('');
   const [selectedArchive, setSelectedArchive] = useState<Archive | null>(null);
+  // Curated post-live archive (radio-loop alignment). Optional.
+  const [postLiveArchive, setPostLiveArchive] = useState<Archive | null>(null);
+  const [postLivePickerOpen, setPostLivePickerOpen] = useState(false);
+  const [postLiveSearchQuery, setPostLiveSearchQuery] = useState('');
 
   const isEditing = !!slot;
 
@@ -547,6 +554,15 @@ export function SlotModal({
       }
     }
   }, [slot, archives, selectedArchive, showImageUrl]);
+
+  // When editing a slot with an existing postLiveArchiveId, resolve to the
+  // archive once the archives list is loaded.
+  useEffect(() => {
+    if (slot?.postLiveArchiveId && archives.length > 0 && !postLiveArchive) {
+      const match = archives.find(a => a.id === slot.postLiveArchiveId);
+      if (match) setPostLiveArchive(match);
+    }
+  }, [slot, archives, postLiveArchive]);
 
   // Filter archives by search query and date
   const filteredArchives = archives.filter(archive => {
@@ -846,6 +862,10 @@ export function SlotModal({
         endTime: endDateTime,
         broadcastType: modalTab === 'archives' ? 'restream' : broadcastType,
         showImageUrl,
+        // Empty string clears any previous curation; non-empty sets it. The
+        // archive-radio cron reads this when generating loops to choose what
+        // plays at the loop anchor after this slot's contiguous live block.
+        postLiveArchiveId: postLiveArchive?.id ?? '',
       };
 
       if (modalTab === 'archives' && selectedArchive) {
@@ -1793,6 +1813,90 @@ Cap`;
             </div>
           )}
           </>}
+
+          {/* Post-live archive (radio loop alignment). Optional — leave empty
+              to let the cron pick a random archive at the loop anchor that
+              follows this slot's live block. */}
+          <div className="px-4 pb-4 border-t border-gray-800 pt-4 mt-2">
+            <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+              Post-live archive (radio loop)
+            </label>
+            <p className="text-xs text-gray-500 mb-3">
+              When the live block ending with this slot finishes, the archive radio plays an interlude then this archive at offset 0. Leave empty for random.
+            </p>
+            {postLiveArchive ? (
+              <div className="flex items-center gap-3 bg-black/40 border border-white/10 rounded p-2">
+                {postLiveArchive.showImageUrl && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={postLiveArchive.showImageUrl} alt={postLiveArchive.showName} className="w-10 h-10 object-cover rounded" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">{postLiveArchive.showName}</p>
+                  <p className="text-[11px] text-gray-500 truncate">
+                    {postLiveArchive.djs.map(d => d.name).join(', ')} ·{' '}
+                    {Math.floor(postLiveArchive.duration / 3600)}h{Math.floor((postLiveArchive.duration % 3600) / 60).toString().padStart(2, '0')}m
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPostLiveArchive(null)}
+                  className="text-xs text-gray-400 hover:text-white px-2 py-1"
+                >
+                  Clear
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setPostLivePickerOpen((v) => !v)}
+                className="text-xs text-gray-300 hover:text-white px-3 py-1.5 border border-white/15 rounded"
+              >
+                {postLivePickerOpen ? 'Cancel' : 'Pick archive…'}
+              </button>
+            )}
+            {postLivePickerOpen && !postLiveArchive && (
+              <div className="mt-3 border border-white/10 rounded bg-black/20">
+                <input
+                  type="text"
+                  value={postLiveSearchQuery}
+                  onChange={(e) => setPostLiveSearchQuery(e.target.value)}
+                  placeholder="Search shows or DJs"
+                  className="w-full px-3 py-2 bg-transparent text-sm text-white placeholder-gray-500 border-b border-white/10 focus:outline-none"
+                />
+                <div className="max-h-56 overflow-y-auto">
+                  {archives
+                    .filter((a) => {
+                      if (!postLiveSearchQuery) return true;
+                      const q = postLiveSearchQuery.toLowerCase();
+                      return a.showName.toLowerCase().includes(q)
+                        || a.djs.some((d) => d.name.toLowerCase().includes(q));
+                    })
+                    .slice(0, 50)
+                    .map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => {
+                          setPostLiveArchive(a);
+                          setPostLivePickerOpen(false);
+                          setPostLiveSearchQuery('');
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-white/5 border-b border-white/5 last:border-0"
+                      >
+                        <p className="text-sm text-white truncate">{a.showName}</p>
+                        <p className="text-[11px] text-gray-500 truncate">
+                          {a.djs.map(d => d.name).join(', ')} ·{' '}
+                          {Math.floor(a.duration / 60)} min
+                        </p>
+                      </button>
+                    ))}
+                  {!archivesLoaded && (
+                    <p className="text-xs text-gray-500 px-3 py-3">Loading archives…</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}

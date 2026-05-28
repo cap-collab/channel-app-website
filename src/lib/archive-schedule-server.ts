@@ -3,8 +3,10 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import {
   buildLoop,
   buildQueue,
+  computeLiveBlocks,
   EligibleArchive,
   INTERSTITIALS_COLLECTION,
+  LiveBlockBoundary,
   LOOP_COLLECTION,
   loopDocId,
   offsetUtcId,
@@ -324,6 +326,8 @@ export interface GenerateLoopResult {
   highCount: number;
   mediumCount: number;
   interstitialCount: number;
+  alignedAnchorCount: number;
+  missedAnchorCount: number;
   warnings: string[];
   skipped?: 'locked';
 }
@@ -362,6 +366,38 @@ export async function maxLoopNumber(): Promise<number> {
   return Number(data.loopNumber ?? 0);
 }
 
+// Load upcoming live broadcast-slot boundaries within ~48h of the loop start.
+// Used to align the loop so item boundaries land at live-block ends. Slots
+// with status 'scheduled' or 'live' are considered (others won't play). Only
+// one Firestore range filter (endTime > start) is used; startTime is filtered
+// client-side — mirrors hasActiveOrImminentBroadcastSlot in
+// useBroadcastLiveStatus.ts.
+async function loadAnchors(
+  db: FirebaseFirestore.Firestore,
+  loopStartTimeMs: number,
+): Promise<LiveBlockBoundary[]> {
+  const horizonMs = loopStartTimeMs + 48 * 3600 * 1000;
+  const snap = await db.collection('broadcast-slots')
+    .where('endTime', '>', Timestamp.fromMillis(loopStartTimeMs))
+    .get();
+  const rawSlots: Array<{ startTimeMs: number; endTimeMs: number; postLiveArchiveId: string | null }> = [];
+  for (const doc of snap.docs) {
+    const d = doc.data();
+    if (d.status !== 'scheduled' && d.status !== 'live') continue;
+    const startTs = d.startTime as Timestamp | undefined;
+    const endTs = d.endTime as Timestamp | undefined;
+    if (!startTs || !endTs) continue;
+    const startMs = startTs.toMillis();
+    if (startMs >= horizonMs) continue;
+    rawSlots.push({
+      startTimeMs: startMs,
+      endTimeMs: endTs.toMillis(),
+      postLiveArchiveId: typeof d.postLiveArchiveId === 'string' ? d.postLiveArchiveId : null,
+    });
+  }
+  return computeLiveBlocks(rawSlots);
+}
+
 // Generate a single loop and write it to Firestore. Replaces an existing loop
 // at the same number unless `locked` is set (and `force` isn't).
 export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoopResult> {
@@ -385,6 +421,8 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
         highCount: 0,
         mediumCount: 0,
         interstitialCount: 0,
+        alignedAnchorCount: 0,
+        missedAnchorCount: 0,
         warnings: [],
         skipped: 'locked',
       };
@@ -409,8 +447,17 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
   } catch {
     // Collection doesn't exist yet — fine, skip interstitials.
   }
-  const result = buildLoop({ archives, interstitials });
+  // Resolve startTimeMs BEFORE buildLoop so we can compute anchor offsets
+  // relative to the loop's timeline. Then fetch live-broadcast block ends
+  // within the loop's horizon — buildLoop aligns item boundaries to them.
   const startTimeMs = await resolveLoopStartMs(loopNumber, args.startTimeMsOverride);
+  const anchors = await loadAnchors(db, startTimeMs);
+  const result = buildLoop({
+    archives,
+    interstitials,
+    loopStartTimeMs: startTimeMs,
+    anchors,
+  });
   const generatedAtMs = Date.now();
 
   // Firestore rejects undefined values; sanitize before write.
@@ -448,6 +495,8 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
       highCount: result.highCount,
       mediumCount: result.mediumCount,
       interstitialCount: result.interstitialCount,
+      alignedAnchorCount: result.alignedAnchorCount,
+      missedAnchorCount: result.missedAnchorCount,
       totalItems: result.items.length,
     },
     items: cleanItems,
@@ -461,6 +510,8 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
     highCount: result.highCount,
     mediumCount: result.mediumCount,
     interstitialCount: result.interstitialCount,
+    alignedAnchorCount: result.alignedAnchorCount,
+    missedAnchorCount: result.missedAnchorCount,
     warnings: result.warnings,
   };
 }
