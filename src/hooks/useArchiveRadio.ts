@@ -36,13 +36,12 @@ const ENSURE_NEXT_LEAD_MS = 6 * 60 * 60 * 1000;
 // ramping volumes in opposite directions over this window. Shorter items
 // still get the fade — see plan for edge cases at very short durations.
 const CROSSFADE_MS = 5000;
-// Interlude clips play at 80% gain when alone (shows play at 100%) so the
-// interlude doesn't blast vs music. During a crossfade the interlude ducks
-// further to INTERLUDE_GAIN * INTERLUDE_FADE_DUCK so the show fading in/out
-// alongside it isn't competed with.
+// Interlude clips play at this gain when alone (shows play at 100%) so the
+// interlude doesn't blast vs music. No additional duck during the crossfade —
+// the per-transition curves (peakTaper for incoming-interlude, fastDrop for
+// outgoing-archive) handle the "don't compete with the show" feeling.
 const INTERLUDE_GAIN = 0.52;
-const INTERLUDE_FADE_DUCK = 0.8;
-const INTERLUDE_FADE_GAIN = INTERLUDE_GAIN * INTERLUDE_FADE_DUCK; // 0.42
+const INTERLUDE_FADE_GAIN = INTERLUDE_GAIN;
 
 interface UseArchiveRadioResult {
   ready: boolean;
@@ -461,13 +460,23 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     const fadeDelay = Math.max(MIN_BOUNDARY_LEAD_MS, fadeStartMs - Date.now());
     const swapDelay = Math.max(MIN_BOUNDARY_LEAD_MS, boundaryMs - Date.now());
 
-    // Per-side max gain for this crossfade. Interludes use INTERLUDE_FADE_GAIN
-    // (ducked vs INTERLUDE_GAIN) so the show fading in/out doesn't compete.
-    // After the hard-swap, an incoming interlude gets snapped to INTERLUDE_GAIN
-    // for its alone-middle (handled in hardSwap).
+    // Per-side max gain for this crossfade. No duck — interlude peaks at
+    // INTERLUDE_GAIN during the fade.
     const outGain = current.item.kind === 'interstitial' ? INTERLUDE_FADE_GAIN : 1;
     const inFadeGain = next.item.kind === 'interstitial' ? INTERLUDE_FADE_GAIN : 1;
     const inAloneGain = next.item.kind === 'interstitial' ? INTERLUDE_GAIN : 1;
+
+    // Per-transition curve choices (tuned via /internal/crossfade-test):
+    //   archive -> interlude: outgoing archive drops fast so it gets out of
+    //     the way; incoming interlude rises fast to peak (at p=0.4) then
+    //     tapers slightly to ~77% of peak by p=1, then snaps to alone-volume.
+    //   interlude -> archive: outgoing interlude stays sqrt; incoming archive
+    //     uses smoothstep so it eases in gradually (gentle at both start
+    //     and end).
+    //   archive <-> archive, interlude <-> interlude: default sqrt
+    //     equal-power on both sides.
+    const isArchiveToInterlude = current.item.kind === 'archive' && next.item.kind === 'interstitial';
+    const isInterludeToArchive = current.item.kind === 'interstitial' && next.item.kind === 'archive';
 
     // If a fade has already started for this incoming item (this effect
     // re-runs every second as nowMs ticks), don't reschedule the fade-start.
@@ -499,12 +508,31 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       fadeInFlightForKeyRef.current = nextKey;
 
       const startedAt = performance.now();
+      const PEAK_P = 0.4;          // peak at 40% of fade (= 2s of 5s)
+      const TAPER_END_FRAC = 0.77; // taper to 77% of peak by end of fade
+      const peakTaper = (p: number): number => {
+        if (p <= PEAK_P) return Math.sqrt(p / PEAK_P);
+        const tapP = (p - PEAK_P) / (1 - PEAK_P);
+        return 1 - tapP * (1 - TAPER_END_FRAC);
+      };
+      const smoothstep = (p: number): number => p * p * (3 - 2 * p);
       const tick = (t: number) => {
         const p = Math.min(1, Math.max(0, (t - startedAt) / CROSSFADE_MS));
-        // Equal-power crossfade scaled by each side's max gain. Interlude
-        // side uses INTERLUDE_FADE_GAIN so it ducks under the show.
-        outgoing.volume = outGain * Math.sqrt(1 - p);
-        incoming.volume = inFadeGain * Math.sqrt(p);
+        // Outgoing curve: archive -> interlude uses (1-p)² (fast drop).
+        // Everything else uses sqrt(1-p) (equal-power).
+        const outV = outGain * (isArchiveToInterlude
+          ? (1 - p) * (1 - p)
+          : Math.sqrt(1 - p));
+        // Incoming curve: archive -> interlude uses peakTaper (fast rise,
+        // peak at 2s, slight taper). interlude -> archive uses smoothstep
+        // (gradual at start and end). Everything else uses sqrt(p).
+        const inV = inFadeGain * (isArchiveToInterlude
+          ? peakTaper(p)
+          : isInterludeToArchive
+          ? smoothstep(p)
+          : Math.sqrt(p));
+        outgoing.volume = outV;
+        incoming.volume = inV;
         if (p < 1) {
           rafIdRef.current = requestAnimationFrame(tick);
         } else {
