@@ -98,7 +98,6 @@ function deserializeLoop(id: string, data: Record<string, unknown> | undefined):
   };
 }
 
-// Subscribe to the loop currently playing + the loop after it.
 function useScheduleLoops(): {
   current: ArchiveRadioLoop | null;
   next: ArchiveRadioLoop | null;
@@ -202,44 +201,71 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     return () => clearInterval(id);
   }, [opts.active]);
 
-  // Single <audio> element — hard-cut between items at each boundary. Same
-  // pattern as useBroadcastStream (stable on iOS). Crossfade was attempted
-  // via a dual-element model but dual <audio> elements transitioning state
-  // in the same tick destabilize the iOS audio session (see
-  // feedback_ios_gesture_unlock_dance).
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  // The item we're currently playing — used to detect when the schedule has
-  // advanced past the current item and we need to switch source.
+  // Dual <audio> elements: A and B swap roles between items so the standby
+  // can preload the next file's buffer while the active is playing. At
+  // boundary we pause active + play standby — gapless because the standby
+  // is already at readyState >= 3. This is the pattern that worked on
+  // mobile before interludes were added. No crossfade, no rAF, no
+  // gesture-unlock dance — those were the iOS-destabilizing additions, not
+  // the dual-element itself.
+  const audioARef = useRef<HTMLAudioElement | null>(null);
+  const audioBRef = useRef<HTMLAudioElement | null>(null);
+  const activeKeyRef = useRef<'A' | 'B'>('A');
   const playingKeyRef = useRef<string | null>(null);
-  // Timer that fires at the next item boundary to start the next item.
   const boundaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Belt-and-suspenders ensure-next-loop ping bookkeeping.
+  const preloadedNextKeyRef = useRef<string | null>(null);
   const ensureNextPingedForRef = useRef<number | null>(null);
-  // Last MediaSession metadata signature we wrote. Skipping no-op rewrites
-  // matters on iOS: rapid metadata churn can destabilize the audio session.
+  // Last MediaSession metadata signature we wrote. Dedupe avoids iOS yanking
+  // the audio session under rapid metadata churn.
   const lastMediaSessionSigRef = useRef<string | null>(null);
 
-  const ensureAudio = useCallback(() => {
-    if (typeof window === 'undefined') return null;
-    if (!audioRef.current) {
-      const a = new Audio();
-      a.crossOrigin = 'anonymous';
-      a.preload = 'auto';
-      a.setAttribute('playsinline', '');
-      a.setAttribute('webkit-playsinline', '');
-      a.addEventListener('pause', () => {
-        // Mirror external pause (audio-exclusive registry, OS audio session)
-        // into React state. Cancel any pending boundary timer.
+  const attachStateListeners = useCallback((el: HTMLAudioElement) => {
+    el.addEventListener('pause', () => {
+      const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
+      if (el === active) {
+        // External pause (registry / OS audio session) — cancel pending
+        // boundary timer so a resume starts cleanly.
         if (boundaryTimerRef.current) {
           clearTimeout(boundaryTimerRef.current);
           boundaryTimerRef.current = null;
         }
         setIsPlaying(false);
-      });
-      a.addEventListener('play', () => setIsPlaying(true));
-      audioRef.current = a;
+      }
+    });
+    el.addEventListener('play', () => {
+      const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
+      if (el === active) setIsPlaying(true);
+    });
+  }, []);
+
+  const ensureAudio = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    if (!audioARef.current) {
+      const a = new Audio();
+      a.crossOrigin = 'anonymous';
+      a.preload = 'auto';
+      a.setAttribute('playsinline', '');
+      a.setAttribute('webkit-playsinline', '');
+      attachStateListeners(a);
+      audioARef.current = a;
     }
-    return audioRef.current;
+    if (!audioBRef.current) {
+      const b = new Audio();
+      b.crossOrigin = 'anonymous';
+      b.preload = 'auto';
+      b.setAttribute('playsinline', '');
+      b.setAttribute('webkit-playsinline', '');
+      attachStateListeners(b);
+      audioBRef.current = b;
+    }
+    return { a: audioARef.current, b: audioBRef.current };
+  }, [attachStateListeners]);
+
+  const getActive = useCallback(() => {
+    return activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
+  }, []);
+  const getStandby = useCallback(() => {
+    return activeKeyRef.current === 'A' ? audioBRef.current : audioARef.current;
   }, []);
 
   const current = useMemo(() => resolveCurrent(currentLoop, nextLoop, nowMs), [currentLoop, nextLoop, nowMs]);
@@ -249,12 +275,13 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     return `loop-${loop.loopNumber}#${index}#${item.recordingUrl}#${item.startOffsetSec}`;
   }, []);
 
-  // Set src + seek + play the active item. Used on first play and on every
-  // boundary. Single element, hard cut.
+  // Drive the active element to play `current.item` from the right offset.
   const playCurrent = useCallback(async () => {
     if (!opts.active) return;
     if (!current) return;
-    const active = ensureAudio();
+    const els = ensureAudio();
+    if (!els) return;
+    const active = getActive();
     if (!active) return;
 
     const key = itemKey(current.loop, current.index, current.item);
@@ -281,7 +308,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     }
 
     try {
-      // Re-resolve "now" right before play to minimize sync drift.
       const live = resolveCurrent(currentLoop, nextLoop, Date.now());
       if (live) {
         const desiredOffset = live.seekSec;
@@ -289,7 +315,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
           try { active.currentTime = desiredOffset; } catch { /* ignore */ }
         }
       }
-      // Interludes sit lower than archives so they don't blast.
       active.volume = current.item.kind === 'interstitial' ? INTERLUDE_GAIN : 1;
       await active.play();
       playingKeyRef.current = key;
@@ -301,7 +326,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     } finally {
       setIsLoading(false);
     }
-  }, [current, ensureAudio, itemKey, opts.active, currentLoop, nextLoop]);
+  }, [current, ensureAudio, getActive, itemKey, opts.active, currentLoop, nextLoop]);
 
   const play = useCallback(async () => {
     setError(null);
@@ -314,7 +339,8 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       clearTimeout(boundaryTimerRef.current);
       boundaryTimerRef.current = null;
     }
-    audioRef.current?.pause();
+    audioARef.current?.pause();
+    audioBRef.current?.pause();
     setIsPlaying(false);
     setStalled(false);
   }, []);
@@ -327,21 +353,54 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     }
   }, [isPlaying, pause, play]);
 
-  // Schedule a boundary timer to advance to the next item when the current
-  // item ends. Hard cut: pause current, set new src, play. Same element.
+  // Preload the next item on the standby element, then schedule a boundary
+  // swap. At boundary: pause active, set standby's volume for its item kind,
+  // play standby, flip which is active. The standby was already buffered so
+  // the play() returns instantly — gapless transition.
   useEffect(() => {
     if (!opts.active || !isPlaying) return;
-    if (!current) return;
+    if (!current || !next) return;
+    const standby = getStandby();
+    if (!standby) return;
+
+    const nextKey = itemKey(next.loop, next.index, next.item);
+    if (preloadedNextKeyRef.current !== nextKey) {
+      try {
+        standby.src = next.item.recordingUrl;
+        standby.preload = 'auto';
+        standby.load();
+        preloadedNextKeyRef.current = nextKey;
+      } catch (err) {
+        console.warn('[useArchiveRadio] preload failed', err);
+      }
+    }
 
     const boundaryMs = current.loop.startTimeMs + (current.item.startOffsetSec + current.item.durationSec) * 1000;
     const delay = Math.max(MIN_BOUNDARY_LEAD_MS, boundaryMs - Date.now());
-
     if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
     boundaryTimerRef.current = setTimeout(() => {
-      // playCurrent will resolve the now-current item against the live
-      // schedule (not the captured `next` from this closure) so a slow
-      // tab regain or a schedule update is handled correctly.
-      void playCurrent();
+      const active = getActive();
+      const standbyEl = getStandby();
+      if (!active || !standbyEl) return;
+      try {
+        active.pause();
+      } catch { /* ignore */ }
+      // Swap roles.
+      activeKeyRef.current = activeKeyRef.current === 'A' ? 'B' : 'A';
+      try {
+        standbyEl.currentTime = 0;
+        standbyEl.volume = next.item.kind === 'interstitial' ? INTERLUDE_GAIN : 1;
+        const p = standbyEl.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch((err) => {
+            console.warn('[useArchiveRadio] boundary play() rejected', err);
+          });
+        }
+        playingKeyRef.current = nextKey;
+        preloadedNextKeyRef.current = null;
+      } catch (err) {
+        console.warn('[useArchiveRadio] boundary swap failed', err);
+      }
     }, delay);
 
     return () => {
@@ -350,7 +409,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
         boundaryTimerRef.current = null;
       }
     };
-  }, [current, isPlaying, opts.active, playCurrent]);
+  }, [current, next, isPlaying, opts.active, getActive, getStandby, itemKey]);
 
   // Belt-and-suspenders ensure-next-loop trigger.
   useEffect(() => {
@@ -366,9 +425,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     });
   }, [currentLoop, nextLoop, nowMs, opts.active]);
 
-  // Re-sync on tab visibility regain. Background tabs throttle setTimeout so
-  // the boundary timer may fire late; on resume we recompute "now" and either
-  // re-seek the active element or switch to the live item.
+  // Re-sync on tab visibility regain.
   useEffect(() => {
     if (!opts.active) return;
     const onVisible = () => {
@@ -377,7 +434,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       const live = resolveCurrent(currentLoop, nextLoop, Date.now());
       if (!live) return;
       const liveKey = itemKey(live.loop, live.index, live.item);
-      const active = audioRef.current;
+      const active = getActive();
       if (!active) return;
       if (playingKeyRef.current !== liveKey) {
         void playCurrent();
@@ -389,7 +446,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [opts.active, isPlaying, currentLoop, nextLoop, itemKey, playCurrent]);
+  }, [opts.active, isPlaying, currentLoop, nextLoop, getActive, itemKey, playCurrent]);
 
   // MediaSession metadata + control-center actions. Dedupe writes by a
   // signature ref so iOS doesn't see metadata churn on every re-render.
@@ -446,24 +503,25 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     }
   }, [current, isPlaying, opts.active, play, pause, currentLoop, nextLoop]);
 
-  // When this player goes inactive (parent toggles `active=false`), pause.
   useEffect(() => {
     if (opts.active) return;
     pause();
   }, [opts.active, pause]);
 
-  // Tear down on unmount.
   useEffect(() => {
     return () => {
       if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
-      const a = audioRef.current;
+      const a = audioARef.current;
+      const b = audioBRef.current;
       try { a?.pause(); } catch { /* ignore */ }
+      try { b?.pause(); } catch { /* ignore */ }
       if (a) a.src = '';
-      audioRef.current = null;
+      if (b) b.src = '';
+      audioARef.current = null;
+      audioBRef.current = null;
     };
   }, []);
 
-  // Stall detector.
   useEffect(() => {
     if (!isPlaying) {
       if (stalled) setStalled(false);
@@ -472,7 +530,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     let lastTime = -1;
     let stagnantTicks = 0;
     const id = setInterval(() => {
-      const active = audioRef.current;
+      const active = getActive();
       if (!active) return;
       const t = active.currentTime;
       if (t === lastTime) {
@@ -485,7 +543,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       lastTime = t;
     }, 2000);
     return () => clearInterval(id);
-  }, [isPlaying, stalled]);
+  }, [isPlaying, stalled, getActive]);
 
   const itemStartMs = current
     ? current.loop.startTimeMs + current.item.startOffsetSec * 1000
