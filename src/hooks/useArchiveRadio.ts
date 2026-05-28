@@ -392,6 +392,22 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       // left this element at a partial volume.
       active.volume = 1;
       await active.play();
+      // iOS gesture-unlock the standby element. The crossfade fires .play() on
+      // standby from a setTimeout — outside any user gesture — and iOS rejects
+      // that unless the element has been play()ed at least once in a gesture
+      // chain. Play+pause with a muted, srcless element consumes the gesture
+      // credit; subsequent .play() calls (with a real src) then succeed.
+      // See feedback_ios_play_gesture_chain.
+      const standby = getStandby();
+      if (standby && !standby.dataset.gestureUnlocked) {
+        try {
+          standby.muted = true;
+          await standby.play();
+          standby.pause();
+          standby.muted = false;
+          standby.dataset.gestureUnlocked = '1';
+        } catch { /* ignore — play() may reject on empty src; that's fine, the gesture still counts */ }
+      }
       playingKeyRef.current = key;
       setIsPlaying(true);
       setError(null);
@@ -401,7 +417,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     } finally {
       setIsLoading(false);
     }
-  }, [current, ensureAudio, getActive, itemKey, opts.active, currentLoop, nextLoop]);
+  }, [current, ensureAudio, getActive, getStandby, itemKey, opts.active, currentLoop, nextLoop]);
 
   // Public play() — only allowed in response to a user gesture so iOS unlocks.
   const play = useCallback(async () => {
