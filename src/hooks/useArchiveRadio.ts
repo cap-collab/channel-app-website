@@ -603,8 +603,11 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       try {
         outgoing.volume = 0;
         outgoing.pause();
-        outgoing.removeAttribute('src');
-        outgoing.load(); // free decoder
+        // Intentionally NOT removing src or calling load() here. On iOS,
+        // .load() after a successful gesture-unlocked play() can revoke
+        // that unlock — the next standby.play() (the *next* crossfade)
+        // would then silently fail. The next boundary effect overwrites
+        // src naturally, so leaving the old src in place is harmless.
       } catch { /* ignore */ }
       try {
         // Snap incoming to its alone-volume (interludes sit at INTERLUDE_GAIN,
@@ -672,7 +675,9 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
         const outgoing = getActive();
         const incoming = getStandby();
         if (outgoing) {
-          try { outgoing.volume = 0; outgoing.pause(); outgoing.removeAttribute('src'); outgoing.load(); } catch { /* ignore */ }
+          // Same as hard-swap: don't strip src or call load() — preserves iOS
+          // gesture-unlock so the next crossfade's play() succeeds.
+          try { outgoing.volume = 0; outgoing.pause(); } catch { /* ignore */ }
         }
         if (incoming) {
           try { incoming.volume = 1; } catch { /* ignore */ }
