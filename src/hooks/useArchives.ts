@@ -23,7 +23,7 @@ export function useArchives(initial?: ArchiveSerialized[]): UseArchivesReturn {
         if (!res.ok) throw new Error('Failed to fetch');
         const data = await res.json();
         const filtered = (data.archives as ArchiveSerialized[]).filter(
-          (a) => a.duration >= MIN_DURATION_SECONDS
+          (a) => a.duration >= MIN_DURATION_SECONDS && a.priority !== 'low'
         );
         setArchives(filtered);
       } catch {
