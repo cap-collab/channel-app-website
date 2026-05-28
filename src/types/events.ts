@@ -113,6 +113,13 @@ export interface Event {
   description?: string | null;
   venueId?: string | null;
   venueName?: string | null;
+  // When a collective is picked as the event's venue (in addition to plain
+  // venues from the `venues` collection), these point to the collective doc
+  // so the event card can link to /dj/<slug>. Set instead of venueId/venueName
+  // when a collective was selected from the unified venue picker.
+  venueCollectiveId?: string | null;
+  venueCollectiveName?: string | null;
+  venueCollectiveSlug?: string | null;
   collectiveId?: string | null;
   collectiveName?: string | null;
   linkedVenues?: EventVenueRef[];

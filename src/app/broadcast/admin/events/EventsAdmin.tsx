@@ -40,6 +40,10 @@ export function EventsAdmin() {
   const [description, setDescription] = useState('');
   const [eventLinkedVenues, setEventLinkedVenues] = useState<EventVenueRef[]>([]);
   const [eventLinkedCollectives, setEventLinkedCollectives] = useState<CollectiveRef[]>([]);
+  // Collective picked as the event's "venue" via the unified picker. Stored
+  // separately so we can persist venueCollectiveId/Name/Slug and link the
+  // event card chip to /dj/<slug>.
+  const [venueCollective, setVenueCollective] = useState<{ id: string; name: string; slug: string } | null>(null);
   const [manualVenueName, setManualVenueName] = useState('');
   const [location, setLocation] = useState('');
   const [genres, setGenres] = useState('');
@@ -215,6 +219,9 @@ export function EventsAdmin() {
           description: data.description || null,
           venueId: data.venueId || null,
           venueName: data.venueName || null,
+          venueCollectiveId: data.venueCollectiveId || null,
+          venueCollectiveName: data.venueCollectiveName || null,
+          venueCollectiveSlug: data.venueCollectiveSlug || null,
           linkedVenues: data.linkedVenues || [],
           linkedCollectives: data.linkedCollectives || [],
           djs: data.djs || [],
@@ -285,6 +292,7 @@ export function EventsAdmin() {
     setDescription('');
     setEventLinkedVenues([]);
     setEventLinkedCollectives([]);
+    setVenueCollective(null);
     setManualVenueName('');
     setLocation('');
     setGenres('');
@@ -325,6 +333,16 @@ export function EventsAdmin() {
       setManualVenueName(event.venueName);
     } else {
       setManualVenueName('');
+    }
+    // Collective-as-venue (new field)
+    if (event.venueCollectiveId && event.venueCollectiveName && event.venueCollectiveSlug) {
+      setVenueCollective({
+        id: event.venueCollectiveId,
+        name: event.venueCollectiveName,
+        slug: event.venueCollectiveSlug,
+      });
+    } else {
+      setVenueCollective(null);
     }
     const lc = event.linkedCollectives || [];
     if (lc.length === 0 && event.collectiveId && event.collectiveName) {
@@ -461,10 +479,11 @@ export function EventsAdmin() {
         endDate: endDate ? datetimeLocalToMs(endDate) : null,
         photo: photoUrl,
         description: description.trim() || null,
-        venueId: eventLinkedVenues.length > 0 ? eventLinkedVenues[0].venueId : null,
-        venueName: eventLinkedVenues.length > 0 ? eventLinkedVenues[0].venueName : (manualVenueName.trim() || null),
+        venueId: venueCollective ? null : (eventLinkedVenues.length > 0 ? eventLinkedVenues[0].venueId : null),
+        venueName: venueCollective ? null : (eventLinkedVenues.length > 0 ? eventLinkedVenues[0].venueName : (manualVenueName.trim() || null)),
+        venueCollectiveId: venueCollective?.id || null,
         collectiveId: eventLinkedCollectives.length > 0 ? eventLinkedCollectives[0].collectiveId : null,
-        linkedVenues: eventLinkedVenues,
+        linkedVenues: venueCollective ? [] : eventLinkedVenues,
         linkedCollectives: eventLinkedCollectives,
         djs: filteredDJs,
         sceneIdsOverride: sceneIdsOverride,
@@ -702,10 +721,24 @@ export function EventsAdmin() {
               )}
             </div>
 
-            {/* Linked Venues */}
+            {/* Venue (picker: venues OR collectives-as-venue) */}
             <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-3">Linked Venues</label>
-              {eventLinkedVenues.length > 0 && (
+              <label className="block text-sm text-gray-400 mb-3">Venue</label>
+              {venueCollective && (
+                <div className="space-y-2 mb-3">
+                  <div className="flex items-center gap-2 bg-[#252525] rounded-lg px-4 py-2">
+                    <span className="flex-1 text-white text-sm">{venueCollective.name} <span className="text-gray-500 text-xs">(collective)</span></span>
+                    <button
+                      type="button"
+                      onClick={() => setVenueCollective(null)}
+                      className="text-red-400 hover:text-red-300 text-sm"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                </div>
+              )}
+              {!venueCollective && eventLinkedVenues.length > 0 && (
                 <div className="space-y-2 mb-3">
                   {eventLinkedVenues.map((lv) => (
                     <div key={lv.venueId} className="flex items-center gap-2 bg-[#252525] rounded-lg px-4 py-2">
@@ -721,34 +754,47 @@ export function EventsAdmin() {
                   ))}
                 </div>
               )}
-              {venues.filter(v => !eventLinkedVenues.some(lv => lv.venueId === v.id)).length > 0 && (
+              {!venueCollective && (
                 <select
                   value=""
                   onChange={(e) => {
-                    const vId = e.target.value;
-                    if (!vId) return;
-                    const venue = venues.find(v => v.id === vId);
-                    if (!venue) return;
-                    if (eventLinkedVenues.some(lv => lv.venueId === vId)) return;
-                    setEventLinkedVenues([...eventLinkedVenues, { venueId: venue.id, venueName: venue.name }]);
-                    // Auto-fill location from first venue
-                    if (!location && venue.location) {
-                      setLocation(venue.location);
+                    const raw = e.target.value;
+                    if (!raw) return;
+                    if (raw.startsWith('venue:')) {
+                      const vId = raw.slice('venue:'.length);
+                      const venue = venues.find(v => v.id === vId);
+                      if (!venue) return;
+                      if (eventLinkedVenues.some(lv => lv.venueId === vId)) return;
+                      setEventLinkedVenues([...eventLinkedVenues, { venueId: venue.id, venueName: venue.name }]);
+                      if (!location && venue.location) setLocation(venue.location);
+                    } else if (raw.startsWith('collective:')) {
+                      const cId = raw.slice('collective:'.length);
+                      const coll = collectives.find(c => c.id === cId);
+                      if (!coll || !coll.slug) return;
+                      setVenueCollective({ id: coll.id, name: coll.name, slug: coll.slug });
+                      setEventLinkedVenues([]);
+                      setManualVenueName('');
+                      if (!location && coll.location) setLocation(coll.location);
                     }
                   }}
                   className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
                 >
-                  <option value="">Add a venue...</option>
+                  <option value="">Add a venue or collective…</option>
                   {venues
                     .filter(v => !eventLinkedVenues.some(lv => lv.venueId === v.id))
                     .map((venue) => (
-                      <option key={venue.id} value={venue.id}>
+                      <option key={`v-${venue.id}`} value={`venue:${venue.id}`}>
                         {venue.name}{venue.location ? ` (${venue.location})` : ''}
                       </option>
                     ))}
+                  {collectives.map((coll) => (
+                    <option key={`c-${coll.id}`} value={`collective:${coll.id}`}>
+                      {coll.name} (collective){coll.location ? ` — ${coll.location}` : ''}
+                    </option>
+                  ))}
                 </select>
               )}
-              {eventLinkedVenues.length === 0 && (
+              {!venueCollective && eventLinkedVenues.length === 0 && (
                 <input
                   type="text"
                   value={manualVenueName}

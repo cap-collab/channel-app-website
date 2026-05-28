@@ -1289,6 +1289,9 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               description: data.description || null,
               venueId: data.venueId || null,
               venueName: data.venueName || null,
+              venueCollectiveId: data.venueCollectiveId || null,
+              venueCollectiveName: data.venueCollectiveName || null,
+              venueCollectiveSlug: data.venueCollectiveSlug || null,
               collectiveId: data.collectiveId || null,
               collectiveName: data.collectiveName || null,
               djs: data.djs || [],
@@ -1619,6 +1622,28 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   const socialLinks = profile.djProfile.socialLinks;
   // Use real-time tip link from broadcast context when DJ is live, otherwise use profile value
   const resolvedTipLink = (broadcastIsLive && liveTipLink) || profile.djProfile.tipButtonLink || null;
+
+  // When viewing a collective page, hide chips that point back to the
+  // collective itself — they're redundant on this page.
+  const viewingCollectiveId = profile.profileType === 'collective' && profile.uid.startsWith('collective-')
+    ? profile.uid.slice('collective-'.length)
+    : null;
+  const viewingCollectiveSlug = profile.profileType === 'collective'
+    ? (profile.collectiveSlug || profile.chatUsername.replace(/[\s-]+/g, '').toLowerCase())
+    : null;
+  const filterEventDjs = (djs: EventDJRef[]): EventDJRef[] => {
+    if (!viewingCollectiveSlug) return djs;
+    return djs.filter(d =>
+      !(d.djUsername && d.djUsername.toLowerCase() === viewingCollectiveSlug.toLowerCase())
+    );
+  };
+  const filterLinkedCollectives = (cols: CollectiveRef[] | undefined): CollectiveRef[] => {
+    if (!cols || !viewingCollectiveSlug) return cols || [];
+    return cols.filter(c =>
+      !(viewingCollectiveId && c.collectiveId === viewingCollectiveId) &&
+      !(c.collectiveSlug && c.collectiveSlug.toLowerCase() === viewingCollectiveSlug.toLowerCase())
+    );
+  };
 
   const hasVenuesOrCollectives = djVenues.length > 0 || djCollectives.length > 0;
   const venuesAndCollectivesRow = hasVenuesOrCollectives ? (
@@ -2261,9 +2286,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               {(upcomingExpanded ? upcomingShows : upcomingShows.slice(0, 3)).map((item) => {
                 if (item.feedType === "event") {
                   const event = item as ChannelEvent & { feedType: "event"; feedStatus: "upcoming" };
-                  const headerVenue = event.linkedVenues?.[0]?.venueName || event.venueName || null;
+                  const headerVenue = event.venueCollectiveName || event.linkedVenues?.[0]?.venueName || event.venueName || null;
                   const headerVenueId = event.linkedVenues?.[0]?.venueId || event.venueId || null;
                   const headerVenueSlug = headerVenueId ? venueSlugById[headerVenueId] : undefined;
+                  const headerCollectiveSlug = event.venueCollectiveSlug || null;
+                  const headerHref = headerCollectiveSlug
+                    ? `/dj/${headerCollectiveSlug}`
+                    : (headerVenue && headerVenueSlug ? `/venue/${headerVenueSlug}` : null);
                   const headerLabel = headerVenue || event.location || "";
                   return (
                     <div
@@ -2280,9 +2309,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                           {headerLabel && (
                             <>
                               <span className="text-zinc-500">·</span>
-                              {headerVenue && headerVenueSlug ? (
+                              <svg className="inline-block w-2.5 h-2.5 flex-shrink-0" viewBox="0 0 24 36" fill="none">
+                                <circle cx="12" cy="12" r="10" fill="#ef4444" />
+                                <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
+                              </svg>
+                              {headerHref ? (
                                 <Link
-                                  href={`/venue/${headerVenueSlug}`}
+                                  href={headerHref}
                                   className="truncate hover:text-white transition-colors"
                                 >
                                   {headerLabel}
@@ -2322,44 +2355,49 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="text-white font-medium mb-1">{event.name}</p>
-                            {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
-                              <div className="flex flex-wrap gap-1.5">
-                                {event.djs.map((dj: EventDJRef, i: number) => (
-                                  dj.djUsername ? (
-                                    <Link
-                                      key={`dj-${i}`}
-                                      href={`/dj/${dj.djUsername}`}
-                                      className="text-xs text-zinc-400 hover:text-white transition-colors"
-                                    >
-                                      {dj.djName}
-                                      {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                                    </Link>
-                                  ) : (
-                                    <span key={`dj-${i}`} className="text-xs text-zinc-400">
-                                      {dj.djName}
-                                      {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                                    </span>
-                                  )
-                                ))}
-                                {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
-                                  coll.collectiveSlug ? (
-                                    <Link
-                                      key={`coll-${coll.collectiveId}`}
-                                      href={`/collective/${coll.collectiveSlug}`}
-                                      className="text-xs text-zinc-400 hover:text-white transition-colors"
-                                    >
-                                      {coll.collectiveName}
-                                      {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                                    </Link>
-                                  ) : (
-                                    <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
-                                      {coll.collectiveName}
-                                      {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                                    </span>
-                                  )
-                                ))}
-                              </div>
-                            )}
+                            {(() => {
+                              const visibleDjs = filterEventDjs(event.djs);
+                              const visibleColls = filterLinkedCollectives(event.linkedCollectives);
+                              if (visibleDjs.length === 0 && visibleColls.length === 0) return null;
+                              return (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {visibleDjs.map((dj: EventDJRef, i: number) => (
+                                    dj.djUsername ? (
+                                      <Link
+                                        key={`dj-${i}`}
+                                        href={`/dj/${dj.djUsername}`}
+                                        className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                      >
+                                        {dj.djName}
+                                        {(i < visibleDjs.length - 1 || visibleColls.length > 0) ? "," : ""}
+                                      </Link>
+                                    ) : (
+                                      <span key={`dj-${i}`} className="text-xs text-zinc-400">
+                                        {dj.djName}
+                                        {(i < visibleDjs.length - 1 || visibleColls.length > 0) ? "," : ""}
+                                      </span>
+                                    )
+                                  ))}
+                                  {visibleColls.map((coll: CollectiveRef, i: number) => (
+                                    coll.collectiveSlug ? (
+                                      <Link
+                                        key={`coll-${coll.collectiveId}`}
+                                        href={`/collective/${coll.collectiveSlug}`}
+                                        className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                      >
+                                        {coll.collectiveName}
+                                        {i < visibleColls.length - 1 ? "," : ""}
+                                      </Link>
+                                    ) : (
+                                      <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
+                                        {coll.collectiveName}
+                                        {i < visibleColls.length - 1 ? "," : ""}
+                                      </span>
+                                    )
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                         {event.ticketLink && (
@@ -2705,6 +2743,14 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               {pastActivities.map((item) => {
                 if (item.feedType === "event") {
                   const event = item as ChannelEvent & { feedType: "event"; feedStatus: "past" };
+                  const headerVenue = event.venueCollectiveName || event.linkedVenues?.[0]?.venueName || event.venueName || null;
+                  const headerVenueId = event.linkedVenues?.[0]?.venueId || event.venueId || null;
+                  const headerVenueSlug = headerVenueId ? venueSlugById[headerVenueId] : undefined;
+                  const headerCollectiveSlug = event.venueCollectiveSlug || null;
+                  const headerHref = headerCollectiveSlug
+                    ? `/dj/${headerCollectiveSlug}`
+                    : (headerVenue && headerVenueSlug ? `/venue/${headerVenueSlug}` : null);
+                  const headerLabel = headerVenue || event.location || "";
                   return (
                     <div
                       key={event.id}
@@ -2717,10 +2763,23 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                             <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
                           </svg>
                           IRL
-                          {event.location && (
+                          {headerLabel && (
                             <>
                               <span className="text-zinc-500">·</span>
-                              <span className="truncate">{event.location}</span>
+                              <svg className="inline-block w-2.5 h-2.5 flex-shrink-0" viewBox="0 0 24 36" fill="none">
+                                <circle cx="12" cy="12" r="10" fill="#ef4444" />
+                                <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
+                              </svg>
+                              {headerHref ? (
+                                <Link
+                                  href={headerHref}
+                                  className="truncate hover:text-white transition-colors"
+                                >
+                                  {headerLabel}
+                                </Link>
+                              ) : (
+                                <span className="truncate">{headerLabel}</span>
+                              )}
                             </>
                           )}
                         </span>
@@ -2753,68 +2812,49 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="text-zinc-400 font-medium mb-1">{event.name}</p>
-                            {(event.linkedVenues?.length || event.venueName) && (
-                              <p className="text-zinc-500 text-xs mb-1">
-                                <svg className="inline-block w-2.5 h-2.5 -mt-0.5 mr-0.5" viewBox="0 0 24 36" fill="none">
-                                  <circle cx="12" cy="12" r="10" fill="#ef4444" />
-                                  <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
-                                </svg>
-                                {event.linkedVenues && event.linkedVenues.length > 0
-                                  ? event.linkedVenues.map((v: EventVenueRef, vi: number) => {
-                                      const slug = venueSlugById[v.venueId];
-                                      return (
-                                        <span key={v.venueId}>
-                                          {slug ? (
-                                            <Link href={`/venue/${slug}`} className="hover:text-white transition-colors">{v.venueName}</Link>
-                                          ) : (
-                                            v.venueName
-                                          )}
-                                          {vi < event.linkedVenues!.length - 1 && ", "}
-                                        </span>
-                                      );
-                                    })
-                                  : event.venueName
-                                }
-                              </p>
-                            )}
-                            {(event.djs.length > 0 || (event.linkedCollectives && event.linkedCollectives.length > 0)) && (
-                              <div className="flex flex-wrap gap-1.5">
-                                {event.djs.map((dj: EventDJRef, i: number) => (
-                                  dj.djUsername ? (
-                                    <Link
-                                      key={`dj-${i}`}
-                                      href={`/dj/${dj.djUsername}`}
-                                      className="text-xs text-zinc-400 hover:text-white transition-colors"
-                                    >
-                                      {dj.djName}
-                                      {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                                    </Link>
-                                  ) : (
-                                    <span key={`dj-${i}`} className="text-xs text-zinc-400">
-                                      {dj.djName}
-                                      {(i < event.djs.length - 1 || (event.linkedCollectives && event.linkedCollectives.length > 0)) ? "," : ""}
-                                    </span>
-                                  )
-                                ))}
-                                {event.linkedCollectives?.map((coll: CollectiveRef, i: number) => (
-                                  coll.collectiveSlug ? (
-                                    <Link
-                                      key={`coll-${coll.collectiveId}`}
-                                      href={`/collective/${coll.collectiveSlug}`}
-                                      className="text-xs text-zinc-400 hover:text-white transition-colors"
-                                    >
-                                      {coll.collectiveName}
-                                      {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                                    </Link>
-                                  ) : (
-                                    <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
-                                      {coll.collectiveName}
-                                      {i < (event.linkedCollectives?.length || 0) - 1 ? "," : ""}
-                                    </span>
-                                  )
-                                ))}
-                              </div>
-                            )}
+                            {(() => {
+                              const visibleDjs = filterEventDjs(event.djs);
+                              const visibleColls = filterLinkedCollectives(event.linkedCollectives);
+                              if (visibleDjs.length === 0 && visibleColls.length === 0) return null;
+                              return (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {visibleDjs.map((dj: EventDJRef, i: number) => (
+                                    dj.djUsername ? (
+                                      <Link
+                                        key={`dj-${i}`}
+                                        href={`/dj/${dj.djUsername}`}
+                                        className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                      >
+                                        {dj.djName}
+                                        {(i < visibleDjs.length - 1 || visibleColls.length > 0) ? "," : ""}
+                                      </Link>
+                                    ) : (
+                                      <span key={`dj-${i}`} className="text-xs text-zinc-400">
+                                        {dj.djName}
+                                        {(i < visibleDjs.length - 1 || visibleColls.length > 0) ? "," : ""}
+                                      </span>
+                                    )
+                                  ))}
+                                  {visibleColls.map((coll: CollectiveRef, i: number) => (
+                                    coll.collectiveSlug ? (
+                                      <Link
+                                        key={`coll-${coll.collectiveId}`}
+                                        href={`/collective/${coll.collectiveSlug}`}
+                                        className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                      >
+                                        {coll.collectiveName}
+                                        {i < visibleColls.length - 1 ? "," : ""}
+                                      </Link>
+                                    ) : (
+                                      <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
+                                        {coll.collectiveName}
+                                        {i < visibleColls.length - 1 ? "," : ""}
+                                      </span>
+                                    )
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>

@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, date, endDate, photo, description, venueId, venueName: manualVenueName, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks, sceneIdsOverride } = body;
+    const { name, date, endDate, photo, description, venueId, venueName: manualVenueName, venueCollectiveId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks, sceneIdsOverride } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Event name is required' }, { status: 400 });
@@ -96,6 +96,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Denormalize collective-as-venue. When set, this takes precedence over
+    // venueId/venueName on the event card header (links to /dj/<slug>).
+    let venueCollectiveName: string | null = null;
+    let venueCollectiveSlug: string | null = null;
+    if (venueCollectiveId) {
+      const vcDoc = await db.collection('collectives').doc(venueCollectiveId).get();
+      if (vcDoc.exists) {
+        venueCollectiveName = vcDoc.data()?.name || null;
+        venueCollectiveSlug = vcDoc.data()?.slug || null;
+      }
+    }
+
     const eventData: Record<string, unknown> = {
       name: name.trim(),
       slug,
@@ -105,6 +117,9 @@ export async function POST(request: NextRequest) {
       description: description || null,
       venueId: venueId || null,
       venueName,
+      venueCollectiveId: venueCollectiveId || null,
+      venueCollectiveName,
+      venueCollectiveSlug,
       collectiveId: collectiveId || null,
       collectiveName,
       linkedVenues: linkedVenues || [],
@@ -171,7 +186,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { eventId, name, date, endDate, photo, description, venueId, venueName: manualVenueName, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks, sceneIdsOverride } = body;
+    const { eventId, name, date, endDate, photo, description, venueId, venueName: manualVenueName, venueCollectiveId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks, sceneIdsOverride } = body;
 
     if (!eventId) {
       return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
@@ -229,6 +244,24 @@ export async function PATCH(request: NextRequest) {
         updateData.collectiveName = collectiveDoc.exists ? collectiveDoc.data()?.name || null : null;
       } else {
         updateData.collectiveName = null;
+      }
+    }
+
+    // Re-denormalize collective-as-venue if it changed.
+    if (venueCollectiveId !== undefined) {
+      updateData.venueCollectiveId = venueCollectiveId || null;
+      if (venueCollectiveId) {
+        const vcDoc = await db.collection('collectives').doc(venueCollectiveId).get();
+        if (vcDoc.exists) {
+          updateData.venueCollectiveName = vcDoc.data()?.name || null;
+          updateData.venueCollectiveSlug = vcDoc.data()?.slug || null;
+        } else {
+          updateData.venueCollectiveName = null;
+          updateData.venueCollectiveSlug = null;
+        }
+      } else {
+        updateData.venueCollectiveName = null;
+        updateData.venueCollectiveSlug = null;
       }
     }
 
