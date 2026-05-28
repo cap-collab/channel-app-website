@@ -87,10 +87,29 @@ export default function CrossfadeTestPage() {
     outGain = 1,
     inGain = 1,
   ) => {
+    // [radio-debug] log incoming state at fade-start so we can correlate with
+    // the production radio's behavior on iOS Safari.
+    console.log('[radio-debug] FADE-START in.readyState=', incoming.readyState, 'in.paused=', incoming.paused, 'in.src=', incoming.src.slice(-40), 'in.currentTime=', incoming.currentTime.toFixed(2), 'out.paused=', outgoing.paused);
     incoming.volume = 0;
     onIncomingVol(0);
     const p = incoming.play();
-    if (p && typeof p.catch === 'function') p.catch((e) => append(`incoming.play() rejected: ${e}`));
+    if (p && typeof p.then === 'function') {
+      p.then(() => {
+        console.log('[radio-debug] in.play() RESOLVED in.paused=', incoming.paused, 'in.readyState=', incoming.readyState, 'in.currentTime=', incoming.currentTime.toFixed(2));
+      });
+    }
+    if (p && typeof p.catch === 'function') {
+      p.catch((e) => {
+        console.warn('[radio-debug] in.play() REJECTED', (e as Error)?.name, (e as Error)?.message);
+        append(`incoming.play() rejected: ${e}`);
+      });
+    }
+    setTimeout(() => {
+      console.log('[radio-debug] FADE+200ms in.paused=', incoming.paused, 'in.readyState=', incoming.readyState, 'in.currentTime=', incoming.currentTime.toFixed(2), 'in.networkState=', incoming.networkState);
+    }, 200);
+    setTimeout(() => {
+      console.log('[radio-debug] FADE+2000ms in.paused=', incoming.paused, 'in.readyState=', incoming.readyState, 'in.currentTime=', incoming.currentTime.toFixed(2));
+    }, 2000);
     const startedAt = performance.now();
     const tick = (t: number) => {
       const p = Math.min(1, Math.max(0, (t - startedAt) / CROSSFADE_MS));
