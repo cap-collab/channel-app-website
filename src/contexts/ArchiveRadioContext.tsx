@@ -17,6 +17,7 @@ interface ArchiveRadioContextValue {
   isPlaying: boolean;
   isLoading: boolean;
   error: string | null;
+  stalled: boolean;
   currentItem: ScheduleItem | null;
   nextItem: ScheduleItem | null;
   itemSeekSec: number;
@@ -321,6 +322,7 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     isPlaying: radio.isPlaying,
     isLoading: radio.isLoading,
     error: radio.error,
+    stalled: radio.stalled,
     currentItem: radio.currentItem,
     nextItem: radio.nextItem,
     itemSeekSec: radio.itemSeekSec,
@@ -339,7 +341,7 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     onLockedInRef,
   }), [
     enabled, radio.ready, radio.isPlaying, radio.isLoading, radio.error,
-    radio.currentItem, radio.nextItem, radio.itemSeekSec, radio.itemDurationSec,
+    radio.stalled, radio.currentItem, radio.nextItem, radio.itemSeekSec, radio.itemDurationSec,
     radio.itemStartMs, radio.itemEndMs, radio.pause, toggle, play, visibleSlide,
     inlineCoversActive, currentArchive,
   ]);

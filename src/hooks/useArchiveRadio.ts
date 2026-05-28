@@ -48,6 +48,7 @@ interface UseArchiveRadioResult {
   isPlaying: boolean;
   isLoading: boolean;
   error: string | null;
+  stalled: boolean;
   currentItem: ScheduleItem | null;
   nextItem: ScheduleItem | null;
   itemSeekSec: number;
@@ -223,6 +224,11 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // True when audio.currentTime hasn't advanced for a few seconds despite
+  // isPlaying being true — usually iOS Chrome (WKWebView) preempting our
+  // audio session under memory pressure mid-scroll. UI shows a tap-to-resume
+  // affordance so the user's tap counts as a fresh gesture for play().
+  const [stalled, setStalled] = useState(false);
   // Tick once per second to drive UI updates (progress bar, current/next).
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
@@ -403,6 +409,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   // Public play() — only allowed in response to a user gesture so iOS unlocks.
   const play = useCallback(async () => {
     setError(null);
+    setStalled(false);
     await playCurrent();
   }, [playCurrent]);
 
@@ -420,6 +427,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     if (a) a.volume = 1;
     if (b) b.volume = 1;
     setIsPlaying(false);
+    setStalled(false);
   }, []);
 
   const toggle = useCallback(async () => {
@@ -787,6 +795,35 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     };
   }, []);
 
+  // Stall detector: while isPlaying, check that the active element's
+  // currentTime is actually advancing. If it stops moving for ~4s, flip
+  // `stalled` so the UI can surface a tap-to-resume affordance. Common
+  // trigger: Chrome iOS (WKWebView) preempting our audio session during
+  // memory-heavy scroll. iOS won't let us silently restart playback —
+  // it needs a fresh user gesture.
+  useEffect(() => {
+    if (!isPlaying) {
+      if (stalled) setStalled(false);
+      return;
+    }
+    let lastTime = -1;
+    let stagnantTicks = 0;
+    const id = setInterval(() => {
+      const active = getActive();
+      if (!active) return;
+      const t = active.currentTime;
+      if (t === lastTime) {
+        stagnantTicks += 1;
+        if (stagnantTicks >= 2 && !stalled) setStalled(true);
+      } else {
+        stagnantTicks = 0;
+        if (stalled) setStalled(false);
+      }
+      lastTime = t;
+    }, 2000);
+    return () => clearInterval(id);
+  }, [isPlaying, stalled, getActive]);
+
   const itemStartMs = current
     ? current.loop.startTimeMs + current.item.startOffsetSec * 1000
     : null;
@@ -799,6 +836,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     isPlaying,
     isLoading,
     error,
+    stalled,
     currentItem: current?.item ?? null,
     nextItem: next?.item ?? null,
     itemSeekSec: current
