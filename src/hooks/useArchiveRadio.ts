@@ -290,14 +290,27 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
 
   const ensureAudio = useCallback(() => {
     if (typeof window === 'undefined') return null;
+    // iOS WebKit suspends detached <audio> elements during scroll, killing the
+    // audio session unrecoverably. Keep them in the DOM so iOS treats them as
+    // live page media.
+    let host = document.getElementById('archive-radio-audio-host') as HTMLDivElement | null;
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'archive-radio-audio-host';
+      host.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;pointer-events:none;';
+      document.body.appendChild(host);
+    }
     if (!audioARef.current) {
       const a = new Audio();
       a.crossOrigin = 'anonymous';
       a.preload = 'auto';
       a.setAttribute('playsinline', '');
       a.setAttribute('webkit-playsinline', '');
+      host.appendChild(a);
       attachStateListeners(a);
       audioARef.current = a;
+    } else if (!audioARef.current.parentNode) {
+      host.appendChild(audioARef.current);
     }
     if (!audioBRef.current) {
       const b = new Audio();
@@ -305,8 +318,11 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       b.preload = 'auto';
       b.setAttribute('playsinline', '');
       b.setAttribute('webkit-playsinline', '');
+      host.appendChild(b);
       attachStateListeners(b);
       audioBRef.current = b;
+    } else if (!audioBRef.current.parentNode) {
+      host.appendChild(audioBRef.current);
     }
     return { a: audioARef.current, b: audioBRef.current };
   }, [attachStateListeners]);
