@@ -28,29 +28,6 @@ function isSafariBrowser(): boolean {
   return /^((?!chrome|android).)*safari/i.test(ua);
 }
 
-// iOS WebKit kills detached <audio> elements on scroll / transitions. Keep
-// them in the DOM so the audio session stays valid.
-function getAudioHost(): HTMLDivElement | null {
-  if (typeof document === 'undefined') return null;
-  let host = document.getElementById('broadcast-audio-host') as HTMLDivElement | null;
-  if (!host) {
-    host = document.createElement('div');
-    host.id = 'broadcast-audio-host';
-    host.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;top:-9999px;pointer-events:none;';
-    document.body.appendChild(host);
-  }
-  return host;
-}
-function attachToAudioHost(el: HTMLAudioElement) {
-  const host = getAudioHost();
-  if (host) host.appendChild(el);
-}
-function createHostedAudio(): HTMLAudioElement {
-  const el = new Audio();
-  attachToAudioHost(el);
-  return el;
-}
-
 // Detect if on mobile - use HLS for all mobile browsers (more reliable than WebRTC)
 function isMobileBrowser(): boolean {
   if (typeof window === 'undefined') return false;
@@ -395,10 +372,8 @@ export function useBroadcastStream(
         // Audio element should already exist from play() warmup
         // Create one as fallback just in case
         if (!audioElementRef.current) {
-          audioElementRef.current = createHostedAudio();
+          audioElementRef.current = new Audio();
           registerAudio('live', audioElementRef.current);
-        } else if (!audioElementRef.current.parentNode) {
-          attachToAudioHost(audioElementRef.current);
         }
 
         // Attach the track to the audio element
@@ -493,10 +468,8 @@ export function useBroadcastStream(
 
     // Create audio element if needed
     if (!audioElementRef.current) {
-      audioElementRef.current = createHostedAudio();
+      audioElementRef.current = new Audio();
       registerAudio('live', audioElementRef.current);
-    } else if (!audioElementRef.current.parentNode) {
-      attachToAudioHost(audioElementRef.current);
     }
 
     // Set mobile-friendly attributes
