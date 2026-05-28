@@ -343,24 +343,24 @@ export function FloatingChat() {
       <button
         onClick={handleToggle}
         aria-label={isLive && liveDjName ? `${liveDjName} is live — open chat` : 'Open chat'}
-        className="fixed bottom-6 right-6 z-[199] w-10 h-10 md:w-12 md:h-12 rounded-full bg-zinc-800/80 backdrop-blur border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700/80 transition-colors"
+        className="fixed bottom-6 right-6 z-[199] w-12 h-12 md:w-14 md:h-14 rounded-full bg-zinc-800/80 backdrop-blur border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700/80 transition-colors"
       >
         {/* Soft pulsing red border ring around the FAB while live */}
         {isLive && !isOpen && (
           <span
             aria-hidden
-            className="animate-dj-presence absolute -inset-px rounded-full border border-red-500/85 pointer-events-none"
+            className="animate-dj-presence absolute -inset-px rounded-full border-2 border-red-500/85 pointer-events-none"
           />
         )}
 
         {isOpen ? (
-          <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         ) : (
           <>
             {/* Chat-bubble icon — always at the FAB center */}
-            <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
 
