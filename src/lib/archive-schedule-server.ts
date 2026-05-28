@@ -340,6 +340,9 @@ interface LoopPlan {
   startTimeMs: number;
   anchor: LiveBlockBoundary | null;
   preAnchorArchiveIds: string[] | null;
+  // Soft cap on loop duration. Set when a NEXT anchor exists in 48h — the
+  // following loop will truncate this one, so we don't need to fill all 47h+.
+  maxDurationSec: number | null;
   reason: 'override' | 'first-loop' | 'aligned-subset' | 'aligned-anchor-fallback' | 'no-anchor-back-to-back';
 }
 
@@ -361,11 +364,11 @@ async function resolveLoopPlan(
   interstitials: Interstitial[],
 ): Promise<LoopPlan> {
   if (typeof args.startTimeMsOverride === 'number') {
-    return { startTimeMs: args.startTimeMsOverride, anchor: null, preAnchorArchiveIds: null, reason: 'override' };
+    return { startTimeMs: args.startTimeMsOverride, anchor: null, preAnchorArchiveIds: null, maxDurationSec: null, reason: 'override' };
   }
   const nowMs = args.nowMsOverride ?? Date.now();
   if (args.loopNumber <= 1) {
-    return { startTimeMs: nowMs, anchor: null, preAnchorArchiveIds: null, reason: 'first-loop' };
+    return { startTimeMs: nowMs, anchor: null, preAnchorArchiveIds: null, maxDurationSec: null, reason: 'first-loop' };
   }
   const db = getAdminDb();
   if (!db) throw new Error('database not configured');
@@ -385,9 +388,22 @@ async function resolveLoopPlan(
   const anchors = await loadAnchors(db, nowMs);
   const firstAnchor = anchors.find((a) => a.endTimeMs > nowMs && a.endTimeMs <= anchorHorizonMs);
 
+  // Cap detection: if ANOTHER anchor exists in the next 48h (past the first
+  // one), the cron will generate a NEXT loop that truncates this one. We cap
+  // this loop at 25h (≈ time until next cron at 1am PT next day + 1h safety
+  // margin). When no next anchor, the loop runs its natural ~47h length.
+  const SHORT_LOOP_CAP_SEC = 25 * 3600;
+  const nextDayHorizonMs = nowMs + 48 * 3600 * 1000;
+  const hasNextAnchor = anchors.some((a) =>
+    firstAnchor !== undefined &&
+    a.endTimeMs > firstAnchor.endTimeMs &&
+    a.endTimeMs <= nextDayHorizonMs,
+  );
+  const maxDurationSec = hasNextAnchor ? SHORT_LOOP_CAP_SEC : null;
+
   if (!firstAnchor) {
     // No anchor in window → back-to-back from prev's natural end.
-    return { startTimeMs: prevNaturalEnd, anchor: null, preAnchorArchiveIds: null, reason: 'no-anchor-back-to-back' };
+    return { startTimeMs: prevNaturalEnd, anchor: null, preAnchorArchiveIds: null, maxDurationSec: null, reason: 'no-anchor-back-to-back' };
   }
 
   // Compute the dead-zone window for the cron-run day, in UTC.
@@ -424,6 +440,7 @@ async function resolveLoopPlan(
       startTimeMs: result.startTimeMs,
       anchor: firstAnchor,
       preAnchorArchiveIds: result.archiveIds,
+      maxDurationSec,
       reason: 'aligned-subset',
     };
   }
@@ -432,6 +449,7 @@ async function resolveLoopPlan(
     startTimeMs: firstAnchor.endTimeMs,
     anchor: firstAnchor,
     preAnchorArchiveIds: null,
+    maxDurationSec,
     reason: 'aligned-anchor-fallback',
   };
 }
@@ -543,6 +561,7 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
     interstitials,
     anchor: plan.anchor ?? undefined,
     preAnchorArchiveIds: plan.preAnchorArchiveIds ?? undefined,
+    maxDurationSec: plan.maxDurationSec ?? undefined,
   });
 
   // Two-pass exact alignment. The MITM picked the pre-anchor subset using the

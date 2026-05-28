@@ -316,6 +316,11 @@ export interface BuildLoopOptions {
   // cumulative offset (= sum of these archives' durations + interleave
   // interludes).
   preAnchorArchiveIds?: string[];
+  // Soft cap on the loop's total duration. When set, post-anchor archives are
+  // dropped after this point. If the natural catalog can't fill the cap, the
+  // catalog is looped (replayed from the start). Used by the cron to avoid
+  // wasting Firestore storage on items that the next loop will truncate.
+  maxDurationSec?: number;
 }
 
 export interface BuildLoopResult {
@@ -574,18 +579,59 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     items = withInterludes;
   }
 
+  // Optional truncation: when a maxDurationSec cap is set (because a NEXT
+  // loop will truncate this one), drop items past the cap. If the natural
+  // sequence is shorter than the cap, loop the catalog by repeating items
+  // (with an interlude between) until the cap is met.
+  const CROSSFADE_SEC = 5;
+  if (typeof opts.maxDurationSec === 'number' && opts.maxDurationSec > 0) {
+    const cap = opts.maxDurationSec;
+    // Compute provisional cumulative offsets to find the cap cutoff.
+    let cursor = 0;
+    let keepUntilIdx = items.length;
+    for (let i = 0; i < items.length; i++) {
+      // The audible end of this item is cursor + duration. If that exceeds
+      // the cap, stop here. We keep this item if its START is below the cap.
+      if (cursor >= cap) { keepUntilIdx = i; break; }
+      const isLast = i === items.length - 1;
+      cursor += items[i].durationSec - (isLast ? 0 : CROSSFADE_SEC);
+    }
+    if (keepUntilIdx < items.length) {
+      items = items.slice(0, keepUntilIdx);
+    } else if (cursor < cap) {
+      // Catalog ran short of cap → loop the catalog. Walk the existing items
+      // again, adding them back-to-back, until we hit the cap. Inserts an
+      // interlude between each repetition for variety.
+      const catalogTail = items.slice();
+      let pass = 0;
+      while (cursor < cap && pass < 5) {
+        const sep = pickInterstitial();
+        if (sep) {
+          items.push(sep);
+          cursor += sep.durationSec - CROSSFADE_SEC;
+          interstitialCount++;
+        }
+        for (const it of catalogTail) {
+          if (cursor >= cap) break;
+          // Shallow-clone so the original startOffsetSec field doesn't
+          // get re-mutated when we recompute below.
+          items.push({ ...it });
+          cursor += it.durationSec - CROSSFADE_SEC;
+        }
+        pass++;
+      }
+    }
+  }
+
   // Cumulative startOffsetSec — each item starts CROSSFADE_SEC EARLIER than
   // the previous one's nominal end, because the listener fades in the next
   // item that many seconds before the schedule boundary. The schedule
   // represents when audio actually starts being audible.
   //   next.startOffsetSec = prev.startOffsetSec + prev.durationSec - CROSSFADE_SEC
   // Listener-side CROSSFADE_MS = 5000 in useArchiveRadio.ts.
-  const CROSSFADE_SEC = 5;
   let totalDurationSec = 0;
   for (let i = 0; i < items.length; i++) {
     items[i].startOffsetSec = totalDurationSec;
-    // Advance cursor by full duration for the last item; subtract the
-    // crossfade overlap for every transition before that.
     const isLast = i === items.length - 1;
     totalDurationSec += items[i].durationSec - (isLast ? 0 : CROSSFADE_SEC);
   }
