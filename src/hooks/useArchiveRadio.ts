@@ -274,6 +274,10 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   const attachStateListeners = useCallback((el: HTMLAudioElement) => {
     el.addEventListener('pause', () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
+      const whichEl = el === audioARef.current ? 'A' : el === audioBRef.current ? 'B' : '?';
+      // [radio-debug] iOS may silently auto-pause an element when the other
+      // starts playing. Log every pause event to detect that.
+      console.log('[radio-debug] PAUSE event on', whichEl, 'isActive=', el === active, 'currentTime=', el.currentTime.toFixed(2), 'src=', el.src.slice(-40), 'readyState=', el.readyState);
       if (el === active) {
         // Mirror onPause cleanup from the belt-and-suspenders effect below —
         // an externally driven pause (registry, OS audio session) must also
@@ -491,17 +495,38 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       const outgoing = getActive();
       const incoming = getStandby();
       if (!outgoing || !incoming) return;
+      // [radio-debug] log full state at fade-start so we can correlate with
+      // pause events. Key signals: incoming.paused before/after play(),
+      // any rejection on the play() promise, and whether outgoing.paused
+      // flips during the next ~100ms (iOS auto-pause).
+      const outWhich = outgoing === audioARef.current ? 'A' : 'B';
+      const inWhich = incoming === audioARef.current ? 'A' : 'B';
+      console.log('[radio-debug] FADE-START outgoing=', outWhich,
+        'out.kind=', current.item.kind, 'in.kind=', next.item.kind,
+        'in.src=', next.item.recordingUrl.slice(-40),
+        'in.readyState(before)=', incoming.readyState,
+        'in.paused(before)=', incoming.paused,
+        'out.paused(before)=', outgoing.paused);
       try {
         incoming.currentTime = 0;
         incoming.volume = 0;
         const p = incoming.play();
-        if (p && typeof p.catch === 'function') {
-          p.catch((err) => {
-            console.warn('[useArchiveRadio] fade-start play() rejected', err);
+        if (p && typeof p.then === 'function') {
+          p.then(() => {
+            console.log('[radio-debug] in.play() RESOLVED. in.paused=', incoming.paused, 'in.currentTime=', incoming.currentTime.toFixed(2), 'out.paused=', outgoing.paused);
           });
         }
+        if (p && typeof p.catch === 'function') {
+          p.catch((err) => {
+            console.warn('[radio-debug] in.play() REJECTED name=', (err as Error)?.name, 'msg=', (err as Error)?.message);
+          });
+        }
+        // Snapshot 100ms later to see if iOS silently flipped state.
+        setTimeout(() => {
+          console.log('[radio-debug] FADE+100ms in.paused=', incoming.paused, 'in.currentTime=', incoming.currentTime.toFixed(2), 'in.readyState=', incoming.readyState, 'out.paused=', outgoing.paused, 'out.currentTime=', outgoing.currentTime.toFixed(2));
+        }, 100);
       } catch (err) {
-        console.warn('[useArchiveRadio] fade-start failed', err);
+        console.warn('[radio-debug] fade-start try/catch threw', err);
         return;
       }
       // Mark the incoming as the perceived current — re-syncs key off it.
@@ -551,6 +576,10 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       const outgoing = getActive();
       const incoming = getStandby();
       if (!outgoing || !incoming) return;
+      // [radio-debug] hard-swap point.
+      const outWhich = outgoing === audioARef.current ? 'A' : 'B';
+      const inWhich = incoming === audioARef.current ? 'A' : 'B';
+      console.log('[radio-debug] HARD-SWAP outgoing=', outWhich, 'in.paused=', incoming.paused, 'in.currentTime=', incoming.currentTime.toFixed(2), 'out.paused=', outgoing.paused, 'out.currentTime=', outgoing.currentTime.toFixed(2), 'inAloneGain=', inAloneGain);
       try {
         outgoing.volume = 0;
         outgoing.pause();
@@ -567,6 +596,10 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       playingKeyRef.current = nextKey;
       preloadedNextKeyRef.current = null;
       fadeInFlightForKeyRef.current = null;
+      // [radio-debug] snapshot 200ms after swap.
+      setTimeout(() => {
+        console.log('[radio-debug] HARD-SWAP+200ms now-active=', activeKeyRef.current, 'in.paused=', incoming.paused, 'in.currentTime=', incoming.currentTime.toFixed(2));
+      }, 200);
     }, swapDelay);
 
     return () => {
@@ -723,6 +756,9 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     const rawArtwork = item.artworkUrl || djPhoto;
     const artworkSrc = rawArtwork ? proxy(rawArtwork) : fallback;
     try {
+      // [radio-debug] log every mediaSession metadata change. iOS may rebind
+      // its audio session to a different element when metadata flips.
+      console.log('[radio-debug] mediaSession.metadata <-', item.kind, '"' + (item.title || '') + '"', 'artwork=', artworkSrc.slice(-40));
       navigator.mediaSession.metadata = new MediaMetadata({
         title: item.title || 'Archive radio',
         artist,
