@@ -5,6 +5,7 @@ import {
   buildQueue,
   computeLiveBlocks,
   EligibleArchive,
+  findStartTimeAndSubset,
   INTERSTITIALS_COLLECTION,
   LiveBlockBoundary,
   LOOP_COLLECTION,
@@ -313,9 +314,12 @@ export interface GenerateLoopArgs {
   loopNumber: number;
   force?: boolean;
   generatedBy?: 'cron' | 'admin';
-  // Override for the loop's startTimeMs. If omitted, derived from the previous
-  // loop's end time (or "now" if loopNumber === 1).
+  // Override for the loop's startTimeMs. If omitted, derived from the anchor
+  // alignment algorithm (or previous loop's end time when no anchor).
   startTimeMsOverride?: number;
+  // Synthetic "now" for dry-runs (e.g., simulate the 1am PT cron from
+  // yesterday). Falls back to Date.now() when omitted.
+  nowMsOverride?: number;
 }
 
 export interface GenerateLoopResult {
@@ -332,44 +336,104 @@ export interface GenerateLoopResult {
   skipped?: 'locked';
 }
 
-// Resolve when loop N should start. The algorithm aligns each loop's first
-// item boundary to a live-block end ("anchor") so the listener-side handoff
-// when live ends lands on an interlude + curated archive at offset 0.
-//
-//   1. Compute prevNaturalEnd = previous loop's start + duration.
-//   2. Query upcoming anchors (block ends from broadcast-slots). If any anchor
-//      lies AFTER prevStart, the first such anchor is the new loop's start —
-//      even if it falls BEFORE prevNaturalEnd. That truncates the previous
-//      loop, which is the desired behaviour: listeners during the truncation
-//      moment are transitioning to/from live anyway.
-//   3. No anchor in the foreseeable future → fall back to prevNaturalEnd
-//      (legacy back-to-back behaviour).
-//
-// The override arg lets admin tooling pin a specific startTimeMs.
-async function resolveLoopStartMs(loopNumber: number, override?: number): Promise<number> {
-  if (typeof override === 'number') return override;
-  if (loopNumber <= 1) return Date.now();
+interface LoopPlan {
+  startTimeMs: number;
+  anchor: LiveBlockBoundary | null;
+  preAnchorArchiveIds: string[] | null;
+  reason: 'override' | 'first-loop' | 'aligned-subset' | 'aligned-anchor-fallback' | 'no-anchor-back-to-back';
+}
+
+// Decide the loop's startTimeMs (and optionally a pre-anchor archive subset)
+// for loop N. The 1am PT cron's algorithm:
+//   1. If there's an upcoming live-block end ("anchor") in the next 28h, try
+//      to land the cron-run-day's dead-zone window (1-4am PT) on that anchor:
+//      search for an archive subset whose total duration places the
+//      post-subset interlude EXACTLY on the anchor. If a subset's computed
+//      startTime falls in [1am PT, 4am PT] of the cron-run day, use it.
+//   2. If no subset fits the window, fall back to startTimeMs = anchor.end
+//      (Model B: anchor interlude at loop offset 0; loop transition happens
+//      whenever live ends rather than in dead zone).
+//   3. If no anchor in the next 28h, behave as today (back-to-back from
+//      prevNaturalEnd, no alignment).
+async function resolveLoopPlan(
+  args: GenerateLoopArgs,
+  archives: EligibleArchive[],
+  interstitials: Interstitial[],
+): Promise<LoopPlan> {
+  if (typeof args.startTimeMsOverride === 'number') {
+    return { startTimeMs: args.startTimeMsOverride, anchor: null, preAnchorArchiveIds: null, reason: 'override' };
+  }
+  const nowMs = args.nowMsOverride ?? Date.now();
+  if (args.loopNumber <= 1) {
+    return { startTimeMs: nowMs, anchor: null, preAnchorArchiveIds: null, reason: 'first-loop' };
+  }
   const db = getAdminDb();
   if (!db) throw new Error('database not configured');
-  const prev = await db.collection(LOOP_COLLECTION).doc(loopDocId(loopNumber - 1)).get();
-  if (!prev.exists) {
-    // Previous loop missing — start now. The caller should've called
-    // ensureNextLoop sequentially to avoid this, but don't crash on it.
-    return Date.now();
-  }
-  const data = prev.data() ?? {};
-  const prevStart = Number(data.startTimeMs ?? 0);
-  const totalDurationSec = Number(data.totalDurationSec ?? 0);
-  const prevNaturalEnd = prevStart + totalDurationSec * 1000;
 
-  // Look for the first anchor strictly after prevStart. Search a 48h window
-  // from prevStart (matches the lookahead in loadAnchors).
-  const anchors = await loadAnchors(db, prevStart);
-  const firstAnchorAfterStart = anchors.find((a) => a.endTimeMs > prevStart);
-  if (firstAnchorAfterStart) {
-    return firstAnchorAfterStart.endTimeMs;
+  // Previous loop's natural end is the back-to-back fallback startTime.
+  const prev = await db.collection(LOOP_COLLECTION).doc(loopDocId(args.loopNumber - 1)).get();
+  let prevNaturalEnd = nowMs;
+  if (prev.exists) {
+    const data = prev.data() ?? {};
+    const prevStart = Number(data.startTimeMs ?? 0);
+    const totalDurationSec = Number(data.totalDurationSec ?? 0);
+    prevNaturalEnd = prevStart + totalDurationSec * 1000;
   }
-  return prevNaturalEnd;
+
+  // Look for the first anchor in the next 28h from "now".
+  const anchorHorizonMs = nowMs + 28 * 3600 * 1000;
+  const anchors = await loadAnchors(db, nowMs);
+  const firstAnchor = anchors.find((a) => a.endTimeMs > nowMs && a.endTimeMs <= anchorHorizonMs);
+
+  if (!firstAnchor) {
+    // No anchor in window → back-to-back from prev's natural end.
+    return { startTimeMs: prevNaturalEnd, anchor: null, preAnchorArchiveIds: null, reason: 'no-anchor-back-to-back' };
+  }
+
+  // Compute the dead-zone window for the cron-run day, in UTC.
+  // 1am PT = 08:00 UTC, 4am PT = 11:00 UTC (using PST/PDT-aware math is
+  // overkill; PT is UTC-8 in winter, UTC-7 in summer. We use UTC-7 as a
+  // simplification since this is approximate — half-hour shifts don't break
+  // anything, just nudge the search window slightly).
+  const cronDay = new Date(nowMs);
+  cronDay.setUTCHours(0, 0, 0, 0);
+  const dayStartUtcMs = cronDay.getTime();
+  const windowStartMs = dayStartUtcMs + 8 * 3600 * 1000;   // 08:00 UTC = 1am PT
+  const windowEndMs = dayStartUtcMs + 11 * 3600 * 1000;    // 11:00 UTC = 4am PT
+
+  const avgInterludeSec = interstitials.length === 0
+    ? 0
+    : interstitials.reduce((s, i) => s + i.durationSec, 0) / interstitials.length;
+
+  // Exclude the curated archive from the catalog passed to the search — it's
+  // RESERVED for the post-anchor slot, not for the pre-anchor subset.
+  const searchCatalog = firstAnchor.curatedArchiveId
+    ? archives.filter((a) => a.id !== firstAnchor.curatedArchiveId)
+    : archives;
+
+  const result = findStartTimeAndSubset(
+    searchCatalog,
+    avgInterludeSec,
+    firstAnchor.endTimeMs,
+    windowStartMs,
+    windowEndMs,
+  );
+
+  if (result) {
+    return {
+      startTimeMs: result.startTimeMs,
+      anchor: firstAnchor,
+      preAnchorArchiveIds: result.archiveIds,
+      reason: 'aligned-subset',
+    };
+  }
+  // Fallback: start at the anchor moment with interlude at offset 0.
+  return {
+    startTimeMs: firstAnchor.endTimeMs,
+    anchor: firstAnchor,
+    preAnchorArchiveIds: null,
+    reason: 'aligned-anchor-fallback',
+  };
 }
 
 // Find the highest loopNumber currently stored. Returns 0 when the collection
@@ -398,8 +462,11 @@ async function loadAnchors(
   loopStartTimeMs: number,
 ): Promise<LiveBlockBoundary[]> {
   const horizonMs = loopStartTimeMs + 48 * 3600 * 1000;
+  // Use >= so a slot whose endTime EXACTLY equals loopStartTimeMs is still
+  // included — that's the "anchor at offset 0" case where the loop's first
+  // item lands at the moment this slot's block ends.
   const snap = await db.collection('broadcast-slots')
-    .where('endTime', '>', Timestamp.fromMillis(loopStartTimeMs))
+    .where('endTime', '>=', Timestamp.fromMillis(loopStartTimeMs))
     .get();
   const rawSlots: Array<{ startTimeMs: number; endTimeMs: number; postLiveArchiveId: string | null }> = [];
   for (const doc of snap.docs) {
@@ -468,16 +535,48 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
   } catch {
     // Collection doesn't exist yet — fine, skip interstitials.
   }
-  // Resolve startTimeMs BEFORE buildLoop so we can compute anchor offsets
-  // relative to the loop's timeline. Then fetch live-broadcast block ends
-  // within the loop's horizon — buildLoop aligns item boundaries to them.
-  const startTimeMs = await resolveLoopStartMs(loopNumber, args.startTimeMsOverride);
-  const anchors = await loadAnchors(db, startTimeMs);
+  // Resolve plan: startTimeMs + (optionally) the anchor + pre-anchor archive
+  // subset that places the anchor interlude at the right cumulative offset.
+  const plan = await resolveLoopPlan(args, archives, interstitials);
   const result = buildLoop({
     archives,
     interstitials,
-    anchors,
+    anchor: plan.anchor ?? undefined,
+    preAnchorArchiveIds: plan.preAnchorArchiveIds ?? undefined,
   });
+
+  // Two-pass exact alignment. The MITM helper used the AVERAGE interlude
+  // duration as a stand-in for the actual chosen interludes, so the cumulative
+  // offset of the anchor interlude diverges slightly from the original plan.
+  // Find the anchor interlude in the built items array and shift startTimeMs
+  // so that anchor_interlude.startOffsetSec lands EXACTLY on anchor.endTimeMs.
+  let startTimeMs = plan.startTimeMs;
+  if (plan.anchor && plan.preAnchorArchiveIds !== null) {
+    // Anchor interlude = the interlude immediately preceding the curated/
+    // anchor archive in the items array. The anchor archive is identifiable
+    // by its archiveId matching plan.anchor.curatedArchiveId (when set) OR by
+    // its position right after the pre-anchor archives.
+    let anchorArchiveIdx = -1;
+    if (plan.anchor.curatedArchiveId) {
+      anchorArchiveIdx = result.items.findIndex(
+        (it) => it.kind === 'archive' && it.archiveId === plan.anchor!.curatedArchiveId,
+      );
+    }
+    if (anchorArchiveIdx < 0) {
+      // No curated id, or curated id not found. Fall back to the archive at
+      // position (preAnchorIds.length × 2) — each preAnchor archive is
+      // followed by an interleave interlude.
+      const preLen = plan.preAnchorArchiveIds.length;
+      anchorArchiveIdx = preLen * 2; // [arc, ins, arc, ins, ...] → first arc after preLen × 2 items
+    }
+    if (anchorArchiveIdx > 0 && result.items[anchorArchiveIdx - 1].kind === 'interstitial') {
+      const anchorInterludeOffset = result.items[anchorArchiveIdx - 1].startOffsetSec;
+      // Shift startTime: we want anchor_interlude.actualStartTime =
+      // anchor.endTimeMs. actualStartTime = startTimeMs + offset × 1000.
+      // → new startTimeMs = anchor.endTimeMs - offset × 1000.
+      startTimeMs = plan.anchor.endTimeMs - anchorInterludeOffset * 1000;
+    }
+  }
   const generatedAtMs = Date.now();
 
   // Firestore rejects undefined values; sanitize before write.

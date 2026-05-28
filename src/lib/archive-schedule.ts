@@ -304,13 +304,18 @@ export interface BuildLoopOptions {
   archives: EligibleArchive[];
   interstitials?: Interstitial[];   // empty/undefined = no interludes inserted
   rng?: () => number;
-  // Optional anchors. When provided, the FIRST anchor's interlude + archive
-  // are placed at positions 0/1. The caller (cron) is responsible for setting
-  // the loop's startTimeMs to firstAnchor.endTimeMs so the anchor interlude
-  // plays at the exact moment the live block ends. Additional anchors past
-  // the first are NOT specially aligned (the cron's 24-28h cadence ensures
-  // ≤1 anchor per loop in practice).
-  anchors?: LiveBlockBoundary[];
+  // Single anchor (≤1 per loop by cron contract). When provided, an interlude
+  // + curated/random archive land at the anchor moment. If preAnchorArchiveIds
+  // is ALSO provided, those archives fill the pre-anchor window (cron picked
+  // them via subset-sum). Otherwise the anchor stuff is placed at offset 0
+  // and the caller is responsible for setting startTimeMs = anchor.endTimeMs.
+  anchor?: LiveBlockBoundary;
+  // Cron-picked subset of archive IDs to place BEFORE the anchor. Order is
+  // preserved (after the same-DJ adjacency pass). The caller is responsible
+  // for setting startTimeMs such that the anchor lands at the correct
+  // cumulative offset (= sum of these archives' durations + interleave
+  // interludes).
+  preAnchorArchiveIds?: string[];
 }
 
 export interface BuildLoopResult {
@@ -496,54 +501,70 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     };
   };
 
-  // First-anchor alignment: when caller passes anchors AND loopStartTimeMs,
-  // the cron has already chosen loopStartTimeMs to equal the first anchor's
-  // endTimeMs (see resolveLoopStartMs in archive-schedule-server). That means
-  // the first anchor lands at offset 0. We just place [anchorInterlude,
-  // anchorArchive] at the front of the items list. No subset-sum search, no
-  // crossfade tuning — alignment is free.
-  //
-  // We currently assume at most one anchor per loop (the agreed model: ≤1
-  // live-block per 24-28h window). Additional anchors are NOT aligned here.
+  // Anchor placement. Two modes:
+  //   A) opts.preAnchorArchiveIds is set → cron picked a specific subset to
+  //      play BEFORE the anchor. The anchor interlude lands AFTER those items.
+  //   B) only opts.anchor is set → caller has set startTimeMs = anchor end,
+  //      so the anchor interlude lands at offset 0 of the loop (Model B
+  //      fallback when subset-sum didn't find a fit).
   let alignedAnchorCount = 0;
-  const firstAnchor = (opts.anchors && opts.anchors.length > 0) ? opts.anchors[0] : null;
-  if (firstAnchor) {
-    const anchorInterlude = pickInterstitial();
-    let anchorArchive: ScheduleItem | null = null;
-    if (firstAnchor.curatedArchiveId) {
-      const idx = items.findIndex((it) => it.archiveId === firstAnchor.curatedArchiveId);
+  const anchor = opts.anchor ?? null;
+  const preAnchorIds = opts.preAnchorArchiveIds ?? null;
+
+  // Pull preAnchor items in given order (if set) and the curated archive out
+  // of `items`, so the assembler can place them deliberately.
+  let preAnchorItems: ScheduleItem[] = [];
+  if (preAnchorIds && preAnchorIds.length > 0) {
+    for (const id of preAnchorIds) {
+      const idx = items.findIndex((it) => it.archiveId === id);
+      if (idx >= 0) preAnchorItems.push(items.splice(idx, 1)[0]);
+    }
+    // Run same-DJ adjacency separately on the pre-anchor block so the cron
+    // subset doesn't accidentally introduce back-to-back DJs.
+    preAnchorItems = spaceSameDj(preAnchorItems);
+  }
+
+  let anchorInterlude: ScheduleItem | null = null;
+  let anchorArchive: ScheduleItem | null = null;
+  if (anchor) {
+    anchorInterlude = pickInterstitial();
+    if (anchor.curatedArchiveId) {
+      const idx = items.findIndex((it) => it.archiveId === anchor.curatedArchiveId);
       if (idx >= 0) {
         anchorArchive = items.splice(idx, 1)[0];
       } else {
-        const cat = opts.archives.find((a) => a.id === firstAnchor.curatedArchiveId);
+        const cat = opts.archives.find((a) => a.id === anchor.curatedArchiveId);
         if (cat) anchorArchive = archiveToItem(cat, 0);
       }
     }
     if (!anchorArchive && items.length > 0) {
-      // Pop a random archive from the queue as the anchor archive.
       const ridx = Math.floor(rng() * items.length);
       anchorArchive = items.splice(ridx, 1)[0];
     }
-    const headItems: ScheduleItem[] = [];
-    if (anchorInterlude) headItems.push(anchorInterlude);
-    if (anchorArchive) headItems.push(anchorArchive);
-    items = [...headItems, ...items];
     if (anchorArchive) alignedAnchorCount = 1;
   }
 
+  // Assemble. Order: preAnchorItems → anchorInterlude → anchorArchive → rest.
+  const assembled: ScheduleItem[] = [];
+  for (const it of preAnchorItems) assembled.push(it);
+  if (anchorInterlude) assembled.push(anchorInterlude);
+  if (anchorArchive) assembled.push(anchorArchive);
+  for (const it of items) assembled.push(it);
+  items = assembled;
+
   // Interleave one interstitial between every pair of consecutive archive
-  // entries. No insertion after the last entry so the loop doesn't end on an
-  // interlude before wrap-around.
+  // entries. Skip insertion when the previous item is already an interlude
+  // (e.g. the anchor interlude already sits between preAnchorItems' last
+  // archive and the anchorArchive — no need to add another between them).
   let interstitialCount = 0;
   if (interstitialPool.length > 0 && items.length > 1) {
     const withInterludes: ScheduleItem[] = [];
     for (let i = 0; i < items.length; i++) {
       withInterludes.push(items[i]);
-      // Skip insertion after the anchor interlude (already followed by the
-      // anchor archive). All other transitions get an interlude.
-      const isAnchorInterludeFollowedByArchive =
-        i === 0 && firstAnchor !== null && items[0].kind === 'interstitial';
-      if (i < items.length - 1 && !isAnchorInterludeFollowedByArchive) {
+      const cur = items[i];
+      const nxt = i < items.length - 1 ? items[i + 1] : null;
+      // Only add an interlude when both sides are archives.
+      if (nxt && cur.kind === 'archive' && nxt.kind === 'archive') {
         const ins = pickInterstitial();
         if (ins) { withInterludes.push(ins); interstitialCount++; }
       }
@@ -570,6 +591,127 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     missedAnchorCount: 0,
     warnings,
   };
+}
+
+// Find a subset of the catalog (and the exact startTime) such that, when the
+// loop plays those archives back-to-back with one interlude interleaved
+// between each pair, the NEXT item after the subset (an interlude) starts
+// exactly at `anchorEndTimeMs`.
+//
+// For each candidate subset S, the cumulative duration up to the post-subset
+// interlude is:
+//   total = sum(durationSec for s in S) + (|S| - 1) * avgInterludeSec
+//   startTime = anchorEndTimeMs - total * 1000
+//
+// A subset is accepted when its computed startTime falls in
+// [windowStartMs, windowEndMs]. Among accepted subsets, the one with startTime
+// closest to the window midpoint is returned.
+//
+// Algorithm: meet-in-the-middle subset enumeration. Catalog is capped at
+// MAX_N entries; each half enumerates 2^h subsets. Since the startTime
+// formula is *linear in the subset's total duration*, we can enumerate both
+// halves independently and combine in O(2^(N/2)) per call.
+export function findStartTimeAndSubset(
+  catalog: EligibleArchive[],
+  avgInterludeSec: number,
+  anchorEndTimeMs: number,
+  windowStartMs: number,
+  windowEndMs: number,
+): { startTimeMs: number; archiveIds: string[] } | null {
+  if (catalog.length === 0) return null;
+  const MAX_N = 36;            // cap subset search; 2^18 each half
+  const n = Math.min(catalog.length, MAX_N);
+  const halfSize = Math.ceil(n / 2);
+  const leftIdx = Array.from({ length: halfSize }, (_, i) => i);
+  const rightIdx = Array.from({ length: n - halfSize }, (_, i) => halfSize + i);
+
+  const midpointMs = (windowStartMs + windowEndMs) / 2;
+
+  type Entry = { sum: number; count: number; mask: number };
+  const enumerate = (idxs: number[]): Entry[] => {
+    const out: Entry[] = new Array(1 << idxs.length);
+    const total = 1 << idxs.length;
+    for (let mask = 0; mask < total; mask++) {
+      let sum = 0;
+      let count = 0;
+      for (let bit = 0; bit < idxs.length; bit++) {
+        if (mask & (1 << bit)) {
+          sum += catalog[idxs[bit]].durationSec;
+          count++;
+        }
+      }
+      out[mask] = { sum, count, mask };
+    }
+    return out;
+  };
+
+  const LS = enumerate(leftIdx);
+  const RS = enumerate(rightIdx);
+
+  // For each combined subset (L, R), compute total = L.sum + R.sum +
+  // (L.count + R.count - 1) * avgInterlude. Check if the implied startTime
+  // is in window. Track the best (closest to midpoint).
+  let bestDist = Number.POSITIVE_INFINITY;
+  let bestL = -1;
+  let bestR = -1;
+  let bestStart = 0;
+  // To prune: for each L, the target R.sum range is determined by the
+  // window constraint, but for simplicity we just iterate all pairs.
+  // ~262k × 262k = 68B is too slow at MAX_N=36. Cap MAX_N lower or sort R by
+  // sum and binary search.
+  // For the actual catalog size (~36), each half is 2^18 ≈ 262k. Iterating
+  // L × R is 68 billion — too slow. Use sorted-R binary search instead.
+  RS.sort((a, b) => a.sum - b.sum);
+  const rSums = RS.map((e) => e.sum);
+
+  for (const l of LS) {
+    // For each possible R.count value (0..rightIdx.length), the target R.sum
+    // that places startTime EXACTLY at the midpoint is:
+    //   midpoint = anchorEnd - (l.sum + r.sum + (l.count + r.count - 1) * avg) * 1000
+    //   r.sum = (anchorEnd - midpoint) / 1000 - l.sum - (l.count + r.count - 1) * avg
+    // We don't know r.count up-front, so sweep candidate r.count values and
+    // binary-search rSums for each ideal r.sum. Examine ±4 neighbors.
+    for (let rCount = 0; rCount <= rightIdx.length; rCount++) {
+      const combinedCount = l.count + rCount;
+      if (combinedCount < 1) continue; // need at least 1 archive (else no anchor pos)
+      const gapAdj = Math.max(0, combinedCount - 1) * avgInterludeSec;
+      const idealRSum = (anchorEndTimeMs - midpointMs) / 1000 - l.sum - gapAdj;
+      let lo = 0;
+      let hi = rSums.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (rSums[mid] < idealRSum) lo = mid + 1;
+        else hi = mid;
+      }
+      for (let k = Math.max(0, lo - 4); k <= Math.min(rSums.length - 1, lo + 4); k++) {
+        const r = RS[k];
+        if (r.count !== rCount) continue;
+        const actualCount = l.count + r.count;
+        const actualGap = Math.max(0, actualCount - 1) * avgInterludeSec;
+        const totalSec = l.sum + r.sum + actualGap;
+        const startMs = anchorEndTimeMs - totalSec * 1000;
+        if (startMs < windowStartMs || startMs > windowEndMs) continue;
+        const dist = Math.abs(startMs - midpointMs);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestL = l.mask;
+          bestR = r.mask;
+          bestStart = startMs;
+        }
+      }
+    }
+  }
+
+  if (bestL < 0) return null;
+
+  const archiveIds: string[] = [];
+  for (let bit = 0; bit < leftIdx.length; bit++) {
+    if (bestL & (1 << bit)) archiveIds.push(catalog[leftIdx[bit]].id);
+  }
+  for (let bit = 0; bit < rightIdx.length; bit++) {
+    if (bestR & (1 << bit)) archiveIds.push(catalog[rightIdx[bit]].id);
+  }
+  return { startTimeMs: bestStart, archiveIds };
 }
 
 // Find the item playing at `nowMs` inside a loop. Returns null when nowMs is
