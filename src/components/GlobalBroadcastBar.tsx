@@ -99,8 +99,13 @@ export function GlobalBroadcastBar() {
     }
   }, [sendLove]);
 
-  // Archive DJ info for love + tip in archive bar (fall back to featured archive)
-  const archiveForBar = archivePlayer.currentArchive || archivePlayer.featuredArchive;
+  // Archive DJ info for love + tip in archive bar. Mirror whatever the bar
+  // actually displays (currentArchive → heroDisplayedArchive → featuredArchive)
+  // so the heart targets the DJ the user sees, not the featured archive.
+  const archiveForBar =
+    archivePlayer.currentArchive ||
+    archivePlayer.heroDisplayedArchive ||
+    archivePlayer.featuredArchive;
   const archivePrimaryDj = archiveForBar?.djs[0];
   const archiveDjProfileUsername = archivePrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
   const archiveDjProfile = useDJProfileInfo(archivePrimaryDj?.username);

@@ -772,14 +772,23 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const [showAuthModal, setShowAuthModal] = useState(false);
 
 
-  // DJ-specific chat hook for sending loves to the DJ currently shown in the player
-  // When showing live hero → love goes to live DJ; when showing archive → love goes to archive DJ
-  const archiveDjProfileUsername = (archivePlayer.currentArchive || featuredArchive).djs[0]?.username?.replace(/\s+/g, '').toLowerCase() || '';
-  const archiveDjName = (archivePlayer.currentArchive || featuredArchive).djs.map((d) => d.name).join(', ');
-  const loveChatRoom = showLiveInHero && liveDJChatRoom ? liveDJChatRoom : (archiveDjProfileUsername || '');
-  const loveDJLabel = showLiveInHero && liveDjName ? liveDjName : (archiveDjName || '');
-  const archivePrimaryDj = (archivePlayer.currentArchive || featuredArchive).djs[0];
-  const isArchiveLove = !(showLiveInHero && liveDJChatRoom);
+  // DJ-specific chat hook for sending loves to the DJ currently shown in the
+  // inline player bar. Rule: love goes to whoever the bar is *displaying*.
+  //   listener-picked archive → that archive DJ (slide 1, active)
+  //   live on → live DJ (slide 0, even if listener hasn't pressed play yet)
+  //   radio fallback → radio DJ (slide 0 when live is off)
+  //   final fallback → featured archive DJ
+  const loveSourceArchive = archivePlayer.currentArchive || radioArchive || featuredArchive;
+  const archiveDjProfileUsername = loveSourceArchive.djs[0]?.username?.replace(/\s+/g, '').toLowerCase() || '';
+  const archiveDjName = loveSourceArchive.djs.map((d) => d.name).join(', ');
+  // Route to live DJ whenever live is on AND the listener hasn't explicitly
+  // engaged a different archive on slide 1. Drops the old `showLiveInHero`
+  // gate which required `userSelectedMode === 'live'`.
+  const routeToLive = isLive && !!liveDJChatRoom && !archivePlayer.currentArchive;
+  const loveChatRoom = routeToLive ? liveDJChatRoom : (archiveDjProfileUsername || '');
+  const loveDJLabel = routeToLive ? (liveDjName || '') : (archiveDjName || '');
+  const archivePrimaryDj = loveSourceArchive.djs[0];
+  const isArchiveLove = !routeToLive;
   const { sendLove } = useDJProfileChat({
     chatUsernameNormalized: loveChatRoom,
     djUsername: loveDJLabel,
