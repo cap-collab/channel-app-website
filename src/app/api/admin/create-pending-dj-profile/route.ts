@@ -350,10 +350,21 @@ export async function PATCH(request: NextRequest) {
       ]);
 
       if (!existingUser.empty) {
-        return NextResponse.json(
-          { error: 'Email already in use by an existing user' },
-          { status: 400 }
-        );
+        // Allow attaching the email if the existing user already shares
+        // this pending profile's normalized username — that's the admin
+        // pre-linking case (user signed up with the same handle before
+        // accepting DJ terms). The normal claim flow will merge them.
+        const existingUserData = existingUser.docs[0].data();
+        const pendingNormalized = existingData?.chatUsernameNormalized;
+        if (
+          !pendingNormalized ||
+          existingUserData.chatUsernameNormalized !== pendingNormalized
+        ) {
+          return NextResponse.json(
+            { error: 'Email already in use by an existing user' },
+            { status: 400 }
+          );
+        }
       }
 
       if (!existingPending.empty) {
