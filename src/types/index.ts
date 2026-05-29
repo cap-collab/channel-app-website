@@ -122,6 +122,11 @@ export interface UserDocument {
     // notifications are derived from this single field at email-send time
     // (see show-starting-emails cron).
     affiliatedWithUid?: string | null;
+    // Audience — admin-curated list of other DJ uids whose fans (watchlist
+    // or engagement) should also be notified when this DJ goes live on
+    // Channel Radio. Empty / unset = no fan-out beyond crew + direct.
+    // Does NOT email the listed DJs themselves; only their fans.
+    audienceDjUids?: string[];
   };
   // Recording quota tracking (for self-service recording feature)
   recordingQuota?: {

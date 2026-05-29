@@ -37,6 +37,9 @@ export interface DjForScenesAdmin {
   sceneIds: string[];
   residencyCadence?: ResidencyCadence;
   affiliatedWithUid?: string;
+  // Admin-curated "Audience" — other DJ uids whose fans should also be
+  // notified when this DJ goes live on Channel Radio. Empty when unset.
+  audienceDjUids: string[];
   // Soonest upcoming Channel slot for this DJ (Unix ms). Undefined if none.
   nextSlotStart?: number;
 }
@@ -107,6 +110,10 @@ export async function GET(request: NextRequest) {
         typeof data.djProfile?.affiliatedWithUid === 'string' && data.djProfile.affiliatedWithUid
           ? data.djProfile.affiliatedWithUid
           : undefined;
+      const audienceDjUidsRaw = data.djProfile?.audienceDjUids;
+      const audienceDjUids: string[] = Array.isArray(audienceDjUidsRaw)
+        ? audienceDjUidsRaw.filter((u): u is string => typeof u === 'string' && u.length > 0)
+        : [];
 
       djs.push({
         userId: doc.id,
@@ -119,6 +126,7 @@ export async function GET(request: NextRequest) {
         sceneIds: Array.isArray(data.djProfile?.sceneIds) ? data.djProfile.sceneIds : [],
         residencyCadence,
         affiliatedWithUid,
+        audienceDjUids,
         nextSlotStart,
       });
     });

@@ -132,10 +132,11 @@ function wrapEmailContent(
   content: string,
   footerText: string,
   unsubscribeOverride?: { url: string; label: string },
+  aboveContentHtml?: string,
 ): string {
   const unsubUrl = unsubscribeOverride?.url ?? SETTINGS_DEEP_LINK;
   const unsubLabel = unsubscribeOverride?.label ?? "Unsubscribe";
-  return _wrapEmailContent(content, footerText, unsubUrl, unsubLabel);
+  return _wrapEmailContent(content, footerText, unsubUrl, unsubLabel, aboveContentHtml);
 }
 
 function _wrapEmailContent(
@@ -143,7 +144,15 @@ function _wrapEmailContent(
   footerText: string,
   unsubUrl: string,
   unsubLabel: string,
+  aboveContentHtml?: string,
 ): string {
+  const aboveBlock = aboveContentHtml
+    ? `<tr>
+        <td align="center" style="padding-bottom: 16px;" bgcolor="#ffffff">
+          ${aboveContentHtml}
+        </td>
+      </tr>`
+    : "";
   return minifyHtml(`
     <!DOCTYPE html>
     <html style="background-color: #ffffff;" bgcolor="#ffffff">
@@ -173,6 +182,7 @@ function _wrapEmailContent(
                   <a href="https://channel-app.com" style="text-decoration: none;"><img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" /></a>
                 </td>
               </tr>
+              ${aboveBlock}
               <tr>
                 <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
                   ${content}
@@ -231,6 +241,12 @@ interface ShowStartingEmailParams {
   // Recipient is on the live DJ's affiliation list (not a watchlist match).
   // Changes the footer copy; subject + body stay the same.
   isAffiliated?: boolean;
+  // Listener-side affiliation match (Audience or crew) — the "bridge" DJ
+  // R that connected the recipient to the live DJ X. When set, renders a
+  // small grey "From the same world as {R}." caption above the hero card
+  // and replaces the footer line with a neutral message. When undefined
+  // alongside `isAffiliated`, falls back to the existing DJ-side wording.
+  affiliationBridgeDj?: string;
   // Recipient was matched via past engagement (heart or lock-in) rather than
   // a watchlist/favorite. Changes footer copy only.
   engagementReason?: "hearted" | "lockedin";
@@ -248,6 +264,7 @@ export async function sendShowStartingEmail({
   stationId,
   streamingUrl,
   isAffiliated,
+  affiliationBridgeDj,
   engagementReason,
 }: ShowStartingEmailParams) {
   if (!resend) {
@@ -331,7 +348,16 @@ export async function sendShowStartingEmail({
     ? { url: muteUrl, label: `Unsubscribe from ${djDisplayName}` }
     : undefined;
 
-  const footerText = engagementReason
+  // When the recipient matched via the listener-side affiliation path
+  // (Audience or crew bridge), render "From the same world as {R}." above
+  // the hero card and neutralise the footer line.
+  const aboveContentHtml = affiliationBridgeDj
+    ? `<p style="margin: 0; font-size: 13px; color: #999; letter-spacing: 0.02em;">From the same world as <span style="color: #1a1a1a; font-weight: 600;">${affiliationBridgeDj}</span>.</p>`
+    : undefined;
+
+  const footerText = affiliationBridgeDj
+    ? "You're getting this from Channel."
+    : engagementReason
     ? "You're receiving this because you engaged with that DJ in the past."
     : isAffiliated
     ? "You're receiving this because you're an affiliated artist."
@@ -342,7 +368,7 @@ export async function sendShowStartingEmail({
       from: FROM_EMAIL,
       to,
       subject: `${djUsername || djName ? djDisplayName : displayName} is live on ${stationName}`,
-      html: wrapEmailContent(content, footerText, muteOverride),
+      html: wrapEmailContent(content, footerText, muteOverride, aboveContentHtml),
       headers: muteUrl
         ? {
             "List-Unsubscribe": `<${muteUrl}>`,

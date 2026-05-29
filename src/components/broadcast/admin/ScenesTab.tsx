@@ -182,6 +182,25 @@ export function ScenesTab() {
     [authedFetch, fetchDjs]
   );
 
+  const handleSetAudience = useCallback(
+    async (dj: DjForScenesAdmin, audienceDjUids: string[]) => {
+      setDjs((prev) =>
+        prev.map((d) => (d.userId === dj.userId ? { ...d, audienceDjUids } : d))
+      );
+
+      try {
+        const res = await authedFetch('/api/admin/scenes/dj-audience', {
+          method: 'PATCH',
+          body: JSON.stringify({ userId: dj.userId, audienceDjUids }),
+        });
+        if (!res.ok) throw new Error('Failed to update');
+      } catch {
+        await fetchDjs();
+      }
+    },
+    [authedFetch, fetchDjs]
+  );
+
   const handleToggleCollectiveScene = useCallback(
     async (collective: CollectiveForScenesAdmin, sceneId: string) => {
       const current = collective.sceneIds ?? [];
@@ -261,6 +280,7 @@ export function ScenesTab() {
             onToggle={handleToggleDjScene}
             onSetResidency={handleSetResidency}
             onSetAffiliation={handleSetAffiliation}
+            onSetAudience={handleSetAudience}
           />
           <DjGroup
             title="Not residents"
@@ -271,6 +291,7 @@ export function ScenesTab() {
             onToggle={handleToggleDjScene}
             onSetResidency={handleSetResidency}
             onSetAffiliation={handleSetAffiliation}
+            onSetAudience={handleSetAudience}
           />
           <CollectiveGroup
             title="Collectives"
@@ -319,6 +340,7 @@ function DjRow({
   onToggle,
   onSetResidency,
   onSetAffiliation,
+  onSetAudience,
 }: {
   dj: DjForScenesAdmin;
   scenes: SceneSerialized[];
@@ -326,6 +348,7 @@ function DjRow({
   onToggle: (dj: DjForScenesAdmin, sceneId: string) => void;
   onSetResidency: (dj: DjForScenesAdmin, cadence: ResidencyCadence | null) => void;
   onSetAffiliation: (dj: DjForScenesAdmin, affiliatedWithUid: string | null) => void;
+  onSetAudience: (dj: DjForScenesAdmin, audienceDjUids: string[]) => void;
 }) {
   const cadence = dj.residencyCadence;
   const affiliationOptions = useMemo(
@@ -379,6 +402,11 @@ function DjRow({
           options={affiliationOptions}
           onChange={(uid) => onSetAffiliation(dj, uid)}
         />
+        <AudiencePicker
+          value={dj.audienceDjUids ?? []}
+          options={affiliationOptions}
+          onChange={(uids) => onSetAudience(dj, uids)}
+        />
       </div>
       <div className="flex flex-wrap gap-1.5 justify-end">
         {scenes.map((scene) => {
@@ -412,6 +440,7 @@ function DjGroup({
   onToggle,
   onSetResidency,
   onSetAffiliation,
+  onSetAudience,
 }: {
   title: string;
   djs: DjForScenesAdmin[];
@@ -421,6 +450,7 @@ function DjGroup({
   onToggle: (dj: DjForScenesAdmin, sceneId: string) => void;
   onSetResidency: (dj: DjForScenesAdmin, cadence: ResidencyCadence | null) => void;
   onSetAffiliation: (dj: DjForScenesAdmin, affiliatedWithUid: string | null) => void;
+  onSetAudience: (dj: DjForScenesAdmin, audienceDjUids: string[]) => void;
 }) {
   return (
     <div>
@@ -441,10 +471,77 @@ function DjGroup({
               onToggle={onToggle}
               onSetResidency={onSetResidency}
               onSetAffiliation={onSetAffiliation}
+              onSetAudience={onSetAudience}
             />
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function AudiencePicker({
+  value,
+  options,
+  onChange,
+}: {
+  value: string[];
+  options: DjForScenesAdmin[];
+  onChange: (uids: string[]) => void;
+}) {
+  const labelByUid = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of options) m.set(o.userId, o.chatUsername || o.name || o.displayName);
+    return m;
+  }, [options]);
+
+  const selected = value;
+  const unselectedOptions = useMemo(
+    () => options.filter((o) => !selected.includes(o.userId)),
+    [options, selected]
+  );
+
+  const handleAdd = (uid: string) => {
+    if (!uid || selected.includes(uid)) return;
+    onChange([...selected, uid]);
+  };
+  const handleRemove = (uid: string) => {
+    onChange(selected.filter((u) => u !== uid));
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[260px]">
+      <span className="text-[10px] text-gray-500 whitespace-nowrap">Audience</span>
+      {selected.map((uid) => (
+        <span
+          key={uid}
+          className="inline-flex items-center gap-1 bg-gray-800 text-gray-200 text-[10px] rounded border border-gray-700 px-1.5 py-0.5"
+        >
+          {labelByUid.get(uid) ?? uid.slice(0, 6)}
+          <button
+            onClick={() => handleRemove(uid)}
+            className="text-gray-500 hover:text-red-400 leading-none"
+            aria-label={`Remove ${labelByUid.get(uid) ?? uid}`}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      <select
+        value=""
+        onChange={(e) => {
+          handleAdd(e.target.value);
+          e.target.value = '';
+        }}
+        className="bg-gray-800 text-gray-200 text-[11px] rounded border border-gray-700 px-1.5 py-0.5 max-w-[120px]"
+      >
+        <option value="">+ add DJ</option>
+        {unselectedOptions.map((o) => (
+          <option key={o.userId} value={o.userId}>
+            {o.chatUsername || o.name || o.displayName}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

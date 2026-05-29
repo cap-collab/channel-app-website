@@ -495,29 +495,27 @@ export function SettingsClient() {
                   </button>
                 </div>
                 {/* DJ online toggle hidden — feature is paused */}
-                {isDJ(role) && (
-                  <div className="p-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-white font-medium">Affiliated artists going live</p>
-                      <p className="text-gray-500 text-sm">
-                        Email when artists you&apos;re affiliated with go live
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleToggle("affiliatedGoLive")}
-                      disabled={saving}
-                      className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
-                        notifications.affiliatedGoLive ? "bg-white" : "bg-gray-700"
-                      }`}
-                    >
-                      <div
-                        className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
-                          notifications.affiliatedGoLive ? "bg-black translate-x-6" : "bg-gray-400"
-                        }`}
-                      />
-                    </button>
+                <div className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">Affiliated artists going live</p>
+                    <p className="text-gray-500 text-sm">
+                      Email when artists you&apos;re affiliated with go live
+                    </p>
                   </div>
-                )}
+                  <button
+                    onClick={() => handleToggle("affiliatedGoLive")}
+                    disabled={saving}
+                    className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
+                      notifications.affiliatedGoLive ? "bg-white" : "bg-gray-700"
+                    }`}
+                  >
+                    <div
+                      className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
+                        notifications.affiliatedGoLive ? "bg-black translate-x-6" : "bg-gray-400"
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
               <p className="text-gray-600 text-xs mt-2 px-1">
                 These alerts are triggered by your favorites and follows
