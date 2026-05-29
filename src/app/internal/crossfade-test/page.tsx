@@ -63,6 +63,11 @@ export default function CrossfadeTestPage() {
   const crossfadeInFlightRef = useRef(false);
   const crossfadeRafRef = useRef<number | null>(null);
   const crossfadeWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Each fade gets a unique token. finish() checks this token before touching
+  // elements — if a newer fade has already started, the old finish() is stale
+  // and must NOT pause its captured `outgoing` (which may be the new fade's
+  // incoming since elements swap roles every transition).
+  const fadeTokenRef = useRef(0);
   const nextItemRef = useRef<
     { url: string; gain: number; label: string; kind: 'archive' | 'interlude' } | null
   >(null);
@@ -193,7 +198,32 @@ export default function CrossfadeTestPage() {
     incomingTargetGain: number,
     label: string,
   ) => {
-    append(`CROSSFADE-START outgoing=${which(outgoing)} incoming=${which(incoming)} → ${label}`);
+    // If a previous fade is still in flight (rAF didn't reach p=1 before this
+    // boundary fired — happens because the boundary is scheduled at
+    // CROSSFADE_MS from fade-start but rAF takes slightly longer to complete),
+    // snap it to its final state synchronously so its captured `outgoing` is
+    // already paused and won't interfere with this new fade.
+    if (crossfadeInFlightRef.current) {
+      append('CROSSFADE-START: force-finishing prior fade');
+      if (crossfadeRafRef.current !== null) {
+        cancelAnimationFrame(crossfadeRafRef.current);
+        crossfadeRafRef.current = null;
+      }
+      if (crossfadeWatchdogRef.current) {
+        clearTimeout(crossfadeWatchdogRef.current);
+        crossfadeWatchdogRef.current = null;
+      }
+      // The prior fade's outgoing was the element BEFORE this fade's outgoing
+      // (which is the prior fade's incoming, now active). Pause it directly.
+      const priorOutgoing = activeKeyRef.current === 'A' ? audioBRef.current : audioARef.current;
+      if (priorOutgoing) {
+        try { priorOutgoing.pause(); } catch { /* noop */ }
+        priorOutgoing.volume = 0;
+      }
+      crossfadeInFlightRef.current = false;
+    }
+    const myToken = ++fadeTokenRef.current;
+    append(`CROSSFADE-START outgoing=${which(outgoing)} incoming=${which(incoming)} → ${label} (token ${myToken})`);
     crossfadeInFlightRef.current = true;
     try { incoming.currentTime = 0; } catch { /* noop */ }
     incoming.volume = 0;
@@ -212,6 +242,14 @@ export default function CrossfadeTestPage() {
     const startedAt = performance.now();
     let lastLog = startedAt;
     const finish = (reason: 'natural' | 'watchdog') => {
+      // If a NEWER fade has started since this one began, this finish is
+      // stale: a force-finish at that fade's start already handled cleanup.
+      // Do NOT touch elements — `outgoing` here may now be the new fade's
+      // incoming. Just clear our own refs and bail.
+      if (fadeTokenRef.current !== myToken) {
+        append(`CROSSFADE-END (${reason}, stale token ${myToken} ≠ ${fadeTokenRef.current}) — no-op`);
+        return;
+      }
       if (crossfadeRafRef.current !== null) {
         cancelAnimationFrame(crossfadeRafRef.current);
         crossfadeRafRef.current = null;
@@ -226,17 +264,18 @@ export default function CrossfadeTestPage() {
       if (inLabel === 'A') { setAVol(incomingTargetGain); setBVol(0); }
       else { setAVol(0); setBVol(incomingTargetGain); }
       crossfadeInFlightRef.current = false;
-      append(`CROSSFADE-END (${reason}) — guard re-armed`);
+      append(`CROSSFADE-END (${reason}, token ${myToken}) — guard re-armed`);
     };
 
     const tick = (t: number) => {
+      // Stale token: a newer fade has taken over. Stop ticking.
+      if (fadeTokenRef.current !== myToken) return;
       const elapsed = t - startedAt;
       const p = Math.min(1, elapsed / CROSSFADE_MS);
       const outV = outCurve(p) * outgoingPeakGain;
       const inV = inCurve(p) * incomingTargetGain;
       outgoing.volume = outV;
       incoming.volume = inV;
-      // Update UI bars.
       if (which(outgoing) === 'A') { setAVol(outV); setBVol(inV); }
       else { setAVol(inV); setBVol(outV); }
       if (t - lastLog > 200) {
