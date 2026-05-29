@@ -136,19 +136,31 @@ export default function CrossfadeTestPage() {
     return { A: audioARef.current!, B: audioBRef.current! };
   };
 
-  // Preload the standby with a new URL. Always re-set src and call .load()
-  // even if src already matches — a previous test run may have left the
-  // element at end-of-stream with the buffer evicted (readyState=1), and
-  // play() would then need to re-fetch from scratch, missing the fade start.
-  const preloadStandby = (url: string, label: string) => {
+  // Preload the standby. iOS treats preload="auto" + .load() as hints, not
+  // commands — the browser often defers the fetch until play() is called,
+  // which means the first ~seconds of audio after fade-start are silent
+  // while the network round-trip happens. Force the fetch by briefly
+  // play()+pause()ing the element muted: that commits the browser to
+  // buffering, and the pause prevents any audible playback. By the time
+  // the real boundary fires, the buffer is ready and the fade is audible.
+  const preloadStandby = async (url: string, label: string) => {
     const standby = getStandby();
     if (!standby) return;
     append(`standby (${which(standby)}) preload ${label}`);
-    // Reassigning the same URL forces iOS to re-fetch + buffer. Without this,
-    // the element stays in HAVE_METADATA (readyState=1) and play() at fade
-    // start kicks off the network fetch, producing silence during the ramp.
     standby.src = url;
+    standby.volume = 0;
+    standby.muted = true;
     standby.load();
+    try {
+      await standby.play();
+      standby.pause();
+      standby.currentTime = 0;
+      standby.muted = false;
+      append(`standby (${which(standby)}) preload primed (readyState=${standby.readyState})`);
+    } catch (e) {
+      standby.muted = false;
+      append(`standby preload play() rejected: ${(e as Error)?.name}`);
+    }
   };
 
   // Hard-cut swap (crossfade OFF path).
