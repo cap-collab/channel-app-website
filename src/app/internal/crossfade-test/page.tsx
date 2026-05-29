@@ -13,11 +13,15 @@ import { InterludeSlide } from '@/components/channel/ArchiveHero';
 //
 // The auto-pause-non-active guard is GATED by crossfadeInFlightRef so both
 // elements are allowed to play during the 5s overlap.
+// Archive A is high-priority "Celebrity Bitcrush" — DJ set with energy, easier
+// to perceive a crossfade against than a soft mix.
 const ARCHIVE_A_URL =
-  'https://media.channel-app.com/recordings/channel-radio/channel-radio-2026-05-16T022806.mp4';
-const ARCHIVE_A_DURATION_SEC = 5512;
+  'https://media.channel-app.com/recordings/channel-radio/channel-radio-2026-05-28T230003.mp4';
+const ARCHIVE_A_DURATION_SEC = 3594;
+// Archive B: "On the Wheelz of Steel" — another high-energy show so the
+// archive→archive (well, interlude→archive here) transition lands on energy.
 const ARCHIVE_B_URL =
-  'https://media.channel-app.com/recordings/channel-radio/channel-radio-2026-05-28T010419.mp4';
+  'https://media.channel-app.com/recordings/channel-radio/channel-radio-2026-05-08T230009.mp4';
 
 const INTERLUDES = [
   { label: 'berlin clubs', durationSec: 10, url: 'https://media.channel-app.com/interludes/berlin-clubs-1779974220976.m4a' },
