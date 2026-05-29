@@ -224,6 +224,7 @@ export default function CrossfadeTestPage() {
     outgoingPeakGain: number,
     incomingTargetGain: number,
     label: string,
+    onFinish?: () => void,
   ) => {
     // If a previous fade is still in flight (rAF didn't reach p=1 before this
     // boundary fired — happens because the boundary is scheduled at
@@ -292,6 +293,9 @@ export default function CrossfadeTestPage() {
       else { setAVol(0); setBVol(incomingTargetGain); }
       crossfadeInFlightRef.current = false;
       append(`CROSSFADE-END (${reason}, token ${myToken}) — guard re-armed`);
+      if (onFinish) {
+        try { onFinish(); } catch (e) { append(`onFinish threw: ${e}`); }
+      }
     };
 
     const tick = (t: number) => {
@@ -326,21 +330,24 @@ export default function CrossfadeTestPage() {
     }, CROSSFADE_MS + 500);
   };
 
-  const transition = (incomingKind: 'archive' | 'interlude', nextGain: number, label: string) => {
+  const transition = (
+    incomingKind: 'archive' | 'interlude',
+    nextGain: number,
+    label: string,
+    onFinish?: () => void,
+  ) => {
     const outgoing = getActive();
     const incoming = getStandby();
     if (!outgoing || !incoming) return;
     if (!crossfadeOn) {
       hardSwap(nextGain, label);
+      if (onFinish) onFinish();
       return;
     }
-    // Infer the outgoing kind from what's currently the stage.
     const outgoingKind: 'archive' | 'interlude' = stage === 'interlude' ? 'interlude' : 'archive';
     const { outCurve, inCurve, outgoingPeakGain, incomingTargetGain } = curvesFor(outgoingKind, incomingKind);
-    // incomingTargetGain comes from the curve picker; the caller's nextGain is
-    // a sanity check but the curve picker is authoritative.
     void nextGain;
-    runCrossfade(outgoing, incoming, outCurve, inCurve, outgoingPeakGain, incomingTargetGain, label);
+    runCrossfade(outgoing, incoming, outCurve, inCurve, outgoingPeakGain, incomingTargetGain, label, onFinish);
   };
 
   const start = async () => {
@@ -407,20 +414,20 @@ export default function CrossfadeTestPage() {
     if (!nx) return;
 
     if (nx.kind === 'interlude') {
-      transition('interlude', nx.gain, `interlude "${nx.label}"`);
+      // Preload archive B AFTER the archive→interlude crossfade has fully
+      // completed (outgoing paused). Doing it during the fade would set
+      // .src on the now-standby element which is STILL playing archive A,
+      // wiping its currentTime and killing archive A audio mid-fade.
+      transition('interlude', nx.gain, `interlude "${nx.label}"`, () => {
+        append('post-fade hook: preload archive B on standby');
+        preloadStandby(ARCHIVE_B_URL, 'archive B');
+      });
       setStage('interlude');
       const sig = `radio|interlude|channel radio`;
       if (sig !== lastMediaSessionSigRef.current) {
         lastMediaSessionSigRef.current = sig;
         append('mediaSession metadata <- interlude (stubbed)');
       }
-      // Preload archive B on the NEW standby. With crossfade ON this happens
-      // while the fade is in flight — the auto-pause guard is suppressed by
-      // crossfadeInFlightRef, so the preload's potential iOS auto-resume of
-      // the standby is harmless (incoming is the one being faded in).
-      // After the fade ends, the guard is re-armed and any future iOS
-      // auto-resume on standby gets caught.
-      preloadStandby(ARCHIVE_B_URL, 'archive B');
       nextItemRef.current = { url: ARCHIVE_B_URL, gain: 1, label: 'archive B', kind: 'archive' };
       // Boundary for interlude→archive: schedule fade-start at end-of-interlude.
       // With crossfade ON the fade runs from this point for CROSSFADE_MS, so
