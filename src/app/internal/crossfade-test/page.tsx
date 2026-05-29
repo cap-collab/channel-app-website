@@ -300,7 +300,10 @@ export default function CrossfadeTestPage() {
 
     const tick = (t: number) => {
       // Stale token: a newer fade has taken over. Stop ticking.
-      if (fadeTokenRef.current !== myToken) return;
+      if (fadeTokenRef.current !== myToken) {
+        append(`[tick] stale token ${myToken}≠${fadeTokenRef.current}, stopping`);
+        return;
+      }
       const elapsed = t - startedAt;
       const p = Math.min(1, elapsed / CROSSFADE_MS);
       const outV = outCurve(p) * outgoingPeakGain;
@@ -319,6 +322,7 @@ export default function CrossfadeTestPage() {
         finish('natural');
       }
     };
+    append(`scheduling rAF for token ${myToken}`);
     crossfadeRafRef.current = requestAnimationFrame(tick);
     // Watchdog: if rAF was throttled (backgrounded tab) and we missed the
     // natural finish, force the final state ~500ms after the expected end.
