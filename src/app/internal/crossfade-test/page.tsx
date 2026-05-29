@@ -439,7 +439,9 @@ export default function CrossfadeTestPage() {
   return (
     <div className="min-h-screen bg-black text-white p-8">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold mb-2">Dual-element preload + 5s gated crossfade test</h1>
+        <VolumeControlTest />
+
+        <h1 className="text-2xl font-bold mb-2 mt-12">Dual-element preload + 5s gated crossfade test</h1>
         <p className="text-zinc-400 text-sm mb-6">
           Mirrors prod (dual A/B elements, standby preload). With crossfade ON: 5s overlap with per-transition curves. The auto-pause-non-active guard is suppressed during the overlap, re-armed instantly at fade end.
         </p>
@@ -581,6 +583,101 @@ function VolumeBar({ label, vol, color }: { label: string; vol: number; color: s
         <div className={`absolute inset-y-0 left-0 ${color} transition-none`} style={{ width: `${vol * 100}%` }} />
       </div>
       <div className="w-12 text-xs font-mono text-zinc-500 text-right">{(vol * 100).toFixed(0)}%</div>
+    </div>
+  );
+}
+
+// Hypothesis test: does audio.volume actually affect audible output on iOS?
+// Theory: iOS Safari and Chrome iOS ignore programmatic volume changes on
+// <audio> elements (audio plays at full system volume regardless).
+//
+// To verify on iPhone: tap Play, then drag the slider from 1.0 down to 0.1.
+// - If you can hear the volume change → audio.volume works on this device.
+// - If audio stays at full volume regardless of slider → hypothesis confirmed,
+//   crossfades via audio.volume are impossible and we'd need Web Audio API.
+//
+// Also useful: try the HTML5 controls (native player). System volume works
+// via the system slider, programmatic volume should match.
+function VolumeControlTest() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [vol, setVol] = useState(1);
+  const [reported, setReported] = useState<number | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  const ensureAudio = () => {
+    if (audioRef.current) return audioRef.current;
+    const a = new Audio();
+    a.crossOrigin = 'anonymous';
+    a.preload = 'auto';
+    a.setAttribute('playsinline', '');
+    a.setAttribute('webkit-playsinline', '');
+    // Use the longest interlude — gives time to drag the slider.
+    a.src = INTERLUDES[1].url;
+    a.loop = true;
+    a.addEventListener('play', () => setPlaying(true));
+    a.addEventListener('pause', () => setPlaying(false));
+    audioRef.current = a;
+    return a;
+  };
+
+  const togglePlay = async () => {
+    const a = ensureAudio();
+    if (a.paused) {
+      a.volume = vol;
+      setReported(a.volume);
+      try {
+        await a.play();
+      } catch (e) {
+        console.warn('play() rejected', e);
+      }
+    } else {
+      a.pause();
+    }
+  };
+
+  const onSlide = (v: number) => {
+    setVol(v);
+    const a = audioRef.current;
+    if (a) {
+      a.volume = v;
+      // Read back what the element actually reports (some browsers clamp).
+      setReported(a.volume);
+    }
+  };
+
+  return (
+    <div className="border border-yellow-500/40 bg-yellow-500/5 p-4 mb-6">
+      <h2 className="text-lg font-bold mb-1 text-yellow-300">iOS volume control test</h2>
+      <p className="text-zinc-400 text-xs mb-3">
+        Tap Play, then drag the slider down. On desktop you&apos;ll hear the volume drop. On iOS, if you can&apos;t hear any change, <code className="text-yellow-300">audio.volume</code> is being ignored — that&apos;s why crossfades can&apos;t work without rewriting to Web Audio API.
+      </p>
+      <div className="flex items-center gap-3 mb-2">
+        <button
+          onClick={togglePlay}
+          className="px-4 py-2 bg-yellow-500 text-black font-bold hover:bg-yellow-400"
+        >
+          {playing ? 'Pause' : 'Play'}
+        </button>
+        <div className="text-xs text-zinc-400">
+          set: <span className="text-white font-mono">{vol.toFixed(2)}</span>
+          {reported !== null && (
+            <> · reported: <span className="text-white font-mono">{reported.toFixed(2)}</span></>
+          )}
+        </div>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={vol}
+        onChange={(e) => onSlide(Number(e.target.value))}
+        className="w-full"
+        aria-label="Volume"
+      />
+      <p className="text-[10px] text-zinc-500 mt-2 font-mono">
+        Source: berlin-clubs interlude (looped)
+      </p>
     </div>
   );
 }
