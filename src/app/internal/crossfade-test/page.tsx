@@ -136,15 +136,17 @@ export default function CrossfadeTestPage() {
     return { A: audioARef.current!, B: audioBRef.current! };
   };
 
-  // Preload the standby with a new URL. Same pattern as prod.
+  // Preload the standby with a new URL. Always re-set src and call .load()
+  // even if src already matches — a previous test run may have left the
+  // element at end-of-stream with the buffer evicted (readyState=1), and
+  // play() would then need to re-fetch from scratch, missing the fade start.
   const preloadStandby = (url: string, label: string) => {
     const standby = getStandby();
     if (!standby) return;
-    if (standby.src === url) {
-      append(`standby (${which(standby)}) already has ${label}`);
-      return;
-    }
     append(`standby (${which(standby)}) preload ${label}`);
+    // Reassigning the same URL forces iOS to re-fetch + buffer. Without this,
+    // the element stays in HAVE_METADATA (readyState=1) and play() at fade
+    // start kicks off the network fetch, producing silence during the ramp.
     standby.src = url;
     standby.load();
   };
