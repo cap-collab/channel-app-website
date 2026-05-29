@@ -24,6 +24,9 @@ import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchives } from '@/hooks/useArchives';
 import { useBPM } from '@/contexts/BPMContext';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useLoveHistory } from '@/hooks/useLoveHistory';
+import { useLockedInHistory } from '@/hooks/useLockedInHistory';
+import { useGoLiveMutes } from '@/hooks/useGoLiveMutes';
 import { matchesCity, SUPPORTED_CITIES } from '@/lib/city-detection';
 import { GENRE_ALIASES, SUPPORTED_GENRES, matchesGenre as matchesGenreLib } from '@/lib/genres';
 
@@ -58,6 +61,9 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
     }
   }, [mounted]);
   const { favorites, isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
+  const { loveHistory } = useLoveHistory();
+  const { lockedInDjs } = useLockedInHistory();
+  const { isMuted: isGoLiveMuted, mute: muteGoLiveDj } = useGoLiveMutes();
   const { shows: scheduleShows, irlShows: scheduleIrlShows, curatorRecs: scheduleCuratorRecs, djProfiles: scheduleDjProfiles, loading: scheduleLoading, activate: activateSchedule } = useScheduleLazy();
 
   // Activate schedule fetch: always on /explore (skipHero=true), only for
@@ -113,6 +119,30 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
   // Follow/remind state
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
+  const [removingWatchlistDj, setRemovingWatchlistDj] = useState<string | null>(null);
+
+  const handleRemoveWatchlistDj = useCallback(
+    async (profile: DJProfile) => {
+      const key = profile.username || profile.displayName;
+      if (!key) return;
+      setRemovingWatchlistDj(key);
+      try {
+        // Always mute go-live emails for this DJ — covers engagement-only
+        // cards and also ensures watchlist removal silences any future
+        // engagement-triggered notifications.
+        await muteGoLiveDj(profile.username || profile.displayName);
+        // If the DJ is in the watchlist, also drop the search-type favorite.
+        if (isInWatchlist(profile.displayName)) {
+          await removeFromWatchlist(profile.displayName);
+        } else if (isInWatchlist(profile.username)) {
+          await removeFromWatchlist(profile.username);
+        }
+      } finally {
+        setRemovingWatchlistDj(null);
+      }
+    },
+    [muteGoLiveDj, removeFromWatchlist, isInWatchlist],
+  );
 
   // Stations map for quick lookup
   const stationsMap = useMemo(() => {
@@ -386,6 +416,73 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
       s0.push({ type: 'profile', data: profile, matchLabel: undefined });
     }
 
+    // Engagement-added DJs: anyone the user has hearted or locked in with,
+    // minus those already in the watchlist (by name/username), already shown
+    // above, or muted. These cards carry the "engagement" source so the X
+    // overlay routes to a per-DJ mute rather than a watchlist deletion.
+    const watchlistUsernames = new Set<string>();
+    for (const item of s0) {
+      if (item.type === 'profile') {
+        watchlistUsernames.add(item.data.username.toLowerCase());
+        watchlistUsernames.add(item.data.displayName.toLowerCase());
+      } else if (item.type === 'radio' && item.data.dj) {
+        watchlistUsernames.add(item.data.dj.toLowerCase());
+      } else if (item.type === 'irl') {
+        if (item.data.djName) watchlistUsernames.add(item.data.djName.toLowerCase());
+        if (item.data.djUsername) watchlistUsernames.add(item.data.djUsername.toLowerCase());
+      }
+    }
+
+    // Merge heart + lock-in usernames by username, keep most-recent first.
+    const engagementByDj = new Map<string, number>(); // username → max(ts ms)
+    for (const lh of loveHistory) {
+      if (!lh.djUsername) continue;
+      const ms = lh.lastLovedAt
+        ? new Date(lh.lastLovedAt as unknown as string | number | Date).getTime()
+        : 0;
+      const prev = engagementByDj.get(lh.djUsername) ?? 0;
+      if (ms > prev) engagementByDj.set(lh.djUsername, ms);
+    }
+    for (const li of lockedInDjs) {
+      if (!li.djUsername) continue;
+      const ms = new Date(li.lastAt).getTime();
+      const prev = engagementByDj.get(li.djUsername) ?? 0;
+      if (ms > prev) engagementByDj.set(li.djUsername, ms);
+    }
+
+    const sortedEngagement = Array.from(engagementByDj.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([username]) => username);
+
+    for (const username of sortedEngagement) {
+      const lower = username.toLowerCase();
+      if (watchlistUsernames.has(lower)) continue;
+      if (isInWatchlist(username)) continue;
+      if (isGoLiveMuted(username)) continue;
+
+      // Try to enrich from the schedule's djProfiles; fall back to a
+      // synthetic profile from the love-history doc (which has photoUrl).
+      const profile = djProfiles.find(
+        (p) => p.username.toLowerCase() === lower || p.displayName.toLowerCase() === lower,
+      );
+      if (profile) {
+        s0.push({ type: 'profile', data: profile, matchLabel: undefined });
+      } else {
+        const lh = loveHistory.find((l) => l.djUsername === username);
+        s0.push({
+          type: 'profile',
+          data: {
+            username,
+            displayName: lh?.djDisplayName || username,
+            photoUrl: lh?.djPhotoUrl,
+            isChannelUser: true,
+          } as DJProfile,
+          matchLabel: undefined,
+        });
+      }
+      watchlistUsernames.add(lower);
+    }
+
     // Date boundaries for time-windowed sections
     const tomorrowEnd = new Date(now);
     tomorrowEnd.setDate(tomorrowEnd.getDate() + 2);
@@ -592,7 +689,7 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
       genreOnlineCards: newS3,
       recommendedByCards: newS4,
     };
-  }, [allShows, irlShows, curatorRecs, djProfiles, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited, favorites, user]);
+  }, [allShows, irlShows, curatorRecs, djProfiles, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited, favorites, user, loveHistory, lockedInDjs, isGoLiveMuted]);
 
   // Compute result counts for Tuner bar
   const allCardCount = todayTomorrowCards.length +
@@ -741,6 +838,8 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
       const profile = item.data;
       const following = isInWatchlist(profile.displayName) || isInWatchlist(profile.username);
       const addingFollow = addingFollowDj === profile.displayName;
+      const removing =
+        removingWatchlistDj === (profile.username || profile.displayName);
       return (
         <DJProfileCard
           key={`profile-${profile.username}-${index}`}
@@ -750,6 +849,10 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
           onFollow={() => handleUnifiedIRLFollow({ djName: profile.displayName, djUsername: profile.username } as IRLShowData)}
           matchLabel={item.matchLabel}
           watchlistMode={profileMode}
+          onRemove={
+            profileMode ? () => handleRemoveWatchlistDj(profile) : undefined
+          }
+          isRemoving={removing}
         />
       );
     }

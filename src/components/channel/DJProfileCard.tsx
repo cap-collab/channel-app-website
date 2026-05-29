@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { DJProfile } from '@/types';
+import { CardRemoveButton } from '@/components/CardRemoveButton';
 
 interface DJProfileCardProps {
   profile: DJProfile;
@@ -12,6 +13,10 @@ interface DJProfileCardProps {
   onFollow?: () => void;
   matchLabel?: string;
   watchlistMode?: boolean;
+  // Show a corner "x" to remove the card. When provided, the card renders
+  // the standard CardRemoveButton overlay and forwards clicks here.
+  onRemove?: () => void | Promise<void>;
+  isRemoving?: boolean;
 }
 
 export function DJProfileCard({
@@ -21,6 +26,8 @@ export function DJProfileCard({
   onFollow,
   matchLabel,
   watchlistMode,
+  onRemove,
+  isRemoving,
 }: DJProfileCardProps) {
   const [imageError, setImageError] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -78,9 +85,18 @@ export function DJProfileCard({
         )}
       </div>
       {/* Full width image with overlays */}
-      <Link href={href} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
-        {imageContent}
-      </Link>
+      <div className="relative">
+        <Link href={href} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+          {imageContent}
+        </Link>
+        {onRemove && (
+          <CardRemoveButton
+            onRemove={onRemove}
+            isRemoving={isRemoving}
+            ariaLabel={`Remove ${profile.displayName}`}
+          />
+        )}
+      </div>
 
       {/* Info */}
       <div className="flex flex-col justify-start py-2">

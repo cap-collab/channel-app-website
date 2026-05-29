@@ -62,6 +62,7 @@ export default function EmailSignInPage() {
           emailNotifications: {
             showStarting: true,
             watchlistMatch: true,
+            engagementGoLive: true,
           },
         });
       } else {

@@ -9,16 +9,24 @@ function UnsubscribeContent() {
   const searchParams = useSearchParams();
   const status = searchParams.get("status");
   const category = searchParams.get("category");
+  const dj = searchParams.get("dj");
   const [dismissed, setDismissed] = useState(false);
 
+  const successTitle =
+    category === "go-live" && dj
+      ? `You won't receive notifications about ${dj} anymore`
+      : "You have been unsubscribed";
+
   const successDescription =
-    category === "dj"
+    category === "go-live" && dj
+      ? `Other DJs and the rest of your Channel notifications are unchanged.`
+      : category === "dj"
       ? "You won't receive newsletter updates from Channel anymore. Your per-show and watchlist alerts are unchanged."
       : "You won't receive newsletter updates from Channel anymore.";
 
   const messages: Record<string, { title: string; description: string }> = {
     success: {
-      title: "You have been unsubscribed",
+      title: successTitle,
       description: successDescription,
     },
     not_found: {
@@ -53,7 +61,7 @@ function UnsubscribeContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
           <div className="bg-[#111] border border-white/10 rounded-lg max-w-sm w-full p-6 text-center">
             <h2 className="text-white text-lg font-semibold mb-2">
-              You have been unsubscribed
+              {successTitle}
             </h2>
             <p className="text-gray-400 text-sm mb-6">
               {successDescription}

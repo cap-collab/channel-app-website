@@ -92,7 +92,13 @@ export interface UserDocument {
     djOnline?: boolean;
     djInsiders?: boolean;
     affiliatedGoLive?: boolean;
+    engagementGoLive?: boolean;
   };
+  // chatUsernameNormalized values the user has muted from any go-live email
+  // (watchlist, favorite, affiliated, or engagement). Written by the per-DJ
+  // unsubscribe link in every go-live email and by the /explore card "x"
+  // remove action when removing an engagement-added card.
+  goLiveMutes?: string[];
   lastWatchlistEmailAt?: Date;
   lastDjOnlineEmailAt?: Record<string, number>; // { [djUserId]: timestamp }
   favoriteSceneIds?: string[]; // scene slugs the user has added to their scene watchlist

@@ -10,6 +10,7 @@ interface UserPreferences {
     showStarting: boolean;
     watchlistMatch: boolean;
     djInsiders: boolean;
+    engagementGoLive: boolean;
   };
 }
 
@@ -18,6 +19,7 @@ const defaultPreferences: UserPreferences = {
     showStarting: false,
     watchlistMatch: false,
     djInsiders: false,
+    engagementGoLive: true,
   },
 };
 
@@ -79,6 +81,7 @@ export function useUserPreferences() {
           emailNotifications: {
             showStarting: true,
             watchlistMatch: true,
+            engagementGoLive: true,
           },
         },
         { merge: true }

@@ -94,6 +94,7 @@ export function useAuth() {
                 emailNotifications: {
                   showStarting: enableNotifications,
                   watchlistMatch: enableNotifications,
+                  engagementGoLive: true,
                 },
               });
 
@@ -118,6 +119,7 @@ export function useAuth() {
                 updateData.emailNotifications = {
                   showStarting: true,
                   watchlistMatch: true,
+                  engagementGoLive: true,
                 };
               }
               await setDoc(userRef, updateData, { merge: true });
@@ -224,6 +226,7 @@ export function useAuth() {
           emailNotifications: {
             showStarting: enableNotifications,
             watchlistMatch: enableNotifications,
+            engagementGoLive: true,
           },
           // Set chatUsername from DJ broadcast flow if provided (matches iOS app field name)
           ...(djUsername && chatUsernameFields(djUsername)),
@@ -252,6 +255,7 @@ export function useAuth() {
           updateData.emailNotifications = {
             showStarting: true,
             watchlistMatch: true,
+            engagementGoLive: true,
           };
         }
         // Set chatUsername if provided and user doesn't already have one
@@ -321,6 +325,7 @@ export function useAuth() {
           emailNotifications: {
             showStarting: enableNotifications,
             watchlistMatch: enableNotifications,
+            engagementGoLive: true,
           },
           // Set chatUsername from DJ broadcast flow if provided (matches iOS app field name)
           ...(djUsername && chatUsernameFields(djUsername)),
@@ -348,6 +353,7 @@ export function useAuth() {
           updateData.emailNotifications = {
             showStarting: true,
             watchlistMatch: true,
+            engagementGoLive: true,
           };
         }
         // Set chatUsername if provided and user doesn't already have one
@@ -465,6 +471,7 @@ export function useAuth() {
         updateData.emailNotifications = {
           showStarting: true,
           watchlistMatch: true,
+          engagementGoLive: true,
         };
       }
 
@@ -481,6 +488,7 @@ export function useAuth() {
           emailNotifications: {
             showStarting: enableNotifications,
             watchlistMatch: enableNotifications,
+            engagementGoLive: true,
           },
         });
       } else {
@@ -538,6 +546,7 @@ export function useAuth() {
         emailNotifications: {
           showStarting: enableNotifications,
           watchlistMatch: enableNotifications,
+          engagementGoLive: true,
         },
       });
 
@@ -606,6 +615,7 @@ export function useAuth() {
         emailNotifications: {
           showStarting: enableNotifications,
           watchlistMatch: enableNotifications,
+          engagementGoLive: true,
         },
       });
 
@@ -644,6 +654,7 @@ export function useAuth() {
             updateData.emailNotifications = {
               showStarting: true,
               watchlistMatch: true,
+              engagementGoLive: true,
             };
           }
           if (!userSnap.exists()) {

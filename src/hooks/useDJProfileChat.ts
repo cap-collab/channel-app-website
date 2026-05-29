@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getFirestore, collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, Timestamp, doc, updateDoc, increment, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { getFirestore, collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, Timestamp, doc, updateDoc, increment, setDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { ChatMessageSerialized } from '@/types/broadcast';
@@ -288,6 +288,15 @@ export function useDJProfileChat({
           console.log('[recordLoveHistory] Writing setDoc to', loveHistoryRef.path);
           await setDoc(loveHistoryRef, data, { merge: true });
           console.log('[recordLoveHistory] SUCCESS: Wrote loveHistory for', djUsername);
+          // Re-engagement clears any prior per-DJ go-live mute so the user
+          // starts receiving go-live emails about this DJ again.
+          try {
+            await updateDoc(doc(db, 'users', userId), {
+              goLiveMutes: arrayRemove(djUsername),
+            });
+          } catch (err) {
+            console.warn('[recordLoveHistory] failed to clear goLiveMutes (non-fatal):', err);
+          }
         })().catch((err) => console.error('[recordLoveHistory] FAILED:', err.code, err.message));
       };
 
@@ -390,6 +399,13 @@ export function useDJProfileChat({
         }).catch((err) => console.error('Failed to cross-post locked in:', err));
       }
 
+      // Re-engagement clears any prior per-DJ go-live mute (fire-and-forget).
+      if (userId && djUsername) {
+        updateDoc(doc(db, 'users', userId), {
+          goLiveMutes: arrayRemove(djUsername),
+        }).catch(() => {});
+      }
+
       // Increment love count by 1 if user already has a love message (no new visible message)
       if (currentLoveMessageIdRef.current) {
         await updateDoc(
@@ -407,7 +423,7 @@ export function useDJProfileChat({
     } catch (err) {
       console.error('Failed to send locked in:', err);
     }
-  }, [username, chatUsernameNormalized, djUsername, lockedInMessagesEnabled]);
+  }, [username, chatUsernameNormalized, djUsername, lockedInMessagesEnabled, userId]);
 
   return {
     messages,

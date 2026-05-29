@@ -642,6 +642,170 @@ export async function deleteDocument(
   }
 }
 
+// Collection-group query (search all subcollections with the given name).
+// Used e.g. for "all users who hearted DJ X" via the loveHistory subcollection.
+// Returns { id, data, parentPath } so callers can recover the parent user UID.
+export async function queryCollectionGroup(
+  collectionId: string,
+  filters: Array<{ field: string; op: string; value: unknown }>,
+  limit = 1000
+): Promise<Array<{ id: string; data: Record<string, unknown>; parentPath: string }>> {
+  const token = await getAuthToken();
+  if (!token) return [];
+
+  const where = filters.length === 0
+    ? undefined
+    : filters.length === 1
+    ? {
+        fieldFilter: {
+          field: { fieldPath: filters[0].field },
+          op: filters[0].op,
+          value: jsValueToFirestore(filters[0].value),
+        },
+      }
+    : {
+        compositeFilter: {
+          op: "AND",
+          filters: filters.map(f => ({
+            fieldFilter: {
+              field: { fieldPath: f.field },
+              op: f.op,
+              value: jsValueToFirestore(f.value),
+            },
+          })),
+        },
+      };
+
+  const query = {
+    structuredQuery: {
+      from: [{ collectionId, allDescendants: true }],
+      ...(where && { where }),
+      limit,
+    },
+  };
+
+  try {
+    const response = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(query),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error(`Collection-group query ${collectionId} error:`, error);
+      return [];
+    }
+
+    const results = await response.json();
+    return results
+      .filter((r: Record<string, unknown>) => r.document)
+      .map((r: Record<string, unknown>) => {
+        const doc = r.document as { name: string; fields: Record<string, unknown> };
+        const pathParts = doc.name.split("/");
+        const id = pathParts[pathParts.length - 1];
+        // Strip the leading projects/.../documents prefix and the trailing
+        // /<collectionId>/<id> to leave the parent's document path.
+        const docsIdx = pathParts.indexOf("documents");
+        const trailing = pathParts.slice(docsIdx + 1, pathParts.length - 2);
+        const parentPath = trailing.join("/");
+        return {
+          id,
+          data: firestoreDocToObject(doc),
+          parentPath,
+        };
+      });
+  } catch (error) {
+    console.error(`Collection-group query ${collectionId} failed:`, error);
+    return [];
+  }
+}
+
+// Query a single nested subcollection at users/{userId}/{subcollection}.
+// Generalised version of getUserFavorites — works for any subcollection
+// rooted under a single parent document path.
+export async function querySubcollection(
+  parentPath: string,
+  subcollection: string,
+  filters: Array<{ field: string; op: string; value: unknown }> = [],
+  limit = 1000
+): Promise<Array<{ id: string; data: Record<string, unknown> }>> {
+  const token = await getAuthToken();
+  if (!token) return [];
+
+  const where = filters.length === 0
+    ? undefined
+    : filters.length === 1
+    ? {
+        fieldFilter: {
+          field: { fieldPath: filters[0].field },
+          op: filters[0].op,
+          value: jsValueToFirestore(filters[0].value),
+        },
+      }
+    : {
+        compositeFilter: {
+          op: "AND",
+          filters: filters.map(f => ({
+            fieldFilter: {
+              field: { fieldPath: f.field },
+              op: f.op,
+              value: jsValueToFirestore(f.value),
+            },
+          })),
+        },
+      };
+
+  const query = {
+    structuredQuery: {
+      from: [{ collectionId: subcollection }],
+      ...(where && { where }),
+      limit,
+    },
+  };
+
+  try {
+    const response = await fetch(
+      `${FIRESTORE_BASE_URL}/${parentPath}:runQuery`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(query),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error(`Subcollection query ${parentPath}/${subcollection} error:`, error);
+      return [];
+    }
+
+    const results = await response.json();
+    return results
+      .filter((r: Record<string, unknown>) => r.document)
+      .map((r: Record<string, unknown>) => {
+        const doc = r.document as { name: string; fields: Record<string, unknown> };
+        const pathParts = doc.name.split("/");
+        return {
+          id: pathParts[pathParts.length - 1],
+          data: firestoreDocToObject(doc),
+        };
+      });
+  } catch (error) {
+    console.error(`Subcollection query ${parentPath}/${subcollection} failed:`, error);
+    return [];
+  }
+}
+
 // Check if REST API is configured
 export function isRestApiConfigured(): boolean {
   return !!(

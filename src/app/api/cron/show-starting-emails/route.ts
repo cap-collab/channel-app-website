@@ -6,6 +6,8 @@ import {
   getUser,
   updateUser,
   queryCollection,
+  queryCollectionGroup,
+  querySubcollection,
   isRestApiConfigured,
 } from "@/lib/firebase-rest";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
@@ -382,6 +384,115 @@ export async function GET(request: NextRequest) {
       if (recipients.size > 0) affiliatedRecipientsByShowId.set(show.showId, recipients);
     }
 
+    // 4c. Build engagement recipient sets per Channel Radio live show.
+    //   Hearters: collection-group query on `loveHistory` where djUsername
+    //     matches the live DJ's username. Parent path yields the user UID.
+    //   Locked-in: query the DJ's chats/{slug}/messages for messageType
+    //     'lockedin' and resolve each message's `username` to a user UID via
+    //     a chatUsernameNormalized lookup map built lazily below.
+    // These run only for Channel Radio shows (`stationId === "broadcast"`)
+    // per the product decision to keep external station notifications opt-in.
+    const heartersByShowId = new Map<string, Set<string>>();
+    const lockedInByShowId = new Map<string, Set<string>>();
+
+    // Lazy username→uid resolver for listener accounts. Channel Radio
+    // listeners are not necessarily DJ-role users, so the existing djUsers
+    // map doesn't cover them. We accumulate the set of usernames we need
+    // to resolve from lock-in messages, then do a single chatUsernameNormalized
+    // pass against the users collection.
+    const lockedInUsernamesToResolve = new Set<string>();
+    const lockedInUsernamesByShowId = new Map<string, Set<string>>();
+
+    for (const show of liveShows) {
+      if (show.stationId !== "broadcast") continue;
+      if (!show.djUsername) continue;
+
+      // Hearters: who has a loveHistory doc for this DJ
+      const heartDocs = await queryCollectionGroup(
+        "loveHistory",
+        [{ field: "djUsername", op: "EQUAL", value: show.djUsername }],
+        5000,
+      );
+      const hearters = new Set<string>();
+      for (const d of heartDocs) {
+        // parentPath: "users/{uid}/loveHistory" -> split to recover the uid
+        const parts = d.parentPath.split("/");
+        // parts = ["users", "<uid>", "loveHistory"] then `loveHistory` is the
+        // collection name that the query was rooted on. The parent doc path
+        // is the leading "users/<uid>" — but our parentPath strips the
+        // trailing two segments already, so it equals "users/<uid>".
+        if (parts.length >= 2 && parts[0] === "users") {
+          hearters.add(parts[1]);
+        }
+      }
+      // Don't email the live DJ themselves; collective owners filtered later.
+      if (show.djUserId) hearters.delete(show.djUserId);
+      heartersByShowId.set(show.showId, hearters);
+
+      // Locked-in listeners for this DJ's chat. We don't know their UIDs yet
+      // — only their (normalized) chatUsername from message documents.
+      const lockedInMessages = await querySubcollection(
+        `chats/${show.djUsername}`,
+        "messages",
+        [{ field: "messageType", op: "EQUAL", value: "lockedin" }],
+        2000,
+      );
+      const usernameSet = new Set<string>();
+      for (const m of lockedInMessages) {
+        const u = (m.data.username as string | undefined) || "";
+        if (!u) continue;
+        const normalized = normalizeForLookup(u);
+        if (!normalized) continue;
+        usernameSet.add(normalized);
+        lockedInUsernamesToResolve.add(normalized);
+      }
+      lockedInUsernamesByShowId.set(show.showId, usernameSet);
+    }
+
+    // Resolve listener usernames (chatUsernameNormalized) → uids in one pass.
+    // First check the existing djNameToProfile map (covers DJ users), then
+    // for the remainder query users where chatUsernameNormalized matches.
+    const listenerUsernameToUid = new Map<string, string>();
+    lockedInUsernamesToResolve.forEach((username) => {
+      const profile = djNameToProfile.get(username);
+      if (profile?.userId) {
+        listenerUsernameToUid.set(username, profile.userId);
+      }
+    });
+    const unresolved: string[] = [];
+    lockedInUsernamesToResolve.forEach((username) => {
+      if (!listenerUsernameToUid.has(username)) unresolved.push(username);
+    });
+    // Firestore REST has no `IN` operator in our helper; do batched lookups.
+    // In practice the number of lock-in usernames per cron run is small
+    // (one DJ, ≤ a few hundred), so per-username queries are fine.
+    for (const username of unresolved) {
+      const matches = await queryUsersWhere(
+        "chatUsernameNormalized",
+        "EQUAL",
+        username,
+      );
+      if (matches.length > 0) {
+        listenerUsernameToUid.set(username, matches[0].id);
+      }
+    }
+
+    // Materialize lockedInByShowId now that uids are known.
+    lockedInUsernamesByShowId.forEach((usernameSet, showId) => {
+      const uids = new Set<string>();
+      usernameSet.forEach((username) => {
+        const uid = listenerUsernameToUid.get(username);
+        if (uid) uids.add(uid);
+      });
+      // Drop the live DJ + collective owners (matches affiliated logic).
+      const show = liveShows.find((s) => s.showId === showId);
+      if (show?.djUserId) uids.delete(show.djUserId);
+      if (show?.collectiveOwnerUserIds) {
+        show.collectiveOwnerUserIds.forEach((uid) => uids.delete(uid));
+      }
+      lockedInByShowId.set(showId, uids);
+    });
+
     // 5. Get all users with showStarting email notifications enabled
     const usersWithNotifications = await queryUsersWhere(
       "emailNotifications.showStarting",
@@ -417,10 +528,15 @@ export async function GET(request: NextRequest) {
 
       const searchTerms = searchFavorites.map((f) => (f.data.term as string) || "");
 
+      const goLiveMutes = new Set<string>(
+        (userData.goLiveMutes as string[] | undefined) || [],
+      );
+
       for (const show of liveShows) {
         // Check if user has this show favorited
         let matched = false;
         let matchedViaAffiliation = false;
+        let engagementReason: "hearted" | "lockedin" | undefined;
 
         // Check "show" type favorites (exact show name + station match)
         for (const fav of showFavorites) {
@@ -468,7 +584,33 @@ export async function GET(request: NextRequest) {
           }
         }
 
+        // Engagement fan-out (Channel Radio only): users who have hearted or
+        // locked-in with this DJ in the past, gated by the per-category opt-in
+        // emailNotifications.engagementGoLive (defaults to true).
+        if (!matched && show.stationId === "broadcast") {
+          const hearters = heartersByShowId.get(show.showId);
+          const lockedIn = lockedInByShowId.get(show.showId);
+          const isHearter = hearters?.has(userId) === true;
+          const isLockedIn = lockedIn?.has(userId) === true;
+          if (isHearter || isLockedIn) {
+            const optOut =
+              (userData.emailNotifications as Record<string, unknown> | undefined)?.engagementGoLive === false;
+            if (!optOut) {
+              matched = true;
+              engagementReason = isHearter ? "hearted" : "lockedin";
+            }
+          }
+        }
+
         if (!matched) continue;
+
+        // Universal per-DJ mute: regardless of how this user matched, if they
+        // previously clicked "Unsubscribe from {DJ}" in an email or removed
+        // an engagement-added card on /explore, skip.
+        if (show.djUsername && goLiveMutes.has(show.djUsername)) {
+          skipped++;
+          continue;
+        }
 
         // Only notify when the DJ is a Channel user (has a linked account).
         // For collectives, "Channel user" means the collective has at least
@@ -490,6 +632,7 @@ export async function GET(request: NextRequest) {
         // Send email
         const success = await sendShowStartingEmail({
           to: userEmail,
+          recipientUserId: userId,
           showName: show.name,
           djName: show.dj,
           djUsername: show.djUsername,
@@ -499,6 +642,7 @@ export async function GET(request: NextRequest) {
           stationId: show.stationId,
           streamingUrl: show.streamingUrl,
           isAffiliated: matchedViaAffiliation,
+          engagementReason,
         });
 
         if (success) {

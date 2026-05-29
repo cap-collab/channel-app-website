@@ -49,6 +49,15 @@ export function getWaitlistUnsubscribeUrl(email: string): string {
   return `https://channel-app.com/api/unsubscribe?token=${encodeURIComponent(token)}&list=waitlist`;
 }
 
+// Per-DJ "go live" mute link, used at the bottom of every show-starting email.
+// Single click → adds the DJ to the recipient's `goLiveMutes` array, no login
+// required. The token is base64(uid + ":" + djUsername) — same trust model
+// as the waitlist token (knowledge of the link = consent to act on it).
+export function getGoLiveMuteUrl(userId: string, djUsername: string): string {
+  const token = Buffer.from(`${userId}:${djUsername}`).toString("base64");
+  return `https://channel-app.com/api/go-live-mute?token=${encodeURIComponent(token)}`;
+}
+
 // Wrap email content with waitlist-specific unsubscribe footer (no account needed)
 export function wrapWaitlistEmailContent(content: string, footerText: string, email: string): string {
   const unsubscribeUrl = getWaitlistUnsubscribeUrl(email);
@@ -119,7 +128,22 @@ function minifyHtml(html: string): string {
   return html.replace(/\n\s+/g, "\n").replace(/\n+/g, "\n").trim();
 }
 
-function wrapEmailContent(content: string, footerText: string): string {
+function wrapEmailContent(
+  content: string,
+  footerText: string,
+  unsubscribeOverride?: { url: string; label: string },
+): string {
+  const unsubUrl = unsubscribeOverride?.url ?? SETTINGS_DEEP_LINK;
+  const unsubLabel = unsubscribeOverride?.label ?? "Unsubscribe";
+  return _wrapEmailContent(content, footerText, unsubUrl, unsubLabel);
+}
+
+function _wrapEmailContent(
+  content: string,
+  footerText: string,
+  unsubUrl: string,
+  unsubLabel: string,
+): string {
   return minifyHtml(`
     <!DOCTYPE html>
     <html style="background-color: #ffffff;" bgcolor="#ffffff">
@@ -159,8 +183,8 @@ function wrapEmailContent(content: string, footerText: string): string {
                   <p style="margin: 0 0 12px; font-size: 13px; color: #999;">
                     ${footerText}
                   </p>
-                  <a href="${SETTINGS_DEEP_LINK}" style="font-size: 12px; color: #999; text-decoration: underline;">
-                    Unsubscribe
+                  <a href="${unsubUrl}" style="font-size: 12px; color: #999; text-decoration: underline;">
+                    ${unsubLabel}
                   </a>
                   <!--${Date.now()}-->
                 </td>
@@ -195,6 +219,7 @@ function getEmailPhotoUrl(djUsername?: string, djPhotoUrl?: string): string | un
 
 interface ShowStartingEmailParams {
   to: string;
+  recipientUserId?: string; // For per-DJ unsubscribe link in footer
   showName: string;
   djName?: string;
   djUsername?: string; // DJ's chat username for profile link
@@ -206,10 +231,14 @@ interface ShowStartingEmailParams {
   // Recipient is on the live DJ's affiliation list (not a watchlist match).
   // Changes the footer copy; subject + body stay the same.
   isAffiliated?: boolean;
+  // Recipient was matched via past engagement (heart or lock-in) rather than
+  // a watchlist/favorite. Changes footer copy only.
+  engagementReason?: "hearted" | "lockedin";
 }
 
 export async function sendShowStartingEmail({
   to,
+  recipientUserId,
   showName,
   djName,
   djUsername,
@@ -219,6 +248,7 @@ export async function sendShowStartingEmail({
   stationId,
   streamingUrl,
   isAffiliated,
+  engagementReason,
 }: ShowStartingEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -290,18 +320,35 @@ export async function sendShowStartingEmail({
     </table>
   `;
 
+  // Per-DJ mute link in the footer applies to every recipient — one click
+  // adds this DJ to the user's goLiveMutes so they stop receiving go-live
+  // notifications for this DJ regardless of how they got matched
+  // (watchlist, favorite, affiliated, engagement).
+  const muteUrl = recipientUserId && djUsername
+    ? getGoLiveMuteUrl(recipientUserId, djUsername)
+    : undefined;
+  const muteOverride = muteUrl
+    ? { url: muteUrl, label: `Unsubscribe from ${djDisplayName}` }
+    : undefined;
+
+  const footerText = engagementReason
+    ? "You're receiving this because you engaged with that DJ in the past."
+    : isAffiliated
+    ? "You're receiving this because you're an affiliated artist."
+    : "You're receiving this because you saved this show.";
+
   try {
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
       subject: `${djUsername || djName ? djDisplayName : displayName} is live on ${stationName}`,
-      html: wrapEmailContent(
-        content,
-        isAffiliated
-          ? "You're receiving this because you're an affiliated artist."
-          : "You're receiving this because you saved this show.",
-      ),
-      headers: getUnsubscribeHeaders("alerts"),
+      html: wrapEmailContent(content, footerText, muteOverride),
+      headers: muteUrl
+        ? {
+            "List-Unsubscribe": `<${muteUrl}>`,
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+          }
+        : getUnsubscribeHeaders("alerts"),
     });
 
     if (error) {
