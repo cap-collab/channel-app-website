@@ -67,6 +67,11 @@ export default function CrossfadeTestPage() {
   const crossfadeInFlightRef = useRef(false);
   const crossfadeRafRef = useRef<number | null>(null);
   const crossfadeWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // When true, the auto-pause-non-active guard skips. Used during preload
+  // priming (we intentionally play+pause a non-active element to force the
+  // browser to actually buffer bytes; the guard would otherwise abort the
+  // play() before any bytes are fetched).
+  const primingInFlightRef = useRef(false);
   // Each fade gets a unique token. finish() checks this token before touching
   // elements — if a newer fade has already started, the old finish() is stale
   // and must NOT pause its captured `outgoing` (which may be the new fade's
@@ -118,9 +123,10 @@ export default function CrossfadeTestPage() {
     });
     a.addEventListener('play', () => {
       const isActive = a === getActive();
-      // Auto-pause-non-active guard, gated by crossfadeInFlightRef so both
-      // elements are allowed to play during the legitimate overlap.
-      if (!isActive && !crossfadeInFlightRef.current) {
+      // Auto-pause-non-active guard. Suppressed during legitimate crossfades
+      // AND during preload priming (when we intentionally play+pause-muted
+      // a non-active element to force the browser to buffer bytes).
+      if (!isActive && !crossfadeInFlightRef.current && !primingInFlightRef.current) {
         append(`${label} PLAY (non-active, guard pausing) currentTime=${a.currentTime.toFixed(2)}`);
         try { a.pause(); } catch { /* noop */ }
         return;
@@ -151,6 +157,7 @@ export default function CrossfadeTestPage() {
     standby.volume = 0;
     standby.muted = true;
     standby.load();
+    primingInFlightRef.current = true;
     try {
       await standby.play();
       standby.pause();
@@ -160,6 +167,8 @@ export default function CrossfadeTestPage() {
     } catch (e) {
       standby.muted = false;
       append(`standby preload play() rejected: ${(e as Error)?.name}`);
+    } finally {
+      primingInFlightRef.current = false;
     }
   };
 
