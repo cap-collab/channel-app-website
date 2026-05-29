@@ -156,14 +156,17 @@ export default function CrossfadeTestPage() {
     standby.src = url;
     standby.volume = 0;
     standby.muted = true;
+    append(`  prime: muted=${standby.muted} vol=${standby.volume} ct=${standby.currentTime.toFixed(3)}`);
     standby.load();
     primingInFlightRef.current = true;
     try {
       await standby.play();
+      append(`  prime: play() resolved, muted=${standby.muted} vol=${standby.volume} ct=${standby.currentTime.toFixed(3)} rs=${standby.readyState}`);
       standby.pause();
+      append(`  prime: paused, ct=${standby.currentTime.toFixed(3)}`);
       standby.currentTime = 0;
       standby.muted = false;
-      append(`standby (${which(standby)}) preload primed (readyState=${standby.readyState})`);
+      append(`standby (${which(standby)}) preload primed (readyState=${standby.readyState}, ct=${standby.currentTime.toFixed(3)})`);
     } catch (e) {
       standby.muted = false;
       append(`standby preload play() rejected: ${(e as Error)?.name}`);
@@ -252,6 +255,7 @@ export default function CrossfadeTestPage() {
     }
     const myToken = ++fadeTokenRef.current;
     append(`CROSSFADE-START outgoing=${which(outgoing)} incoming=${which(incoming)} → ${label} (token ${myToken})`);
+    append(`  fade-start: incoming muted=${incoming.muted} vol=${incoming.volume} ct=${incoming.currentTime.toFixed(3)} paused=${incoming.paused} rs=${incoming.readyState}`);
     crossfadeInFlightRef.current = true;
     try { incoming.currentTime = 0; } catch { /* noop */ }
     incoming.volume = 0;
