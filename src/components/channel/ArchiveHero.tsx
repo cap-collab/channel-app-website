@@ -1196,6 +1196,18 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             (heroIndex === 0 && !isLive) ||
             (heroIndex >= 1 && slide1Identity === 'radio')
           ) ? (
+            (() => {
+              // Interlude state mirrors GlobalBroadcastBar's radio branch:
+              // show channel branding, hide DJ-specific actions (scene glyph,
+              // profile link, love, tip — there's no DJ to send love to).
+              const isInterlude = radioCtx.currentItem?.kind === 'interstitial';
+              const radioBarTitle = isInterlude
+                ? 'interlude'
+                : (radioArchive?.showName || radioCtx.currentItem?.title || (radioCtx.ready ? 'No archive scheduled' : 'Loading…'));
+              const radioBarDjs = isInterlude
+                ? 'channel radio'
+                : (radioArchive?.djs?.map((d) => d.name).join(', ') || '');
+              return (
             <>
               {/* Radio player bar — same chrome as the archive bar (scene
                   glyph, play, scrolling text, profile, love, tip), but driven
@@ -1203,11 +1215,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   the radio is a synced schedule, not a single audio file. */}
               <div className="flex items-center gap-0.5 sm:gap-[11px] py-2 px-1">
                 <div className="flex items-center ml-1 flex-shrink-0">
-                  {radioSceneSlug && (
+                  {radioSceneSlug && !isInterlude ? (
                     <div className="w-[27px] h-[27px] flex items-center justify-center bg-white text-black flex-shrink-0">
                       <SceneGlyph slug={radioSceneSlug} className="!w-5 !h-5" />
                     </div>
-                  )}
+                  ) : isInterlude ? (
+                    // Reserve the slot during interludes so layout doesn't shift.
+                    <div className="w-[27px] h-[27px] flex-shrink-0" aria-hidden="true" />
+                  ) : null}
                   <button
                     onClick={() => {
                       if (radioCtx.stalled) { void radioCtx.play(); return; }
@@ -1234,15 +1249,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </div>
                 <div className="flex-1 min-w-0">
                   <ScrollingShowName
-                    text={radioArchive?.showName || radioCtx.currentItem?.title || (radioCtx.ready ? 'No archive scheduled' : 'Loading…')}
+                    text={radioBarTitle}
                     className="text-sm font-bold leading-tight text-white"
                   />
-                  {radioArchive?.djs?.length ? (
+                  {radioBarDjs && (
                     <ScrollingDJName
-                      text={radioArchive.djs.map((d) => d.name).join(', ')}
+                      text={radioBarDjs}
                       className="text-[10px] text-zinc-500 mt-0.5 leading-[1.3em]"
                     />
-                  ) : null}
+                  )}
                 </div>
                 {/* Pulsing red dot — same as live, marks "live audio" feel
                     on the radio (it's a synced stream, not a static archive).
@@ -1254,23 +1269,25 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-[11px] sm:w-[11px] bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
                   </span>
                 </div>
-                {radioDjUsernameNormalized && (
+                {!isInterlude && radioDjUsernameNormalized && (
                   <Link href={`/dj/${radioDjUsernameNormalized}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
                     <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                   </Link>
                 )}
-                <div className="relative flex-shrink-0">
-                  <button
-                    onClick={() => { void handleRadioLove(); }}
-                    className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
-                  >
-                    <svg key={`r-${nudgeKey}`} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${radioCtx.isPlaying && nudgeKey > 0 && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                    </svg>
-                  </button>
-                  <FloatingHearts trigger={radioHeartTrigger} />
-                </div>
-                {radioTipLink && (
+                {!isInterlude && (
+                  <div className="relative flex-shrink-0">
+                    <button
+                      onClick={() => { void handleRadioLove(); }}
+                      className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center hover:text-white/70 transition-colors text-white"
+                    >
+                      <svg key={`r-${nudgeKey}`} className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${radioCtx.isPlaying && nudgeKey > 0 && !skipNudge ? 'animate-heart-nudge' : ''}`} fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                      </svg>
+                    </button>
+                    <FloatingHearts trigger={radioHeartTrigger} />
+                  </div>
+                )}
+                {!isInterlude && radioTipLink && (
                   <TipButton
                     djUsername={radioPrimaryDj?.name || 'DJ'}
                     tipLink={radioTipLink}
@@ -1309,6 +1326,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </>
               )}
             </>
+              );
+            })()
           ) : (heroIndex === 0 && isLive) ? (
             <>
               {/* Live player bar — uses the archive-bar play size (h-[27px]
