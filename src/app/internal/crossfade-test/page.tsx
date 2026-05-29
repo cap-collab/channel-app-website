@@ -3,11 +3,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { InterludeSlide } from '@/components/channel/ArchiveHero';
 
-// Mirrors the new prod radio path: dual <audio> elements (A and B) with the
-// standby preloading the next item. At boundary: pause active, play standby,
-// swap roles. Gapless because standby is already buffered. No crossfade.
+// Mirrors the prod radio path: dual <audio> elements (A and B) with the
+// standby preloading the next item. When the crossfade toggle is OFF the
+// boundary is a hard-cut (pause active, play standby). When ON, the boundary
+// starts a 5s overlap with per-transition volume curves:
+//   archive → interlude: outgoing fades (1-p)² (fast drop), incoming peakTaper
+//   interlude → archive: outgoing fades √(1-p), incoming smoothstep
+//   (archive → archive uses equal-power √ on both sides; not exercised here.)
 //
-// Use "Force next boundary" to advance without waiting for natural duration.
+// The auto-pause-non-active guard is GATED by crossfadeInFlightRef so both
+// elements are allowed to play during the 5s overlap.
 const ARCHIVE_A_URL =
   'https://media.channel-app.com/recordings/channel-radio/channel-radio-2026-05-16T022806.mp4';
 const ARCHIVE_A_DURATION_SEC = 5512;
@@ -22,10 +27,26 @@ const INTERLUDES = [
 ];
 
 const INTERLUDE_GAIN = 0.52;
-// Seconds of archive A before the boundary fires naturally.
-const A_PRE_SEC = 8;
+const CROSSFADE_MS = 5000;
+// Seconds of archive A before the fade STARTS. With crossfade ON the fade
+// runs from A_PRE_SEC to A_PRE_SEC + 5s; with crossfade OFF the hard-cut
+// happens at A_PRE_SEC.
+const A_PRE_SEC = 10;
 
 type Stage = 'idle' | 'archive-a' | 'interlude' | 'archive-b' | 'done';
+
+// Curve fns (pure). p in [0, 1].
+const sqrt = (p: number) => Math.sqrt(p);
+const invSqrt = (p: number) => Math.sqrt(1 - p);
+const quad = (p: number) => (1 - p) * (1 - p);
+const PEAK_P = 0.4;
+const TAPER_END_FRAC = 0.77;
+const peakTaper = (p: number): number => {
+  if (p <= PEAK_P) return Math.sqrt(p / PEAK_P);
+  const tapP = (p - PEAK_P) / (1 - PEAK_P);
+  return 1 - tapP * (1 - TAPER_END_FRAC);
+};
+const smoothstep = (p: number): number => p * p * (3 - 2 * p);
 
 export default function CrossfadeTestPage() {
   const [stage, setStage] = useState<Stage>('idle');
@@ -33,15 +54,21 @@ export default function CrossfadeTestPage() {
   const [aVol, setAVol] = useState(0);
   const [bVol, setBVol] = useState(0);
   const [interludeIdx, setInterludeIdx] = useState(0);
+  const [crossfadeOn, setCrossfadeOn] = useState(true);
 
-  // Two <audio> elements that swap roles each boundary.
   const audioARef = useRef<HTMLAudioElement | null>(null);
   const audioBRef = useRef<HTMLAudioElement | null>(null);
   const activeKeyRef = useRef<'A' | 'B'>('A');
   const boundaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track the next-up item so Force-next picks the right thing.
-  const nextItemRef = useRef<{ url: string; gain: number; label: string; isInterlude: boolean } | null>(null);
-  const lastItemRef = useRef<'archive-a' | 'interlude' | 'archive-b' | null>(null);
+  const crossfadeInFlightRef = useRef(false);
+  const crossfadeRafRef = useRef<number | null>(null);
+  const crossfadeWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nextItemRef = useRef<
+    { url: string; gain: number; label: string; kind: 'archive' | 'interlude' } | null
+  >(null);
+  // Mirror prod: stub MediaSession dedupe ref so the test exercises the same
+  // surface area. We don't actually write to navigator.mediaSession here.
+  const lastMediaSessionSigRef = useRef<string | null>(null);
 
   const append = (msg: string) => {
     setLog((l) => [...l, `${new Date().toISOString().slice(11, 23)}  ${msg}`]);
@@ -50,10 +77,25 @@ export default function CrossfadeTestPage() {
   useEffect(() => {
     return () => {
       if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
+      if (crossfadeWatchdogRef.current) clearTimeout(crossfadeWatchdogRef.current);
+      if (crossfadeRafRef.current !== null) cancelAnimationFrame(crossfadeRafRef.current);
       audioARef.current?.pause();
       audioBRef.current?.pause();
     };
   }, []);
+
+  // Mirror prod: visibilitychange listener stub (no resync in the simple test).
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') append('visibilitychange → visible');
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  const getActive = () => (activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current);
+  const getStandby = () => (activeKeyRef.current === 'A' ? audioBRef.current : audioARef.current);
+  const which = (el: HTMLAudioElement) => (el === audioARef.current ? 'A' : 'B');
 
   const mkAudio = (label: string) => {
     const a = new Audio();
@@ -62,8 +104,20 @@ export default function CrossfadeTestPage() {
     a.setAttribute('playsinline', '');
     a.setAttribute('webkit-playsinline', '');
     a.addEventListener('error', () => append(`${label} ERROR ${a.error?.code} ${a.error?.message ?? ''}`));
-    a.addEventListener('pause', () => append(`${label} PAUSE currentTime=${a.currentTime.toFixed(2)} readyState=${a.readyState}`));
-    a.addEventListener('play', () => append(`${label} PLAY currentTime=${a.currentTime.toFixed(2)} readyState=${a.readyState}`));
+    a.addEventListener('pause', () => {
+      append(`${label} PAUSE currentTime=${a.currentTime.toFixed(2)} readyState=${a.readyState}`);
+    });
+    a.addEventListener('play', () => {
+      const isActive = a === getActive();
+      // Auto-pause-non-active guard, gated by crossfadeInFlightRef so both
+      // elements are allowed to play during the legitimate overlap.
+      if (!isActive && !crossfadeInFlightRef.current) {
+        append(`${label} PLAY (non-active, guard pausing) currentTime=${a.currentTime.toFixed(2)}`);
+        try { a.pause(); } catch { /* noop */ }
+        return;
+      }
+      append(`${label} PLAY currentTime=${a.currentTime.toFixed(2)} readyState=${a.readyState}`);
+    });
     return a;
   };
 
@@ -73,12 +127,7 @@ export default function CrossfadeTestPage() {
     return { A: audioARef.current!, B: audioBRef.current! };
   };
 
-  const getActive = () => (activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current);
-  const getStandby = () => (activeKeyRef.current === 'A' ? audioBRef.current : audioARef.current);
-  const which = (el: HTMLAudioElement) => (el === audioARef.current ? 'A' : 'B');
-
-  // Preload an item on the standby element. Mirrors the prod boundary effect's
-  // `standby.src = next.url; standby.load();`.
+  // Preload the standby with a new URL. Same pattern as prod.
   const preloadStandby = (url: string, label: string) => {
     const standby = getStandby();
     if (!standby) return;
@@ -91,12 +140,12 @@ export default function CrossfadeTestPage() {
     standby.load();
   };
 
-  // Boundary swap: pause active, play standby (already buffered), flip roles.
-  const swap = (nextGain: number, label: string) => {
+  // Hard-cut swap (crossfade OFF path).
+  const hardSwap = (nextGain: number, label: string) => {
     const active = getActive();
     const standby = getStandby();
     if (!active || !standby) return;
-    append(`SWAP: pause ${which(active)} @${active.currentTime.toFixed(2)}, play ${which(standby)} (${label})`);
+    append(`HARD-SWAP: pause ${which(active)} @${active.currentTime.toFixed(2)}, play ${which(standby)} (${label})`);
     try { active.pause(); } catch { /* noop */ }
     activeKeyRef.current = activeKeyRef.current === 'A' ? 'B' : 'A';
     try { standby.currentTime = 0; } catch { /* noop */ }
@@ -109,17 +158,134 @@ export default function CrossfadeTestPage() {
     }
   };
 
+  // Pick curves for a transition.
+  // Returns: outCurve(p), inCurve(p), outgoingPeakGain (cap on outgoing's
+  // starting volume), incomingTargetGain (volume to snap incoming to at end).
+  const curvesFor = (
+    outgoingKind: 'archive' | 'interlude',
+    incomingKind: 'archive' | 'interlude',
+  ): {
+    outCurve: (p: number) => number;
+    inCurve: (p: number) => number;
+    outgoingPeakGain: number;
+    incomingTargetGain: number;
+  } => {
+    if (outgoingKind === 'archive' && incomingKind === 'interlude') {
+      return { outCurve: quad, inCurve: peakTaper, outgoingPeakGain: 1, incomingTargetGain: INTERLUDE_GAIN };
+    }
+    if (outgoingKind === 'interlude' && incomingKind === 'archive') {
+      return { outCurve: invSqrt, inCurve: smoothstep, outgoingPeakGain: INTERLUDE_GAIN, incomingTargetGain: 1 };
+    }
+    // archive ↔ archive: equal-power.
+    return { outCurve: invSqrt, inCurve: sqrt, outgoingPeakGain: 1, incomingTargetGain: 1 };
+  };
+
+  // 5s overlapping crossfade. Outgoing keeps playing while incoming ramps up.
+  // Both volumes ride the curves. At end: pause outgoing, lock incoming
+  // volume at its target, clear the in-flight flag synchronously so the next
+  // preload triggers the auto-pause guard again.
+  const runCrossfade = (
+    outgoing: HTMLAudioElement,
+    incoming: HTMLAudioElement,
+    outCurve: (p: number) => number,
+    inCurve: (p: number) => number,
+    outgoingPeakGain: number,
+    incomingTargetGain: number,
+    label: string,
+  ) => {
+    append(`CROSSFADE-START outgoing=${which(outgoing)} incoming=${which(incoming)} → ${label}`);
+    crossfadeInFlightRef.current = true;
+    try { incoming.currentTime = 0; } catch { /* noop */ }
+    incoming.volume = 0;
+    // Flip active immediately so the rest of the code (and the auto-pause
+    // guard) treats the new incoming as active. Both are allowed to play
+    // during the overlap because of crossfadeInFlightRef.
+    activeKeyRef.current = activeKeyRef.current === 'A' ? 'B' : 'A';
+    const inLabel = which(incoming);
+    if (activeKeyRef.current === 'A') { setAVol(0); /* B keeps its current vol via rAF */ }
+    else { setBVol(0); }
+    const p = incoming.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch((e) => append(`incoming.play() rejected: ${(e as Error)?.name} ${(e as Error)?.message}`));
+    }
+
+    const startedAt = performance.now();
+    let lastLog = startedAt;
+    const finish = (reason: 'natural' | 'watchdog') => {
+      if (crossfadeRafRef.current !== null) {
+        cancelAnimationFrame(crossfadeRafRef.current);
+        crossfadeRafRef.current = null;
+      }
+      if (crossfadeWatchdogRef.current) {
+        clearTimeout(crossfadeWatchdogRef.current);
+        crossfadeWatchdogRef.current = null;
+      }
+      try { outgoing.pause(); } catch { /* noop */ }
+      outgoing.volume = 0;
+      incoming.volume = incomingTargetGain;
+      if (inLabel === 'A') { setAVol(incomingTargetGain); setBVol(0); }
+      else { setAVol(0); setBVol(incomingTargetGain); }
+      crossfadeInFlightRef.current = false;
+      append(`CROSSFADE-END (${reason}) — guard re-armed`);
+    };
+
+    const tick = (t: number) => {
+      const elapsed = t - startedAt;
+      const p = Math.min(1, elapsed / CROSSFADE_MS);
+      const outV = outCurve(p) * outgoingPeakGain;
+      const inV = inCurve(p) * incomingTargetGain;
+      outgoing.volume = outV;
+      incoming.volume = inV;
+      // Update UI bars.
+      if (which(outgoing) === 'A') { setAVol(outV); setBVol(inV); }
+      else { setAVol(inV); setBVol(outV); }
+      if (t - lastLog > 200) {
+        append(`[fade] p=${p.toFixed(2)} outV=${outV.toFixed(2)} inV=${inV.toFixed(2)}`);
+        lastLog = t;
+      }
+      if (p < 1) {
+        crossfadeRafRef.current = requestAnimationFrame(tick);
+      } else {
+        finish('natural');
+      }
+    };
+    crossfadeRafRef.current = requestAnimationFrame(tick);
+    // Watchdog: if rAF was throttled (backgrounded tab) and we missed the
+    // natural finish, force the final state ~500ms after the expected end.
+    crossfadeWatchdogRef.current = setTimeout(() => {
+      if (crossfadeInFlightRef.current) {
+        append('CROSSFADE-WATCHDOG triggered (rAF likely throttled)');
+        finish('watchdog');
+      }
+    }, CROSSFADE_MS + 500);
+  };
+
+  const transition = (incomingKind: 'archive' | 'interlude', nextGain: number, label: string) => {
+    const outgoing = getActive();
+    const incoming = getStandby();
+    if (!outgoing || !incoming) return;
+    if (!crossfadeOn) {
+      hardSwap(nextGain, label);
+      return;
+    }
+    // Infer the outgoing kind from what's currently the stage.
+    const outgoingKind: 'archive' | 'interlude' = stage === 'interlude' ? 'interlude' : 'archive';
+    const { outCurve, inCurve, outgoingPeakGain, incomingTargetGain } = curvesFor(outgoingKind, incomingKind);
+    // incomingTargetGain comes from the curve picker; the caller's nextGain is
+    // a sanity check but the curve picker is authoritative.
+    void nextGain;
+    runCrossfade(outgoing, incoming, outCurve, inCurve, outgoingPeakGain, incomingTargetGain, label);
+  };
+
   const start = async () => {
     setLog([]);
     activeKeyRef.current = 'A';
-    lastItemRef.current = 'archive-a';
     const interlude = INTERLUDES[interludeIdx];
-    append(`user gesture: starting (interlude="${interlude.label}")`);
+    append(`user gesture: starting (interlude="${interlude.label}", crossfade=${crossfadeOn ? 'ON' : 'OFF'})`);
 
-    const { A, B } = ensureAudio();
-    void B; // B exists for later preload
+    const { A } = ensureAudio();
     A.volume = 1;
-    B.volume = 0;
+    if (audioBRef.current) audioBRef.current.volume = 0;
     setAVol(1);
     setBVol(0);
 
@@ -130,7 +296,8 @@ export default function CrossfadeTestPage() {
       A.addEventListener('loadedmetadata', onReady);
       setTimeout(() => { A.removeEventListener('loadedmetadata', onReady); resolve(); }, 5000);
     });
-    const aSeekTarget = Math.max(0, ARCHIVE_A_DURATION_SEC - A_PRE_SEC - 1);
+    // Seek to near the end so the natural boundary fires fast.
+    const aSeekTarget = Math.max(0, ARCHIVE_A_DURATION_SEC - A_PRE_SEC - CROSSFADE_MS / 1000 - 1);
     try { A.currentTime = aSeekTarget; } catch (e) { append(`seek failed: ${e}`); }
     append(`A seeked to ${aSeekTarget.toFixed(1)}s of ${ARCHIVE_A_DURATION_SEC}s`);
     setStage('archive-a');
@@ -141,11 +308,19 @@ export default function CrossfadeTestPage() {
       return;
     }
 
-    // Preload interlude on standby (B) — same as prod does in its boundary effect.
+    // Preload interlude on standby — same as prod does in its boundary effect.
     preloadStandby(interlude.url, `interlude "${interlude.label}"`);
-    nextItemRef.current = { url: interlude.url, gain: INTERLUDE_GAIN, label: interlude.label, isInterlude: true };
+    nextItemRef.current = { url: interlude.url, gain: INTERLUDE_GAIN, label: interlude.label, kind: 'interlude' };
 
-    // Schedule natural boundary at A_PRE_SEC.
+    // Mirror prod: stub MediaSession dedupe write.
+    const sig = `radio|archive A| `;
+    if (sig !== lastMediaSessionSigRef.current) {
+      lastMediaSessionSigRef.current = sig;
+      append('mediaSession metadata <- archive A (stubbed)');
+    }
+
+    // Schedule the boundary action. With crossfade ON the fade starts at
+    // A_PRE_SEC. With it OFF, the hard-cut happens at A_PRE_SEC.
     scheduleBoundary(A_PRE_SEC * 1000);
   };
 
@@ -153,7 +328,7 @@ export default function CrossfadeTestPage() {
     if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
     append(`boundary timer set in ${(delayMs / 1000).toFixed(1)}s`);
     boundaryTimerRef.current = setTimeout(() => {
-      void advance();
+      advance();
     }, delayMs);
   };
 
@@ -164,21 +339,40 @@ export default function CrossfadeTestPage() {
     }
     const nx = nextItemRef.current;
     if (!nx) return;
-    if (nx.isInterlude) {
-      swap(nx.gain, `interlude "${nx.label}"`);
+
+    if (nx.kind === 'interlude') {
+      transition('interlude', nx.gain, `interlude "${nx.label}"`);
       setStage('interlude');
-      lastItemRef.current = 'interlude';
-      // Now preload archive B on the new standby.
+      const sig = `radio|interlude|channel radio`;
+      if (sig !== lastMediaSessionSigRef.current) {
+        lastMediaSessionSigRef.current = sig;
+        append('mediaSession metadata <- interlude (stubbed)');
+      }
+      // Preload archive B on the NEW standby. With crossfade ON this happens
+      // while the fade is in flight — the auto-pause guard is suppressed by
+      // crossfadeInFlightRef, so the preload's potential iOS auto-resume of
+      // the standby is harmless (incoming is the one being faded in).
+      // After the fade ends, the guard is re-armed and any future iOS
+      // auto-resume on standby gets caught.
       preloadStandby(ARCHIVE_B_URL, 'archive B');
-      nextItemRef.current = { url: ARCHIVE_B_URL, gain: 1, label: 'archive B', isInterlude: false };
-      scheduleBoundary((INTERLUDES[interludeIdx].durationSec - 1) * 1000);
+      nextItemRef.current = { url: ARCHIVE_B_URL, gain: 1, label: 'archive B', kind: 'archive' };
+      // Boundary for interlude→archive: schedule fade-start at end-of-interlude.
+      // With crossfade ON the fade runs from this point for CROSSFADE_MS, so
+      // we kick it CROSSFADE_MS before the interlude's natural end. With OFF
+      // we hard-cut at the natural end.
+      const interludeDurMs = INTERLUDES[interludeIdx].durationSec * 1000;
+      const fadeStartMs = crossfadeOn ? Math.max(50, interludeDurMs - CROSSFADE_MS) : interludeDurMs;
+      scheduleBoundary(fadeStartMs);
     } else {
-      swap(nx.gain, nx.label);
+      transition('archive', nx.gain, nx.label);
       setStage('archive-b');
-      lastItemRef.current = 'archive-b';
+      const sig = `radio|archive B| `;
+      if (sig !== lastMediaSessionSigRef.current) {
+        lastMediaSessionSigRef.current = sig;
+        append('mediaSession metadata <- archive B (stubbed)');
+      }
       nextItemRef.current = null;
-      append('archive B playing — test complete');
-      // After ~6s, mark done.
+      append('archive B playing — test complete (wait ~6s)');
       setTimeout(() => setStage('done'), 6000);
     }
   };
@@ -188,6 +382,15 @@ export default function CrossfadeTestPage() {
       clearTimeout(boundaryTimerRef.current);
       boundaryTimerRef.current = null;
     }
+    if (crossfadeRafRef.current !== null) {
+      cancelAnimationFrame(crossfadeRafRef.current);
+      crossfadeRafRef.current = null;
+    }
+    if (crossfadeWatchdogRef.current) {
+      clearTimeout(crossfadeWatchdogRef.current);
+      crossfadeWatchdogRef.current = null;
+    }
+    crossfadeInFlightRef.current = false;
     audioARef.current?.pause();
     audioBRef.current?.pause();
     setStage('done');
@@ -197,23 +400,35 @@ export default function CrossfadeTestPage() {
   return (
     <div className="min-h-screen bg-black text-white p-8">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold mb-2">Dual-element preload + hard-cut test</h1>
+        <h1 className="text-2xl font-bold mb-2">Dual-element preload + 5s gated crossfade test</h1>
         <p className="text-zinc-400 text-sm mb-6">
-          Mirrors the new prod radio path: two &lt;audio&gt; elements (A and B), standby preloads next item, boundary pauses active + plays standby. Gapless. No crossfade.
+          Mirrors prod (dual A/B elements, standby preload). With crossfade ON: 5s overlap with per-transition curves. The auto-pause-non-active guard is suppressed during the overlap, re-armed instantly at fade end.
         </p>
 
-        <div className="mb-4 flex items-center gap-3">
-          <label className="text-sm text-zinc-300">Interlude:</label>
-          <select
-            value={interludeIdx}
-            onChange={(e) => setInterludeIdx(Number(e.target.value))}
-            disabled={stage !== 'idle' && stage !== 'done'}
-            className="bg-zinc-900 text-white border border-white/10 px-2 py-1 text-sm font-mono disabled:opacity-50"
-          >
-            {INTERLUDES.map((it, i) => (
-              <option key={it.url} value={i}>{it.label} ({it.durationSec}s)</option>
-            ))}
-          </select>
+        <div className="mb-4 flex items-center gap-4 flex-wrap">
+          <label className="text-sm text-zinc-300 flex items-center gap-2">
+            Interlude:
+            <select
+              value={interludeIdx}
+              onChange={(e) => setInterludeIdx(Number(e.target.value))}
+              disabled={stage !== 'idle' && stage !== 'done'}
+              className="bg-zinc-900 text-white border border-white/10 px-2 py-1 text-sm font-mono disabled:opacity-50"
+            >
+              {INTERLUDES.map((it, i) => (
+                <option key={it.url} value={i}>{it.label} ({it.durationSec}s)</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-zinc-300 flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={crossfadeOn}
+              onChange={(e) => setCrossfadeOn(e.target.checked)}
+              disabled={stage !== 'idle' && stage !== 'done'}
+              className="accent-white"
+            />
+            5s crossfade
+          </label>
         </div>
 
         <div className="flex gap-3 mb-6 flex-wrap">
@@ -234,7 +449,11 @@ export default function CrossfadeTestPage() {
         </div>
 
         <div className="mb-6">
-          <div className="text-sm text-zinc-400 mb-1">Stage: <span className="text-white font-mono">{stage}</span> · active: <span className="text-white font-mono">{activeKeyRef.current}</span></div>
+          <div className="text-sm text-zinc-400 mb-1">
+            Stage: <span className="text-white font-mono">{stage}</span> · active:{' '}
+            <span className="text-white font-mono">{activeKeyRef.current}</span> ·{' '}
+            <span className="text-white font-mono">{crossfadeInFlightRef.current ? 'fading' : 'idle'}</span>
+          </div>
           <VolumeBar label="element A" vol={aVol} color="bg-blue-500" />
           <VolumeBar label="element B" vol={bVol} color="bg-green-500" />
         </div>
@@ -272,10 +491,11 @@ export default function CrossfadeTestPage() {
           <ul className="mt-2 space-y-1 font-mono">
             <li>Archive A: {ARCHIVE_A_URL}</li>
             <li>Archive A duration: {ARCHIVE_A_DURATION_SEC}s</li>
-            <li>A_PRE_SEC: {A_PRE_SEC}s</li>
+            <li>A_PRE_SEC (audible before boundary): {A_PRE_SEC}s</li>
             <li>Interlude: {INTERLUDES[interludeIdx].url}</li>
             <li>Interlude duration: {INTERLUDES[interludeIdx].durationSec}s</li>
             <li>Archive B: {ARCHIVE_B_URL}</li>
+            <li>CROSSFADE_MS: {CROSSFADE_MS}</li>
             <li>INTERLUDE_GAIN: {INTERLUDE_GAIN}</li>
           </ul>
         </details>
