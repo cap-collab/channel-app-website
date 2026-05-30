@@ -579,6 +579,14 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     items = withInterludes;
   }
 
+  // Listener-side crossfade overlap: each transition compresses the schedule
+  // by CROSSFADE_SEC because the incoming item's audio becomes audible
+  // CROSSFADE_SEC before the schedule boundary. Items are NOT shorter in
+  // playback (the file plays its full durationSec), but each item's audible
+  // tail overlaps the next item's audible head by CROSSFADE_SEC.
+  // Listener-side CROSSFADE_MS = 5000 in useArchiveRadio.ts.
+  const CROSSFADE_SEC = 5;
+
   // Optional truncation: when a maxDurationSec cap is set (because a NEXT
   // loop will truncate this one), drop items past the cap. If the natural
   // sequence is shorter than the cap, loop the catalog by repeating items
@@ -589,7 +597,8 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     let keepUntilIdx = items.length;
     for (let i = 0; i < items.length; i++) {
       if (cursor >= cap) { keepUntilIdx = i; break; }
-      cursor += items[i].durationSec;
+      const isLast = i === items.length - 1;
+      cursor += items[i].durationSec - (isLast ? 0 : CROSSFADE_SEC);
     }
     if (keepUntilIdx < items.length) {
       items = items.slice(0, keepUntilIdx);
@@ -600,25 +609,29 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
         const sep = pickInterstitial();
         if (sep) {
           items.push(sep);
-          cursor += sep.durationSec;
+          cursor += sep.durationSec - CROSSFADE_SEC;
           interstitialCount++;
         }
         for (const it of catalogTail) {
           if (cursor >= cap) break;
           items.push({ ...it });
-          cursor += it.durationSec;
+          cursor += it.durationSec - CROSSFADE_SEC;
         }
         pass++;
       }
     }
   }
 
-  // Cumulative startOffsetSec — items play back-to-back, hard-cut at each
-  // boundary. No crossfade compression.
+  // Cumulative startOffsetSec — each item starts CROSSFADE_SEC earlier than
+  // the previous one's nominal end because the listener begins fading in the
+  // next item that many seconds before the schedule boundary.
+  //   next.startOffsetSec = prev.startOffsetSec + prev.durationSec - CROSSFADE_SEC
+  // The schedule's startOffsetSec represents when the audio becomes audible.
   let totalDurationSec = 0;
   for (let i = 0; i < items.length; i++) {
     items[i].startOffsetSec = totalDurationSec;
-    totalDurationSec += items[i].durationSec;
+    const isLast = i === items.length - 1;
+    totalDurationSec += items[i].durationSec - (isLast ? 0 : CROSSFADE_SEC);
   }
 
   return {
@@ -704,20 +717,24 @@ export function findStartTimeAndSubset(
   RS.sort((a, b) => a.sum - b.sum);
   const rSums = RS.map((e) => e.sum);
 
-  // No crossfade compression: items abut. Every loop starts with an interlude
-  // (position 0), then N pre-anchor archives interleaved with N-1 interludes,
-  // then the anchor interlude. The anchor interlude's startOffsetSec is:
-  //   dur(start_int) + sum(arc) + (N-1) * avg_int
+  // Listener-side crossfade: each transition compresses the schedule by
+  // CROSSFADE_SEC. Every loop starts with an interlude (position 0), then N
+  // pre-anchor archives interleaved with N-1 interludes, then the anchor
+  // interlude. The anchor interlude's startOffsetSec is:
+  //   dur(start_int) + sum(arc) + (N-1) * avg_int - CROSSFADE_SEC * 2N
+  // (2N is the count of transitions before the anchor interlude.)
+  const CROSSFADE_SEC = 5;
   for (const l of LS) {
     for (let rCount = 0; rCount <= rightIdx.length; rCount++) {
       const combinedCount = l.count + rCount; // N = archive count
       if (combinedCount < 1) continue;
       const gapAdj = Math.max(0, combinedCount - 1) * avgInterludeSec;
+      const crossfadeAdj = 2 * combinedCount * CROSSFADE_SEC;
       // Approximate the start-interlude duration as avg (we don't know which
       // of the pool will be picked at position 0). The two-pass shift in
       // generateLoop corrects the residual.
       const startInterludeAdj = avgInterludeSec;
-      const idealRSum = (anchorEndTimeMs - midpointMs) / 1000 - l.sum - gapAdj - startInterludeAdj;
+      const idealRSum = (anchorEndTimeMs - midpointMs) / 1000 - l.sum - gapAdj - startInterludeAdj + crossfadeAdj;
       let lo = 0;
       let hi = rSums.length - 1;
       while (lo < hi) {
@@ -730,7 +747,8 @@ export function findStartTimeAndSubset(
         if (r.count !== rCount) continue;
         const actualCount = l.count + r.count;
         const actualGap = Math.max(0, actualCount - 1) * avgInterludeSec;
-        const totalSec = l.sum + r.sum + actualGap + startInterludeAdj;
+        const actualCrossfade = 2 * actualCount * CROSSFADE_SEC;
+        const totalSec = l.sum + r.sum + actualGap + startInterludeAdj - actualCrossfade;
         const startMs = anchorEndTimeMs - totalSec * 1000;
         if (startMs < windowStartMs || startMs > windowEndMs) continue;
         const dist = Math.abs(startMs - midpointMs);
