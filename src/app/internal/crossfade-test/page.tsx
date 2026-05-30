@@ -410,8 +410,19 @@ export default function CrossfadeTestPage() {
       return;
     }
 
-    // Preload interlude on standby — same as prod does in its boundary effect.
-    preloadStandby(interlude.url, `interlude "${interlude.label}"`);
+    // Preload interlude on standby — but DELAY it until ~1s before fade-start.
+    // Theory: when the prime fires too far from the active's ongoing playback
+    // (e.g. 30s before fade), iOS treats it as a divorced foreground play and
+    // ignores muted=true → interlude leaks audibly. When the prime fires
+    // close to the active (active still playing), iOS may treat it as a
+    // continuation of the same audio session and honor muted.
+    // Fade-start is at A_PRE_SEC * 1000 = 10000ms. Prime fires at 9000ms.
+    const PRIME_LEAD_MS = 1000;
+    const primeAt = Math.max(50, A_PRE_SEC * 1000 - PRIME_LEAD_MS);
+    append(`prime scheduled in ${(primeAt / 1000).toFixed(1)}s (${PRIME_LEAD_MS / 1000}s before fade-start)`);
+    setTimeout(() => {
+      void preloadStandby(interlude.url, `interlude "${interlude.label}"`);
+    }, primeAt);
     nextItemRef.current = { url: interlude.url, gain: INTERLUDE_GAIN, label: interlude.label, kind: 'interlude' };
 
     // Mirror prod: stub MediaSession dedupe write.
@@ -443,14 +454,12 @@ export default function CrossfadeTestPage() {
     if (!nx) return;
 
     if (nx.kind === 'interlude') {
-      // Preload archive B AFTER the archive→interlude crossfade has fully
-      // completed (outgoing paused). Doing it during the fade would set
-      // .src on the now-standby element which is STILL playing archive A,
-      // wiping its currentTime and killing archive A audio mid-fade.
-      transition('interlude', nx.gain, `interlude "${nx.label}"`, () => {
-        append('post-fade hook: preload archive B on standby');
-        preloadStandby(ARCHIVE_B_URL, 'archive B');
-      });
+      // Don't preload archive B inside the onFinish callback (would be too
+      // close to fade-1's pause of standby's old src). Instead, schedule the
+      // archive-B prime to fire 1s BEFORE fade-2's start. Same coupling
+      // principle as the first prime: tight coupling to ongoing audio
+      // activity should keep iOS honoring muted.
+      transition('interlude', nx.gain, `interlude "${nx.label}"`);
       setStage('interlude');
       const sig = `radio|interlude|channel radio`;
       if (sig !== lastMediaSessionSigRef.current) {
@@ -464,6 +473,13 @@ export default function CrossfadeTestPage() {
       // we hard-cut at the natural end.
       const interludeDurMs = INTERLUDES[interludeIdx].durationSec * 1000;
       const fadeStartMs = crossfadeOn ? Math.max(50, interludeDurMs - CROSSFADE_MS) : interludeDurMs;
+      // Schedule archive-B prime 1s before fade-2's start.
+      const PRIME_LEAD_MS = 1000;
+      const primeAt = Math.max(50, fadeStartMs - PRIME_LEAD_MS);
+      append(`archive-B prime scheduled in ${(primeAt / 1000).toFixed(1)}s (${PRIME_LEAD_MS / 1000}s before fade-2 start)`);
+      setTimeout(() => {
+        void preloadStandby(ARCHIVE_B_URL, 'archive B');
+      }, primeAt);
       scheduleBoundary(fadeStartMs);
     } else {
       transition('archive', nx.gain, nx.label);
