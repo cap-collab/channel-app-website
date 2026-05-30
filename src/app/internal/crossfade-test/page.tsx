@@ -155,21 +155,47 @@ export default function CrossfadeTestPage() {
     return { A: audioARef.current!, B: audioBRef.current! };
   };
 
-  // Preload the standby — plain .src + .load(), NO play+pause prime.
-  // Testing hypothesis: maybe browsers (and iOS specifically) actually do
-  // download enough audio with just .load() and preload="auto", given enough
-  // lead time. The prime was added to force the fetch but it leaks audibly
-  // on iOS for small files. If plain load() works, drop the prime entirely.
-  const preloadStandby = async (url: string, label: string) => {
+  // Preload the standby. Split by item kind:
+  //   - Interludes (small files ~100-250KB): plain .src + .load(), NO prime.
+  //     The prime leaks audibly on iOS because tiny files decode faster than
+  //     our pause() lands. .load() with preload="auto" and 1s lead time
+  //     should fetch them in time on any reasonable network.
+  //   - Archives (large files ~50-100MB): keep the play+pause-muted prime.
+  //     iOS lazy-fetches without it, so fade starts silent for several
+  //     seconds. The prime doesn't leak audibly here because decode warmup
+  //     is slower than our pause() lands.
+  const preloadStandby = async (url: string, label: string, kind: 'archive' | 'interlude') => {
     const standby = getStandby();
     if (!standby) return;
-    append(`standby (${which(standby)}) preload ${label} (no prime, plain .src + .load())`);
+    if (kind === 'interlude') {
+      append(`standby (${which(standby)}) preload ${label} (interlude — no prime)`);
+      standby.src = url;
+      standby.volume = 0;
+      standby.muted = false;
+      standby.preload = 'auto';
+      standby.load();
+      append(`standby (${which(standby)}) after .load(): readyState=${standby.readyState}`);
+      return;
+    }
+    // Archive path: full prime.
+    append(`standby (${which(standby)}) preload ${label} (archive — prime)`);
     standby.src = url;
     standby.volume = 0;
-    standby.muted = false;
-    standby.preload = 'auto';
+    standby.muted = true;
     standby.load();
-    append(`standby (${which(standby)}) after .load(): readyState=${standby.readyState}`);
+    primingInFlightRef.current = true;
+    try {
+      await standby.play();
+      standby.pause();
+      standby.currentTime = 0;
+      standby.muted = false;
+      append(`standby (${which(standby)}) archive prime done (rs=${standby.readyState})`);
+    } catch (e) {
+      standby.muted = false;
+      append(`archive prime play() rejected: ${(e as Error)?.name}`);
+    } finally {
+      primingInFlightRef.current = false;
+    }
   };
 
   // Hard-cut swap (crossfade OFF path).
@@ -405,7 +431,7 @@ export default function CrossfadeTestPage() {
     const primeAt = Math.max(50, A_PRE_SEC * 1000 - PRIME_LEAD_MS);
     append(`prime scheduled in ${(primeAt / 1000).toFixed(1)}s (${PRIME_LEAD_MS / 1000}s before fade-start)`);
     setTimeout(() => {
-      void preloadStandby(interlude.url, `interlude "${interlude.label}"`);
+      void preloadStandby(interlude.url, `interlude "${interlude.label}"`, 'interlude');
     }, primeAt);
     nextItemRef.current = { url: interlude.url, gain: INTERLUDE_GAIN, label: interlude.label, kind: 'interlude' };
 
@@ -462,7 +488,7 @@ export default function CrossfadeTestPage() {
       const primeAt = Math.max(50, fadeStartMs - PRIME_LEAD_MS);
       append(`archive-B prime scheduled in ${(primeAt / 1000).toFixed(1)}s (${PRIME_LEAD_MS / 1000}s before fade-2 start)`);
       setTimeout(() => {
-        void preloadStandby(ARCHIVE_B_URL, 'archive B');
+        void preloadStandby(ARCHIVE_B_URL, 'archive B', 'archive');
       }, primeAt);
       scheduleBoundary(fadeStartMs);
     } else {
