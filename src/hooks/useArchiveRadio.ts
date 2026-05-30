@@ -562,13 +562,31 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
 
   // Boundary effect: schedule the fade-start CROSSFADE_MS before the
   // current item's audible end. Preloads `next` on the standby; fires the
-  // 5s crossfade at the right moment. Post-fade onFinish preloads the
-  // item-after-next so the NEXT crossfade has its bytes ready.
+  // 5s crossfade at the right moment. Post-fade onFinish updates the
+  // playingKey; the next pass of this effect picks up the new `current`.
+  //
+  // CRITICAL: this effect MUST NOT re-run every nowMs tick (1 Hz). Each
+  // re-run computes `delay = fadeStartMs - Date.now()`, and once we're
+  // past fadeStartMs (during the in-flight fade and until `current`
+  // flips), that becomes negative → clamped to MIN_BOUNDARY_LEAD_MS=50ms
+  // → boundary timer re-fires every 50ms → runCrossfade called over and
+  // over → incoming.currentTime=0 + incoming.play() repeatedly →
+  // "0.25s repeating he-he-he" sound the user reported.
+  //
+  // Solution: depend on stable IDENTIFIERS of current/next, not the
+  // objects themselves. `current` is a useMemo that returns a new object
+  // each nowMs tick even when the underlying item hasn't changed. By
+  // keying on currentKey/nextKey/loop.startTimeMs strings, the effect
+  // re-runs ONLY when the schedule actually advances (boundary crossed)
+  // or the loop doc itself changes (admin regen, cron rollover).
+  // This mirrors the test page, where there is no 1 Hz ticker at all.
+  const currentKey = current ? itemKey(current.loop, current.index, current.item) : null;
+  const nextKey = next ? itemKey(next.loop, next.index, next.item) : null;
+  const currentLoopStartMs = current?.loop.startTimeMs ?? null;
+
   useEffect(() => {
     if (!opts.active || !isPlaying) return;
-    if (!current || !next) return;
-
-    const nextKey = itemKey(next.loop, next.index, next.item);
+    if (!current || !next || !currentKey || !nextKey) return;
 
     // Boundary in clock-time = current item's audible end. The crossfade
     // starts CROSSFADE_MS before that. Schedule offsets in Firestore are
@@ -593,11 +611,9 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     const preloadDelay = Math.max(0, Math.max(idealPreloadAt, earliestPreloadAt) - Date.now());
 
     if (preloadedNextKeyRef.current !== nextKey) {
+      preloadedNextKeyRef.current = nextKey;
       if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current);
       preloadTimerRef.current = setTimeout(() => {
-        // Mark as preloaded BEFORE calling the async preloadStandby so a
-        // re-run of this effect doesn't double-fire.
-        preloadedNextKeyRef.current = nextKey;
         void preloadStandby(next.item.recordingUrl);
       }, preloadDelay);
     }
@@ -628,7 +644,12 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
         preloadTimerRef.current = null;
       }
     };
-  }, [current, next, isPlaying, opts.active, getActive, getStandby, itemKey, preloadStandby, runCrossfade]);
+    // Effect re-runs ONLY when the schedule advances (currentKey/nextKey
+    // change) or the loop doc itself changes (currentLoopStartMs change).
+    // It deliberately does NOT depend on `current`/`next` object refs (which
+    // change every nowMs tick) — see the long comment above the keys.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentKey, nextKey, currentLoopStartMs, isPlaying, opts.active]);
 
   // Belt-and-suspenders ensure-next-loop trigger.
   useEffect(() => {
