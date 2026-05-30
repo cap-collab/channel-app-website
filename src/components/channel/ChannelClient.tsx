@@ -340,7 +340,12 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
     return out;
   }, [favorites, loveHistory, lockedInDjs, isGoLiveMuted]);
 
-  // Compute all sections with deduplication
+  // Compute all sections with deduplication.
+  // Short-circuit on home `/` (neither sceneMode nor skipHero) — none of
+  // these outputs are consumed there (watchlist carousel was removed and
+  // the discovery carousels only render inside the `{skipHero && ...}`
+  // block). Computing them on `/` is wasted work.
+  const sectionsActive = sceneMode || skipHero;
   const {
     favoritesNowLive,
     todayTomorrowCards,
@@ -348,6 +353,15 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
     genreOnlineCards,
     recommendedByCards,
   } = useMemo(() => {
+    if (!sectionsActive) {
+      return {
+        favoritesNowLive: [] as MatchedItem[],
+        todayTomorrowCards: [] as MatchedItem[],
+        nextWeekCards: [] as MatchedItem[],
+        genreOnlineCards: [] as MatchedItem[],
+        recommendedByCards: [] as RecommendedItem[],
+      };
+    }
     const isAnywhere = !selectedCity || selectedCity === 'Anywhere';
     const hasGenreFilter = selectedGenres.length > 0;
     const now = new Date();
@@ -757,7 +771,7 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
       genreOnlineCards: newS3,
       recommendedByCards: newS4,
     };
-  }, [allShows, irlShows, curatorRecs, djProfiles, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited, favorites, user, loveHistory, lockedInDjs, isGoLiveMuted]);
+  }, [sectionsActive, allShows, irlShows, curatorRecs, djProfiles, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited, favorites, user, loveHistory, lockedInDjs, isGoLiveMuted]);
 
   // SUGGESTED items for /scene: related DJs (affiliation crew + Audience)
   // of every DJ already in the user's watchlist, plus an empty-state fallback
@@ -1331,27 +1345,10 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
         </section>
       )}
 
-      {/* Original home `/` watchlist carousel + /explore search bar — only
-          when NOT in sceneMode. Keeps `/` and any other caller untouched. */}
-      {!sceneMode && mounted && !(isBroadcastLive && isBroadcastStreaming) && favoritesNowLive.length > 0 && (
-        <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">
-          <div className="max-w-7xl mx-auto">
-            <h2 className="text-2xl md:text-3xl font-semibold mb-3">On your watchlist</h2>
-            <SwipeableCardCarousel>
-              {favoritesNowLive.map((item, index) => renderCard(item, index, true))}
-            </SwipeableCardCarousel>
-          </div>
-        </section>
-      )}
-
-      {/* Search bar + filter (only on /explore — back-compat path) */}
-      {!sceneMode && exploreSearchBar && (
-        <section className="px-4 md:px-8 pt-4 pb-0 relative z-10">
-          <div className="max-w-7xl mx-auto">
-            {exploreSearchBar}
-          </div>
-        </section>
-      )}
+      {/* Note: the legacy "On your watchlist" carousel on `/` was removed —
+          watchlist lives only on /scene now. The `exploreSearchBar` prop is
+          also retired since /explore redirects to /scene; the SceneClient
+          uses topSearchSlot + discoveryFiltersSlot instead. */}
 
       {skipHero && (
       <div className="px-4 md:px-8 flex-1 w-full flex flex-col">
