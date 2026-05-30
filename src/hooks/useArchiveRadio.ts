@@ -440,16 +440,28 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     }
   }, [isPlaying, pause, play]);
 
-  // Preload the standby element with `next.item`. Uses the test page's
-  // proven priming pattern: assign src, briefly play+pause muted to force
-  // iOS to buffer bytes (preload="auto" + .load() are HINTS on iOS that
-  // the browser often defers until play() is called — which would leave
-  // the first ~seconds of the fade silent while the network fetch runs).
-  // The auto-pause-non-active guard is suppressed by primingInFlightRef
-  // during the prime so it doesn't fight us.
-  const preloadStandby = useCallback(async (url: string) => {
+  // Preload the standby element. Split by kind to match the verified
+  // test-page pattern:
+  //   - Interlude (small file ~100-250KB): plain .src + .load(), NO prime.
+  //     The prime's play() leaks audibly on iOS because tiny files decode
+  //     faster than our pause() lands. .load() + preload="auto" with a few
+  //     seconds lead is enough for the browser to fetch.
+  //   - Archive (large file ~50-100MB): play+pause-muted prime. iOS lazy-
+  //     fetches without it, so fade starts silent for several seconds. The
+  //     prime doesn't leak audibly here — large files take long enough to
+  //     decode that no audible output happens before our pause() lands.
+  const preloadStandby = useCallback(async (url: string, kind: ScheduleItem['kind']) => {
     const standby = getStandby();
     if (!standby) return;
+    if (kind === 'interstitial') {
+      standby.src = url;
+      standby.volume = 0;
+      standby.muted = false;
+      standby.preload = 'auto';
+      standby.load();
+      return;
+    }
+    // archive: full prime
     standby.src = url;
     standby.volume = 0;
     standby.muted = true;
@@ -595,27 +607,17 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     const boundaryMs = current.loop.startTimeMs + (current.item.startOffsetSec + current.item.durationSec) * 1000;
     const fadeStartMs = boundaryMs - CROSSFADE_MS;
 
-    // Standby preload — scheduled SEPARATELY from the boundary timer and
-    // delayed off the user gesture chain. iOS treats a play() (even muted)
-    // on the standby element as audible when it happens within a few
-    // hundred ms of the active's gesture-driven play. We want the standby
-    // primed (buffer warm) by fade-start, but NOT during the gesture.
-    //   - Fire at fade-start - PRELOAD_LEAD_MS, but never sooner than
-    //     PRELOAD_MIN_DELAY_MS after this effect runs.
-    //   - For short items (interludes ~20s), the boundary fires quickly
-    //     so we may not have 30s. Cap by item.durationSec / 3 then.
-    const PRELOAD_LEAD_MS = 30_000;
-    const PRELOAD_MIN_DELAY_MS = 1500;
-    const idealPreloadAt = fadeStartMs - PRELOAD_LEAD_MS;
-    const earliestPreloadAt = Date.now() + PRELOAD_MIN_DELAY_MS;
-    const preloadDelay = Math.max(0, Math.max(idealPreloadAt, earliestPreloadAt) - Date.now());
-
+    // Preload `next` on the standby. Both kinds preload here when this
+    // effect runs (which is only at boundaries thanks to our key-stable
+    // deps). The kind-split happens INSIDE preloadStandby:
+    //   - Interlude: plain .src + .load(), no prime
+    //   - Archive: .src + .load() + play+pause-muted prime
+    // The onFinish callback below ALSO preloads the item-after-next, so
+    // by the time we hit the next boundary's effect run, that item is
+    // already preloaded and preloadedNextKeyRef will short-circuit here.
     if (preloadedNextKeyRef.current !== nextKey) {
       preloadedNextKeyRef.current = nextKey;
-      if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current);
-      preloadTimerRef.current = setTimeout(() => {
-        void preloadStandby(next.item.recordingUrl);
-      }, preloadDelay);
+      void preloadStandby(next.item.recordingUrl, next.item.kind);
     }
 
     const delay = Math.max(MIN_BOUNDARY_LEAD_MS, fadeStartMs - Date.now());
@@ -628,9 +630,17 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       runCrossfade(outgoing, incoming, outCurve, inCurve, outgoingPeakGain, incomingTargetGain, () => {
         // Post-fade: incoming is now active.
         playingKeyRef.current = nextKey;
-        // The item-AFTER-next will be preloaded by the next pass of this
-        // effect (when `current` flips to what was `next` and `next` flips
-        // to afterNext). No explicit chained preload needed.
+        // Preload the item-AFTER-next here. This runs synchronously in
+        // the rAF's natural finish callback — same coupling pattern as
+        // the test page. For archive after-next we use the prime; for
+        // interlude we use plain .load(). The just-now-standby element
+        // is paused and quiet, safe to reassign src.
+        const afterNext = getNext({ loop: next.loop, index: next.index }, nextLoop);
+        if (!afterNext) return;
+        const afterKey = itemKey(afterNext.loop, afterNext.index, afterNext.item);
+        if (preloadedNextKeyRef.current === afterKey) return;
+        preloadedNextKeyRef.current = afterKey;
+        void preloadStandby(afterNext.item.recordingUrl, afterNext.item.kind);
       });
     }, delay);
 
@@ -638,10 +648,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       if (boundaryTimerRef.current) {
         clearTimeout(boundaryTimerRef.current);
         boundaryTimerRef.current = null;
-      }
-      if (preloadTimerRef.current) {
-        clearTimeout(preloadTimerRef.current);
-        preloadTimerRef.current = null;
       }
     };
     // Effect re-runs ONLY when the schedule advances (currentKey/nextKey
