@@ -155,37 +155,21 @@ export default function CrossfadeTestPage() {
     return { A: audioARef.current!, B: audioBRef.current! };
   };
 
-  // Preload the standby. iOS treats preload="auto" + .load() as hints, not
-  // commands — the browser often defers the fetch until play() is called,
-  // which means the first ~seconds of audio after fade-start are silent
-  // while the network round-trip happens. Force the fetch by briefly
-  // play()+pause()ing the element muted: that commits the browser to
-  // buffering, and the pause prevents any audible playback. By the time
-  // the real boundary fires, the buffer is ready and the fade is audible.
+  // Preload the standby — plain .src + .load(), NO play+pause prime.
+  // Testing hypothesis: maybe browsers (and iOS specifically) actually do
+  // download enough audio with just .load() and preload="auto", given enough
+  // lead time. The prime was added to force the fetch but it leaks audibly
+  // on iOS for small files. If plain load() works, drop the prime entirely.
   const preloadStandby = async (url: string, label: string) => {
     const standby = getStandby();
     if (!standby) return;
-    append(`standby (${which(standby)}) preload ${label}`);
+    append(`standby (${which(standby)}) preload ${label} (no prime, plain .src + .load())`);
     standby.src = url;
     standby.volume = 0;
-    standby.muted = true;
-    append(`  prime: muted=${standby.muted} vol=${standby.volume} ct=${standby.currentTime.toFixed(3)}`);
+    standby.muted = false;
+    standby.preload = 'auto';
     standby.load();
-    primingInFlightRef.current = true;
-    try {
-      await standby.play();
-      append(`  prime: play() resolved, muted=${standby.muted} vol=${standby.volume} ct=${standby.currentTime.toFixed(3)} rs=${standby.readyState}`);
-      standby.pause();
-      append(`  prime: paused, ct=${standby.currentTime.toFixed(3)}`);
-      standby.currentTime = 0;
-      standby.muted = false;
-      append(`standby (${which(standby)}) preload primed (readyState=${standby.readyState}, ct=${standby.currentTime.toFixed(3)})`);
-    } catch (e) {
-      standby.muted = false;
-      append(`standby preload play() rejected: ${(e as Error)?.name}`);
-    } finally {
-      primingInFlightRef.current = false;
-    }
+    append(`standby (${which(standby)}) after .load(): readyState=${standby.readyState}`);
   };
 
   // Hard-cut swap (crossfade OFF path).
