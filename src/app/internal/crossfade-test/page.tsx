@@ -24,7 +24,7 @@ const ARCHIVE_B_URL =
   'https://media.channel-app.com/recordings/channel-radio/channel-radio-2026-05-08T230009.mp4';
 
 const INTERLUDES = [
-  { label: 'berlin clubs short 2', durationSec: 12, url: '/interludes/berlin-clubs-short-2.m4a' },
+  { label: 'berlin clubs', durationSec: 18, url: 'https://media.channel-app.com/interludes/berlin-clubs-1780101591578.m4a' },
   { label: 'weed convo birds', durationSec: 24, url: 'https://media.channel-app.com/interludes/weed-convo-birds-1779973930315.m4a' },
   { label: 'toilet therapist', durationSec: 23, url: 'https://media.channel-app.com/interludes/toilet-therapist-1779907421108.m4a' },
   { label: 'water refill smoking area', durationSec: 20, url: 'https://media.channel-app.com/interludes/water-refill-smoking-area-1779973923793.m4a' },
