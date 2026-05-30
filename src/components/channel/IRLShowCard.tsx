@@ -48,8 +48,13 @@ export function IRLShowCard({
           </svg>
           IRL
         </span>
-        <span className="text-[10px] font-mono text-white uppercase tracking-tighter drop-shadow-lg">
-          {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+        <span className="text-[10px] font-mono text-white uppercase tracking-tighter drop-shadow-lg whitespace-nowrap">
+          <span className="md:hidden">
+            {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </span>
+          <span className="hidden md:inline">
+            {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+          </span>
         </span>
       </div>
       {/* DJ name, genre, city - bottom left */}

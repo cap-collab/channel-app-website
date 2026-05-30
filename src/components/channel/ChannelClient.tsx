@@ -871,7 +871,10 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
         const profile = djByNorm.get(norm(show.dj));
         if (!profile || !profile.userId || seen.has(profile.userId)) continue;
         seen.add(profile.userId);
-        candidates.push({ profile, bridge: 'Channel pick' });
+        // Empty-state suggestions have no bridge — these are surfacing
+        // for users without watchlist/heart/stream history, so we render
+        // a plain "Suggested" banner with no "Similar to" attribution.
+        candidates.push({ profile, bridge: '' });
         if (candidates.length >= 6) break;
       }
     }

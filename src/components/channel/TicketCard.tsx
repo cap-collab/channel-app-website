@@ -62,8 +62,13 @@ export function TicketCard({
           </svg>
           Online
         </span>
-        <span className="text-[10px] font-mono text-white uppercase tracking-tighter drop-shadow-lg">
-          {new Date(show.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(show.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+        <span className="text-[10px] font-mono text-white uppercase tracking-tighter drop-shadow-lg whitespace-nowrap">
+          <span className="md:hidden">
+            {new Date(show.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {new Date(show.startTime).toLocaleTimeString('en-US', { hour: 'numeric' })}
+          </span>
+          <span className="hidden md:inline">
+            {new Date(show.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {new Date(show.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+          </span>
         </span>
       </div>
       {/* DJ Name, Genre, Location - bottom left */}
