@@ -277,6 +277,10 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   const crossfadeRafRef = useRef<number | null>(null);
   const crossfadeWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fadeTokenRef = useRef(0);
+  // Separate timer for the standby preload-prime. Kept off the play() gesture
+  // chain — iOS plays the standby audibly (ignoring muted=true) when the
+  // prime fires too close to the user gesture that started the active.
+  const preloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const attachStateListeners = useCallback((el: HTMLAudioElement) => {
     el.addEventListener('pause', () => {
@@ -407,6 +411,10 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     if (boundaryTimerRef.current) {
       clearTimeout(boundaryTimerRef.current);
       boundaryTimerRef.current = null;
+    }
+    if (preloadTimerRef.current) {
+      clearTimeout(preloadTimerRef.current);
+      preloadTimerRef.current = null;
     }
     // Cancel any in-flight crossfade so a future resume starts clean.
     if (crossfadeRafRef.current !== null) {
@@ -561,14 +569,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     if (!current || !next) return;
 
     const nextKey = itemKey(next.loop, next.index, next.item);
-    // Preload the next item NOW (async; runs in background while current
-    // item still plays). Don't await — we want the boundary timer to
-    // schedule on synchronous time. By the time the fade-start fires, the
-    // standby is buffered.
-    if (preloadedNextKeyRef.current !== nextKey) {
-      preloadedNextKeyRef.current = nextKey;
-      void preloadStandby(next.item.recordingUrl);
-    }
 
     // Boundary in clock-time = current item's audible end. The crossfade
     // starts CROSSFADE_MS before that. Schedule offsets in Firestore are
@@ -576,6 +576,32 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     // + item.duration IS the audible end moment.
     const boundaryMs = current.loop.startTimeMs + (current.item.startOffsetSec + current.item.durationSec) * 1000;
     const fadeStartMs = boundaryMs - CROSSFADE_MS;
+
+    // Standby preload — scheduled SEPARATELY from the boundary timer and
+    // delayed off the user gesture chain. iOS treats a play() (even muted)
+    // on the standby element as audible when it happens within a few
+    // hundred ms of the active's gesture-driven play. We want the standby
+    // primed (buffer warm) by fade-start, but NOT during the gesture.
+    //   - Fire at fade-start - PRELOAD_LEAD_MS, but never sooner than
+    //     PRELOAD_MIN_DELAY_MS after this effect runs.
+    //   - For short items (interludes ~20s), the boundary fires quickly
+    //     so we may not have 30s. Cap by item.durationSec / 3 then.
+    const PRELOAD_LEAD_MS = 30_000;
+    const PRELOAD_MIN_DELAY_MS = 1500;
+    const idealPreloadAt = fadeStartMs - PRELOAD_LEAD_MS;
+    const earliestPreloadAt = Date.now() + PRELOAD_MIN_DELAY_MS;
+    const preloadDelay = Math.max(0, Math.max(idealPreloadAt, earliestPreloadAt) - Date.now());
+
+    if (preloadedNextKeyRef.current !== nextKey) {
+      if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current);
+      preloadTimerRef.current = setTimeout(() => {
+        // Mark as preloaded BEFORE calling the async preloadStandby so a
+        // re-run of this effect doesn't double-fire.
+        preloadedNextKeyRef.current = nextKey;
+        void preloadStandby(next.item.recordingUrl);
+      }, preloadDelay);
+    }
+
     const delay = Math.max(MIN_BOUNDARY_LEAD_MS, fadeStartMs - Date.now());
     if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
     boundaryTimerRef.current = setTimeout(() => {
@@ -584,18 +610,11 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       if (!outgoing || !incoming) return;
       const { outCurve, inCurve, outgoingPeakGain, incomingTargetGain } = curvesFor(current.item.kind, next.item.kind);
       runCrossfade(outgoing, incoming, outCurve, inCurve, outgoingPeakGain, incomingTargetGain, () => {
-        // Post-fade: incoming is now active. playingKeyRef should reflect it.
+        // Post-fade: incoming is now active.
         playingKeyRef.current = nextKey;
-        // Preload the item AFTER `next` so the next crossfade has its
-        // bytes ready. Compute it by walking the schedule one item past
-        // `next`. If we can't resolve it (end-of-loop with no next loop
-        // doc), skip — boundary effect will re-run and try again.
-        const afterNext = getNext({ loop: next.loop, index: next.index }, nextLoop);
-        if (!afterNext) return;
-        const afterKey = itemKey(afterNext.loop, afterNext.index, afterNext.item);
-        if (preloadedNextKeyRef.current === afterKey) return;
-        preloadedNextKeyRef.current = afterKey;
-        void preloadStandby(afterNext.item.recordingUrl);
+        // The item-AFTER-next will be preloaded by the next pass of this
+        // effect (when `current` flips to what was `next` and `next` flips
+        // to afterNext). No explicit chained preload needed.
       });
     }, delay);
 
@@ -604,8 +623,12 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
         clearTimeout(boundaryTimerRef.current);
         boundaryTimerRef.current = null;
       }
+      if (preloadTimerRef.current) {
+        clearTimeout(preloadTimerRef.current);
+        preloadTimerRef.current = null;
+      }
     };
-  }, [current, next, isPlaying, opts.active, getActive, getStandby, itemKey, preloadStandby, runCrossfade, nextLoop]);
+  }, [current, next, isPlaying, opts.active, getActive, getStandby, itemKey, preloadStandby, runCrossfade]);
 
   // Belt-and-suspenders ensure-next-loop trigger.
   useEffect(() => {
@@ -707,6 +730,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   useEffect(() => {
     return () => {
       if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
+      if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current);
       if (crossfadeRafRef.current !== null) cancelAnimationFrame(crossfadeRafRef.current);
       if (crossfadeWatchdogRef.current) clearTimeout(crossfadeWatchdogRef.current);
       const a = audioARef.current;
