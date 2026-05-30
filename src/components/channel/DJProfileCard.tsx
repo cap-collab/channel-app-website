@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { DJProfile } from '@/types';
 import { CardRemoveButton } from '@/components/CardRemoveButton';
-import { SuggestedCardBadge } from '@/components/channel/SuggestedCardBadge';
+import { SuggestedBanner, SuggestedBridgeOverlay } from '@/components/channel/SuggestedCardBadge';
 
 interface DJProfileCardProps {
   profile: DJProfile;
@@ -90,12 +90,14 @@ export function DJProfileCard({
           </span>
         )}
       </div>
+      {/* SUGGESTED banner above the card (only for /scene suggestions) */}
+      {suggestionBridge && <SuggestedBanner bridgeDjName={suggestionBridge} />}
       {/* Full width image with overlays */}
       <div className="relative">
         <Link href={href} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
           {imageContent}
+          {suggestionBridge && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
         </Link>
-        {suggestionBridge && <SuggestedCardBadge bridgeDjName={suggestionBridge} />}
         {onRemove && (
           <CardRemoveButton
             onRemove={onRemove}

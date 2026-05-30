@@ -1196,10 +1196,7 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
               )}
 
               {trailingSuggestions.length > 0 && (
-                <div className={hasWatchlist ? 'mt-8' : ''}>
-                  <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-zinc-500 mb-3">
-                    Suggested
-                  </h3>
+                <div className={hasWatchlist ? 'mt-3' : ''}>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                     {trailingSuggestions.map((s, i) =>
                       renderCard(s.item, 1000 + i, false, { suggestionBridge: s.bridge })

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Show, Station } from '@/types';
 import { getStationLogoUrl } from '@/lib/stations';
-import { SuggestedCardBadge } from '@/components/channel/SuggestedCardBadge';
+import { SuggestedBanner, SuggestedBridgeOverlay } from '@/components/channel/SuggestedCardBadge';
 
 interface TicketCardProps {
   show: Show;
@@ -101,6 +101,7 @@ export function TicketCard({
           </span>
         )}
       </div>
+      {suggestionBridge && <SuggestedBanner bridgeDjName={suggestionBridge} />}
       {/* Full width image with overlays - links to DJ profile if available */}
       <div className="relative">
         {show.djUsername ? (
@@ -155,7 +156,7 @@ export function TicketCard({
           </div>
         )}
         {stationLogoOverlay}
-        {suggestionBridge && <SuggestedCardBadge bridgeDjName={suggestionBridge} />}
+        {suggestionBridge && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
       </div>
 
       {/* Show Info */}
