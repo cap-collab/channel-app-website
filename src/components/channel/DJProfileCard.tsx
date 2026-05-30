@@ -112,11 +112,6 @@ export function DJProfileCard({
         <h3 className="text-sm font-bold leading-tight truncate">
           {profile.displayName}
         </h3>
-        {profile.genres && profile.genres.length > 0 && (
-          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
-            {profile.genres.join(' · ')}
-          </p>
-        )}
       </div>
 
       {/* Action Buttons */}

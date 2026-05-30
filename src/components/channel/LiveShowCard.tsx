@@ -181,11 +181,6 @@ export function LiveShowCard({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
         </a>
-        {show.djGenres && show.djGenres.length > 0 && (
-          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
-            {show.djGenres.join(' · ')}
-          </p>
-        )}
       </div>
 
       {/* CTA Buttons */}

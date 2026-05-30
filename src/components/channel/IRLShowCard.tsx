@@ -140,11 +140,6 @@ export function IRLShowCard({
             in {show.location}
           </p>
         )}
-        {show.djGenres && show.djGenres.length > 0 && (
-          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
-            {show.djGenres.join(' · ')}
-          </p>
-        )}
       </div>
 
       {/* Action Buttons */}
