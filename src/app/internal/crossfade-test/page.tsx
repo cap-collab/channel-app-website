@@ -30,7 +30,7 @@ const INTERLUDES = [
   { label: 'water refill smoking area', durationSec: 20, url: 'https://media.channel-app.com/interludes/water-refill-smoking-area-1779973923793.m4a' },
 ];
 
-const INTERLUDE_GAIN = 0.52;
+const INTERLUDE_GAIN = 0.6;
 const CROSSFADE_MS = 5000;
 // Seconds of archive A before the fade STARTS. With crossfade ON the fade
 // runs from A_PRE_SEC to A_PRE_SEC + 5s; with crossfade OFF the hard-cut
@@ -43,12 +43,25 @@ type Stage = 'idle' | 'archive-a' | 'interlude' | 'archive-b' | 'done';
 const sqrt = (p: number) => Math.sqrt(p);
 const invSqrt = (p: number) => Math.sqrt(1 - p);
 const quad = (p: number) => (1 - p) * (1 - p);
+// Incoming-interlude curve for archive→interlude transition. Targets
+// (multiplied by incomingTargetGain=INTERLUDE_GAIN=0.6):
+//   p=0   → 0.33 (audible kick-in at 0.20 absolute, no silent fade-in)
+//   p=0.4 → 0.83 (loud-ish peak at 2s, absolute 0.50)
+//   p=1   → 1.00 (steady-state 0.60 by fade end)
+// Two-segment: sublinear ramp up to PEAK_P, smoothstep gentle climb to 1.
+const INTERLUDE_START_FRAC = 0.33;
+const INTERLUDE_PEAK_FRAC = 0.83;
 const PEAK_P = 0.4;
-const TAPER_END_FRAC = 0.77;
 const peakTaper = (p: number): number => {
-  if (p <= PEAK_P) return Math.sqrt(p / PEAK_P);
-  const tapP = (p - PEAK_P) / (1 - PEAK_P);
-  return 1 - tapP * (1 - TAPER_END_FRAC);
+  if (p <= PEAK_P) {
+    const local = p / PEAK_P; // 0..1
+    // pow(local, 0.6) is sublinear — climbs fast early then eases into peak.
+    return INTERLUDE_START_FRAC + (INTERLUDE_PEAK_FRAC - INTERLUDE_START_FRAC) * Math.pow(local, 0.6);
+  }
+  const local = (p - PEAK_P) / (1 - PEAK_P); // 0..1
+  // Smoothstep gentle climb from peak fraction to 1.0.
+  const ease = local * local * (3 - 2 * local);
+  return INTERLUDE_PEAK_FRAC + (1 - INTERLUDE_PEAK_FRAC) * ease;
 };
 const smoothstep = (p: number): number => p * p * (3 - 2 * p);
 
