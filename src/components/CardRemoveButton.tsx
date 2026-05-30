@@ -24,17 +24,17 @@ export function CardRemoveButton({
     <button
       onClick={handleClick}
       disabled={isRemoving}
-      className="absolute top-2 right-2 z-20 p-1 rounded-full bg-black/50 transition-colors text-gray-400 hover:text-red-400 hover:bg-black/70 disabled:opacity-50"
+      className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-red-500 shadow-lg ring-2 ring-white/20 text-white transition-colors hover:bg-red-600 disabled:opacity-50"
       aria-label={ariaLabel}
     >
       {isRemoving ? (
-        <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+        <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
       ) : (
         <svg
           className="w-4 h-4"
           fill="none"
           stroke="currentColor"
-          strokeWidth={2}
+          strokeWidth={3}
           viewBox="0 0 24 24"
         >
           <path

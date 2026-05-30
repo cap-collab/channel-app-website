@@ -879,39 +879,68 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
       }
     }
 
-    // For each candidate, prefer the next upcoming radio/IRL show as the
-    // MatchedItem, falling back to a profile card.
-    const out: Array<{ item: MatchedItem; bridge: string }> = [];
+    // For each candidate, prefer the next upcoming radio show, then the next
+    // upcoming IRL show, falling back to a profile card.
+    type Out = { item: MatchedItem; bridge: string; rank: number; sortKey: number };
+    // rank: 0 = live radio/online, 1 = upcoming radio, 2 = upcoming IRL, 3 = profile-only
+    const out: Out[] = [];
     for (const c of candidates) {
       const station = stationsMap.get('broadcast');
+      const cNames = [norm(c.profile.displayName), norm(c.profile.username)];
+      const nowMs = Date.now();
       const nextRadio = allShows
         .filter((s) => {
           if (!s.dj) return false;
-          if (norm(s.dj) !== norm(c.profile.displayName) && norm(s.dj) !== norm(c.profile.username)) return false;
+          if (!cNames.includes(norm(s.dj))) return false;
           const end = new Date(s.endTime).getTime();
-          return !Number.isNaN(end) && end > Date.now();
+          return !Number.isNaN(end) && end > nowMs;
         })
         .sort(
           (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
         )[0];
       if (nextRadio && station) {
+        const startMs = new Date(nextRadio.startTime).getTime();
         const live =
-          new Date(nextRadio.startTime).getTime() <= Date.now() &&
-          new Date(nextRadio.endTime).getTime() > Date.now();
+          startMs <= nowMs && new Date(nextRadio.endTime).getTime() > nowMs;
         out.push({
           item: { type: 'radio', data: nextRadio, station, matchLabel: undefined, live },
           bridge: c.bridge,
+          rank: live ? 0 : 1,
+          sortKey: startMs,
+        });
+        continue;
+      }
+      const nextIrl = irlShows
+        .filter((s) => {
+          if (s.djUsername && cNames.includes(norm(s.djUsername))) return true;
+          if (s.djName && cNames.includes(norm(s.djName))) return true;
+          return false;
+        })
+        .sort((a, b) => a.date.localeCompare(b.date))[0];
+      if (nextIrl) {
+        out.push({
+          item: { type: 'irl', data: nextIrl, matchLabel: undefined },
+          bridge: c.bridge,
+          rank: 2,
+          sortKey: new Date(nextIrl.date + 'T00:00:00').getTime(),
         });
         continue;
       }
       out.push({
         item: { type: 'profile', data: c.profile, matchLabel: undefined },
         bridge: c.bridge,
+        rank: 3,
+        sortKey: nowMs,
       });
     }
+    // Sort: shows-before-profiles. Within shows, live first, then soonest.
+    out.sort((a, b) => {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      return a.sortKey - b.sortKey;
+    });
 
-    return out;
-  }, [sceneMode, djProfiles, favoritesNowLive, allShows, stationsMap, isInWatchlist]);
+    return out.map(({ item, bridge }) => ({ item, bridge }));
+  }, [sceneMode, djProfiles, favoritesNowLive, allShows, irlShows, stationsMap, isInWatchlist]);
 
   // Compute result counts for Tuner bar
   const allCardCount = todayTomorrowCards.length +
@@ -1231,13 +1260,8 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
         return (
           <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">
             <div className="max-w-7xl mx-auto">
-              <div className="flex items-end justify-between mb-3">
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-semibold">YOUR SCENE</h2>
-                  {!hasWatchlist && (
-                    <p className="text-sm text-zinc-500 mt-1">Your crate is empty.</p>
-                  )}
-                </div>
+              <div className="flex items-baseline justify-between gap-2 mb-3">
+                <h2 className="text-2xl md:text-3xl font-semibold">YOUR SCENE</h2>
                 {hasWatchlist && (
                   <button
                     onClick={() => setSceneEditMode((v) => !v)}
@@ -1247,6 +1271,9 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
                   </button>
                 )}
               </div>
+              {!hasWatchlist && (
+                <p className="text-sm text-zinc-500 -mt-2 mb-3">Your crate is empty.</p>
+              )}
 
               {hasWatchlist && (
                 <>
@@ -1264,8 +1291,8 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
                       className="mt-3 text-xs font-mono uppercase tracking-wider text-zinc-400 hover:text-white"
                     >
                       {sceneViewAll
-                        ? '← Collapse'
-                        : `View all your scene (${favoritesNowLive.length}) →`}
+                        ? 'Collapse ←'
+                        : `View more (${favoritesNowLive.length}) →`}
                     </button>
                   )}
                 </>
