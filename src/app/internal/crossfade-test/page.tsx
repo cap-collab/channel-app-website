@@ -25,6 +25,7 @@ const ARCHIVE_B_URL =
 
 const INTERLUDES = [
   { label: 'berlin clubs', durationSec: 18, url: 'https://media.channel-app.com/interludes/berlin-clubs-1780101591578.m4a' },
+  { label: 'my mom is a big fat bitch', durationSec: 27, url: 'https://media.channel-app.com/interludes/my-mom-is-a-big-fat-bitch-1780101844012.m4a' },
   { label: 'weed convo birds', durationSec: 24, url: 'https://media.channel-app.com/interludes/weed-convo-birds-1779973930315.m4a' },
   { label: 'toilet therapist', durationSec: 23, url: 'https://media.channel-app.com/interludes/toilet-therapist-1779907421108.m4a' },
   { label: 'water refill smoking area', durationSec: 20, url: 'https://media.channel-app.com/interludes/water-refill-smoking-area-1779973923793.m4a' },
@@ -481,8 +482,7 @@ export default function CrossfadeTestPage() {
         append('mediaSession metadata <- archive B (stubbed)');
       }
       nextItemRef.current = null;
-      append('archive B playing — test complete (wait ~6s)');
-      setTimeout(() => setStage('done'), 6000);
+      append('archive B playing — tap Stop when ready');
     }
   };
 
