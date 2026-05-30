@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Show, Station } from '@/types';
 import { getContrastTextColor } from '@/lib/colorUtils';
 import { getStationLogoUrl } from '@/lib/stations';
+import { SuggestedCardBadge } from '@/components/channel/SuggestedCardBadge';
 
 interface LiveShowCardProps {
   show: Show;
@@ -16,6 +17,8 @@ interface LiveShowCardProps {
   matchLabel?: string;
   profileMode?: boolean;
   bpm?: number | null;
+  // /scene SUGGESTED variant
+  suggestionBridge?: string;
 }
 
 export function LiveShowCard({
@@ -27,6 +30,7 @@ export function LiveShowCard({
   matchLabel,
   profileMode,
   bpm,
+  suggestionBridge,
 }: LiveShowCardProps) {
   const [imageError, setImageError] = useState(false);
   // Channel shows (broadcast / dj-radio) prefer the show image, then DJ photo.
@@ -151,6 +155,7 @@ export function LiveShowCard({
           </div>
         )}
         {stationLogoOverlay}
+        {suggestionBridge && <SuggestedCardBadge bridgeDjName={suggestionBridge} />}
       </div>
 
       {/* Show Info */}

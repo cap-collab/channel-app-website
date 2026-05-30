@@ -206,6 +206,11 @@ export interface DJProfile {
   genres?: string[];
   bio?: string;
   isChannelUser: boolean;
+  // Optional graph fields used by /scene suggestions. Only populated for
+  // Channel users — pending-DJ profiles leave these undefined.
+  userId?: string;
+  affiliatedWithUid?: string | null;
+  audienceDjUids?: string[];
 }
 
 // Curator recommendation (bandcamp/event link from DJ's "My Recs")

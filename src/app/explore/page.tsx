@@ -1,17 +1,7 @@
-import { Suspense } from 'react';
-import { makeOG } from '@/lib/og';
-import { ExploreClient } from './ExploreClient';
+import { redirect } from 'next/navigation';
 
-export const metadata = makeOG({
-  title: "Explore",
-  description: "Explore scenes, DJs, venues, and collectives across Channel.",
-  path: "/explore",
-});
-
+// /explore was renamed to /scene — keep this route as a redirect so existing
+// links, bookmarks, and any navigation pointing at /explore still resolve.
 export default function ExplorePage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-black" />}>
-      <ExploreClient />
-    </Suspense>
-  );
+  redirect('/scene');
 }

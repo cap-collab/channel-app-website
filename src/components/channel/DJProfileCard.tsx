@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { DJProfile } from '@/types';
 import { CardRemoveButton } from '@/components/CardRemoveButton';
+import { SuggestedCardBadge } from '@/components/channel/SuggestedCardBadge';
 
 interface DJProfileCardProps {
   profile: DJProfile;
@@ -17,6 +18,10 @@ interface DJProfileCardProps {
   // the standard CardRemoveButton overlay and forwards clicks here.
   onRemove?: () => void | Promise<void>;
   isRemoving?: boolean;
+  // /scene SUGGESTED variant: the bridge DJ name displayed in the badge
+  // ("Similar to {bridgeDjName}"). When set, the card forces a Suggested
+  // top-bar and surfaces the follow CTA regardless of watchlistMode.
+  suggestionBridge?: string;
 }
 
 export function DJProfileCard({
@@ -28,6 +33,7 @@ export function DJProfileCard({
   watchlistMode,
   onRemove,
   isRemoving,
+  suggestionBridge,
 }: DJProfileCardProps) {
   const [imageError, setImageError] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -89,6 +95,7 @@ export function DJProfileCard({
         <Link href={href} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
           {imageContent}
         </Link>
+        {suggestionBridge && <SuggestedCardBadge bridgeDjName={suggestionBridge} />}
         {onRemove && (
           <CardRemoveButton
             onRemove={onRemove}
@@ -113,7 +120,7 @@ export function DJProfileCard({
       {/* Action Buttons */}
       <div className="space-y-2 mt-auto">
         <div className="flex gap-2">
-          {watchlistMode ? (
+          {watchlistMode && !suggestionBridge ? (
             profile.isChannelUser ? (
               <Link
                 href={`/dj/${profile.username}#chat`}

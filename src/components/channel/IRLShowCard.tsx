@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { IRLShowData } from '@/types';
+import { SuggestedCardBadge } from '@/components/channel/SuggestedCardBadge';
 
 interface IRLShowCardProps {
   show: IRLShowData;
@@ -12,6 +13,8 @@ interface IRLShowCardProps {
   onFollow: () => void;
   matchLabel?: string;
   profileMode?: boolean;
+  // /scene SUGGESTED variant
+  suggestionBridge?: string;
 }
 
 export function IRLShowCard({
@@ -21,6 +24,7 @@ export function IRLShowCard({
   onFollow,
   matchLabel,
   profileMode,
+  suggestionBridge,
 }: IRLShowCardProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -93,15 +97,18 @@ export function IRLShowCard({
         )}
       </div>
       {/* Full width image with overlays */}
-      {href ? (
-        <Link href={href} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
-          {imageContent}
-        </Link>
-      ) : (
-        <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
-          {imageContent}
-        </div>
-      )}
+      <div className="relative">
+        {href ? (
+          <Link href={href} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+            {imageContent}
+          </Link>
+        ) : (
+          <div className="relative w-full aspect-[16/9] overflow-hidden border border-white/10">
+            {imageContent}
+          </div>
+        )}
+        {suggestionBridge && <SuggestedCardBadge bridgeDjName={suggestionBridge} />}
+      </div>
 
       {/* Event Info */}
       <div className="flex flex-col justify-start py-2">

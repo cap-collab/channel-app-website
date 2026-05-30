@@ -39,7 +39,7 @@ type RecommendedItem =
   | MatchedItem
   | { type: 'curator'; data: CuratorRec };
 
-export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives, initialPreferredHero, initialRadioArchiveId }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode; initialHeroArchives?: import('@/types/broadcast').ArchiveSerialized[]; initialPreferredHero?: { spiral: import('@/types/broadcast').ArchiveSerialized | null; star: import('@/types/broadcast').ArchiveSerialized | null }; initialRadioArchiveId?: string | null } = {}) {
+export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, discoveryFiltersSlot, sceneMode, initialHeroArchives, initialPreferredHero, initialRadioArchiveId }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode; topSearchSlot?: React.ReactNode; discoveryFiltersSlot?: React.ReactNode; sceneMode?: boolean; initialHeroArchives?: import('@/types/broadcast').ArchiveSerialized[]; initialPreferredHero?: { spiral: import('@/types/broadcast').ArchiveSerialized | null; star: import('@/types/broadcast').ArchiveSerialized | null }; initialRadioArchiveId?: string | null } = {}) {
   const { user, isAuthenticated } = useAuthContext();
   const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentShow } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
@@ -120,6 +120,11 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
   const [addingFollowDj, setAddingFollowDj] = useState<string | null>(null);
   const [addingReminderShowId, setAddingReminderShowId] = useState<string | null>(null);
   const [removingWatchlistDj, setRemovingWatchlistDj] = useState<string | null>(null);
+
+  // /scene local state: edit toggle (controls watchlist remove × visibility)
+  // and "view all" toggle (expands the YOUR SCENE grid past the 4-card cap).
+  const [sceneEditMode, setSceneEditMode] = useState(false);
+  const [sceneViewAll, setSceneViewAll] = useState(false);
 
   const handleRemoveWatchlistDj = useCallback(
     async (profile: DJProfile) => {
@@ -691,6 +696,157 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
     };
   }, [allShows, irlShows, curatorRecs, djProfiles, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited, favorites, user, loveHistory, lockedInDjs, isGoLiveMuted]);
 
+  // SUGGESTED items for /scene: related DJs (affiliation crew + Audience)
+  // of every DJ already in the user's watchlist, plus an empty-state fallback
+  // (DJs with upcoming Channel Radio shows) when the watchlist is empty.
+  // Each entry includes the bridge DJ display name shown in the badge.
+  const suggestedItems = useMemo(() => {
+    if (!sceneMode) return [] as Array<{ item: MatchedItem; bridge: string }>;
+
+    // Quick lookup helpers — username (normalised) → DJProfile
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const djByNorm = new Map<string, DJProfile>();
+    for (const p of djProfiles) {
+      if (p.username) djByNorm.set(norm(p.username), p);
+      if (p.displayName) djByNorm.set(norm(p.displayName), p);
+    }
+    const djByUid = new Map<string, DJProfile>();
+    for (const p of djProfiles) {
+      if (p.userId) djByUid.set(p.userId, p);
+    }
+
+    // Build crew + Audience for each DJProfile in the watchlist.
+    // crew(X) = X.parent ∪ X's direct affiliates ∪ X's siblings, derived
+    // dynamically from djProfiles.affiliatedWithUid.
+    const affiliatedBy = new Map<string, string>(); // uid → parent uid
+    const affiliatesOf = new Map<string, Set<string>>(); // uid → direct affiliates
+    for (const p of djProfiles) {
+      if (!p.userId || !p.affiliatedWithUid) continue;
+      affiliatedBy.set(p.userId, p.affiliatedWithUid);
+      const bucket = affiliatesOf.get(p.affiliatedWithUid) ?? new Set<string>();
+      bucket.add(p.userId);
+      affiliatesOf.set(p.affiliatedWithUid, bucket);
+    }
+    const crewUids = (uid: string): Set<string> => {
+      const out = new Set<string>();
+      const parent = affiliatedBy.get(uid);
+      if (parent) out.add(parent);
+      const directs = affiliatesOf.get(uid);
+      if (directs) directs.forEach((u) => out.add(u));
+      if (parent) {
+        const siblings = affiliatesOf.get(parent);
+        if (siblings) siblings.forEach((u) => out.add(u));
+      }
+      out.delete(uid);
+      return out;
+    };
+
+    // Already-in-watchlist filter
+    const alreadyIn = (p: DJProfile) =>
+      isInWatchlist(p.displayName) || isInWatchlist(p.username);
+
+    // Seed DJs = the actual watchlist (favoritesNowLive's profile entries
+    // + any matched radio/IRL shows whose DJ resolves to a known profile).
+    const seedProfiles: DJProfile[] = [];
+    const seenSeedUid = new Set<string>();
+    const pushSeed = (p?: DJProfile) => {
+      if (!p || !p.userId || seenSeedUid.has(p.userId)) return;
+      seenSeedUid.add(p.userId);
+      seedProfiles.push(p);
+    };
+    for (const item of favoritesNowLive) {
+      if (item.type === 'profile') {
+        pushSeed(item.data);
+      } else if (item.type === 'radio') {
+        const dj = item.data.dj ? djByNorm.get(norm(item.data.dj)) : undefined;
+        pushSeed(dj);
+      } else if (item.type === 'irl') {
+        const dj =
+          (item.data.djUsername && djByNorm.get(norm(item.data.djUsername))) ||
+          (item.data.djName ? djByNorm.get(norm(item.data.djName)) : undefined);
+        pushSeed(dj);
+      }
+    }
+
+    // Build candidate uids: union of crew(seed) and audienceDjUids(seed) for
+    // every seed, with the bridge being the seed that produced the candidate.
+    type Candidate = { profile: DJProfile; bridge: string };
+    const candidates: Candidate[] = [];
+    const seenCandidate = new Set<string>();
+
+    const addCandidate = (uid: string, bridge: string) => {
+      if (!uid || seenSeedUid.has(uid) || seenCandidate.has(uid)) return;
+      const p = djByUid.get(uid);
+      if (!p) return;
+      if (alreadyIn(p)) return;
+      seenCandidate.add(uid);
+      candidates.push({ profile: p, bridge });
+    };
+
+    for (const seed of seedProfiles) {
+      if (!seed.userId) continue;
+      const bridge = seed.displayName || seed.username;
+      crewUids(seed.userId).forEach((uid) => addCandidate(uid, bridge));
+      const audienceUids = seed.audienceDjUids;
+      if (Array.isArray(audienceUids)) {
+        audienceUids.forEach((uid) => addCandidate(uid, bridge));
+      }
+    }
+
+    // Empty-state fallback: when the watchlist has no seeds, surface DJs that
+    // have an upcoming Channel Radio show in the next 14 days. Bridge label
+    // reads "Channel pick".
+    if (favoritesNowLive.length === 0) {
+      const now = Date.now();
+      const twoWeeks = now + 14 * 24 * 60 * 60 * 1000;
+      const seen = new Set<string>();
+      for (const show of allShows) {
+        if (show.stationId !== 'broadcast') continue;
+        const start = new Date(show.startTime).getTime();
+        if (Number.isNaN(start) || start < now || start > twoWeeks) continue;
+        if (!show.dj) continue;
+        const profile = djByNorm.get(norm(show.dj));
+        if (!profile || !profile.userId || seen.has(profile.userId)) continue;
+        seen.add(profile.userId);
+        candidates.push({ profile, bridge: 'Channel pick' });
+        if (candidates.length >= 6) break;
+      }
+    }
+
+    // For each candidate, prefer the next upcoming radio/IRL show as the
+    // MatchedItem, falling back to a profile card.
+    const out: Array<{ item: MatchedItem; bridge: string }> = [];
+    for (const c of candidates) {
+      const station = stationsMap.get('broadcast');
+      const nextRadio = allShows
+        .filter((s) => {
+          if (!s.dj) return false;
+          if (norm(s.dj) !== norm(c.profile.displayName) && norm(s.dj) !== norm(c.profile.username)) return false;
+          const end = new Date(s.endTime).getTime();
+          return !Number.isNaN(end) && end > Date.now();
+        })
+        .sort(
+          (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+        )[0];
+      if (nextRadio && station) {
+        const live =
+          new Date(nextRadio.startTime).getTime() <= Date.now() &&
+          new Date(nextRadio.endTime).getTime() > Date.now();
+        out.push({
+          item: { type: 'radio', data: nextRadio, station, matchLabel: undefined, live },
+          bridge: c.bridge,
+        });
+        continue;
+      }
+      out.push({
+        item: { type: 'profile', data: c.profile, matchLabel: undefined },
+        bridge: c.bridge,
+      });
+    }
+
+    return out;
+  }, [sceneMode, djProfiles, favoritesNowLive, allShows, stationsMap, isInWatchlist]);
+
   // Compute result counts for Tuner bar
   const allCardCount = todayTomorrowCards.length +
     nextWeekCards.length + genreOnlineCards.length + recommendedByCards.length;
@@ -832,8 +988,19 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
     }
   }, [isAuthenticated, handleRemindMe, isShowFavorited, toggleFavorite]);
 
-  // Render a single matched card (IRL, Radio, or DJ Profile)
-  const renderCard = (item: MatchedItem, index: number, profileMode?: boolean) => {
+  // Render a single matched card (IRL, Radio, or DJ Profile).
+  // `opts.suggestionBridge` marks the card as a /scene SUGGESTED entry — the
+  // bridge DJ's display name shown in the badge ("Similar to X").
+  // `opts.allowRemove` overrides the default profileMode → onRemove mapping
+  // (used by /scene's edit-mode toggle).
+  const renderCard = (
+    item: MatchedItem,
+    index: number,
+    profileMode?: boolean,
+    opts?: { suggestionBridge?: string; allowRemove?: boolean },
+  ) => {
+    const suggestionBridge = opts?.suggestionBridge;
+    const allowRemove = opts?.allowRemove ?? profileMode;
     if (item.type === 'profile') {
       const profile = item.data;
       const following = isInWatchlist(profile.displayName) || isInWatchlist(profile.username);
@@ -848,11 +1015,12 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
           isAddingFollow={addingFollow}
           onFollow={() => handleUnifiedIRLFollow({ djName: profile.displayName, djUsername: profile.username } as IRLShowData)}
           matchLabel={item.matchLabel}
-          watchlistMode={profileMode}
+          watchlistMode={profileMode && !suggestionBridge}
           onRemove={
-            profileMode ? () => handleRemoveWatchlistDj(profile) : undefined
+            allowRemove && !suggestionBridge ? () => handleRemoveWatchlistDj(profile) : undefined
           }
           isRemoving={removing}
+          suggestionBridge={suggestionBridge}
         />
       );
     }
@@ -869,6 +1037,7 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
           onFollow={() => handleUnifiedIRLFollow(show)}
           matchLabel={item.matchLabel}
           profileMode={profileMode}
+          suggestionBridge={suggestionBridge}
         />
       );
     } else {
@@ -890,6 +1059,7 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
             matchLabel={item.matchLabel}
             profileMode={profileMode}
             bpm={stationBPM[getMetadataKeyByStationId(show.stationId) || '']?.bpm ?? null}
+            suggestionBridge={suggestionBridge}
           />
         );
       }
@@ -910,6 +1080,7 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
           onRemindMe={() => handleUnifiedRemindMe(show)}
           matchLabel={item.matchLabel}
           profileMode={profileMode}
+          suggestionBridge={suggestionBridge}
         />
       );
     }
@@ -955,8 +1126,114 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
 
       <div id="scene" />
 
-      {/* Favorites — followed DJs & favorited shows in next 7 days, only when NOT on Channel Radio */}
-      {mounted && !(isBroadcastLive && isBroadcastStreaming) && favoritesNowLive.length > 0 && (
+      {/* /scene top search bar (full-width, square edges) — only the
+          HeaderSearch portion; the Tuner filters render below under the
+          BEYOND YOUR SCENE header. */}
+      {sceneMode && topSearchSlot && (
+        <section className="px-4 md:px-8 pt-4 pb-2 relative z-10">
+          <div className="max-w-7xl mx-auto">
+            {topSearchSlot}
+          </div>
+        </section>
+      )}
+
+      {/* /scene YOUR SCENE section — grid of watchlist items + suggestions */}
+      {sceneMode && mounted && !(isBroadcastLive && isBroadcastStreaming) && (() => {
+        const hasWatchlist = favoritesNowLive.length > 0;
+        const GRID_CAP = 4;
+        const visibleWatchlist = sceneViewAll ? favoritesNowLive : favoritesNowLive.slice(0, GRID_CAP);
+        const fillerSlots = Math.max(0, GRID_CAP - visibleWatchlist.length);
+        // When the grid isn't full, inline suggestions fill the remaining
+        // slots. When it IS full, render a separate SUGGESTED row below.
+        const inlineSuggestions = hasWatchlist
+          ? suggestedItems.slice(0, fillerSlots)
+          : [];
+        const trailingSuggestions = hasWatchlist
+          ? suggestedItems.slice(fillerSlots, fillerSlots + 2)
+          : suggestedItems.slice(0, 6);
+
+        return (
+          <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex items-end justify-between mb-3">
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-semibold">YOUR SCENE</h2>
+                  {!hasWatchlist && (
+                    <p className="text-sm text-zinc-500 mt-1">Your crate is empty.</p>
+                  )}
+                </div>
+                {hasWatchlist && (
+                  <button
+                    onClick={() => setSceneEditMode((v) => !v)}
+                    className="text-xs font-mono uppercase tracking-wider text-zinc-400 hover:text-white px-2 py-1"
+                  >
+                    {sceneEditMode ? 'Done' : 'Edit ✎'}
+                  </button>
+                )}
+              </div>
+
+              {hasWatchlist && (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {visibleWatchlist.map((item, index) =>
+                      renderCard(item, index, true, { allowRemove: sceneEditMode })
+                    )}
+                    {inlineSuggestions.map((s, i) =>
+                      renderCard(s.item, visibleWatchlist.length + i, false, { suggestionBridge: s.bridge })
+                    )}
+                  </div>
+                  {favoritesNowLive.length > GRID_CAP && (
+                    <button
+                      onClick={() => setSceneViewAll((v) => !v)}
+                      className="mt-3 text-xs font-mono uppercase tracking-wider text-zinc-400 hover:text-white"
+                    >
+                      {sceneViewAll
+                        ? '← Collapse'
+                        : `View all your scene (${favoritesNowLive.length}) →`}
+                    </button>
+                  )}
+                </>
+              )}
+
+              {trailingSuggestions.length > 0 && (
+                <div className={hasWatchlist ? 'mt-8' : ''}>
+                  <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-zinc-500 mb-3">
+                    Suggested
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {trailingSuggestions.map((s, i) =>
+                      renderCard(s.item, 1000 + i, false, { suggestionBridge: s.bridge })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* /scene BEYOND YOUR SCENE header — renders above the discovery
+          carousels when sceneMode is on. */}
+      {sceneMode && (
+        <section className="px-4 md:px-8 pt-6 pb-2 relative z-10">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-2xl md:text-3xl font-semibold">BEYOND YOUR SCENE</h2>
+          </div>
+        </section>
+      )}
+
+      {/* /scene discovery filters (city + genre tuner) */}
+      {sceneMode && discoveryFiltersSlot && (
+        <section className="px-4 md:px-8 pt-2 pb-2 relative z-10">
+          <div className="max-w-7xl mx-auto">
+            {discoveryFiltersSlot}
+          </div>
+        </section>
+      )}
+
+      {/* Original home `/` watchlist carousel + /explore search bar — only
+          when NOT in sceneMode. Keeps `/` and any other caller untouched. */}
+      {!sceneMode && mounted && !(isBroadcastLive && isBroadcastStreaming) && favoritesNowLive.length > 0 && (
         <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">
           <div className="max-w-7xl mx-auto">
             <h2 className="text-2xl md:text-3xl font-semibold mb-3">On your watchlist</h2>
@@ -967,8 +1244,8 @@ export function ChannelClient({ skipHero, exploreSearchBar, initialHeroArchives,
         </section>
       )}
 
-      {/* Search bar + filter (only on /explore) */}
-      {exploreSearchBar && (
+      {/* Search bar + filter (only on /explore — back-compat path) */}
+      {!sceneMode && exploreSearchBar && (
         <section className="px-4 md:px-8 pt-4 pb-0 relative z-10">
           <div className="max-w-7xl mx-auto">
             {exploreSearchBar}

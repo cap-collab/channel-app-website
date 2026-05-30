@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Show, Station } from '@/types';
 import { getStationLogoUrl } from '@/lib/stations';
+import { SuggestedCardBadge } from '@/components/channel/SuggestedCardBadge';
 
 interface TicketCardProps {
   show: Show;
@@ -18,6 +19,8 @@ interface TicketCardProps {
   onRemindMe: () => void;
   matchLabel?: string;
   profileMode?: boolean;
+  // /scene SUGGESTED variant
+  suggestionBridge?: string;
 }
 
 export function TicketCard({
@@ -31,6 +34,7 @@ export function TicketCard({
   onRemindMe,
   matchLabel,
   profileMode,
+  suggestionBridge,
 }: TicketCardProps) {
   const [imageError, setImageError] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -151,6 +155,7 @@ export function TicketCard({
           </div>
         )}
         {stationLogoOverlay}
+        {suggestionBridge && <SuggestedCardBadge bridgeDjName={suggestionBridge} />}
       </div>
 
       {/* Show Info */}

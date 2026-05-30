@@ -713,6 +713,11 @@ async function extractDJProfiles(djUserDocs: FirestoreDoc[]): Promise<DJProfile[
     const genres = djProfile.genres as string[] | undefined;
     if (!genres || genres.length === 0) continue;
     seenUsernames.add(username);
+    const affiliatedWithUid = (djProfile.affiliatedWithUid as string | null | undefined) ?? undefined;
+    const audienceDjUidsRaw = djProfile.audienceDjUids;
+    const audienceDjUids = Array.isArray(audienceDjUidsRaw)
+      ? audienceDjUidsRaw.filter((u): u is string => typeof u === "string" && u.length > 0)
+      : undefined;
     profiles.push({
       username,
       displayName: (djProfile.djName as string) || chatUsername,
@@ -721,6 +726,9 @@ async function extractDJProfiles(djUserDocs: FirestoreDoc[]): Promise<DJProfile[
       genres,
       bio: (djProfile.bio as string) || undefined,
       isChannelUser: true,
+      userId: doc.id,
+      affiliatedWithUid,
+      audienceDjUids,
     });
   }
 
