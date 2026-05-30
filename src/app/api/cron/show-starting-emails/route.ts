@@ -7,7 +7,6 @@ import {
   updateUser,
   queryCollection,
   queryCollectionGroup,
-  querySubcollection,
   isRestApiConfigured,
 } from "@/lib/firebase-rest";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
@@ -449,22 +448,20 @@ export async function GET(request: NextRequest) {
     //     a chatUsernameNormalized lookup map built lazily below.
     // These run only for Channel Radio shows (`stationId === "broadcast"`)
     // per the product decision to keep external station notifications opt-in.
-    // Hearters / lockedIn: per-DJ-username caches, computed once over the
-    // union of (X ∪ related(X)) for every Channel Radio live show. Then we
-    // derive per-show sets:
-    //   - heartersByShowId[showId]: union over X ONLY (used for direct
-    //     engagement path — user hearted X themselves)
-    //   - heartersByRelatedDjByShowId[showId]: map of relatedUsername → uid
-    //     set, used for the affiliation path (user hearted R, R is related)
-    const heartersByShowId = new Map<string, Set<string>>();
-    const lockedInByShowId = new Map<string, Set<string>>();
-    const heartersByRelatedDjByShowId = new Map<string, Map<string, Set<string>>>();
-    const lockedInByRelatedDjByShowId = new Map<string, Map<string, Set<string>>>();
+    // Engagement signal sources (Channel Radio only):
+    //   - hearted: users/{uid}/loveHistory/{djUsername} doc exists
+    //   - streamed: users/{uid}/streamHistory/* doc with djUsernames
+    //               array_contains the DJ's username (live shows + archives)
+    // We union both into a per-DJ `engagedByDjUsername` set, then derive
+    // per-show structures:
+    //   - engagedByShowId[showId]: uid set for the live DJ X (direct path)
+    //   - engagedByRelatedDjByShowId[showId]: map of relatedUsername → uid set
+    //                                        (used by the affiliation path)
+    const engagedByShowId = new Map<string, Set<string>>();
+    const engagedByRelatedDjByShowId = new Map<string, Map<string, Set<string>>>();
 
-    // Per-username caches so we never query the same DJ twice in one cron.
-    const heartersByDjUsername = new Map<string, Set<string>>();
-    const lockedInUsernamesByDjUsername = new Map<string, Set<string>>(); // raw (chatUsername) sets — resolved to uids below
-    const lockedInUsernamesToResolve = new Set<string>();
+    // Per-username cache so we never query the same DJ twice in one cron.
+    const engagedByDjUsername = new Map<string, Set<string>>();
 
     // Collect the full set of DJ usernames we need to query: live DJ +
     // related DJs for every Channel Radio show.
@@ -478,73 +475,32 @@ export async function GET(request: NextRequest) {
     }
 
     for (const djUsername of Array.from(allRelatedUsernames)) {
-      // Hearters
+      const engaged = new Set<string>();
+
+      // Hearters (loveHistory subcollection)
       const heartDocs = await queryCollectionGroup(
         "loveHistory",
         [{ field: "djUsername", op: "EQUAL", value: djUsername }],
         5000,
       );
-      const hearters = new Set<string>();
       for (const d of heartDocs) {
         const parts = d.parentPath.split("/");
-        if (parts.length >= 2 && parts[0] === "users") {
-          hearters.add(parts[1]);
-        }
+        if (parts.length >= 2 && parts[0] === "users") engaged.add(parts[1]);
       }
-      heartersByDjUsername.set(djUsername, hearters);
 
-      // Locked-in: collect usernames (uids resolved in a single pass below)
-      const lockedInMessages = await querySubcollection(
-        `chats/${djUsername}`,
-        "messages",
-        [{ field: "messageType", op: "EQUAL", value: "lockedin" }],
-        2000,
+      // Streamers (streamHistory subcollection — flat djUsernames array)
+      const streamDocs = await queryCollectionGroup(
+        "streamHistory",
+        [{ field: "djUsernames", op: "ARRAY_CONTAINS", value: djUsername }],
+        5000,
       );
-      const usernameSet = new Set<string>();
-      for (const m of lockedInMessages) {
-        const u = (m.data.username as string | undefined) || "";
-        if (!u) continue;
-        const normalized = normalizeForLookup(u);
-        if (!normalized) continue;
-        usernameSet.add(normalized);
-        lockedInUsernamesToResolve.add(normalized);
+      for (const d of streamDocs) {
+        const parts = d.parentPath.split("/");
+        if (parts.length >= 2 && parts[0] === "users") engaged.add(parts[1]);
       }
-      lockedInUsernamesByDjUsername.set(djUsername, usernameSet);
-    }
 
-    // Resolve listener usernames → uids in one pass.
-    const listenerUsernameToUid = new Map<string, string>();
-    lockedInUsernamesToResolve.forEach((username) => {
-      const profile = djNameToProfile.get(username);
-      if (profile?.userId) {
-        listenerUsernameToUid.set(username, profile.userId);
-      }
-    });
-    const unresolved: string[] = [];
-    lockedInUsernamesToResolve.forEach((username) => {
-      if (!listenerUsernameToUid.has(username)) unresolved.push(username);
-    });
-    for (const username of unresolved) {
-      const matches = await queryUsersWhere(
-        "chatUsernameNormalized",
-        "EQUAL",
-        username,
-      );
-      if (matches.length > 0) {
-        listenerUsernameToUid.set(username, matches[0].id);
-      }
+      engagedByDjUsername.set(djUsername, engaged);
     }
-
-    // Per-username lockedIn uid set
-    const lockedInByDjUsername = new Map<string, Set<string>>();
-    lockedInUsernamesByDjUsername.forEach((usernameSet, djUsername) => {
-      const uids = new Set<string>();
-      usernameSet.forEach((username) => {
-        const uid = listenerUsernameToUid.get(username);
-        if (uid) uids.add(uid);
-      });
-      lockedInByDjUsername.set(djUsername, uids);
-    });
 
     // Materialize the per-show structures: X-direct sets + per-related-DJ
     // sets. Filter out the live DJ + collective owners (they shouldn't get
@@ -555,44 +511,26 @@ export async function GET(request: NextRequest) {
       const xUsername = normalizeForLookup(show.djUsername);
 
       // Direct (X only)
-      const xHearters = new Set(heartersByDjUsername.get(xUsername) ?? []);
-      const xLockedIn = new Set(lockedInByDjUsername.get(xUsername) ?? []);
-      if (show.djUserId) {
-        xHearters.delete(show.djUserId);
-        xLockedIn.delete(show.djUserId);
-      }
+      const xEngaged = new Set(engagedByDjUsername.get(xUsername) ?? []);
+      if (show.djUserId) xEngaged.delete(show.djUserId);
       if (show.collectiveOwnerUserIds) {
-        show.collectiveOwnerUserIds.forEach((uid) => {
-          xHearters.delete(uid);
-          xLockedIn.delete(uid);
-        });
+        show.collectiveOwnerUserIds.forEach((uid) => xEngaged.delete(uid));
       }
-      heartersByShowId.set(show.showId, xHearters);
-      lockedInByShowId.set(show.showId, xLockedIn);
+      engagedByShowId.set(show.showId, xEngaged);
 
       // Per-related-DJ (used for the affiliation path)
       const related = relatedUsernamesByShowId.get(show.showId);
       if (related && related.size > 0) {
-        const hMap = new Map<string, Set<string>>();
-        const lMap = new Map<string, Set<string>>();
+        const eMap = new Map<string, Set<string>>();
         related.forEach((r) => {
-          const h = new Set(heartersByDjUsername.get(r) ?? []);
-          const l = new Set(lockedInByDjUsername.get(r) ?? []);
-          if (show.djUserId) {
-            h.delete(show.djUserId);
-            l.delete(show.djUserId);
-          }
+          const e = new Set(engagedByDjUsername.get(r) ?? []);
+          if (show.djUserId) e.delete(show.djUserId);
           if (show.collectiveOwnerUserIds) {
-            show.collectiveOwnerUserIds.forEach((uid) => {
-              h.delete(uid);
-              l.delete(uid);
-            });
+            show.collectiveOwnerUserIds.forEach((uid) => e.delete(uid));
           }
-          if (h.size > 0) hMap.set(r, h);
-          if (l.size > 0) lMap.set(r, l);
+          if (e.size > 0) eMap.set(r, e);
         });
-        if (hMap.size > 0) heartersByRelatedDjByShowId.set(show.showId, hMap);
-        if (lMap.size > 0) lockedInByRelatedDjByShowId.set(show.showId, lMap);
+        if (eMap.size > 0) engagedByRelatedDjByShowId.set(show.showId, eMap);
       }
     }
 
@@ -641,7 +579,7 @@ export async function GET(request: NextRequest) {
         let matched = false;
         let matchedViaAffiliation = false;
         let affiliationBridgeDj: string | undefined;  // set when listener-side affiliation match: the related DJ R that bridged
-        let engagementReason: "hearted" | "lockedin" | undefined;
+        let engagementReason: "engaged" | undefined;
 
         const emailNotificationsData = userData.emailNotifications as Record<string, unknown> | undefined;
 
@@ -673,8 +611,24 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // P2: Affiliation — DJ-side (user IS in the crew) OR listener-side
-        // (user has a watchlist/engagement signal for any R in related(X)).
+        // P2: Engagement with X directly (hearted X, or streamed any of X's
+        // archives / live broadcasts). Channel Radio only, gated by
+        // emailNotifications.engagementGoLive. Engagement outranks
+        // affiliation because it's a direct first-party signal — the user
+        // already knows X, no need for a "recommended" framing.
+        if (!matched && show.stationId === "broadcast") {
+          const engaged = engagedByShowId.get(show.showId);
+          if (engaged?.has(userId)) {
+            const optOut = emailNotificationsData?.engagementGoLive === false;
+            if (!optOut) {
+              matched = true;
+              engagementReason = "engaged";
+            }
+          }
+        }
+
+        // P3: Affiliation — DJ-side (user IS in the crew) OR listener-side
+        // (user has a watchlist or engagement signal for any R in related(X)).
         // Both gated by emailNotifications.affiliatedGoLive (defaults true).
         if (!matched) {
           const affOptOut = emailNotificationsData?.affiliatedGoLive === false;
@@ -687,10 +641,9 @@ export async function GET(request: NextRequest) {
               // No bridge DJ — DJ-side gets the existing "affiliated artist" copy.
             } else if (show.stationId === "broadcast") {
               // Listener-side: find the first R in related(X) such that U has
-              // a watchlist match for R, or hearted R, or locked-in with R.
+              // a watchlist match for R, or has engaged with R (heart/stream).
               const related = relatedUsernamesByShowId.get(show.showId);
-              const heartersByR = heartersByRelatedDjByShowId.get(show.showId);
-              const lockedInByR = lockedInByRelatedDjByShowId.get(show.showId);
+              const engagedByR = engagedByRelatedDjByShowId.get(show.showId);
               if (related) {
                 for (const r of Array.from(related)) {
                   // Watchlist match against the related DJ's username
@@ -701,8 +654,7 @@ export async function GET(request: NextRequest) {
                       break;
                     }
                   }
-                  if (!bridged && heartersByR?.get(r)?.has(userId)) bridged = true;
-                  if (!bridged && lockedInByR?.get(r)?.has(userId)) bridged = true;
+                  if (!bridged && engagedByR?.get(r)?.has(userId)) bridged = true;
                   if (bridged) {
                     matched = true;
                     matchedViaAffiliation = true;
@@ -711,22 +663,6 @@ export async function GET(request: NextRequest) {
                   }
                 }
               }
-            }
-          }
-        }
-
-        // P3: Engagement with X directly (hearted or locked-in with X itself).
-        // Channel Radio only, gated by engagementGoLive.
-        if (!matched && show.stationId === "broadcast") {
-          const hearters = heartersByShowId.get(show.showId);
-          const lockedIn = lockedInByShowId.get(show.showId);
-          const isHearter = hearters?.has(userId) === true;
-          const isLockedIn = lockedIn?.has(userId) === true;
-          if (isHearter || isLockedIn) {
-            const optOut = emailNotificationsData?.engagementGoLive === false;
-            if (!optOut) {
-              matched = true;
-              engagementReason = isHearter ? "hearted" : "lockedin";
             }
           }
         }

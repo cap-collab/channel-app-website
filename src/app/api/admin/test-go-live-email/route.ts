@@ -24,9 +24,11 @@ export async function GET(request: NextRequest) {
   const stationId = url.searchParams.get("station") || "broadcast";
   const stationName =
     stationId === "broadcast" ? "Channel Radio" : stationId;
-  const reasonRaw = url.searchParams.get("reason");
-  const engagementReason =
-    reasonRaw === "hearted" || reasonRaw === "lockedin" ? reasonRaw : "hearted";
+  // Optional bridge DJ — renders "From the same world as {bridge}." caption
+  // and the listener-side affiliation copy. Otherwise the email uses the
+  // direct-engagement footer.
+  const bridge = url.searchParams.get("bridge") || undefined;
+  const engagementReason = bridge ? undefined : ("engaged" as const);
 
   if (!to) {
     return NextResponse.json(
@@ -55,6 +57,8 @@ export async function GET(request: NextRequest) {
     stationName,
     stationId,
     engagementReason,
+    isAffiliated: !!bridge,
+    affiliationBridgeDj: bridge,
   });
 
   return NextResponse.json({
@@ -63,6 +67,7 @@ export async function GET(request: NextRequest) {
     dj,
     stationId,
     engagementReason,
+    bridge: bridge ?? null,
     recipientUserId: recipientUserId ?? null,
     note: recipientUserId
       ? "Per-DJ unsubscribe link wired."

@@ -67,6 +67,16 @@ export async function POST(
         archiveId: slotId,
         showName: slotData.showName || '',
         djs,
+        // Flat searchable mirror of djs[].username — Firestore doesn't
+        // index inside array-of-objects, so the go-live cron uses
+        // array_contains on this field to find streamers of a given DJ.
+        djUsernames: Array.from(
+          new Set(
+            djs
+              .map((d) => (d.username || '').toString().trim())
+              .filter((u) => u.length > 0),
+          ),
+        ),
         stationId: slotData.stationId || 'broadcast',
         showImageUrl: slotData.showImageUrl || null,
         sourceType: 'live',

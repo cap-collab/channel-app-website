@@ -153,6 +153,10 @@ export interface StreamHistoryDoc {
   slug?: string;
   showName: string;
   djs: { name: string; username?: string; photoUrl?: string }[];
+  // Flat mirror of djs[].username (deduped, non-empty). Lets the go-live
+  // cron find every streamer of a given DJ with a single array_contains
+  // query — Firestore can't index inside array-of-objects.
+  djUsernames?: string[];
   stationId: string;
   showImageUrl?: string;
   sourceType: 'live' | 'archive';

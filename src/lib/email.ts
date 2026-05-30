@@ -249,7 +249,7 @@ interface ShowStartingEmailParams {
   affiliationBridgeDj?: string;
   // Recipient was matched via past engagement (heart or lock-in) rather than
   // a watchlist/favorite. Changes footer copy only.
-  engagementReason?: "hearted" | "lockedin";
+  engagementReason?: "engaged";
 }
 
 export async function sendShowStartingEmail({
