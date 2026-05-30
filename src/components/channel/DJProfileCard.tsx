@@ -121,12 +121,12 @@ export function DJProfileCard({
 
       {/* Action Buttons */}
       <div className="space-y-2 mt-auto">
-        <div className="flex gap-2">
+        <div className="flex gap-1 md:gap-2">
           {watchlistMode && !suggestionBridge ? (
             profile.isChannelUser ? (
               <Link
                 href={`/dj/${profile.username}#chat`}
-                className="flex-1 py-1.5 px-2 md:px-4 md:py-2 rounded text-[11px] md:text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center whitespace-nowrap"
+                className="flex-1 min-w-0 py-1 px-1 md:px-4 md:py-2 rounded text-[10px] md:text-sm font-semibold leading-none transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center whitespace-nowrap overflow-hidden"
               >
                 Chat
               </Link>
@@ -145,7 +145,7 @@ export function DJProfileCard({
                     }
                   } catch {}
                 }}
-                className="flex-1 py-1.5 px-2 md:px-4 md:py-2 rounded text-[11px] md:text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center whitespace-nowrap"
+                className="flex-1 min-w-0 py-1 px-1 md:px-4 md:py-2 rounded text-[10px] md:text-sm font-semibold leading-none transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center whitespace-nowrap overflow-hidden"
               >
                 {copied ? 'Copied!' : (
                   <>
@@ -159,7 +159,7 @@ export function DJProfileCard({
             <button
               onClick={onFollow}
               disabled={isAddingFollow}
-              className={`flex-1 py-1.5 px-2 md:px-4 md:py-2 rounded text-[11px] md:text-sm font-semibold transition-colors flex items-center justify-center gap-1 whitespace-nowrap ${
+              className={`flex-1 min-w-0 py-1 px-1 md:px-4 md:py-2 rounded text-[10px] md:text-sm font-semibold leading-none transition-colors flex items-center justify-center gap-0.5 md:gap-1 whitespace-nowrap overflow-hidden ${
                 isFollowing
                   ? 'bg-white/10 text-gray-400 cursor-default'
                   : 'bg-white hover:bg-gray-100 text-gray-900'
@@ -168,9 +168,9 @@ export function DJProfileCard({
               {isAddingFollow ? (
                 <div className={`w-4 h-4 border-2 ${isFollowing ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin mx-auto`} />
               ) : isFollowing ? (
-                <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
+                <><svg className="w-3 h-3 md:w-3.5 md:h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
               ) : (
-                <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
+                <><svg className="w-3 h-3 md:w-3.5 md:h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
               )}
             </button>
           )}
