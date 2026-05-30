@@ -326,7 +326,11 @@ export default function CrossfadeTestPage() {
         return;
       }
       const elapsed = t - startedAt;
-      const p = Math.min(1, elapsed / CROSSFADE_MS);
+      // Clamp to [0, 1]. Negative `p` happens when the very first rAF
+      // callback's timestamp is earlier than `startedAt` (rare clock skew).
+      // pow(negative, fractional) is NaN, which then sets audio.volume=NaN
+      // and throws in Chrome — killing the rAF loop.
+      const p = Math.min(1, Math.max(0, elapsed / CROSSFADE_MS));
       const outV = outCurve(p) * outgoingPeakGain;
       const inV = inCurve(p) * incomingTargetGain;
       outgoing.volume = outV;
