@@ -126,7 +126,7 @@ export function DJProfileCard({
             profile.isChannelUser ? (
               <Link
                 href={`/dj/${profile.username}#chat`}
-                className="flex-1 py-2 px-3 md:px-4 rounded text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center whitespace-nowrap"
+                className="flex-1 py-1.5 px-2 md:px-4 md:py-2 rounded text-[11px] md:text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center whitespace-nowrap"
               >
                 Chat
               </Link>
@@ -145,7 +145,7 @@ export function DJProfileCard({
                     }
                   } catch {}
                 }}
-                className="flex-1 py-2 px-3 md:px-4 rounded text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center whitespace-nowrap"
+                className="flex-1 py-1.5 px-2 md:px-4 md:py-2 rounded text-[11px] md:text-sm font-semibold transition-colors bg-white hover:bg-gray-100 text-gray-900 text-center whitespace-nowrap"
               >
                 {copied ? 'Copied!' : (
                   <>
@@ -159,7 +159,7 @@ export function DJProfileCard({
             <button
               onClick={onFollow}
               disabled={isAddingFollow}
-              className={`flex-1 py-2 px-3 md:px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 whitespace-nowrap ${
+              className={`flex-1 py-1.5 px-2 md:px-4 md:py-2 rounded text-[11px] md:text-sm font-semibold transition-colors flex items-center justify-center gap-1 whitespace-nowrap ${
                 isFollowing
                   ? 'bg-white/10 text-gray-400 cursor-default'
                   : 'bg-white hover:bg-gray-100 text-gray-900'
@@ -176,7 +176,7 @@ export function DJProfileCard({
           )}
           <Link
             href={href}
-            className="flex-1 py-2 px-3 md:px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white text-center whitespace-nowrap"
+            className="flex-1 py-1.5 px-2 md:px-4 md:py-2 rounded text-[11px] md:text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white text-center whitespace-nowrap"
           >
             See profile
           </Link>
