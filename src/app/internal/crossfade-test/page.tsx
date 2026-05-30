@@ -302,10 +302,14 @@ export default function CrossfadeTestPage() {
       }
     };
 
+    let tickCount = 0;
     const tick = (t: number) => {
+      tickCount++;
+      // Log the very first tick so we know rAF ran at all.
+      if (tickCount === 1) append(`[tick] token ${myToken} FIRST FRAME at t=${(t - startedAt).toFixed(1)}ms`);
       // Stale token: a newer fade has taken over. Stop ticking.
       if (fadeTokenRef.current !== myToken) {
-        append(`[tick] stale token ${myToken}≠${fadeTokenRef.current}, stopping`);
+        append(`[tick] stale token ${myToken}≠${fadeTokenRef.current}, stopping after ${tickCount} frames`);
         return;
       }
       const elapsed = t - startedAt;
