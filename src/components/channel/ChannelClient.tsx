@@ -66,11 +66,24 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
   const { isMuted: isGoLiveMuted, mute: muteGoLiveDj } = useGoLiveMutes();
   const { shows: scheduleShows, irlShows: scheduleIrlShows, curatorRecs: scheduleCuratorRecs, djProfiles: scheduleDjProfiles, loading: scheduleLoading, activate: activateSchedule } = useScheduleLazy();
 
-  // Activate schedule fetch: always on /explore (skipHero=true), only for
-  // logged-in users on /radio (watchlist needs it; logged-out users have no favorites).
+  // Activate schedule fetch.
+  // - Home `/` (skipHero=false, isAuthenticated=true): schedule is critical —
+  //   the watchlist row gates on it. Activate eagerly.
+  // - /scene (sceneMode=true): the YOUR SCENE grid paints from the optimistic
+  //   watchlist (favorites + heart + lock-in) without the schedule. Defer
+  //   schedule activation to the next microtask so the initial paint isn't
+  //   blocked competing for bandwidth. BEYOND YOUR SCENE will then fill in.
+  // - Logged-out home `/` (skipHero=false, isAuthenticated=false): no
+  //   watchlist anyway — keep the existing skip.
   useEffect(() => {
-    if (skipHero || isAuthenticated) activateSchedule();
-  }, [skipHero, isAuthenticated, activateSchedule]);
+    if (!skipHero && !isAuthenticated) return;
+    if (sceneMode) {
+      // Defer so the optimistic watchlist paints first.
+      const id = setTimeout(() => activateSchedule(), 0);
+      return () => clearTimeout(id);
+    }
+    activateSchedule();
+  }, [skipHero, isAuthenticated, sceneMode, activateSchedule]);
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
@@ -276,6 +289,56 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
     favorites.filter((f) => f.type === 'search').map((f) => f.term.toLowerCase()),
     [favorites]
   );
+
+  // Optimistic watchlist for /scene only — built from `favorites` + love +
+  // lock-in, no schedule dependency. Used as initial paint so YOUR SCENE
+  // renders the moment Firestore listeners resolve (usually instant).
+  // Home `/` keeps the existing behavior (schedule gates the carousel).
+  const favoritesOptimistic = useMemo<MatchedItem[]>(() => {
+    if (!sceneMode) return [];
+    const seen = new Set<string>();
+    const out: MatchedItem[] = [];
+    const push = (
+      username: string,
+      displayName: string,
+      photoUrl?: string,
+    ) => {
+      const key = username.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({
+        type: 'profile',
+        data: {
+          username,
+          displayName: displayName || username,
+          photoUrl,
+          isChannelUser: true,
+        },
+        matchLabel: undefined,
+      });
+    };
+    for (const f of favorites) {
+      if (f.type !== 'search') continue;
+      const term = (f.term as string) || '';
+      const djName = (f as { djName?: string }).djName;
+      const djUsername = (f as { djUsername?: string }).djUsername;
+      const djPhotoUrl = (f as { djPhotoUrl?: string }).djPhotoUrl;
+      const username = djUsername || term;
+      if (!username) continue;
+      push(username, djName || term, djPhotoUrl);
+    }
+    for (const lh of loveHistory) {
+      if (!lh.djUsername) continue;
+      if (isGoLiveMuted(lh.djUsername)) continue;
+      push(lh.djUsername, lh.djDisplayName || lh.djUsername, lh.djPhotoUrl);
+    }
+    for (const li of lockedInDjs) {
+      if (!li.djUsername) continue;
+      if (isGoLiveMuted(li.djUsername)) continue;
+      push(li.djUsername, li.djUsername);
+    }
+    return out;
+  }, [favorites, loveHistory, lockedInDjs, isGoLiveMuted]);
 
   // Compute all sections with deduplication
   const {
@@ -1086,8 +1149,10 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
     }
   };
 
-  // Prevent SSR hydration mismatches from Date/localStorage differences
-  if (!mounted) {
+  // Prevent SSR hydration mismatches on /(home) where the hero depends on
+  // Date / localStorage state. On /scene there's no hero — render the page
+  // shell immediately so the user sees something while data loads.
+  if (!mounted && !sceneMode) {
     return <div className="min-h-screen bg-black" />;
   }
 
@@ -1138,19 +1203,27 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
       )}
 
       {/* /scene YOUR SCENE section — grid of watchlist items + suggestions */}
-      {sceneMode && mounted && !(isBroadcastLive && isBroadcastStreaming) && (() => {
-        const hasWatchlist = favoritesNowLive.length > 0;
+      {sceneMode && !(isBroadcastLive && isBroadcastStreaming) && (() => {
+        // Use the enriched list once schedule has loaded; otherwise paint
+        // the optimistic list (built only from favorites + heart/lockin —
+        // no schedule dependency, renders instantly).
+        const watchlistSource =
+          isLoading && favoritesNowLive.length === 0 ? favoritesOptimistic : favoritesNowLive;
+        const hasWatchlist = watchlistSource.length > 0;
         const GRID_CAP = 4;
-        const visibleWatchlist = sceneViewAll ? favoritesNowLive : favoritesNowLive.slice(0, GRID_CAP);
+        const visibleWatchlist = sceneViewAll ? watchlistSource : watchlistSource.slice(0, GRID_CAP);
         const fillerSlots = Math.max(0, GRID_CAP - visibleWatchlist.length);
         // When the grid isn't full, inline suggestions fill the remaining
         // slots. When it IS full, render a separate SUGGESTED row below.
-        const inlineSuggestions = hasWatchlist
+        // Suggestions need schedule data — withhold them while loading.
+        const inlineSuggestions = !isLoading && hasWatchlist
           ? suggestedItems.slice(0, fillerSlots)
           : [];
-        const trailingSuggestions = hasWatchlist
-          ? suggestedItems.slice(fillerSlots, fillerSlots + 2)
-          : suggestedItems.slice(0, 6);
+        const trailingSuggestions = !isLoading
+          ? hasWatchlist
+            ? suggestedItems.slice(fillerSlots, fillerSlots + 2)
+            : suggestedItems.slice(0, 6)
+          : [];
 
         return (
           <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">

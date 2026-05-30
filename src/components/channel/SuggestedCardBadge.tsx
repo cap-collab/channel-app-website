@@ -12,7 +12,7 @@ interface BridgeProps {
 
 export function SuggestedBanner({ bridgeDjName }: BridgeProps) {
   return (
-    <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.18em] px-2 py-1 flex items-center justify-between gap-2 border border-white/10 border-b-0">
+    <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.18em] px-2 py-1 flex items-center justify-center md:justify-between gap-2 border border-white/10 border-b-0">
       <span>Suggested</span>
       <span className="text-white/70 truncate normal-case tracking-normal hidden md:inline">
         Similar to {bridgeDjName}
