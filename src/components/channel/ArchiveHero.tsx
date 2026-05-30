@@ -1726,10 +1726,6 @@ export function InterludeSlide({ onPlay }: { onPlay: () => void }) {
       <div className="absolute top-2 left-2 right-9 drop-shadow-lg">
         <span className="text-[17px] font-bold text-white uppercase tracking-wide block truncate">interlude</span>
       </div>
-      {/* Centered channel logo overlay. */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <Image src="/logo-white.png" alt="channel" width={120} height={120} className="opacity-90 drop-shadow-lg" />
-      </div>
     </button>
   );
 }
