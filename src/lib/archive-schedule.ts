@@ -492,10 +492,17 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   // Same-DJ adjacency pass.
   items = spaceSameDj(items);
 
+  // Interlude picker: round-robin through ONE shuffled order. Every interlude
+  // plays once before any repeats; the order is the same throughout the loop
+  // (e.g. A B C D A B C D A B C D…). Simpler than reshuffling each cycle,
+  // and visually predictable.
   const interstitialPool = opts.interstitials ?? [];
+  const shuffledInterludes = interstitialPool.length > 0 ? shuffle(interstitialPool, rng) : [];
+  let interludeCursor = 0;
   const pickInterstitial = (): ScheduleItem | null => {
-    if (interstitialPool.length === 0) return null;
-    const ix = interstitialPool[Math.floor(rng() * interstitialPool.length)];
+    if (shuffledInterludes.length === 0) return null;
+    const ix = shuffledInterludes[interludeCursor % shuffledInterludes.length];
+    interludeCursor++;
     return {
       kind: 'interstitial',
       interstitialId: ix.id,
