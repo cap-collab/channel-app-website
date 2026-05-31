@@ -18,7 +18,7 @@ import { useBroadcastStreamContext } from "@/contexts/BroadcastStreamContext";
 import { useArchivePlayer } from "@/contexts/ArchivePlayerContext";
 import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
-import { getStationById, getMetadataKeyByStationId } from "@/lib/stations";
+import { getStationById, getMetadataKeyByStationId, getStationLogoUrl } from "@/lib/stations";
 import { useBPM } from "@/contexts/BPMContext";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { Venue, Collective, Event as ChannelEvent, EventDJRef, CollectiveRef } from "@/types/events";
@@ -2122,8 +2122,6 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               const currentTime = isThisArchive ? archivePlayer.currentTime : 0;
               const showImage = archive.showImageUrl || archive.djs?.[0]?.photoUrl || profile.djProfile.photoUrl;
               const recordingDate = new Date(archive.recordedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-              const archiveGenres = archive.djs?.[0]?.genres;
-              const genreText = archiveGenres?.length ? archiveGenres.map(g => g.toUpperCase()).join(' · ') : null;
 
               return (
                 <div key={archive.id} className="bg-black border border-[#333] rounded-none overflow-hidden">
@@ -2179,9 +2177,6 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                     <div className="flex-1 min-w-0 flex flex-col" style={showImage ? { minHeight: '96px' } : undefined}>
                       <div>
                         <p className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</p>
-                        {genreText && (
-                          <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-400 mt-0.5">{genreText}</p>
-                        )}
                       </div>
 
                       {/* Player */}
@@ -2484,7 +2479,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                               />
                             </div>
                           )}
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <h3 className="text-white font-medium truncate">{broadcast.showName}</h3>
                             {broadcast.djName && (
                               broadcast.djUsername ? (
@@ -2499,6 +2494,22 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                               )
                             )}
                           </div>
+                          {/* Station logo, right end of the row — opposite the show image / DJ name */}
+                          {(() => {
+                            const logoUrl = getStationLogoUrl(broadcast.stationId);
+                            return logoUrl ? (
+                              <div className="w-10 h-10 rounded border border-white/15 overflow-hidden bg-black flex-shrink-0">
+                                <Image
+                                  src={logoUrl}
+                                  alt={broadcast.stationName || broadcast.stationId}
+                                  width={40}
+                                  height={40}
+                                  className="w-full h-full object-contain"
+                                  unoptimized
+                                />
+                              </div>
+                            ) : null;
+                          })()}
                         </div>
 
                         {/* Time Bar */}

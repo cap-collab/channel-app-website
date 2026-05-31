@@ -139,6 +139,26 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
   const [sceneEditMode, setSceneEditMode] = useState(false);
   const [sceneViewAll, setSceneViewAll] = useState(false);
 
+  // Click anywhere outside the YOUR SCENE section to exit Edit mode. The
+  // section sets data-scene-edit-boundary on its wrapper; clicks inside
+  // (cards, Edit/Done button, remove ×) are ignored so the user can finish
+  // their removal flow without the mode flipping off.
+  useEffect(() => {
+    if (!sceneEditMode) return;
+    const handler = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('[data-scene-edit-boundary]')) return;
+      setSceneEditMode(false);
+    };
+    // mousedown fires before click — feels more responsive on tap-out
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [sceneEditMode]);
+
   const handleRemoveWatchlistDj = useCallback(
     async (profile: DJProfile) => {
       const key = profile.username || profile.displayName;
@@ -494,8 +514,42 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       !s0DjNames.has(p.username.toLowerCase())
     );
     followedProfiles.sort((a, b) => (a.isChannelUser === b.isChannelUser ? 0 : a.isChannelUser ? -1 : 1));
+    const followedProfileUsernames = new Set<string>();
     for (const profile of followedProfiles) {
       s0.push({ type: 'profile', data: profile, matchLabel: undefined });
+      followedProfileUsernames.add(profile.username.toLowerCase());
+      followedProfileUsernames.add(profile.displayName.toLowerCase());
+    }
+    // Fallback: any manually-watchlisted DJ that didn't surface above
+    // (e.g. they have no genres set, so they're absent from djProfiles)
+    // still belongs on the user's grid — they explicitly followed them.
+    // Synthesize a minimal profile from the favorite doc so the card
+    // renders with the DJ name even when no photo/genres exist.
+    for (const f of favorites) {
+      if (f.type !== 'search') continue;
+      const term = (f.term as string) || '';
+      const djName = (f as { djName?: string }).djName;
+      const djUsername = (f as { djUsername?: string }).djUsername;
+      const djPhotoUrl = (f as { djPhotoUrl?: string }).djPhotoUrl;
+      const username = djUsername || term;
+      if (!username) continue;
+      const lower = username.toLowerCase();
+      const displayName = djName || term;
+      const lowerDisplay = displayName.toLowerCase();
+      if (s0DjNames.has(lower) || s0DjNames.has(lowerDisplay)) continue;
+      if (followedProfileUsernames.has(lower) || followedProfileUsernames.has(lowerDisplay)) continue;
+      s0.push({
+        type: 'profile',
+        data: {
+          username,
+          displayName,
+          photoUrl: djPhotoUrl,
+          isChannelUser: true,
+        } as DJProfile,
+        matchLabel: undefined,
+      });
+      followedProfileUsernames.add(lower);
+      followedProfileUsernames.add(lowerDisplay);
     }
 
     // Engagement-added DJs: anyone the user has hearted or locked in with,
@@ -1320,7 +1374,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
           : [];
 
         return (
-          <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">
+          <section className="px-4 md:px-8 pt-4 pb-6 relative z-10" data-scene-edit-boundary>
             <div className="max-w-7xl mx-auto">
               <div className="flex items-center justify-between gap-2 mb-3">
                 <h2 className="text-2xl md:text-3xl font-semibold">YOUR SCENE</h2>
