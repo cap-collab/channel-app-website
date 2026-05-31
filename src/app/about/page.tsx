@@ -16,12 +16,12 @@ const faqItems = [
   {
     question: "What is Channel?",
     answer:
-      "Channel is an online radio for the electronic music community, curated in LA.\n\nArtists, labels, venues, and collectives host shows and listening sessions. People tune in, listen together, and connect with their community.\n\nNo ads. No algorithms.",
+      "Channel is a community-led internet radio platform.\n\nArtists, DJs, producers, collectives, and labels host live shows and listening sessions. Listeners discover music through people, not algorithms.\n\nBuilt for intentional listening.\n\nNo ads. No algorithms.",
   },
   {
     question: "Who is it for?",
     answer:
-      "For artists and show hosts\nHost shows, share music, connect directly with the people who care about your craft, and notify your followers when something new happens.\n\nNo more depending on Instagram to reach your audience.\n\nFor listeners\nFollow the artists and curators you care about. Get notified when something new happens. Tune in when they host shows and connect with them and their community, live.\n\nNo more chasing stories to catch what's next.",
+      "For artists and show hosts\nHost live shows, share music, and build deeper connections with the people who care about your work.\n\nA space for artists who value curation, community, and long-form listening.\n\nFor listeners\nFollow artists, collectives, and scenes you care about.\n\nDiscover music through people, not algorithms. Tune in live, show support, and stay connected to the people, music, and ideas that move you forward.",
   },
   {
     question: "How much does it cost?",
