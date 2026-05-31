@@ -43,7 +43,7 @@ export function SuggestedBanner({ bridgeDjName }: BridgeProps) {
 // Legacy bridge caption renderer — kept exported for back-compat with
 // existing imports, but now renders nothing. The mobile bridge label is
 // folded into the SuggestedBanner above so we never stack two bars.
-export function SuggestedBridgeOverlay(_props: BridgeProps) {
+export function SuggestedBridgeOverlay(): null {
   return null;
 }
 
