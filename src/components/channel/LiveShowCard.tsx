@@ -57,13 +57,29 @@ export function LiveShowCard({
       {/* Gradient scrims */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-      {/* Online badge - top left */}
+      {/* Online / Channel badge - top left */}
       <div className="absolute top-2 left-2">
         <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
-          <svg className="w-3 h-3 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
-          </svg>
-          Online
+          {station.id === 'broadcast' ? (
+            <>
+              <Image
+                src="/logo-white-on-black-square.svg"
+                alt=""
+                width={12}
+                height={12}
+                className="w-3 h-3 inline-block"
+                unoptimized
+              />
+              Channel
+            </>
+          ) : (
+            <>
+              <svg className="w-3 h-3 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
+              </svg>
+              Online
+            </>
+          )}
         </span>
       </div>
       {/* DJ Name, Genre, Location - bottom left */}
