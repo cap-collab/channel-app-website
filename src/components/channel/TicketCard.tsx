@@ -40,12 +40,10 @@ export function TicketCard({
   const [copied, setCopied] = useState(false);
 
   const djName = show.dj || show.name;
-  // Channel shows (broadcast / dj-radio) prefer the show image, then DJ photo,
-  // then placeholder. External station shows keep DJ-photo first.
-  const isChannelShow = station.id === 'broadcast' || station.id === 'dj-radio';
-  const photoUrl = isChannelShow
-    ? (show.imageUrl || show.djPhotoUrl)
-    : (show.djPhotoUrl || show.imageUrl);
+  // Prefer the show image when present (artwork is usually richer than a
+  // generic DJ headshot), fall back to the DJ photo, then placeholder.
+  // Applies uniformly to Channel + external station shows.
+  const photoUrl = show.imageUrl || show.djPhotoUrl;
   const hasPhoto = photoUrl && !imageError;
   const stationLogo = getStationLogoUrl(station.id);
 

@@ -1908,11 +1908,19 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
         {/* COLLECTIVE RESIDENTS — 2-row horizontally-scrollable grid with arrows + dots.
             Desktop: 3 cards per row (6 visible). Mobile: 2 per row, bio hidden.
-            Photo-first sort keeps pictured residents in the no-scroll columns. */}
+            Photo-first sort keeps pictured residents in the no-scroll columns.
+            Owners are excluded — they already render in the OWNERS section above. */}
         {profile.profileType === 'collective' &&
           (residentsResolved.length > 0 || (profile.linkedCollectives && profile.linkedCollectives.length > 0)) && (() => {
+            const ownerUids = new Set((profile.owners || []).filter(Boolean));
+            const residentsWithoutOwners = residentsResolved.filter(
+              (r) => !r.djUserId || !ownerUids.has(r.djUserId)
+            );
+            if (residentsWithoutOwners.length === 0 && (!profile.linkedCollectives || profile.linkedCollectives.length === 0)) {
+              return null;
+            }
             const items: { key: string; href: string | null; name: string; photoUrl?: string; bio?: string; badge?: string; isCollective: boolean }[] = [];
-            residentsResolved.forEach((r, i) => {
+            residentsWithoutOwners.forEach((r, i) => {
               items.push({
                 key: `dj-${r.djUsername || r.djName}-${i}`,
                 href: r.djUsername ? `/dj/${normalizeUsername(r.djUsername)}` : null,

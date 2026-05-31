@@ -33,9 +33,9 @@ export function LiveShowCard({
   suggestionBridge,
 }: LiveShowCardProps) {
   const [imageError, setImageError] = useState(false);
-  // Channel shows (broadcast / dj-radio) prefer the show image, then DJ photo.
-  const isChannelShow = station.id === 'broadcast' || station.id === 'dj-radio';
-  const photoUrl = isChannelShow ? (show.imageUrl || show.djPhotoUrl) : show.djPhotoUrl;
+  // Prefer the show image when present, fall back to the DJ photo.
+  // Applies uniformly to Channel + external station shows.
+  const photoUrl = show.imageUrl || show.djPhotoUrl;
   const hasPhoto = photoUrl && !imageError;
   const djName = show.dj || show.name;
   const textColor = hasPhoto ? '#ffffff' : getContrastTextColor(station.accentColor);
