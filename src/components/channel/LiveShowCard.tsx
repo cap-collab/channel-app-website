@@ -102,6 +102,7 @@ export function LiveShowCard({
       </div>
 
       {suggestionBridge !== undefined && <SuggestedBanner bridgeDjName={suggestionBridge} />}
+      {suggestionBridge !== undefined && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
       {/* Full width 16:9 image with overlays */}
       <div className="relative">
         {show.djUsername ? (
@@ -155,7 +156,6 @@ export function LiveShowCard({
             )}
           </div>
         )}
-        {suggestionBridge !== undefined && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
         {onRemove && (
           <CardRemoveButton
             onRemove={onRemove}
@@ -216,7 +216,7 @@ export function LiveShowCard({
         </a>
         {/* Discovery mode: genre line under the metadata. */}
         {!sceneLayout && show.djGenres && show.djGenres.length > 0 && (
-          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
+          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter truncate">
             {show.djGenres.join(' · ')}
           </p>
         )}

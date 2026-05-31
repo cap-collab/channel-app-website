@@ -1,16 +1,14 @@
 'use client';
 
-import { useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 
 // Single bottom-right icon button rendered on every /scene card. The icon
 // reflects the priority action chain:
-//   1. Tickets    (IRL event with ticketUrl)
-//   2. Join       (show is live now)
-//   3. + Watchlist (DJ isn't already followed)
-//   4. Share       (fallback)
-// Tapping the card image already opens the DJ profile, so there's no
-// separate "See profile" affordance here.
+//   1. Tickets       (IRL event with ticketUrl)
+//   2. Join          (show is live now)
+//   3. + Watchlist   (DJ isn't already followed)
+//   4. View profile  (fallback — DJ already on watchlist, no live show,
+//                     no event tickets)
 
 interface CardActionsProps {
   djUsername?: string;
@@ -26,10 +24,15 @@ interface CardActionsProps {
   asOverlay?: boolean;
 }
 
-const iconClass = 'w-3.5 h-3.5 pointer-events-none';
+// Editorial frosted-glass action chip:
+//   - 6x6 (24px) — ~15% smaller than the previous 7x7 (28px), reads as a
+//     subtle utility rather than a primary CTA.
+//   - Semi-transparent white fill with backdrop blur so the artwork colors
+//     show through. Thin white border, square corners, white icon.
+const iconClass = 'w-3 h-3 pointer-events-none';
 const buttonBase =
-  'inline-flex items-center justify-center w-7 h-7 bg-white text-black hover:bg-gray-100 transition-colors disabled:opacity-50';
-const overlayPos = 'absolute bottom-2 right-2 z-10 shadow-lg';
+  'inline-flex items-center justify-center w-6 h-6 bg-white/10 hover:bg-white/20 text-white border border-white/30 backdrop-blur-md transition-colors disabled:opacity-50';
+const overlayPos = 'absolute bottom-2 right-2 z-10';
 
 export function CardActions({
   djUsername,
@@ -42,21 +45,6 @@ export function CardActions({
   asOverlay,
 }: CardActionsProps) {
   const buttonClass = asOverlay ? `${buttonBase} ${overlayPos}` : buttonBase;
-  const [copied, setCopied] = useState(false);
-
-  const handleShare = (e: MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!djUsername) return;
-    const url = `${window.location.origin}/dj/${djUsername}`;
-    navigator.clipboard
-      .writeText(url)
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      })
-      .catch(() => {});
-  };
 
   let action: React.ReactNode;
   if (ticketUrl) {
@@ -69,13 +57,9 @@ export function CardActions({
         aria-label="Tickets"
         title="Tickets"
       >
-        {/* External-link icon */}
-        <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-          />
+        {/* Ticket icon — stub-shaped paper with a notch + barcode line */}
+        <svg className={iconClass} fill="currentColor" viewBox="0 0 24 24">
+          <path d="M2 9a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v3a2 2 0 0 0 0 4v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3a2 2 0 0 0 0-4V9zm14.5 0v6h1.5v-6h-1.5z" />
         </svg>
       </a>
     );
@@ -116,7 +100,7 @@ export function CardActions({
         title="Add to watchlist"
       >
         {isAddingWatchlist ? (
-          <div className="w-3.5 h-3.5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
         ) : (
           <svg
             className={iconClass}
@@ -130,31 +114,28 @@ export function CardActions({
         )}
       </button>
     );
-  } else {
+  } else if (djUsername) {
+    // Fallback: open the DJ profile. The card image is also a link to the
+    // profile, but a tappable icon here makes the action explicit on the
+    // bottom-right corner of every card.
     action = (
-      <button
-        type="button"
-        onClick={handleShare}
-        disabled={!djUsername}
+      <Link
+        href={`/dj/${djUsername}`}
         className={buttonClass}
-        aria-label={copied ? 'Copied' : 'Share'}
-        title={copied ? 'Copied' : 'Share'}
+        aria-label="View profile"
+        title="View profile"
       >
-        {copied ? (
-          <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        ) : (
-          <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 6l-4-4m0 0L8 6m4-4v13"
-            />
-          </svg>
-        )}
-      </button>
+        <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+          />
+        </svg>
+      </Link>
     );
+  } else {
+    action = null;
   }
 
   if (asOverlay) return <>{action}</>;

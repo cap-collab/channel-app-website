@@ -111,6 +111,7 @@ export function IRLShowCard({
         )}
       </div>
       {suggestionBridge !== undefined && <SuggestedBanner bridgeDjName={suggestionBridge} />}
+      {suggestionBridge !== undefined && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
       {/* Full width image with overlays */}
       <div className="relative">
         {href ? (
@@ -122,7 +123,6 @@ export function IRLShowCard({
             {imageContent}
           </div>
         )}
-        {suggestionBridge !== undefined && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
         {onRemove && (
           <CardRemoveButton
             onRemove={onRemove}
@@ -169,7 +169,7 @@ export function IRLShowCard({
         )}
         {/* Discovery mode: genre line under venue/location. */}
         {!sceneLayout && show.djGenres && show.djGenres.length > 0 && (
-          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
+          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter truncate">
             {show.djGenres.join(' · ')}
           </p>
         )}

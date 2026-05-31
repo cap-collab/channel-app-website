@@ -93,13 +93,15 @@ export function DJProfileCard({
           </span>
         )}
       </div>
-      {/* SUGGESTED banner above the card (only for /scene suggestions) */}
+      {/* SUGGESTED banner + "Similar to" caption stack above the image
+          (only for /scene suggestions). Mobile shows the caption as its
+          own line; desktop renders the attribution inline in the banner. */}
       {suggestionBridge !== undefined && <SuggestedBanner bridgeDjName={suggestionBridge} />}
+      {suggestionBridge !== undefined && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
       {/* Full width image with overlays */}
       <div className="relative">
         <Link href={href} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
           {imageContent}
-          {suggestionBridge !== undefined && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
         </Link>
         {onRemove && (
           <CardRemoveButton
@@ -108,25 +110,28 @@ export function DJProfileCard({
             ariaLabel={`Remove ${profile.displayName}`}
           />
         )}
-      </div>
-
-      {sceneLayout ? (
-        /* Compact /scene layout: info row + bottom-right action icon */
-        <div className="flex items-end justify-between gap-2 py-2 mt-auto">
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-bold text-white leading-tight truncate">
-              {profile.displayName}
-            </h3>
-            {profile.location && (
-              <p className="text-[10px] text-zinc-500 mt-0.5 truncate">{profile.location}</p>
-            )}
-          </div>
+        {/* Compact /scene mode: action icon overlays the image (matches the
+            show cards' overlay slot for visual consistency across the grid). */}
+        {sceneLayout && (
           <CardActions
+            asOverlay
             djUsername={profile.username}
             isFollowing={isFollowing}
             onAddToWatchlist={onFollow}
             isAddingWatchlist={isAddingFollow}
           />
+        )}
+      </div>
+
+      {sceneLayout ? (
+        /* Compact /scene layout: info row only (action icon is overlaid above). */
+        <div className="py-2 mt-auto">
+          <h3 className="text-sm font-bold text-white leading-tight truncate">
+            {profile.displayName}
+          </h3>
+          {profile.location && (
+            <p className="text-[10px] text-zinc-500 mt-0.5 truncate">{profile.location}</p>
+          )}
         </div>
       ) : (
         /* Discovery layout: name + genres + 2-button row */
@@ -136,7 +141,7 @@ export function DJProfileCard({
               {profile.displayName}
             </h3>
             {profile.genres && profile.genres.length > 0 && (
-              <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
+              <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter truncate">
                 {profile.genres.join(' · ')}
               </p>
             )}
