@@ -647,10 +647,21 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     // The onFinish callback below ALSO preloads the item-after-next, so
     // by the time we hit the next boundary's effect run, that item is
     // already preloaded and preloadedNextKeyRef will short-circuit here.
-    console.log(`[radio-debug] boundary-effect current=${current.item.kind}:${current.item.title} next=${next.item.kind}:${next.item.title} fadeStartMs in ${((fadeStartMs - Date.now())/1000).toFixed(1)}s preloadKey=${preloadedNextKeyRef.current === nextKey ? 'already' : 'NEW'}`);
+    console.log(`[radio-debug] boundary-effect current=${current.item.kind}:${current.item.title} next=${next.item.kind}:${next.item.title} fadeStartMs in ${((fadeStartMs - Date.now())/1000).toFixed(1)}s preloadKey=${preloadedNextKeyRef.current === nextKey ? 'already' : 'NEW'} crossfadeInFlight=${crossfadeInFlightRef.current}`);
     if (preloadedNextKeyRef.current !== nextKey) {
-      preloadedNextKeyRef.current = nextKey;
-      void preloadStandby(next.item.recordingUrl, next.item.kind);
+      // CRITICAL: do NOT preload if a fade is in flight. The "standby"
+      // element returned by getStandby() at this moment is actually the
+      // OUTGOING side of the in-flight fade (activeKey already flipped at
+      // fade-start, so what's playing as outgoing is now categorized as
+      // standby). Setting .src on it wipes its currentTime → kills the
+      // archive that's supposed to be fading out. The fade's onFinish
+      // hook below handles the after-next preload safely.
+      if (crossfadeInFlightRef.current) {
+        console.log(`[radio-debug] boundary-effect: SKIP preload (fade in flight)`);
+      } else {
+        preloadedNextKeyRef.current = nextKey;
+        void preloadStandby(next.item.recordingUrl, next.item.kind);
+      }
     }
 
     const delay = Math.max(MIN_BOUNDARY_LEAD_MS, fadeStartMs - Date.now());
