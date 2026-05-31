@@ -32,11 +32,11 @@ export function TicketCard({
   show,
   station,
   isFollowing,
-  isShowFavorited,
   isAddingFollow,
-  isAddingReminder,
   onFollow,
-  onRemindMe,
+  // isShowFavorited / isAddingReminder / onRemindMe accepted for back-compat
+  // but no longer rendered — Remind Me was replaced with See profile so
+  // explore cards don't repeat the same "Watchlist + Remind Me" pair.
   matchLabel,
   profileMode,
   suggestionBridge,
@@ -213,7 +213,7 @@ export function TicketCard({
         )}
       </div>
 
-      {/* Discovery mode: original two-button row (Watchlist + Remind Me). */}
+      {/* Discovery mode: Watchlist + See profile (matches the other card types). */}
       {!sceneLayout && (
         <div className="space-y-2">
           <div className="flex gap-2">
@@ -234,23 +234,14 @@ export function TicketCard({
                 <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
               )}
             </button>
-            <button
-              onClick={onRemindMe}
-              disabled={isAddingReminder || isShowFavorited}
-              className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors ${
-                isShowFavorited
-                  ? 'bg-white/10 text-gray-400 cursor-default'
-                  : 'bg-white/10 hover:bg-white/20 text-white'
-              } disabled:opacity-50`}
-            >
-              {isAddingReminder ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-              ) : isShowFavorited ? (
-                'Reminded'
-              ) : (
-                'Remind Me'
-              )}
-            </button>
+            {show.djUsername && (
+              <Link
+                href={`/dj/${show.djUsername}`}
+                className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white text-center"
+              >
+                See profile
+              </Link>
+            )}
           </div>
         </div>
       )}
