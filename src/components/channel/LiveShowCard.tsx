@@ -33,7 +33,8 @@ export function LiveShowCard({
   isAddingFollow,
   onFollow,
   matchLabel,
-  profileMode,
+  // profileMode is accepted for back-compat but no longer affects rendering
+  // — CardActions handles all button variations.
   bpm,
   suggestionBridge,
   onRemove,

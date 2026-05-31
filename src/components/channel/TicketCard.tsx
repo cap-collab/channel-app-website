@@ -32,19 +32,17 @@ export function TicketCard({
   show,
   station,
   isFollowing,
-  isShowFavorited,
   isAddingFollow,
-  isAddingReminder,
   onFollow,
-  onRemindMe,
   matchLabel,
-  profileMode,
+  // isShowFavorited / isAddingReminder / onRemindMe / profileMode are
+  // accepted for back-compat but no longer affect rendering — CardActions
+  // handles the button variations uniformly.
   suggestionBridge,
   onRemove,
   isRemoving,
 }: TicketCardProps) {
   const [imageError, setImageError] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   const djName = show.dj || show.name;
   // Prefer the show image when present (artwork is usually richer than a

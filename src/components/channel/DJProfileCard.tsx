@@ -31,13 +31,13 @@ export function DJProfileCard({
   isAddingFollow,
   onFollow,
   matchLabel,
-  watchlistMode,
+  // watchlistMode is still accepted for back-compat but no longer affects
+  // rendering — CardActions now drives the button row uniformly.
   onRemove,
   isRemoving,
   suggestionBridge,
 }: DJProfileCardProps) {
   const [imageError, setImageError] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   const hasPhoto = profile.photoUrl && !imageError;
   const href = `/dj/${profile.username}`;
