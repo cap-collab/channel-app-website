@@ -899,36 +899,55 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
     // rank: 0 = live radio/online, 1 = upcoming radio, 2 = upcoming IRL, 3 = profile-only
     const out: Out[] = [];
     for (const c of candidates) {
-      const station = stationsMap.get('broadcast');
-      const cNames = [norm(c.profile.displayName), norm(c.profile.username)];
+      const cNames = [norm(c.profile.displayName), norm(c.profile.username)].filter(Boolean);
+      const cUid = c.profile.userId;
       const nowMs = Date.now();
+      // Match the candidate to a show by djUserId first (exact link), then
+      // djUsername (chatUsernameNormalized — also exact), and only fall
+      // back to the free-text `dj` field. Using `dj` alone caused mistaken
+      // matches when the schedule had a different DJ whose name happens to
+      // normalize to the same string.
       const nextRadio = allShows
         .filter((s) => {
-          if (!s.dj) return false;
-          if (!cNames.includes(norm(s.dj))) return false;
+          const matchesByUid = cUid && s.djUserId === cUid;
+          const matchesByUsername = s.djUsername && cNames.includes(norm(s.djUsername));
+          const matchesByName = s.dj && cNames.includes(norm(s.dj));
+          if (!matchesByUid && !matchesByUsername && !matchesByName) return false;
           const end = new Date(s.endTime).getTime();
           return !Number.isNaN(end) && end > nowMs;
         })
         .sort(
           (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
         )[0];
-      if (nextRadio && station) {
-        const startMs = new Date(nextRadio.startTime).getTime();
-        const live =
-          startMs <= nowMs && new Date(nextRadio.endTime).getTime() > nowMs;
-        out.push({
-          item: { type: 'radio', data: nextRadio, station, matchLabel: undefined, live },
-          bridge: c.bridge,
-          rank: live ? 0 : 1,
-          sortKey: startMs,
-        });
-        continue;
+      if (nextRadio) {
+        // Use the show's actual station, not a hard-coded 'broadcast'. An
+        // upcoming show may be on NTS / Rinse / dublab etc.
+        const station = stationsMap.get(nextRadio.stationId);
+        if (station) {
+          const startMs = new Date(nextRadio.startTime).getTime();
+          const live =
+            startMs <= nowMs && new Date(nextRadio.endTime).getTime() > nowMs;
+          out.push({
+            item: { type: 'radio', data: nextRadio, station, matchLabel: undefined, live },
+            bridge: c.bridge,
+            rank: live ? 0 : 1,
+            sortKey: startMs,
+          });
+          continue;
+        }
       }
       const nextIrl = irlShows
         .filter((s) => {
+          // Prefer username (exact); fall back to djName for legacy / IRL
+          // shows that haven't been linked yet.
           if (s.djUsername && cNames.includes(norm(s.djUsername))) return true;
           if (s.djName && cNames.includes(norm(s.djName))) return true;
           return false;
+        })
+        // Only future IRL dates (today onward).
+        .filter((s) => {
+          const dt = new Date(s.date + 'T00:00:00').getTime();
+          return !Number.isNaN(dt) && dt + 24 * 3600 * 1000 > nowMs;
         })
         .sort((a, b) => a.date.localeCompare(b.date))[0];
       if (nextIrl) {

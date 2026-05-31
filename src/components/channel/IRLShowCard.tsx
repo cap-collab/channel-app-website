@@ -113,6 +113,19 @@ export function IRLShowCard({
             {imageContent}
           </div>
         )}
+        {/* Event-image badge — same slot as the station-logo overlay on
+            online show cards. Only renders when an event photo exists. */}
+        {show.eventPhotoUrl && (
+          <div className="absolute -bottom-4 right-3 w-8 h-8 rounded border border-white/30 overflow-hidden bg-black z-10">
+            <Image
+              src={show.eventPhotoUrl}
+              alt={show.eventName || 'Event'}
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          </div>
+        )}
         {suggestionBridge && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
       </div>
 
