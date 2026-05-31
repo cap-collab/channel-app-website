@@ -15,10 +15,18 @@ interface BridgeProps {
 }
 
 export function SuggestedBanner({ bridgeDjName }: BridgeProps) {
+  const hasBridge = !!bridgeDjName;
+  // When there's no bridge, center the "Suggested" label at all breakpoints.
+  // When there IS a bridge, mobile centers (the bridge name shows as a card
+  // overlay instead) and desktop uses justify-between to push the
+  // attribution to the right.
+  const justify = hasBridge ? 'justify-center md:justify-between' : 'justify-center';
   return (
-    <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.18em] px-2 py-1 flex items-center justify-center md:justify-between gap-2 border border-white/10 border-b-0">
+    <div
+      className={`bg-black text-white text-[10px] font-mono uppercase tracking-[0.18em] px-2 py-1 flex items-center gap-2 border border-white/10 border-b-0 ${justify}`}
+    >
       <span>Suggested</span>
-      {bridgeDjName && (
+      {hasBridge && (
         <span className="text-white/70 truncate normal-case tracking-normal hidden md:inline">
           Similar to {bridgeDjName}
         </span>

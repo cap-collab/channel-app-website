@@ -320,6 +320,10 @@ interface UpcomingShow {
   isExternal?: boolean;
   // Show image (from broadcast slot)
   showImageUrl?: string;
+  // DJ photo — used as a fallback hero image when the show has no
+  // showImageUrl. Resolved per-show: broadcast slots → liveDjPhotoUrl /
+  // djPhotoUrl / first restream DJ photo. External shows → show.djPhotoUrl.
+  djPhotoUrl?: string;
   // All DJs for multi-DJ restream display
   restreamDjs?: { name: string; userId?: string; username?: string; email?: string; photoUrl?: string }[];
   // Broadcast type (remote, venue, restream, recording)
@@ -879,6 +883,15 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                 djName = sortedDjs.map(dj => dj.name).join(', ');
               }
 
+              // Pick a DJ photo to fall back to when the slot has no showImage.
+              // Prefer the live DJ's photo if set, then the slot's primary
+              // djPhotoUrl, then the first restream DJ's photo.
+              const slotDjPhotoUrl =
+                (data.liveDjPhotoUrl as string | undefined) ||
+                (data.djPhotoUrl as string | undefined) ||
+                (restreamDjs?.find((d) => d.photoUrl)?.photoUrl as string | undefined) ||
+                undefined;
+
               upcomingShows.push({
                 id,
                 showName: data.showName || "Broadcast",
@@ -890,6 +903,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                 stationName: "Channel Radio",
                 isExternal: false,
                 showImageUrl: data.showImageUrl,
+                djPhotoUrl: slotDjPhotoUrl,
                 restreamDjs,
                 broadcastType: data.broadcastType as string | undefined,
               });
@@ -957,6 +971,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             stationName: station?.name || show.stationId,
             isExternal: true,
             showImageUrl: show.imageUrl,
+            djPhotoUrl: show.djPhotoUrl,
           });
         }
       });
@@ -2467,18 +2482,21 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                       {/* Body */}
                       <div className="p-4 space-y-4">
                         <div className="flex items-center gap-3">
-                          {broadcast.showImageUrl && (
-                            <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
-                              <Image
-                                src={broadcast.showImageUrl}
-                                alt={broadcast.showName}
-                                width={48}
-                                height={48}
-                                className="w-full h-full object-cover"
-                                unoptimized
-                              />
-                            </div>
-                          )}
+                          {(() => {
+                            const heroUrl = broadcast.showImageUrl || broadcast.djPhotoUrl;
+                            return heroUrl ? (
+                              <div className="w-12 h-12 rounded-lg bg-gray-800 flex-shrink-0 overflow-hidden">
+                                <Image
+                                  src={heroUrl}
+                                  alt={broadcast.showName}
+                                  width={48}
+                                  height={48}
+                                  className="w-full h-full object-cover"
+                                  unoptimized
+                                />
+                              </div>
+                            ) : null;
+                          })()}
                           <div className="min-w-0 flex-1">
                             <h3 className="text-white font-medium truncate">{broadcast.showName}</h3>
                             {broadcast.djName && (
