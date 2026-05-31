@@ -28,13 +28,14 @@ export function IRLShowCard({
   isAddingFollow,
   onFollow,
   matchLabel,
-  // profileMode is accepted for back-compat but no longer affects rendering
-  // — CardActions handles all button variations.
+  profileMode,
   suggestionBridge,
   onRemove,
   isRemoving,
 }: IRLShowCardProps) {
   const [imageError, setImageError] = useState(false);
+  // Compact /scene layout vs full discovery layout.
+  const sceneLayout = profileMode || suggestionBridge !== undefined;
 
   // Event photo first (the curated artwork), fall back to DJ photo.
   const photoUrl = show.eventPhotoUrl || show.djPhotoUrl;
@@ -129,18 +130,20 @@ export function IRLShowCard({
             ariaLabel={`Remove ${show.djName || show.eventName}`}
           />
         )}
-        {/* Action icon overlaid in the slot the event-image badge used to occupy */}
-        <CardActions
-          asOverlay
-          djUsername={show.djUsername}
-          ticketUrl={show.ticketUrl}
-          isFollowing={isFollowing}
-          onAddToWatchlist={onFollow}
-          isAddingWatchlist={isAddingFollow}
-        />
+        {/* Compact /scene mode: action icon overlays the image. */}
+        {sceneLayout && (
+          <CardActions
+            asOverlay
+            djUsername={show.djUsername}
+            ticketUrl={show.ticketUrl}
+            isFollowing={isFollowing}
+            onAddToWatchlist={onFollow}
+            isAddingWatchlist={isAddingFollow}
+          />
+        )}
       </div>
 
-      {/* Event info row */}
+      {/* Event info */}
       <div className="py-2 mt-auto">
         <h3 className="text-sm font-bold text-white leading-tight truncate">
           {show.eventName}
@@ -164,7 +167,52 @@ export function IRLShowCard({
             in {show.location}
           </p>
         )}
+        {/* Discovery mode: genre line under venue/location. */}
+        {!sceneLayout && show.djGenres && show.djGenres.length > 0 && (
+          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter">
+            {show.djGenres.join(' · ')}
+          </p>
+        )}
       </div>
+
+      {/* Discovery mode: original two-button row (Watchlist + Tickets). */}
+      {!sceneLayout && (
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <button
+              onClick={onFollow}
+              disabled={isAddingFollow}
+              className={`flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors flex items-center justify-center gap-1 ${
+                isFollowing
+                  ? 'bg-white/10 text-gray-400 cursor-default'
+                  : 'bg-white hover:bg-gray-100 text-gray-900'
+              } disabled:opacity-50`}
+            >
+              {isAddingFollow ? (
+                <div className={`w-4 h-4 border-2 ${isFollowing ? 'border-white' : 'border-gray-900'} border-t-transparent rounded-full animate-spin mx-auto`} />
+              ) : isFollowing ? (
+                <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Watchlist</>
+              ) : (
+                <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> Watchlist</>
+              )}
+            </button>
+            {show.ticketUrl && (
+              <a
+                href={show.ticketUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2 px-4 rounded text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white flex items-center justify-center gap-2"
+              >
+                Tickets
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
