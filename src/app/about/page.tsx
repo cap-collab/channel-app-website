@@ -50,7 +50,7 @@ export default function About() {
               </p>
 
               <p>
-                Channel was built as an alternative to algorithmic listening and mass consumption — a place centered around taste, discovery, and people who genuinely care about the craft. Human radio shaped by underground curators, artists, and listeners more interested in substance than status.
+                Channel was built as an alternative to algorithmic listening and mass consumption — a place for intentional listening, discovery, and people who genuinely care about the craft. Human radio shaped by artists, DJs, producers, and listeners more interested in substance than status.
               </p>
             </div>
 
