@@ -16,7 +16,7 @@ const faqItems = [
   {
     question: "What is Channel?",
     answer:
-      "Channel is a community-led internet radio platform.\n\nArtists, DJs, producers, collectives, and labels host live shows and listening sessions. Listeners discover music through people, not algorithms.\n\nBuilt for intentional listening.\n\nNo ads. No algorithms.",
+      "Channel is a community-led internet radio platform.\n\nArtists, DJs, producers, collectives, and labels host live shows and listening sessions. Listeners discover music through people, and shared experiences.\n\nBuilt for intentional listening.\n\nNo ads. No algorithms.",
   },
   {
     question: "Who is it for?",
