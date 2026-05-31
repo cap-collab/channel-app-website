@@ -60,7 +60,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       }
     }
   }, [mounted]);
-  const { favorites, isInWatchlist, followDJ, removeFromWatchlist, toggleFavorite, isShowFavorited } = useFavorites();
+  const { favorites, isInWatchlist, followDJ, removeFromWatchlist, removeFavorite, removeIrlFavorite, toggleFavorite, isShowFavorited } = useFavorites();
   const { loveHistory } = useLoveHistory();
   const { lockedInDjs } = useLockedInHistory();
   const { isMuted: isGoLiveMuted, mute: muteGoLiveDj } = useGoLiveMutes();
@@ -1210,9 +1210,24 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       const show = item.data;
       const following = show.djName ? isInWatchlist(show.djName) : false;
       const addingFollow = addingFollowDj === show.djName;
-      const removeKey = show.djUsername || show.djName || '';
       const removingIrl =
-        removingWatchlistDj === (show.djUsername || show.djName);
+        removingWatchlistDj === `irl-${show.djUsername || show.djName}-${show.date}`;
+      // X on an IRL show card removes only THIS event from the watchlist,
+      // not the DJ. Matches by djUsername/djName + date + location.
+      const removeIrl = async () => {
+        const key = `irl-${show.djUsername || show.djName}-${show.date}`;
+        setRemovingWatchlistDj(key);
+        try {
+          await removeIrlFavorite({
+            djUsername: show.djUsername,
+            djName: show.djName,
+            date: show.date,
+            location: show.location,
+          });
+        } finally {
+          setRemovingWatchlistDj(null);
+        }
+      };
       return (
         <IRLShowCard
           key={`irl-${show.djUsername}-${show.date}-${index}`}
@@ -1224,14 +1239,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
           profileMode={profileMode}
           suggestionBridge={suggestionBridge}
           onRemove={
-            allowRemove && !suggestionBridge && removeKey
-              ? () =>
-                  handleRemoveWatchlistDj({
-                    username: show.djUsername || show.djName || '',
-                    displayName: show.djName || show.djUsername || '',
-                    isChannelUser: !!show.isChannelUser,
-                  } as DJProfile)
-              : undefined
+            allowRemove && !suggestionBridge ? removeIrl : undefined
           }
           isRemoving={removingIrl}
         />
@@ -1241,17 +1249,20 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       const station = item.station;
       const following = show.dj ? isInWatchlist(show.dj) : false;
       const addingFollow = addingFollowDj === show.dj;
-      const removeKey = show.djUsername || show.dj || '';
-      const removingShow = removingWatchlistDj === (show.djUsername || show.dj);
-      const onRemoveShow =
-        allowRemove && !suggestionBridge && removeKey
-          ? () =>
-              handleRemoveWatchlistDj({
-                username: show.djUsername || show.dj || '',
-                displayName: show.dj || show.djUsername || '',
-                isChannelUser: !!show.isChannelUser,
-              } as DJProfile)
-          : undefined;
+      const removingShow = removingWatchlistDj === `show-${show.id}`;
+      // X on a radio/upcoming show card removes only THIS show favorite,
+      // not the DJ. removeFavorite already does exactly that.
+      const onRemoveShow = allowRemove && !suggestionBridge
+        ? async () => {
+            const key = `show-${show.id}`;
+            setRemovingWatchlistDj(key);
+            try {
+              await removeFavorite(show);
+            } finally {
+              setRemovingWatchlistDj(null);
+            }
+          }
+        : undefined;
 
       // Use LiveShowCard for live shows (red dot, "Join" button)
       if (item.live) {

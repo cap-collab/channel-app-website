@@ -119,7 +119,7 @@ export function ArchivesClient() {
 
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Archives</h1>
-          <p className="text-sm md:text-base text-zinc-400 mt-1">Left-field electronic shows from underground selectors</p>
+          <p className="text-sm md:text-base text-zinc-400 mt-1">Intentional music from DJs and producers</p>
         </div>
 
         {loading && (

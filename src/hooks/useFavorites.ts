@@ -323,6 +323,47 @@ export function useFavorites() {
     [user]
   );
 
+  // Remove a single IRL favorite by event coordinates. Does NOT touch the
+  // DJ's watchlist entry (search-type favorite) — only deletes the IRL
+  // event row. Matches the composite key shape used by addToWatchlist
+  // (irl-{djUsername}-{date}-{location}) AND falls back to a per-doc
+  // match by djUsername / djName + date + location for legacy / direct
+  // adds where the term might not match.
+  const removeIrlFavorite = useCallback(
+    async (data: { djUsername?: string; djName?: string; date: string; location?: string }): Promise<boolean> => {
+      if (!user || !db) return false;
+      try {
+        const favoritesRef = collection(db, "users", user.uid, "favorites");
+        const irlQuery = query(favoritesRef, where("type", "==", "irl"));
+        const snapshot = await getDocs(irlQuery);
+        const normalizedTarget = {
+          djUsername: data.djUsername?.toLowerCase() || "",
+          djName: data.djName?.toLowerCase() || "",
+          date: data.date,
+          location: data.location?.toLowerCase() || "",
+        };
+        for (const d of snapshot.docs) {
+          const f = d.data();
+          const docDjUsername = (f.djUsername as string | undefined)?.toLowerCase() || "";
+          const docDjName = (f.djName as string | undefined)?.toLowerCase() || "";
+          const docDate = f.irlDate as string | undefined;
+          const docLocation = (f.irlLocation as string | undefined)?.toLowerCase() || "";
+          const djMatch =
+            (normalizedTarget.djUsername && docDjUsername === normalizedTarget.djUsername) ||
+            (normalizedTarget.djName && docDjName === normalizedTarget.djName);
+          if (djMatch && docDate === normalizedTarget.date && (!normalizedTarget.location || docLocation === normalizedTarget.location)) {
+            await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
+          }
+        }
+        return true;
+      } catch (error) {
+        console.error("Error removing IRL favorite:", error);
+        return false;
+      }
+    },
+    [user]
+  );
+
   // Toggle favorite status
   const toggleFavorite = useCallback(
     async (show: Show): Promise<boolean> => {
@@ -1035,6 +1076,7 @@ export function useFavorites() {
     isShowFavorited,
     addFavorite,
     removeFavorite,
+    removeIrlFavorite,
     toggleFavorite,
     addToWatchlist,
     removeFromWatchlist,

@@ -1668,7 +1668,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   </div>
                 )}
               </div>
-              <p className="text-sm md:text-base text-zinc-400 mt-1">Left-field electronic shows from underground curators</p>
+              <p className="text-sm md:text-base text-zinc-400 mt-1">Intentional music from DJs and producers</p>
             </div>
 
             {/* Card list — full width mobile, 2 cols desktop */}
