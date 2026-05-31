@@ -228,12 +228,18 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // Scenes data (scene emoji chips on archive cards + Past-shows filter).
   const { scenes, djSceneMap } = useScenesData();
   const { selectedSceneIds, handleSceneIdsChange } = useFilterContext();
+  // Homepage `/` uses purely local state — chips are still interactive but
+  // the choice is NOT persisted (no Firebase write, no localStorage). Every
+  // page load starts with all scenes selected. Other routes (scene page)
+  // continue to use the persisted FilterContext selection.
+  const [homepageSceneIds, setHomepageSceneIds] = useState<string[] | null>(null);
   // Derived view: the persisted selection as a Set, defaulting to all scenes
   // until the user makes a choice (selectedSceneIds === null).
+  const effectiveSelectedSceneIds = homepage ? homepageSceneIds : selectedSceneIds;
   const sceneFilter = useMemo(() => {
-    if (selectedSceneIds === null) return new Set(scenes.map((s) => s.id));
-    return new Set(selectedSceneIds);
-  }, [selectedSceneIds, scenes]);
+    if (effectiveSelectedSceneIds === null) return new Set(scenes.map((s) => s.id));
+    return new Set(effectiveSelectedSceneIds);
+  }, [effectiveSelectedSceneIds, scenes]);
   const scenesById = useMemo(() => {
     const m = new Map<string, typeof scenes[number]>();
     for (const s of scenes) m.set(s.id, s);
@@ -244,16 +250,22 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       // null (never touched) and [] (all toggled off) both mean "show everything" —
       // treat them identically so the first click deselects one chip from the full set
       // rather than selecting only that chip.
+      const baseline = effectiveSelectedSceneIds;
       const current =
-        selectedSceneIds === null || selectedSceneIds.length === 0
+        baseline === null || baseline.length === 0
           ? scenes.map((s) => s.id)
-          : selectedSceneIds;
+          : baseline;
       const next = current.includes(sceneId)
         ? current.filter((id) => id !== sceneId)
         : [...current, sceneId];
-      handleSceneIdsChange(next);
+      if (homepage) {
+        // Local-only state, no persistence (no Firebase, no localStorage).
+        setHomepageSceneIds(next);
+      } else {
+        handleSceneIdsChange(next);
+      }
     },
-    [selectedSceneIds, scenes, handleSceneIdsChange]
+    [homepage, effectiveSelectedSceneIds, scenes, handleSceneIdsChange]
   );
 
   // Track player bar visibility — GlobalBroadcastBar shows when this scrolls out of view
