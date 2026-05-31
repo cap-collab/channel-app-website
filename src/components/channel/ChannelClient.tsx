@@ -1156,6 +1156,9 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
       const show = item.data;
       const following = show.djName ? isInWatchlist(show.djName) : false;
       const addingFollow = addingFollowDj === show.djName;
+      const removeKey = show.djUsername || show.djName || '';
+      const removingIrl =
+        removingWatchlistDj === (show.djUsername || show.djName);
       return (
         <IRLShowCard
           key={`irl-${show.djUsername}-${show.date}-${index}`}
@@ -1166,6 +1169,17 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
           matchLabel={item.matchLabel}
           profileMode={profileMode}
           suggestionBridge={suggestionBridge}
+          onRemove={
+            allowRemove && !suggestionBridge && removeKey
+              ? () =>
+                  handleRemoveWatchlistDj({
+                    username: show.djUsername || show.djName || '',
+                    displayName: show.djName || show.djUsername || '',
+                    isChannelUser: !!show.isChannelUser,
+                  } as DJProfile)
+              : undefined
+          }
+          isRemoving={removingIrl}
         />
       );
     } else {
@@ -1173,6 +1187,17 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
       const station = item.station;
       const following = show.dj ? isInWatchlist(show.dj) : false;
       const addingFollow = addingFollowDj === show.dj;
+      const removeKey = show.djUsername || show.dj || '';
+      const removingShow = removingWatchlistDj === (show.djUsername || show.dj);
+      const onRemoveShow =
+        allowRemove && !suggestionBridge && removeKey
+          ? () =>
+              handleRemoveWatchlistDj({
+                username: show.djUsername || show.dj || '',
+                displayName: show.dj || show.djUsername || '',
+                isChannelUser: !!show.isChannelUser,
+              } as DJProfile)
+          : undefined;
 
       // Use LiveShowCard for live shows (red dot, "Join" button)
       if (item.live) {
@@ -1188,6 +1213,8 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
             profileMode={profileMode}
             bpm={stationBPM[getMetadataKeyByStationId(show.stationId) || '']?.bpm ?? null}
             suggestionBridge={suggestionBridge}
+            onRemove={onRemoveShow}
+            isRemoving={removingShow}
           />
         );
       }
@@ -1209,6 +1236,8 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
           matchLabel={item.matchLabel}
           profileMode={profileMode}
           suggestionBridge={suggestionBridge}
+          onRemove={onRemoveShow}
+          isRemoving={removingShow}
         />
       );
     }
@@ -1293,14 +1322,14 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
         return (
           <section className="px-4 md:px-8 pt-4 pb-6 relative z-10">
             <div className="max-w-7xl mx-auto">
-              <div className="flex items-baseline justify-between gap-2 mb-3">
+              <div className="flex items-center justify-between gap-2 mb-3">
                 <h2 className="text-2xl md:text-3xl font-semibold">YOUR SCENE</h2>
                 {hasWatchlist && (
                   <button
                     onClick={() => setSceneEditMode((v) => !v)}
-                    className="text-xs font-mono uppercase tracking-wider text-zinc-400 hover:text-white px-2 py-1"
+                    className="shrink-0 text-xs md:text-sm font-mono uppercase tracking-wider text-zinc-300 hover:text-white border border-white/20 hover:border-white/50 transition-colors px-3 py-1.5"
                   >
-                    {sceneEditMode ? 'Done' : 'Edit ✎'}
+                    {sceneEditMode ? 'Done' : 'Edit'}
                   </button>
                 )}
               </div>

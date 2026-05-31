@@ -31,7 +31,7 @@ export function SuggestedBridgeOverlay({ bridgeDjName }: BridgeProps) {
   if (!bridgeDjName) return null;
   return (
     <div className="md:hidden absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-      <span className="bg-black/70 text-white text-[10px] font-medium px-2 py-1 backdrop-blur-sm">
+      <span className="bg-black/40 text-white text-[10px] font-medium px-2 py-1 backdrop-blur-sm">
         Similar to {bridgeDjName}
       </span>
     </div>

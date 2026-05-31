@@ -7,6 +7,7 @@ import { Show, Station } from '@/types';
 import { getContrastTextColor } from '@/lib/colorUtils';
 import { getStationLogoUrl } from '@/lib/stations';
 import { SuggestedBanner, SuggestedBridgeOverlay } from '@/components/channel/SuggestedCardBadge';
+import { CardRemoveButton } from '@/components/CardRemoveButton';
 
 interface LiveShowCardProps {
   show: Show;
@@ -19,6 +20,9 @@ interface LiveShowCardProps {
   bpm?: number | null;
   // /scene SUGGESTED variant
   suggestionBridge?: string;
+  // /scene Edit mode — when set, the card renders a CardRemoveButton overlay.
+  onRemove?: () => void | Promise<void>;
+  isRemoving?: boolean;
 }
 
 export function LiveShowCard({
@@ -31,6 +35,8 @@ export function LiveShowCard({
   profileMode,
   bpm,
   suggestionBridge,
+  onRemove,
+  isRemoving,
 }: LiveShowCardProps) {
   const [imageError, setImageError] = useState(false);
   // Prefer the show image when present, fall back to the DJ photo.
@@ -157,6 +163,13 @@ export function LiveShowCard({
         )}
         {stationLogoOverlay}
         {suggestionBridge && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
+        {onRemove && (
+          <CardRemoveButton
+            onRemove={onRemove}
+            isRemoving={isRemoving}
+            ariaLabel={`Remove ${show.dj || show.name}`}
+          />
+        )}
       </div>
 
       {/* Show Info */}

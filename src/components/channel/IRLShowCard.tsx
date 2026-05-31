@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { IRLShowData } from '@/types';
 import { SuggestedBanner, SuggestedBridgeOverlay } from '@/components/channel/SuggestedCardBadge';
+import { CardRemoveButton } from '@/components/CardRemoveButton';
 
 interface IRLShowCardProps {
   show: IRLShowData;
@@ -15,6 +16,9 @@ interface IRLShowCardProps {
   profileMode?: boolean;
   // /scene SUGGESTED variant
   suggestionBridge?: string;
+  // /scene Edit mode — when set, the card renders a CardRemoveButton overlay.
+  onRemove?: () => void | Promise<void>;
+  isRemoving?: boolean;
 }
 
 export function IRLShowCard({
@@ -25,6 +29,8 @@ export function IRLShowCard({
   matchLabel,
   profileMode,
   suggestionBridge,
+  onRemove,
+  isRemoving,
 }: IRLShowCardProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -127,6 +133,13 @@ export function IRLShowCard({
           </div>
         )}
         {suggestionBridge && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
+        {onRemove && (
+          <CardRemoveButton
+            onRemove={onRemove}
+            isRemoving={isRemoving}
+            ariaLabel={`Remove ${show.djName || show.eventName}`}
+          />
+        )}
       </div>
 
       {/* Event Info */}
