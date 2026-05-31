@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { IRLShowData } from '@/types';
-import { SuggestedBanner, SuggestedBridgeOverlay } from '@/components/channel/SuggestedCardBadge';
+import { SuggestedBanner } from '@/components/channel/SuggestedCardBadge';
 import { CardRemoveButton } from '@/components/CardRemoveButton';
 import { CardActions } from '@/components/channel/CardActions';
 
@@ -111,7 +111,6 @@ export function IRLShowCard({
         )}
       </div>
       {suggestionBridge !== undefined && <SuggestedBanner bridgeDjName={suggestionBridge} />}
-      {suggestionBridge !== undefined && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
       {/* Full width image with overlays */}
       <div className="relative">
         {href ? (

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Show, Station } from '@/types';
 import { getStationLogoUrl } from '@/lib/stations';
-import { SuggestedBanner, SuggestedBridgeOverlay } from '@/components/channel/SuggestedCardBadge';
+import { SuggestedBanner } from '@/components/channel/SuggestedCardBadge';
 import { CardRemoveButton } from '@/components/CardRemoveButton';
 import { CardActions } from '@/components/channel/CardActions';
 
@@ -107,7 +107,6 @@ export function TicketCard({
         )}
       </div>
       {suggestionBridge !== undefined && <SuggestedBanner bridgeDjName={suggestionBridge} />}
-      {suggestionBridge !== undefined && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
       {/* Full width image with overlays - links to DJ profile if available */}
       <div className="relative">
         {show.djUsername ? (

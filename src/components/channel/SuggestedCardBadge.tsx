@@ -12,32 +12,39 @@ interface BridgeProps {
 
 export function SuggestedBanner({ bridgeDjName }: BridgeProps) {
   const hasBridge = !!bridgeDjName;
-  // Mobile always centers. Desktop with a bridge uses justify-between to
-  // keep the inline attribution on the right (legacy desktop behavior).
+  // Mobile: single banner shows the bridge attribution directly ("Similar
+  // to {bridge}") when there's one, otherwise just "Suggested". No second
+  // caption line — keeps the chrome to a single bar above the image.
+  // Desktop: unchanged — "Suggested" on the left, "Similar to {bridge}"
+  // on the right (justify-between).
   const justify = hasBridge ? 'justify-center md:justify-between' : 'justify-center';
   return (
     <div
       className={`bg-black text-white text-[9px] font-mono uppercase tracking-[0.35em] py-0.5 px-2 flex items-center gap-2 whitespace-nowrap ${justify}`}
     >
-      <span>Suggested</span>
-      {hasBridge && (
-        <span className="text-white/60 truncate normal-case tracking-normal hidden md:inline text-[10px]">
-          Similar to {bridgeDjName}
-        </span>
+      {/* Mobile-only label: "Similar to {bridge}" when present, else "Suggested" */}
+      {hasBridge ? (
+        <>
+          <span className="md:hidden truncate normal-case tracking-normal text-[10px]">
+            Similar to {bridgeDjName}
+          </span>
+          <span className="hidden md:inline">Suggested</span>
+          <span className="text-white/60 truncate normal-case tracking-normal hidden md:inline text-[10px]">
+            Similar to {bridgeDjName}
+          </span>
+        </>
+      ) : (
+        <span>Suggested</span>
       )}
     </div>
   );
 }
 
-export function SuggestedBridgeOverlay({ bridgeDjName }: BridgeProps) {
-  if (!bridgeDjName) return null;
-  // Mobile-only caption line sitting between the SUGGESTED banner and the
-  // image. Desktop is unchanged (the bridge appears inline in the banner).
-  return (
-    <div className="md:hidden bg-black/60 text-white/80 text-[10px] tracking-normal px-2 py-0.5 truncate text-center">
-      Similar to {bridgeDjName}
-    </div>
-  );
+// Legacy bridge caption renderer — kept exported for back-compat with
+// existing imports, but now renders nothing. The mobile bridge label is
+// folded into the SuggestedBanner above so we never stack two bars.
+export function SuggestedBridgeOverlay(_props: BridgeProps) {
+  return null;
 }
 
 // Back-compat: existing call sites importing `SuggestedCardBadge` get the

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Show, Station } from '@/types';
 import { getContrastTextColor } from '@/lib/colorUtils';
 import { getStationLogoUrl } from '@/lib/stations';
-import { SuggestedBanner, SuggestedBridgeOverlay } from '@/components/channel/SuggestedCardBadge';
+import { SuggestedBanner } from '@/components/channel/SuggestedCardBadge';
 import { CardRemoveButton } from '@/components/CardRemoveButton';
 import { CardActions } from '@/components/channel/CardActions';
 
@@ -102,7 +102,6 @@ export function LiveShowCard({
       </div>
 
       {suggestionBridge !== undefined && <SuggestedBanner bridgeDjName={suggestionBridge} />}
-      {suggestionBridge !== undefined && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
       {/* Full width 16:9 image with overlays */}
       <div className="relative">
         {show.djUsername ? (

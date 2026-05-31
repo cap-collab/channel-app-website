@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { DJProfile } from '@/types';
 import { CardRemoveButton } from '@/components/CardRemoveButton';
-import { SuggestedBanner, SuggestedBridgeOverlay } from '@/components/channel/SuggestedCardBadge';
+import { SuggestedBanner } from '@/components/channel/SuggestedCardBadge';
 import { CardActions } from '@/components/channel/CardActions';
 
 interface DJProfileCardProps {
@@ -97,7 +97,6 @@ export function DJProfileCard({
           (only for /scene suggestions). Mobile shows the caption as its
           own line; desktop renders the attribution inline in the banner. */}
       {suggestionBridge !== undefined && <SuggestedBanner bridgeDjName={suggestionBridge} />}
-      {suggestionBridge !== undefined && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
       {/* Full width image with overlays */}
       <div className="relative">
         <Link href={href} className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10">
