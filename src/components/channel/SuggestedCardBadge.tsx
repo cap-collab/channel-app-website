@@ -37,8 +37,10 @@ export function SuggestedBanner({ bridgeDjName }: BridgeProps) {
 
 export function SuggestedBridgeOverlay({ bridgeDjName }: BridgeProps) {
   if (!bridgeDjName) return null;
+  // Sit slightly above center so the pill doesn't crash into the DJ name
+  // at the bottom of the card or any badge at the top.
   return (
-    <div className="md:hidden absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+    <div className="md:hidden absolute inset-x-0 top-1/3 z-10 flex justify-center pointer-events-none">
       <span className="bg-black/40 text-white text-[10px] font-medium px-2 py-1 backdrop-blur-sm">
         Similar to {bridgeDjName}
       </span>

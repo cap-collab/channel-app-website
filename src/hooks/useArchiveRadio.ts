@@ -290,8 +290,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   const attachStateListeners = useCallback((el: HTMLAudioElement) => {
     el.addEventListener('pause', () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
-      const which = el === audioARef.current ? 'A' : 'B';
-      console.log(`[radio-debug] PAUSE event on ${which} (isActive=${el === active}) ct=${el.currentTime.toFixed(2)} rs=${el.readyState}`);
       if (el === active) {
         if (boundaryTimerRef.current) {
           clearTimeout(boundaryTimerRef.current);
@@ -302,15 +300,12 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     });
     el.addEventListener('play', () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
-      const which = el === audioARef.current ? 'A' : 'B';
-      const guardSuppressed = crossfadeInFlightRef.current || primingInFlightRef.current;
-      console.log(`[radio-debug] PLAY event on ${which} (isActive=${el === active}) ct=${el.currentTime.toFixed(2)} rs=${el.readyState} guard=${guardSuppressed ? 'suppressed' : 'armed'}`);
       if (el === active) {
         setIsPlaying(true);
         return;
       }
-      if (guardSuppressed) return;
-      console.log(`[radio-debug] guard pausing ${which}`);
+      // Guard suppressed during legitimate crossfades and preload prime.
+      if (crossfadeInFlightRef.current || primingInFlightRef.current) return;
       try { el.pause(); } catch { /* ignore */ }
     });
   }, []);
@@ -457,15 +452,12 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   const preloadStandby = useCallback(async (url: string, kind: ScheduleItem['kind']) => {
     const standby = getStandby();
     if (!standby) return;
-    const which = standby === audioARef.current ? 'A' : 'B';
-    console.log(`[radio-debug] preloadStandby ${which} kind=${kind} url=${url.slice(-40)}`);
     if (kind === 'interstitial') {
       standby.src = url;
       standby.volume = 0;
       standby.muted = false;
       standby.preload = 'auto';
       standby.load();
-      console.log(`[radio-debug] preload-interlude ${which} done, rs=${standby.readyState}`);
       return;
     }
     // archive: full prime
@@ -479,10 +471,8 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       standby.pause();
       standby.currentTime = 0;
       standby.muted = false;
-      console.log(`[radio-debug] preload-archive ${which} prime done, rs=${standby.readyState}`);
-    } catch (e) {
+    } catch {
       standby.muted = false;
-      console.warn(`[radio-debug] preload-archive ${which} prime rejected`, (e as Error)?.name);
     } finally {
       primingInFlightRef.current = false;
     }
@@ -526,9 +516,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     }
 
     const myToken = ++fadeTokenRef.current;
-    const outWhich = outgoing === audioARef.current ? 'A' : 'B';
-    const inWhich = incoming === audioARef.current ? 'A' : 'B';
-    console.log(`[radio-debug] CROSSFADE-START token=${myToken} out=${outWhich}(ct=${outgoing.currentTime.toFixed(2)},rs=${outgoing.readyState},vol=${outgoing.volume}) in=${inWhich}(ct=${incoming.currentTime.toFixed(2)},rs=${incoming.readyState},paused=${incoming.paused})`);
     crossfadeInFlightRef.current = true;
     try { incoming.currentTime = 0; } catch { /* ignore */ }
     incoming.volume = 0;
@@ -536,22 +523,13 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     activeKeyRef.current = activeKeyRef.current === 'A' ? 'B' : 'A';
     const p = incoming.play();
     if (p && typeof p.catch === 'function') {
-      p.catch((err) => console.warn('[radio-debug] crossfade play() rejected', err));
+      p.catch((err) => console.warn('[useArchiveRadio] crossfade play() rejected', err));
     }
-    // Snapshot after play() to see if iOS moved the currentTime back
-    setTimeout(() => {
-      console.log(`[radio-debug] CROSSFADE+50ms token=${myToken} in.ct=${incoming.currentTime.toFixed(2)} in.paused=${incoming.paused} out.ct=${outgoing.currentTime.toFixed(2)} out.paused=${outgoing.paused}`);
-    }, 50);
 
     const startedAt = performance.now();
-    let lastLog = startedAt;
-    let tickCount = 0;
     const finish = (reason: 'natural' | 'watchdog') => {
       // Stale: a newer fade's force-finish handled cleanup already. Bail.
-      if (fadeTokenRef.current !== myToken) {
-        console.log(`[radio-debug] CROSSFADE-END token=${myToken} reason=${reason} STALE (current token=${fadeTokenRef.current})`);
-        return;
-      }
+      if (fadeTokenRef.current !== myToken) return;
       if (crossfadeRafRef.current !== null) {
         cancelAnimationFrame(crossfadeRafRef.current);
         crossfadeRafRef.current = null;
@@ -564,31 +542,22 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       outgoing.volume = 0;
       incoming.volume = incomingTargetGain;
       crossfadeInFlightRef.current = false;
-      console.log(`[radio-debug] CROSSFADE-END token=${myToken} reason=${reason} ticks=${tickCount} out.ct=${outgoing.currentTime.toFixed(2)} in.ct=${incoming.currentTime.toFixed(2)}`);
+      void reason;
       if (onFinish) {
-        try { onFinish(); } catch (e) { console.warn('[radio-debug] crossfade onFinish threw', e); }
+        try { onFinish(); } catch (e) { console.warn('[useArchiveRadio] crossfade onFinish threw', e); }
       }
     };
 
     const tick = (t: number) => {
-      if (fadeTokenRef.current !== myToken) {
-        console.log(`[radio-debug] tick BAIL token=${myToken} (current=${fadeTokenRef.current})`);
-        return;
-      }
-      tickCount++;
-      if (tickCount === 1) {
-        console.log(`[radio-debug] tick FIRST FRAME token=${myToken} at t=${(t - startedAt).toFixed(1)}ms in.paused=${incoming.paused} in.ct=${incoming.currentTime.toFixed(2)} in.rs=${incoming.readyState}`);
-      }
+      if (fadeTokenRef.current !== myToken) return;
       const elapsed = t - startedAt;
+      // Clamp p to [0, 1] — negative p from clock skew makes pow(neg, frac)=NaN
+      // which throws when assigned to audio.volume, killing the rAF loop.
       const p = Math.min(1, Math.max(0, elapsed / CROSSFADE_MS));
       const outV = outCurve(p) * outgoingPeakGain;
       const inV = inCurve(p) * incomingTargetGain;
       outgoing.volume = outV;
       incoming.volume = inV;
-      if (t - lastLog > 500) {
-        console.log(`[radio-debug] tick p=${p.toFixed(2)} outV=${outV.toFixed(2)} inV=${inV.toFixed(2)} out.ct=${outgoing.currentTime.toFixed(2)} in.ct=${incoming.currentTime.toFixed(2)} in.paused=${incoming.paused}`);
-        lastLog = t;
-      }
       if (p < 1) {
         crossfadeRafRef.current = requestAnimationFrame(tick);
       } else {
@@ -598,7 +567,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     crossfadeRafRef.current = requestAnimationFrame(tick);
     crossfadeWatchdogRef.current = setTimeout(() => {
       if (crossfadeInFlightRef.current) {
-        console.log(`[radio-debug] WATCHDOG fired token=${myToken} ticks=${tickCount}`);
         finish('watchdog');
       }
     }, CROSSFADE_MS + 500);
@@ -647,7 +615,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     // The onFinish callback below ALSO preloads the item-after-next, so
     // by the time we hit the next boundary's effect run, that item is
     // already preloaded and preloadedNextKeyRef will short-circuit here.
-    console.log(`[radio-debug] boundary-effect current=${current.item.kind}:${current.item.title} next=${next.item.kind}:${next.item.title} fadeStartMs in ${((fadeStartMs - Date.now())/1000).toFixed(1)}s preloadKey=${preloadedNextKeyRef.current === nextKey ? 'already' : 'NEW'} crossfadeInFlight=${crossfadeInFlightRef.current}`);
     if (preloadedNextKeyRef.current !== nextKey) {
       // CRITICAL: do NOT preload if a fade is in flight. The "standby"
       // element returned by getStandby() at this moment is actually the
@@ -656,9 +623,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       // standby). Setting .src on it wipes its currentTime → kills the
       // archive that's supposed to be fading out. The fade's onFinish
       // hook below handles the after-next preload safely.
-      if (crossfadeInFlightRef.current) {
-        console.log(`[radio-debug] boundary-effect: SKIP preload (fade in flight)`);
-      } else {
+      if (!crossfadeInFlightRef.current) {
         preloadedNextKeyRef.current = nextKey;
         void preloadStandby(next.item.recordingUrl, next.item.kind);
       }
@@ -666,27 +631,18 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
 
     const delay = Math.max(MIN_BOUNDARY_LEAD_MS, fadeStartMs - Date.now());
     if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
-    console.log(`[radio-debug] boundary timer SET in ${(delay/1000).toFixed(1)}s for current=${current.item.title} → next=${next.item.title}`);
     boundaryTimerRef.current = setTimeout(() => {
       const outgoing = getActive();
       const incoming = getStandby();
       if (!outgoing || !incoming) return;
-      console.log(`[radio-debug] boundary timer FIRED for current=${current.item.title} → next=${next.item.title}`);
       const { outCurve, inCurve, outgoingPeakGain, incomingTargetGain } = curvesFor(current.item.kind, next.item.kind);
       runCrossfade(outgoing, incoming, outCurve, inCurve, outgoingPeakGain, incomingTargetGain, () => {
         playingKeyRef.current = nextKey;
         const afterNext = getNext({ loop: next.loop, index: next.index }, nextLoop);
-        if (!afterNext) {
-          console.log(`[radio-debug] onFinish: no afterNext`);
-          return;
-        }
+        if (!afterNext) return;
         const afterKey = itemKey(afterNext.loop, afterNext.index, afterNext.item);
-        if (preloadedNextKeyRef.current === afterKey) {
-          console.log(`[radio-debug] onFinish: afterNext already preloaded`);
-          return;
-        }
+        if (preloadedNextKeyRef.current === afterKey) return;
         preloadedNextKeyRef.current = afterKey;
-        console.log(`[radio-debug] onFinish: preloading afterNext=${afterNext.item.kind}:${afterNext.item.title}`);
         void preloadStandby(afterNext.item.recordingUrl, afterNext.item.kind);
       });
     }, delay);
