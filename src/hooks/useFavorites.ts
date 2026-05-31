@@ -79,6 +79,26 @@ export function useFavorites() {
   const { user } = useAuthContext();
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dismissedShows, setDismissedShows] = useState<Record<string, string>>({});
+
+  // Subscribe to the user doc for dismissedAutoFavorites so YOUR SCENE
+  // can exclude shows the user has explicitly removed via the X overlay
+  // (even when the DJ is still on watchlist and would otherwise auto-surface
+  // the show).
+  useEffect(() => {
+    if (!user || !db) {
+      setDismissedShows({});
+      return;
+    }
+    const userRef = doc(db, 'users', user.uid);
+    const unsub = onSnapshot(userRef, (snap) => {
+      const data = snap.data();
+      setDismissedShows(
+        (data?.dismissedAutoFavorites as Record<string, string>) || {},
+      );
+    });
+    return () => unsub();
+  }, [user]);
 
   // Subscribe to favorites when user is logged in
   useEffect(() => {
@@ -303,15 +323,19 @@ export function useFavorites() {
           }
         }
 
-        // Track dismissed auto-favorites so crons don't re-add them
-        if (wasAutoFavorited) {
-          const dismissKey = `${show.stationId || "broadcast"}-${show.name.toLowerCase()}`;
-          const userDocRef = doc(db, "users", user.uid);
-          const userSnap = await getDoc(userDocRef);
-          const existing = (userSnap.data()?.dismissedAutoFavorites as Record<string, string>) || {};
-          existing[dismissKey] = new Date().toISOString();
-          await setDoc(userDocRef, { dismissedAutoFavorites: existing }, { merge: true });
-        }
+        // Track the dismissal so crons don't re-add it AND the YOUR SCENE
+        // build can exclude it on next render. (Previously only flagged
+        // when wasAutoFavorited; now always tracked so explicit removals
+        // also stick when the DJ is still in the watchlist and would
+        // otherwise re-surface the show via the followed-DJ branch.)
+        const dismissKey = `${show.stationId || "broadcast"}-${show.name.toLowerCase()}`;
+        const userDocRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userDocRef);
+        const existing = (userSnap.data()?.dismissedAutoFavorites as Record<string, string>) || {};
+        existing[dismissKey] = new Date().toISOString();
+        await setDoc(userDocRef, { dismissedAutoFavorites: existing }, { merge: true });
+        // wasAutoFavorited retained for any future divergence in handling.
+        void wasAutoFavorited;
 
         console.log(`[removeFavorite] Removed show "${show.name}" (${show.stationId}) from favorites`);
         return true;
@@ -1077,6 +1101,7 @@ export function useFavorites() {
     addFavorite,
     removeFavorite,
     removeIrlFavorite,
+    dismissedShows,
     toggleFavorite,
     addToWatchlist,
     removeFromWatchlist,

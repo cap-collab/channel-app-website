@@ -5,7 +5,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Show, Station } from '@/types';
 import { getContrastTextColor } from '@/lib/colorUtils';
-import { getStationLogoUrl } from '@/lib/stations';
 import { SuggestedBanner, SuggestedBridgeOverlay } from '@/components/channel/SuggestedCardBadge';
 import { CardRemoveButton } from '@/components/CardRemoveButton';
 import { CardActions } from '@/components/channel/CardActions';
@@ -47,7 +46,6 @@ export function LiveShowCard({
   const hasPhoto = photoUrl && !imageError;
   const djName = show.dj || show.name;
   const textColor = hasPhoto ? '#ffffff' : getContrastTextColor(station.accentColor);
-  const stationLogo = getStationLogoUrl(station.id);
 
   const imageOverlays = (
     <>
@@ -76,17 +74,6 @@ export function LiveShowCard({
       </div>
     </>
   );
-
-  const stationLogoOverlay = stationLogo ? (
-    <div className="absolute -bottom-4 right-3 w-8 h-8 rounded border border-white/30 overflow-hidden bg-black z-10">
-      <Image
-        src={stationLogo}
-        alt={station.name}
-        fill
-        className="object-contain"
-      />
-    </div>
-  ) : null;
 
   return (
     <div className="w-full group flex flex-col h-full">
@@ -163,7 +150,6 @@ export function LiveShowCard({
             )}
           </div>
         )}
-        {stationLogoOverlay}
         {suggestionBridge !== undefined && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
         {onRemove && (
           <CardRemoveButton
@@ -172,37 +158,11 @@ export function LiveShowCard({
             ariaLabel={`Remove ${show.dj || show.name}`}
           />
         )}
-      </div>
-
-      {/* Show info + bottom-right action icon */}
-      <div className="flex items-end justify-between gap-2 py-2 mt-auto">
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold text-white leading-tight truncate">
-            {show.djUsername ? (
-              <Link href={`/dj/${show.djUsername}`} className="hover:underline">
-                {show.name}
-              </Link>
-            ) : (
-              show.name
-            )}
-          </h3>
-          <a
-            href={station.websiteUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[10px] text-zinc-500 flex items-center gap-1 mt-0.5 uppercase hover:text-zinc-300 transition"
-          >
-            at {show.externalRadioName || station.name}
-            <svg className="w-2 h-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
-        </div>
+        {/* Action icon overlaid in the slot the station logo used to occupy */}
         <CardActions
+          asOverlay
           djUsername={show.djUsername}
           isLive
-          // Channel Radio (broadcast / dj-radio) → home player. External
-          // station → the station's site in a new tab.
           joinUrl={
             station.id === 'broadcast' || station.id === 'dj-radio'
               ? '/'
@@ -212,6 +172,30 @@ export function LiveShowCard({
           onAddToWatchlist={onFollow}
           isAddingWatchlist={isAddingFollow}
         />
+      </div>
+
+      {/* Show info row */}
+      <div className="py-2 mt-auto">
+        <h3 className="text-sm font-bold text-white leading-tight truncate">
+          {show.djUsername ? (
+            <Link href={`/dj/${show.djUsername}`} className="hover:underline">
+              {show.name}
+            </Link>
+          ) : (
+            show.name
+          )}
+        </h3>
+        <a
+          href={station.websiteUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] text-zinc-500 flex items-center gap-1 mt-0.5 uppercase hover:text-zinc-300 transition truncate"
+        >
+          at {show.externalRadioName || station.name}
+          <svg className="w-2 h-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
       </div>
     </div>
   );

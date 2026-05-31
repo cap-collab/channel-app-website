@@ -36,8 +36,8 @@ export function IRLShowCard({
 }: IRLShowCardProps) {
   const [imageError, setImageError] = useState(false);
 
-  // DJ photo first, fall back to event photo
-  const photoUrl = show.djPhotoUrl || show.eventPhotoUrl;
+  // Event photo first (the curated artwork), fall back to DJ photo.
+  const photoUrl = show.eventPhotoUrl || show.djPhotoUrl;
   const hasPhoto = photoUrl && !imageError;
 
   // Click-through: collective/venue/DJ page
@@ -121,19 +121,6 @@ export function IRLShowCard({
             {imageContent}
           </div>
         )}
-        {/* Event-image badge — same slot as the station-logo overlay on
-            online show cards. Only renders when an event photo exists. */}
-        {show.eventPhotoUrl && (
-          <div className="absolute -bottom-4 right-3 w-8 h-8 rounded border border-white/30 overflow-hidden bg-black z-10">
-            <Image
-              src={show.eventPhotoUrl}
-              alt={show.eventName || 'Event'}
-              fill
-              className="object-cover"
-              unoptimized
-            />
-          </div>
-        )}
         {suggestionBridge !== undefined && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
         {onRemove && (
           <CardRemoveButton
@@ -142,41 +129,41 @@ export function IRLShowCard({
             ariaLabel={`Remove ${show.djName || show.eventName}`}
           />
         )}
-      </div>
-
-      {/* Event info + bottom-right action icon */}
-      <div className="flex items-end justify-between gap-2 py-2 mt-auto">
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold text-white leading-tight truncate">
-            {show.eventName}
-          </h3>
-          {show.venueName ? (
-            show.venueSlug ? (
-              <Link
-                href={`/venue/${show.venueSlug}`}
-                className="text-[10px] text-zinc-500 hover:text-white mt-0.5 uppercase block w-fit truncate"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {show.venueName}
-              </Link>
-            ) : (
-              <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
-                {show.venueName}
-              </p>
-            )
-          ) : (
-            <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
-              in {show.location}
-            </p>
-          )}
-        </div>
+        {/* Action icon overlaid in the slot the event-image badge used to occupy */}
         <CardActions
+          asOverlay
           djUsername={show.djUsername}
           ticketUrl={show.ticketUrl}
           isFollowing={isFollowing}
           onAddToWatchlist={onFollow}
           isAddingWatchlist={isAddingFollow}
         />
+      </div>
+
+      {/* Event info row */}
+      <div className="py-2 mt-auto">
+        <h3 className="text-sm font-bold text-white leading-tight truncate">
+          {show.eventName}
+        </h3>
+        {show.venueName ? (
+          show.venueSlug ? (
+            <Link
+              href={`/venue/${show.venueSlug}`}
+              className="text-[10px] text-zinc-500 hover:text-white mt-0.5 uppercase block w-fit truncate"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {show.venueName}
+            </Link>
+          ) : (
+            <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
+              {show.venueName}
+            </p>
+          )
+        ) : (
+          <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
+            in {show.location}
+          </p>
+        )}
       </div>
     </div>
   );

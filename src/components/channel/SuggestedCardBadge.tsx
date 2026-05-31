@@ -23,9 +23,9 @@ export function SuggestedBanner({ bridgeDjName }: BridgeProps) {
   const justify = hasBridge ? 'justify-center md:justify-between' : 'justify-center';
   return (
     <div
-      className={`bg-black text-white text-[9px] font-mono uppercase tracking-[0.45em] py-0.5 px-2 flex items-center gap-2 ${justify}`}
+      className={`bg-black text-white text-[9px] font-mono uppercase tracking-[0.35em] py-0.5 px-2 flex items-center gap-2 whitespace-nowrap ${justify}`}
     >
-      <span>S U G G E S T E D</span>
+      <span className="whitespace-nowrap">Suggested</span>
       {hasBridge && (
         <span className="text-white/60 truncate normal-case tracking-normal hidden md:inline text-[10px]">
           Similar to {bridgeDjName}

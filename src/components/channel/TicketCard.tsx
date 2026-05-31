@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Show, Station } from '@/types';
-import { getStationLogoUrl } from '@/lib/stations';
 import { SuggestedBanner, SuggestedBridgeOverlay } from '@/components/channel/SuggestedCardBadge';
 import { CardRemoveButton } from '@/components/CardRemoveButton';
 import { CardActions } from '@/components/channel/CardActions';
@@ -50,7 +49,6 @@ export function TicketCard({
   // Applies uniformly to Channel + external station shows.
   const photoUrl = show.imageUrl || show.djPhotoUrl;
   const hasPhoto = photoUrl && !imageError;
-  const stationLogo = getStationLogoUrl(station.id);
 
   const imageOverlays = (
     <>
@@ -87,17 +85,6 @@ export function TicketCard({
       </div>
     </>
   );
-
-  const stationLogoOverlay = stationLogo ? (
-    <div className="absolute -bottom-4 right-3 w-8 h-8 rounded border border-white/30 overflow-hidden bg-black z-10">
-      <Image
-        src={stationLogo}
-        alt={station.name}
-        fill
-        className="object-contain"
-      />
-    </div>
-  ) : null;
 
   return (
     <div className="w-full group flex flex-col h-full">
@@ -163,7 +150,6 @@ export function TicketCard({
             )}
           </div>
         )}
-        {stationLogoOverlay}
         {suggestionBridge !== undefined && <SuggestedBridgeOverlay bridgeDjName={suggestionBridge} />}
         {onRemove && (
           <CardRemoveButton
@@ -172,30 +158,30 @@ export function TicketCard({
             ariaLabel={`Remove ${show.dj || show.name}`}
           />
         )}
-      </div>
-
-      {/* Show info + bottom-right action icon */}
-      <div className="flex items-end justify-between gap-2 py-2 mt-auto">
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold text-white leading-tight truncate">
-            {show.djUsername ? (
-              <Link href={`/dj/${show.djUsername}`} className="hover:underline">
-                {show.name}
-              </Link>
-            ) : (
-              show.name
-            )}
-          </h3>
-          <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
-            Selected by {show.externalRadioName || station.name}
-          </p>
-        </div>
+        {/* Action icon overlaid in the slot the station logo used to occupy */}
         <CardActions
+          asOverlay
           djUsername={show.djUsername}
           isFollowing={isFollowing}
           onAddToWatchlist={onFollow}
           isAddingWatchlist={isAddingFollow}
         />
+      </div>
+
+      {/* Show info row */}
+      <div className="py-2 mt-auto">
+        <h3 className="text-sm font-bold text-white leading-tight truncate">
+          {show.djUsername ? (
+            <Link href={`/dj/${show.djUsername}`} className="hover:underline">
+              {show.name}
+            </Link>
+          ) : (
+            show.name
+          )}
+        </h3>
+        <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
+          Selected by {show.externalRadioName || station.name}
+        </p>
 
       </div>
     </div>

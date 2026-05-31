@@ -60,7 +60,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       }
     }
   }, [mounted]);
-  const { favorites, isInWatchlist, followDJ, removeFromWatchlist, removeFavorite, removeIrlFavorite, toggleFavorite, isShowFavorited } = useFavorites();
+  const { favorites, isInWatchlist, followDJ, removeFromWatchlist, removeFavorite, removeIrlFavorite, dismissedShows, toggleFavorite, isShowFavorited } = useFavorites();
   const { loveHistory } = useLoveHistory();
   const { lockedInDjs } = useLockedInHistory();
   const { isMuted: isGoLiveMuted, mute: muteGoLiveDj } = useGoLiveMutes();
@@ -449,6 +449,11 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       if (!show.dj) continue;
       // Never show restreams in watchlist (regular restreams, external show restreams, or channel broadcast restreams)
       if (show.type === 'restream' || show.type === 'playlist' || show.broadcastType === 'restream') continue;
+      // Skip shows the user explicitly dismissed (tapped × on the card).
+      // The dismissal is recorded by removeFavorite even when the DJ is
+      // still followed, so the show doesn't auto-resurface via that path.
+      const dismissKey = `${show.stationId || 'broadcast'}-${show.name.toLowerCase()}`;
+      if (dismissedShows[dismissKey]) continue;
       const station = stationsMap.get(show.stationId);
       if (!station) continue;
       const endTime = new Date(show.endTime);
@@ -825,7 +830,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       genreOnlineCards: newS3,
       recommendedByCards: newS4,
     };
-  }, [sectionsActive, allShows, irlShows, curatorRecs, djProfiles, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited, favorites, user, loveHistory, lockedInDjs, isGoLiveMuted]);
+  }, [sectionsActive, allShows, irlShows, curatorRecs, djProfiles, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited, favorites, user, loveHistory, lockedInDjs, isGoLiveMuted, dismissedShows]);
 
   // SUGGESTED items for /scene: related DJs (affiliation crew + Audience)
   // of every DJ already in the user's watchlist, plus an empty-state fallback

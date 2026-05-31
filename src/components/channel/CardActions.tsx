@@ -20,11 +20,16 @@ interface CardActionsProps {
   isFollowing?: boolean;
   onAddToWatchlist?: () => void | Promise<void>;
   isAddingWatchlist?: boolean;
+  // When true, render the action as an absolute bottom-right overlay
+  // sized like the old station-logo badge. Caller's parent must be
+  // position: relative.
+  asOverlay?: boolean;
 }
 
 const iconClass = 'w-3.5 h-3.5 pointer-events-none';
-const buttonClass =
+const buttonBase =
   'inline-flex items-center justify-center w-7 h-7 bg-white text-black hover:bg-gray-100 transition-colors disabled:opacity-50';
+const overlayPos = 'absolute bottom-2 right-2 z-10 shadow-lg';
 
 export function CardActions({
   djUsername,
@@ -34,7 +39,9 @@ export function CardActions({
   isFollowing,
   onAddToWatchlist,
   isAddingWatchlist,
+  asOverlay,
 }: CardActionsProps) {
+  const buttonClass = asOverlay ? `${buttonBase} ${overlayPos}` : buttonBase;
   const [copied, setCopied] = useState(false);
 
   const handleShare = (e: MouseEvent<HTMLButtonElement>) => {
@@ -150,5 +157,6 @@ export function CardActions({
     );
   }
 
+  if (asOverlay) return <>{action}</>;
   return <div className="flex justify-end">{action}</div>;
 }
