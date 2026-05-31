@@ -124,14 +124,16 @@ export function DJProfileCard({
       </div>
 
       {sceneLayout ? (
-        /* Compact /scene layout: info row only (action icon is overlaid above). */
+        /* Compact /scene layout: info row only (action icon is overlaid above).
+           Subtitle mirrors the show-card "Selected by …" line so DJ-profile
+           cards in the suggestion row read consistently with show cards. */
         <div className="py-2 mt-auto">
           <h3 className="text-sm font-bold text-white leading-tight truncate">
             {profile.displayName}
           </h3>
-          {profile.location && (
-            <p className="text-[10px] text-zinc-500 mt-0.5 truncate">{profile.location}</p>
-          )}
+          <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
+            Selected by Channel Radio
+          </p>
         </div>
       ) : (
         /* Discovery layout: name + genres + 2-button row */
