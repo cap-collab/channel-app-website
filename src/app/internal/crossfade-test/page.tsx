@@ -43,7 +43,6 @@ type Stage = 'idle' | 'archive-a' | 'interlude' | 'archive-b' | 'done';
 // Curve fns (pure). p in [0, 1].
 const sqrt = (p: number) => Math.sqrt(p);
 const invSqrt = (p: number) => Math.sqrt(1 - p);
-const quad = (p: number) => (1 - p) * (1 - p);
 // Incoming-interlude curve for archive→interlude transition. Targets
 // (multiplied by incomingTargetGain=INTERLUDE_GAIN=0.6):
 //   p=0   → 0.33 (audible kick-in at 0.20 absolute, no silent fade-in)
@@ -230,7 +229,9 @@ export default function CrossfadeTestPage() {
     incomingTargetGain: number;
   } => {
     if (outgoingKind === 'archive' && incomingKind === 'interlude') {
-      return { outCurve: quad, inCurve: peakTaper, outgoingPeakGain: 1, incomingTargetGain: INTERLUDE_GAIN };
+      // archive→interlude: invSqrt outgoing (matches interlude→archive).
+      // Earlier quad curve dropped too fast — overlap felt like a hard cut.
+      return { outCurve: invSqrt, inCurve: peakTaper, outgoingPeakGain: 1, incomingTargetGain: INTERLUDE_GAIN };
     }
     if (outgoingKind === 'interlude' && incomingKind === 'archive') {
       return { outCurve: invSqrt, inCurve: smoothstep, outgoingPeakGain: INTERLUDE_GAIN, incomingTargetGain: 1 };

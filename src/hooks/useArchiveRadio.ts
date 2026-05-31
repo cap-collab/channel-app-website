@@ -40,21 +40,22 @@ const INTERLUDE_GAIN = 0.6;
 // Curve fns (pure). p in [0, 1].
 const sqrtCurve = (p: number) => Math.sqrt(p);
 const invSqrt = (p: number) => Math.sqrt(1 - p);
-const quad = (p: number) => (1 - p) * (1 - p);
-// Incoming-interlude curve for archive→interlude. Targets (multiplied by
-// incomingTargetGain=INTERLUDE_GAIN=0.6):
-//   p=0   → 0.33 (audible kick-in at 0.20 absolute)
-//   p=0.4 → 0.83 (peak at 2s, absolute 0.50)
-//   p=1   → 1.00 (steady-state 0.60 by fade end)
-const INTERLUDE_START_FRAC = 0.33;
-const INTERLUDE_PEAK_FRAC = 0.83;
-const PEAK_P = 0.4;
+// Incoming-interlude curve for archive→interlude. Punchy rise then settle.
+// Targets (multiplied by incomingTargetGain=INTERLUDE_GAIN=0.6):
+//   p=0   → 0     (silent at fade start)
+//   p=0.2 → 0.50  (fast rise: hits half-volume at 1s into the 5s fade)
+//   p=1   → 0.60  (steady-state by fade end)
+// Two-segment: sqrt-style fast rise to 0.833 curve-frac by p=0.2 (= 0.50
+// absolute), then smoothstep gentle climb to 1.0 (= 0.60 absolute).
+const INTERLUDE_PEAK_P = 0.2;
+const INTERLUDE_PEAK_FRAC = 0.833;
 const peakTaper = (p: number): number => {
-  if (p <= PEAK_P) {
-    const local = p / PEAK_P;
-    return INTERLUDE_START_FRAC + (INTERLUDE_PEAK_FRAC - INTERLUDE_START_FRAC) * Math.pow(local, 0.6);
+  if (p <= INTERLUDE_PEAK_P) {
+    const local = p / INTERLUDE_PEAK_P;
+    // sqrt for fast rise.
+    return INTERLUDE_PEAK_FRAC * Math.sqrt(local);
   }
-  const local = (p - PEAK_P) / (1 - PEAK_P);
+  const local = (p - INTERLUDE_PEAK_P) / (1 - INTERLUDE_PEAK_P);
   const ease = local * local * (3 - 2 * local);
   return INTERLUDE_PEAK_FRAC + (1 - INTERLUDE_PEAK_FRAC) * ease;
 };
@@ -70,7 +71,11 @@ function curvesFor(
   incomingTargetGain: number;
 } {
   if (outgoingKind === 'archive' && incomingKind === 'interstitial') {
-    return { outCurve: quad, inCurve: peakTaper, outgoingPeakGain: 1, incomingTargetGain: INTERLUDE_GAIN };
+    // archive→interlude: invSqrt outgoing (was quad — too fast a drop, made
+    // the overlap feel like a hard cut). Now symmetric with interlude→archive
+    // so both directions sound the same: outgoing stays clearly audible
+    // through the middle of the fade, incoming rises into it.
+    return { outCurve: invSqrt, inCurve: peakTaper, outgoingPeakGain: 1, incomingTargetGain: INTERLUDE_GAIN };
   }
   if (outgoingKind === 'interstitial' && incomingKind === 'archive') {
     return { outCurve: invSqrt, inCurve: smoothstep, outgoingPeakGain: INTERLUDE_GAIN, incomingTargetGain: 1 };
