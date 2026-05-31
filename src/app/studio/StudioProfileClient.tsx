@@ -2240,7 +2240,7 @@ export function StudioProfileClient() {
                         }
                       }, 300);
                     }}
-                    placeholder="e.g., DJ Cool"
+                    placeholder="e.g., DJ 101"
                     maxLength={20}
                     className="w-full bg-black border border-gray-700 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none"
                   />
