@@ -108,16 +108,16 @@ export function DJProfileCard({
         )}
       </div>
 
-      {/* Info */}
-      <div className="flex flex-col justify-start py-2">
-        <h3 className="text-sm font-bold leading-tight truncate">
-          {profile.displayName}
-        </h3>
-      </div>
-
-      {/* Action Buttons — shared row: see profile (right), and dynamic left
-          button per the priority chain (tickets / join / +watchlist / share). */}
-      <div className="space-y-2 mt-auto">
+      {/* Info row + bottom-right action icon */}
+      <div className="flex items-end justify-between gap-2 py-2 mt-auto">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-bold text-white leading-tight truncate">
+            {profile.displayName}
+          </h3>
+          {profile.location && (
+            <p className="text-[10px] text-zinc-500 mt-0.5 truncate">{profile.location}</p>
+          )}
+        </div>
         <CardActions
           djUsername={profile.username}
           isFollowing={isFollowing}

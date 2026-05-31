@@ -174,32 +174,30 @@ export function LiveShowCard({
         )}
       </div>
 
-      {/* Show Info */}
-      <div className="flex flex-col justify-start py-2">
-        <h3 className="text-sm font-bold leading-tight truncate">
-          {show.djUsername ? (
-            <Link href={`/dj/${show.djUsername}`} className="hover:underline">
-              {show.name}
-            </Link>
-          ) : (
-            show.name
-          )}
-        </h3>
-        <a
-          href={station.websiteUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[10px] text-zinc-500 flex items-center gap-1 mt-0.5 uppercase hover:text-zinc-300 transition"
-        >
-          at {show.externalRadioName || station.name}
-          <svg className="w-2 h-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
-        </a>
-      </div>
-
-      {/* CTA Buttons — shared row. Live show → Join is the left button. */}
-      <div className="space-y-2 mt-auto">
+      {/* Show info + bottom-right action icon */}
+      <div className="flex items-end justify-between gap-2 py-2 mt-auto">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-bold text-white leading-tight truncate">
+            {show.djUsername ? (
+              <Link href={`/dj/${show.djUsername}`} className="hover:underline">
+                {show.name}
+              </Link>
+            ) : (
+              show.name
+            )}
+          </h3>
+          <a
+            href={station.websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-zinc-500 flex items-center gap-1 mt-0.5 uppercase hover:text-zinc-300 transition"
+          >
+            at {show.externalRadioName || station.name}
+            <svg className="w-2 h-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
         <CardActions
           djUsername={show.djUsername}
           isLive

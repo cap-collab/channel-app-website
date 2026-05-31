@@ -1392,9 +1392,19 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
                 {hasWatchlist && (
                   <button
                     onClick={() => setSceneEditMode((v) => !v)}
-                    className="shrink-0 text-xs md:text-sm font-mono uppercase tracking-wider text-zinc-300 hover:text-white border border-white/20 hover:border-white/50 transition-colors px-3 py-1.5"
+                    aria-pressed={sceneEditMode}
+                    className="shrink-0 flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.2em] text-zinc-500 hover:text-zinc-300 transition-colors px-1 py-1"
                   >
-                    {sceneEditMode ? 'Done' : 'Edit'}
+                    {/* Hardware-style LED: dark when off, lit green when on. */}
+                    <span
+                      aria-hidden
+                      className={`inline-block w-[6px] h-[6px] rounded-full transition-all ${
+                        sceneEditMode
+                          ? 'bg-green-400 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]'
+                          : 'bg-zinc-700'
+                      }`}
+                    />
+                    Edit
                   </button>
                 )}
               </div>
@@ -1404,7 +1414,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
 
               {hasWatchlist && (
                 <>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 md:gap-x-8 gap-y-4">
                     {visibleWatchlist.map((item, index) =>
                       renderCard(item, index, true, { allowRemove: sceneEditMode })
                     )}
@@ -1427,7 +1437,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
 
               {trailingSuggestions.length > 0 && (
                 <div className={hasWatchlist ? 'mt-3' : ''}>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 md:gap-x-8 gap-y-4">
                     {trailingSuggestions.map((s, i) =>
                       renderCard(s.item, 1000 + i, false, { suggestionBridge: s.bridge })
                     )}

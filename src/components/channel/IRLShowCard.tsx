@@ -144,35 +144,32 @@ export function IRLShowCard({
         )}
       </div>
 
-      {/* Event Info */}
-      <div className="flex flex-col justify-start py-2">
-        <h3 className="text-sm font-bold leading-tight truncate">
-          {show.eventName}
-        </h3>
-        {show.venueName ? (
-          show.venueSlug ? (
-            <Link
-              href={`/venue/${show.venueSlug}`}
-              className="text-[10px] text-zinc-500 hover:text-white mt-0.5 uppercase block w-fit"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {show.venueName}
-            </Link>
+      {/* Event info + bottom-right action icon */}
+      <div className="flex items-end justify-between gap-2 py-2 mt-auto">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-bold text-white leading-tight truncate">
+            {show.eventName}
+          </h3>
+          {show.venueName ? (
+            show.venueSlug ? (
+              <Link
+                href={`/venue/${show.venueSlug}`}
+                className="text-[10px] text-zinc-500 hover:text-white mt-0.5 uppercase block w-fit truncate"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {show.venueName}
+              </Link>
+            ) : (
+              <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
+                {show.venueName}
+              </p>
+            )
           ) : (
-            <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
-              {show.venueName}
+            <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
+              in {show.location}
             </p>
-          )
-        ) : (
-          <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
-            in {show.location}
-          </p>
-        )}
-      </div>
-
-      {/* Action Buttons — shared row. IRL event: tickets wins the left
-          slot when a ticketUrl exists. */}
-      <div className="space-y-2 mt-auto">
+          )}
+        </div>
         <CardActions
           djUsername={show.djUsername}
           ticketUrl={show.ticketUrl}

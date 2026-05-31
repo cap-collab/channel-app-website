@@ -3,36 +3,28 @@
 import { useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 
-// Shared action-button row used at the bottom of every card on /scene
-// (watchlist, suggestions, BEYOND YOUR SCENE discovery) and home.
-//
-// Right button: always "See profile" → /dj/{username}
-// Left button (priority order):
-//   1. Tickets (when the card is an IRL event with a ticketUrl)
-//   2. Join (when the show is live right now)
-//        - Channel Radio: press play on home (link to /)
-//        - external station: open the station's website
-//   3. + Watchlist (when the DJ is not already followed)
-//   4. Share (fallback: clipboard the DJ profile URL)
+// Single bottom-right icon button rendered on every /scene card. The icon
+// reflects the priority action chain:
+//   1. Tickets    (IRL event with ticketUrl)
+//   2. Join       (show is live now)
+//   3. + Watchlist (DJ isn't already followed)
+//   4. Share       (fallback)
+// Tapping the card image already opens the DJ profile, so there's no
+// separate "See profile" affordance here.
 
 interface CardActionsProps {
   djUsername?: string;
-  // IRL-only — when set, the left button becomes "Tickets" linking out
-  // to the event ticket URL.
   ticketUrl?: string;
-  // True when the show is live right now (LiveShowCard).
   isLive?: boolean;
-  // The URL the "Join" button opens. For external stations this is the
-  // station website; for Channel Radio (broadcast / dj-radio) this is
-  // typically "/" so the user lands on the home player.
   joinUrl?: string;
-  // True when the DJ is already on the user's watchlist (suppresses the
-  // "+ Watchlist" left button → falls through to Share).
   isFollowing?: boolean;
-  // Watchlist add handler. Called when the user taps "+ Watchlist".
   onAddToWatchlist?: () => void | Promise<void>;
   isAddingWatchlist?: boolean;
 }
+
+const iconClass = 'w-3.5 h-3.5 pointer-events-none';
+const buttonClass =
+  'inline-flex items-center justify-center w-7 h-7 bg-white text-black hover:bg-gray-100 transition-colors disabled:opacity-50';
 
 export function CardActions({
   djUsername,
@@ -44,10 +36,10 @@ export function CardActions({
   isAddingWatchlist,
 }: CardActionsProps) {
   const [copied, setCopied] = useState(false);
-  const profileHref = djUsername ? `/dj/${djUsername}` : '#';
 
   const handleShare = (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!djUsername) return;
     const url = `${window.location.origin}/dj/${djUsername}`;
     navigator.clipboard
@@ -59,104 +51,104 @@ export function CardActions({
       .catch(() => {});
   };
 
-  // Decide which left-button variant to render based on the priority order.
-  let leftButton: React.ReactNode;
+  let action: React.ReactNode;
   if (ticketUrl) {
-    leftButton = (
+    action = (
       <a
         href={ticketUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex-1 min-w-0 py-1 px-1 md:px-4 md:py-2 rounded text-[10px] md:text-sm font-semibold leading-none transition-colors bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-1 md:gap-2 whitespace-nowrap overflow-hidden"
+        className={buttonClass}
+        aria-label="Tickets"
+        title="Tickets"
       >
-        Tickets
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* External-link icon */}
+        <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth={2}
             d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
           />
         </svg>
       </a>
     );
   } else if (isLive && joinUrl) {
-    // External stations open in a new tab; Channel Radio (/) stays in-app.
     const external = /^https?:\/\//.test(joinUrl);
-    leftButton = external ? (
+    const playIcon = (
+      <svg className={iconClass} fill="currentColor" viewBox="0 0 24 24">
+        <path d="M8 5v14l11-7z" />
+      </svg>
+    );
+    action = external ? (
       <a
         href={joinUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex-1 min-w-0 py-1 px-1 md:px-4 md:py-2 rounded text-[10px] md:text-sm font-semibold leading-none transition-colors bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-1 md:gap-2 whitespace-nowrap overflow-hidden"
+        className={buttonClass}
+        aria-label="Join"
+        title="Join"
       >
-        Join
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-          />
-        </svg>
+        {playIcon}
       </a>
     ) : (
-      <Link
-        href={joinUrl}
-        className="flex-1 min-w-0 py-1 px-1 md:px-4 md:py-2 rounded text-[10px] md:text-sm font-semibold leading-none transition-colors bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-1 md:gap-2 whitespace-nowrap overflow-hidden"
-      >
-        Join
-        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M8 5v14l11-7z" />
-        </svg>
+      <Link href={joinUrl} className={buttonClass} aria-label="Join" title="Join">
+        {playIcon}
       </Link>
     );
   } else if (!isFollowing && onAddToWatchlist) {
-    leftButton = (
+    action = (
       <button
-        onClick={() => onAddToWatchlist()}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onAddToWatchlist();
+        }}
         disabled={isAddingWatchlist}
-        className="flex-1 min-w-0 py-1 px-1 md:px-4 md:py-2 rounded text-[10px] md:text-sm font-semibold leading-none transition-colors bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-0.5 md:gap-1 whitespace-nowrap overflow-hidden disabled:opacity-50"
+        className={buttonClass}
+        aria-label="Add to watchlist"
+        title="Add to watchlist"
       >
         {isAddingWatchlist ? (
-          <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="w-3.5 h-3.5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
         ) : (
-          <>
-            <svg
-              className="w-3 h-3 md:w-3.5 md:h-3.5 shrink-0"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.5}
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Watchlist
-          </>
+          <svg
+            className={iconClass}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.5}
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
         )}
       </button>
     );
   } else {
-    leftButton = (
+    action = (
       <button
+        type="button"
         onClick={handleShare}
         disabled={!djUsername}
-        className="flex-1 min-w-0 py-1 px-1 md:px-4 md:py-2 rounded text-[10px] md:text-sm font-semibold leading-none transition-colors bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-1 whitespace-nowrap overflow-hidden disabled:opacity-50"
+        className={buttonClass}
+        aria-label={copied ? 'Copied' : 'Share'}
+        title={copied ? 'Copied' : 'Share'}
       >
-        {copied ? 'Copied!' : 'Share'}
+        {copied ? (
+          <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        ) : (
+          <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 6l-4-4m0 0L8 6m4-4v13"
+            />
+          </svg>
+        )}
       </button>
     );
   }
 
-  return (
-    <div className="flex gap-1 md:gap-2">
-      {leftButton}
-      <Link
-        href={profileHref}
-        className="flex-1 min-w-0 py-1 px-1 md:px-4 md:py-2 rounded text-[10px] md:text-sm font-semibold leading-none transition-colors bg-white/10 hover:bg-white/20 text-white text-center whitespace-nowrap overflow-hidden"
-      >
-        See profile
-      </Link>
-    </div>
-  );
+  return <div className="flex justify-end">{action}</div>;
 }

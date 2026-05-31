@@ -174,25 +174,22 @@ export function TicketCard({
         )}
       </div>
 
-      {/* Show Info */}
-      <div className="flex flex-col justify-start py-2">
-        <h3 className="text-sm font-bold leading-tight truncate">
-          {show.djUsername ? (
-            <Link href={`/dj/${show.djUsername}`} className="hover:underline">
-              {show.name}
-            </Link>
-          ) : (
-            show.name
-          )}
-        </h3>
-        <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
-          Selected by {show.externalRadioName || station.name}
-        </p>
-      </div>
-
-      {/* Action Buttons — shared row. Upcoming online show: not live yet, no
-          tickets → left button is +Watchlist (or Share when already followed). */}
-      <div className="space-y-2 mt-auto">
+      {/* Show info + bottom-right action icon */}
+      <div className="flex items-end justify-between gap-2 py-2 mt-auto">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-bold text-white leading-tight truncate">
+            {show.djUsername ? (
+              <Link href={`/dj/${show.djUsername}`} className="hover:underline">
+                {show.name}
+              </Link>
+            ) : (
+              show.name
+            )}
+          </h3>
+          <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
+            Selected by {show.externalRadioName || station.name}
+          </p>
+        </div>
         <CardActions
           djUsername={show.djUsername}
           isFollowing={isFollowing}
