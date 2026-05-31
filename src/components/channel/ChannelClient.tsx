@@ -39,7 +39,7 @@ type RecommendedItem =
   | MatchedItem
   | { type: 'curator'; data: CuratorRec };
 
-export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, discoveryFiltersSlot, sceneMode, initialHeroArchives, initialPreferredHero, initialRadioArchiveId }: { skipHero?: boolean; exploreSearchBar?: React.ReactNode; topSearchSlot?: React.ReactNode; discoveryFiltersSlot?: React.ReactNode; sceneMode?: boolean; initialHeroArchives?: import('@/types/broadcast').ArchiveSerialized[]; initialPreferredHero?: { spiral: import('@/types/broadcast').ArchiveSerialized | null; star: import('@/types/broadcast').ArchiveSerialized | null }; initialRadioArchiveId?: string | null } = {}) {
+export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, sceneMode, initialHeroArchives, initialPreferredHero, initialRadioArchiveId }: { skipHero?: boolean; topSearchSlot?: React.ReactNode; discoveryFiltersSlot?: React.ReactNode; sceneMode?: boolean; initialHeroArchives?: import('@/types/broadcast').ArchiveSerialized[]; initialPreferredHero?: { spiral: import('@/types/broadcast').ArchiveSerialized | null; star: import('@/types/broadcast').ArchiveSerialized | null }; initialRadioArchiveId?: string | null } = {}) {
   const { user, isAuthenticated } = useAuthContext();
   const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentShow } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
@@ -1393,10 +1393,9 @@ export function ChannelClient({ skipHero, exploreSearchBar, topSearchSlot, disco
         </section>
       )}
 
-      {/* Note: the legacy "On your watchlist" carousel on `/` was removed —
-          watchlist lives only on /scene now. The `exploreSearchBar` prop is
-          also retired since /explore redirects to /scene; the SceneClient
-          uses topSearchSlot + discoveryFiltersSlot instead. */}
+      {/* The legacy "On your watchlist" carousel on `/` was removed —
+          watchlist lives on /scene. /explore redirects to /scene; the
+          SceneClient uses topSearchSlot + discoveryFiltersSlot props. */}
 
       {skipHero && (
       <div className="px-4 md:px-8 flex-1 w-full flex flex-col">
