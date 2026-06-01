@@ -574,7 +574,7 @@ function DjRow({
           onChange={(uids) => onSetAudience(dj, uids)}
         />
         <ChipPicker
-          label="In audience of"
+          label="Audience expanded from"
           selected={listedInAudienceOf}
           addOptions={listedInAudienceAddOptions}
           onAdd={(owner) => onSetMembershipInAudience(dj, owner, true)}
@@ -753,7 +753,7 @@ function AudiencePicker({
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[260px]">
-      <span className="text-[10px] text-gray-500 whitespace-nowrap">Audience</span>
+      <span className="text-[10px] text-gray-500 whitespace-nowrap">Audience shared with</span>
       {selected.map((uid) => (
         <span
           key={uid}
