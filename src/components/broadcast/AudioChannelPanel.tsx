@@ -62,11 +62,13 @@ export function AudioChannelPanel({
     onTestResult(verdict);
     setReason(why);
     setTesting(false);
-    // The test NEVER auto-selects Stereo — a 3-second check can't guarantee a
-    // genuine L/R signal (level imbalance, mono-through-an-interface, etc. all
-    // read as "not mono"). It only switches TOWARD the safe option: every
-    // result falls back to Mono. The DJ must deliberately pick Stereo.
-    onChange('mono');
+    // Only override the DJ's selection when the verdict requires the safe
+    // downgrade — i.e. content reads as mono and forced-stereo RED would
+    // bleed. For 'stereo' or 'ambiguous' verdicts we keep whatever the DJ
+    // already picked; their explicit choice always wins. (Earlier behavior
+    // flipped every test back to Mono — verified to silently un-select
+    // Stereo on M0lly's broadcast and produce a jumpy no-RED stereo stream.)
+    if (verdict === 'mono') onChange('mono');
   };
 
   return (
@@ -104,8 +106,8 @@ export function AudioChannelPanel({
           <div className="mt-2 bg-gray-800 border border-gray-700 text-gray-300 text-xs px-3 py-2 rounded-lg">
             <p className="font-semibold">You seem to be in stereo</p>
             <p className="mt-0.5">
-              Your left and right channels carry different audio. You can select Stereo
-              below.
+              Your left and right channels carry different audio. Stereo is the right
+              choice for your setup.
             </p>
           </div>
         )}
