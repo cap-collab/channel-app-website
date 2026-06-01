@@ -544,10 +544,22 @@ app.post('/faststart', authenticate, async (req, res) => {
   }
 });
 
-// POST /normalize - Measure loudness and apply safe uniform gain if broken capture.
-// Supports MP4 (live recordings, in-place AAC+faststart) and MP3 (DJ uploads, libmp3lame).
-// Uploads a NEW file with "-normalized-v1.<ext>" suffix — original R2 key is NEVER overwritten.
-// Returns { skipped, reason } if file doesn't need normalizing, or { newR2Key, newUrl, gainDb, measurements }.
+// POST /normalize - Two-pass loudnorm to -14 LUFS / -1.5 dBTP / LRA 11
+// (linear=true preserves dynamic range when peaks allow). Additionally
+// detects trailing silence and stream-copies a trimmed sibling.
+//
+// Output files (originals NEVER touched):
+//   <stem>-normalized-v2.<ext>          — loudness-normalized, full length
+//   <stem>-normalized-v2-trimmed.<ext>  — same as above, trailing silence cut
+//                                         (only when ≥ 5s of silence at EOF)
+//
+// Skip-if-already-correct: when input is in target band (I ∈ [-15, -13]
+// AND TP ≤ -1.0), no v2 is written. Callback gets { skipped: true }.
+//
+// Returns:
+//   { success: true, newUrl, trimmedUrl?, durationSec, trimmedDurationSec?,
+//     measurements: { inputI, inputTP, inputLRA, outputI, outputTP, outputLRA,
+//                     trailingSilenceStartSec?, trailingSilenceLengthSec? } }
 app.post('/normalize', authenticate, async (req, res) => {
   const { r2Key, callbackUrl, callbackContext } = req.body;
   if (!r2Key) return res.status(400).json({ error: 'r2Key required' });
@@ -628,7 +640,22 @@ app.post('/normalize', authenticate, async (req, res) => {
 
   const tmpIn = `/tmp/normalize-in-${Date.now()}.${format}`;
   const tmpOut = `/tmp/normalize-out-${Date.now()}.${format}`;
-  const tmpMeta = `/tmp/normalize-meta-${Date.now()}.txt`;
+  const tmpTrimmed = `/tmp/normalize-trimmed-${Date.now()}.${format}`;
+
+  // Loudness target — calibrated against 45-show audit + canary runs:
+  //   -14 LUFS / -1.5 dBTP / LRA 11, linear=true (no dynamic compression
+  //   when source allows). Spotify/YouTube playback floor.
+  const TARGET_I = -14;
+  const TARGET_TP = -1.5;
+  const TARGET_LRA = 11;
+
+  // Trailing-silence trim policy:
+  //   Scan last 15 min only. Only treat as trimmable if silence runs
+  //   continuously to EOF AND is ≥ MIN_TRAILING_SILENCE_SEC. Don't truncate
+  //   if the silence starts inside the first 30 min (would indicate a
+  //   broken file, not a DJ leaving dead air at the end).
+  const MIN_TRAILING_SILENCE_SEC = 5;
+  const SAFETY_TAIL_SEC = 0.5; // keep last 0.5s of music to avoid cutting a tail
 
   try {
     // --- 1. Download ---
@@ -637,108 +664,182 @@ app.post('/normalize', authenticate, async (req, res) => {
     writeFileSync(tmpIn, body);
     console.log(`[normalize] Downloaded ${(body.length / 1024 / 1024).toFixed(1)}MB`);
 
-    // --- 2. Measure integrated LUFS and true peak ---
-    const loudnormOut = execSync(
-      `ffmpeg -hide_banner -nostats -i ${tmpIn} -af "loudnorm=I=-14:TP=-1.0:LRA=11:print_format=json" -f null - 2>&1 | awk '/^{/,/^}/'`,
+    // --- 2. Pass 1: measure loudness for the linear two-pass ---
+    const measureOut = execSync(
+      `ffmpeg -hide_banner -nostats -i ${tmpIn} -af "loudnorm=I=${TARGET_I}:TP=${TARGET_TP}:LRA=${TARGET_LRA}:print_format=json" -f null - 2>&1 | awk '/^{/,/^}/'`,
       { encoding: 'utf-8' }
     );
-    const measurements = JSON.parse(loudnormOut);
-    const integratedLufs = parseFloat(measurements.input_i);
-    const truePeak = parseFloat(measurements.input_tp);
-    const lra = parseFloat(measurements.input_lra);
+    const measured = JSON.parse(measureOut);
+    const inputI = parseFloat(measured.input_i);
+    const inputTP = parseFloat(measured.input_tp);
+    const inputLRA = parseFloat(measured.input_lra);
+    const measuredThresh = parseFloat(measured.input_thresh);
+    const measuredOffset = parseFloat(measured.target_offset);
+    console.log(`[normalize] Input: I=${inputI} TP=${inputTP} LRA=${inputLRA}`);
 
-    console.log(`[normalize] Measured: LUFS=${integratedLufs} TP=${truePeak} LRA=${lra}`);
-
-    // --- 3. Measure momentary loudness distribution ---
-    execSync(
-      `ffmpeg -hide_banner -nostats -i ${tmpIn} -filter_complex "ebur128=metadata=1,ametadata=print:key=lavfi.r128.M:file=${tmpMeta}" -f null - 2>&1`
-    );
-    const metaContent = readFileSync(tmpMeta, 'utf-8');
-    const momentaryVals = [];
-    const re = /r128\.M=(-?\d+\.\d+|-inf)/g;
-    let m;
-    while ((m = re.exec(metaContent)) !== null) {
-      if (m[1] !== '-inf') momentaryVals.push(parseFloat(m[1]));
-    }
-    const nSamples = momentaryVals.length;
-    const countBelow20 = momentaryVals.filter(v => v <= -20).length;
-    const percentBelow20 = nSamples > 0 ? (100 * countBelow20 / nSamples) : 0;
-
-    console.log(`[normalize] ${percentBelow20.toFixed(1)}% of track below -20 LUFS`);
-
-    // --- 4. Decide whether to boost ---
-    // Only boost if majority of track is uniformly quiet AND headroom available
-    const MIN_PERCENT_BELOW_20 = 80;
-    const MIN_PEAK_HEADROOM = -3.0;
-    const TARGET_LUFS = -16; // conservative target (lower than -14 so we don't overshoot without a limiter)
-    const TARGET_PEAK_CEILING = -1.0;
-
-    if (percentBelow20 < MIN_PERCENT_BELOW_20) {
-      [tmpIn, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
-      const reason = `Only ${percentBelow20.toFixed(1)}% below -20 LUFS (threshold ${MIN_PERCENT_BELOW_20}%). Likely intentional dynamics.`;
+    // --- 3. Skip if already in target band ---
+    // Save CPU + R2 storage when the file is already at the right level.
+    const ALREADY_CORRECT_I_MIN = -15;
+    const ALREADY_CORRECT_I_MAX = -13;
+    const ALREADY_CORRECT_TP_MAX = -1.0;
+    if (
+      inputI >= ALREADY_CORRECT_I_MIN &&
+      inputI <= ALREADY_CORRECT_I_MAX &&
+      inputTP <= ALREADY_CORRECT_TP_MAX
+    ) {
+      [tmpIn].forEach(p => { try { unlinkSync(p); } catch {} });
+      const reason = `Already in target band: I=${inputI} TP=${inputTP}`;
       console.log(`[normalize] SKIP: ${reason}`);
-      return respond(200, { skipped: true, reason, measurements: { integratedLufs, truePeak, lra, percentBelow20 } });
+      return respond(200, {
+        skipped: true,
+        reason,
+        measurements: { inputI, inputTP, inputLRA },
+      });
     }
 
-    if (truePeak > MIN_PEAK_HEADROOM) {
-      [tmpIn, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
-      const reason = `True peak ${truePeak} dBFS > ${MIN_PEAK_HEADROOM} (already well-mastered or clipping).`;
-      console.log(`[normalize] SKIP: ${reason}`);
-      return respond(200, { skipped: true, reason, measurements: { integratedLufs, truePeak, lra, percentBelow20 } });
-    }
-
-    // --- 5. Compute safe gain (linear, no limiter) ---
-    const desiredGain = TARGET_LUFS - integratedLufs;
-    const maxSafeGain = TARGET_PEAK_CEILING - truePeak;
-    const gainDb = Math.min(desiredGain, maxSafeGain);
-
-    if (gainDb <= 0.5) {
-      [tmpIn, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
-      const reason = `Computed gain ${gainDb.toFixed(2)} dB is negligible.`;
-      console.log(`[normalize] SKIP: ${reason}`);
-      return respond(200, { skipped: true, reason, measurements: { integratedLufs, truePeak, lra, percentBelow20 } });
-    }
-
-    console.log(`[normalize] Applying +${gainDb.toFixed(2)} dB gain (no limiter)`);
-
-    // --- 6. Apply gain, re-encode, write to NEW R2 key ---
-    // Format-aware encode. MP4: AAC + faststart so mobile players start
-    // progressively. MP3: libmp3lame, byte-range streamable by default.
+    // --- 4. Pass 2: render normalized output (linear=true) ---
+    const filter = `loudnorm=I=${TARGET_I}:TP=${TARGET_TP}:LRA=${TARGET_LRA}` +
+      `:measured_I=${inputI}:measured_TP=${inputTP}:measured_LRA=${inputLRA}` +
+      `:measured_thresh=${measuredThresh}:offset=${measuredOffset}` +
+      `:linear=true:print_format=summary`;
     const encodeArgs = format === 'mp3'
       ? '-c:a libmp3lame -b:a 192k'
       : '-c:a aac -b:a 192k -movflags +faststart';
     execSync(
-      `ffmpeg -y -i ${tmpIn} -af "volume=${gainDb.toFixed(2)}dB" ${encodeArgs} ${tmpOut} 2>&1`
+      `ffmpeg -hide_banner -nostats -y -i ${tmpIn} -vn -af "${filter}" ${encodeArgs} ${tmpOut} 2>&1`
     );
-    const outBuf = readFileSync(tmpOut);
 
-    const suffix = `-normalized-v1.${format}`;
-    const newR2Key = format === 'mp3'
-      ? r2Key.replace(/\.mp3$/i, suffix)
-      : r2Key.replace(/\.mp4$/i, suffix);
+    // --- 5. Verify output loudness ---
+    const verifyOut = execSync(
+      `ffmpeg -hide_banner -nostats -i ${tmpOut} -af "ebur128=peak=true:framelog=quiet" -f null - 2>&1`,
+      { encoding: 'utf-8' }
+    );
+    const grab = (re) => parseFloat((verifyOut.match(re) || [])[1] || 'NaN');
+    const outputI = grab(/I:\s*(-?\d+\.\d+)\s*LUFS/);
+    const outputTP = grab(/Peak:\s*(-?\d+\.\d+)\s*dBFS/);
+    const outputLRA = grab(/LRA:\s*(-?\d+\.\d+)\s*LU/);
+    console.log(`[normalize] Output: I=${outputI} TP=${outputTP} LRA=${outputLRA}`);
+
+    // --- 6. Detect trailing silence ---
+    // Scan only the last 15 min of OUTPUT (post-normalize so silence threshold
+    // is meaningful). Report silence_start of any silence run that goes to EOF.
+    // Wrapped: detection failure must not block the v2 upload.
+    let outDur = 0;
+    let trailingSilenceStartSec = null;
+    let trailingSilenceLengthSec = null;
+    try {
+      const probe = execSync(
+        `ffprobe -v error -show_entries format=duration -of csv=p=0 ${tmpOut}`,
+        { encoding: 'utf-8' }
+      );
+      outDur = parseFloat(probe.trim()) || 0;
+      const scanFromSec = Math.max(0, outDur - 15 * 60);
+      if (outDur > 0) {
+        const silenceOut = execSync(
+          `ffmpeg -hide_banner -nostats -ss ${scanFromSec} -i ${tmpOut} -af "silencedetect=noise=-50dB:d=2" -f null - 2>&1`,
+          { encoding: 'utf-8' }
+        );
+        const startMatches = [...silenceOut.matchAll(/silence_start:\s*(-?\d+\.?\d*)/g)];
+        const endMatches = [...silenceOut.matchAll(/silence_end:\s*(-?\d+\.?\d*)/g)];
+        if (startMatches.length > 0) {
+          const lastStart = parseFloat(startMatches[startMatches.length - 1][1]) + scanFromSec;
+          const lastEnd = endMatches.length > 0
+            ? parseFloat(endMatches[endMatches.length - 1][1]) + scanFromSec
+            : Infinity;
+          const runsToEof = endMatches.length < startMatches.length || lastEnd >= outDur - 0.5;
+          if (runsToEof) {
+            const length = outDur - lastStart;
+            if (length >= MIN_TRAILING_SILENCE_SEC && lastStart > 30 * 60) {
+              trailingSilenceStartSec = lastStart;
+              trailingSilenceLengthSec = length;
+            }
+          }
+        }
+      }
+    } catch (silenceErr) {
+      console.error(`[normalize] Silence detection failed; v2 will not be trimmed:`, silenceErr?.message || silenceErr);
+    }
+    if (trailingSilenceStartSec !== null) {
+      console.log(`[normalize] Trailing silence: ${trailingSilenceLengthSec.toFixed(1)}s starting at ${trailingSilenceStartSec.toFixed(1)}s`);
+    }
+
+    // --- 7. Upload v2 (normalized, untrimmed) ---
+    const v2Suffix = `-normalized-v2.${format}`;
+    const v2Key = format === 'mp3'
+      ? r2Key.replace(/\.mp3$/i, v2Suffix)
+      : r2Key.replace(/\.mp4$/i, v2Suffix);
     const contentType = format === 'mp3' ? 'audio/mpeg' : 'video/mp4';
     await s3.send(new PutObjectCommand({
       Bucket: bucket,
-      Key: newR2Key,
-      Body: outBuf,
+      Key: v2Key,
+      Body: readFileSync(tmpOut),
       ContentType: contentType,
+      CacheControl: 'public, max-age=31536000, immutable',
     }));
+    const v2Url = publicBase ? `${publicBase}/${v2Key}` : null;
+    console.log(`[normalize] Uploaded v2: ${v2Key}`);
 
-    [tmpIn, tmpOut, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
+    // --- 8. If trailing silence: trim (stream-copy, no re-encode) + upload ---
+    // Wrapped in its own try/catch so a trim failure doesn't lose the v2
+    // upload that already succeeded — caller still gets the v2 URL.
+    let trimmedKey = null;
+    let trimmedUrl = null;
+    let trimmedDurationSec = null;
+    if (trailingSilenceStartSec !== null) {
+      try {
+        const trimAtSec = Math.max(0, trailingSilenceStartSec - SAFETY_TAIL_SEC);
+        const movflags = format === 'mp4' ? '-movflags +faststart' : '';
+        execSync(
+          `ffmpeg -hide_banner -nostats -y -i ${tmpOut} -to ${trimAtSec.toFixed(3)} -c copy -avoid_negative_ts make_zero ${movflags} ${tmpTrimmed} 2>&1`
+        );
+        const trimProbe = execSync(
+          `ffprobe -v error -show_entries format=duration -of csv=p=0 ${tmpTrimmed}`,
+          { encoding: 'utf-8' }
+        );
+        trimmedDurationSec = parseFloat(trimProbe.trim()) || trimAtSec;
+        const trimmedSuffix = `-normalized-v2-trimmed.${format}`;
+        trimmedKey = format === 'mp3'
+          ? r2Key.replace(/\.mp3$/i, trimmedSuffix)
+          : r2Key.replace(/\.mp4$/i, trimmedSuffix);
+        await s3.send(new PutObjectCommand({
+          Bucket: bucket,
+          Key: trimmedKey,
+          Body: readFileSync(tmpTrimmed),
+          ContentType: contentType,
+          CacheControl: 'public, max-age=31536000, immutable',
+        }));
+        trimmedUrl = publicBase ? `${publicBase}/${trimmedKey}` : null;
+        console.log(`[normalize] Uploaded v2-trimmed: ${trimmedKey} (${trimmedDurationSec.toFixed(1)}s)`);
+      } catch (trimErr) {
+        // Non-fatal: v2 (untrimmed) is already uploaded and will be the
+        // active URL. The trailing silence stays in the file. Log + continue.
+        console.error(`[normalize] Trim step failed; keeping untrimmed v2:`, trimErr?.message || trimErr);
+        trimmedKey = null;
+        trimmedUrl = null;
+        trimmedDurationSec = null;
+      }
+    }
 
-    const newUrl = publicBase ? `${publicBase}/${newR2Key}` : null;
-    console.log(`[normalize] Done: ${newR2Key} (+${gainDb.toFixed(2)} dB)`);
+    [tmpIn, tmpOut, tmpTrimmed].forEach(p => { try { unlinkSync(p); } catch {} });
+
     respond(200, {
       success: true,
       skipped: false,
       originalR2Key: r2Key,
-      newR2Key,
-      newUrl,
-      gainDb: Number(gainDb.toFixed(2)),
-      measurements: { integratedLufs, truePeak, lra, percentBelow20 },
+      newR2Key: v2Key,
+      newUrl: v2Url,
+      trimmedR2Key: trimmedKey,
+      trimmedUrl,
+      durationSec: outDur,
+      trimmedDurationSec,
+      measurements: {
+        inputI, inputTP, inputLRA,
+        outputI, outputTP, outputLRA,
+        trailingSilenceStartSec, trailingSilenceLengthSec,
+      },
     });
   } catch (err) {
-    [tmpIn, tmpOut, tmpMeta].forEach(p => { try { unlinkSync(p); } catch {} });
+    [tmpIn, tmpOut, tmpTrimmed].forEach(p => { try { unlinkSync(p); } catch {} });
     console.error(`[normalize] Failed:`, err);
     respond(500, { error: err.message });
   }

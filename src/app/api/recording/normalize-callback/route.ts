@@ -4,8 +4,8 @@ import { getAdminDb } from '@/lib/firebase-admin';
 export const dynamic = 'force-dynamic';
 
 // POST - Callback from the restream worker's /normalize endpoint.
-// Called after the worker finishes measuring/boosting an uploaded archive,
-// so we can swap archives/<id>.recordingUrl to the normalized URL without
+// Called after the worker finishes normalizing an uploaded archive, so we
+// can swap archives/<id>.recordingUrl to the normalized URL without
 // depending on Vercel keeping a fetch handle alive through the worker job.
 //
 // Auth: shared CRON_SECRET bearer token (same mechanism the app uses when
@@ -13,7 +13,16 @@ export const dynamic = 'force-dynamic';
 // callbackContext.archiveId, set by /api/recording/upload/complete.
 //
 // Shape of incoming payload (from restream-worker/index.js /normalize):
-//   success case:  { success, skipped: false, newUrl, gainDb, measurements, callbackContext }
+//   success case:  {
+//     success, skipped: false,
+//     newUrl,                 // v2 normalized URL (always present on success)
+//     trimmedUrl,             // v2-trimmed URL if trailing silence found (else null)
+//     durationSec,            // v2 (untrimmed) duration
+//     trimmedDurationSec,     // v2-trimmed duration (else null)
+//     measurements: { inputI, inputTP, inputLRA, outputI, outputTP, outputLRA,
+//                     trailingSilenceStartSec, trailingSilenceLengthSec },
+//     callbackContext,
+//   }
 //   skipped case:  { skipped: true, reason, measurements, callbackContext }
 //   error case:    { error, callbackContext }
 export async function POST(request: NextRequest) {
@@ -30,7 +39,17 @@ export async function POST(request: NextRequest) {
     reason?: string;
     error?: string;
     newUrl?: string;
-    gainDb?: number;
+    trimmedUrl?: string | null;
+    durationSec?: number | null;
+    trimmedDurationSec?: number | null;
+    measurements?: {
+      inputI?: number;
+      inputTP?: number;
+      outputI?: number;
+      outputTP?: number;
+      trailingSilenceStartSec?: number | null;
+      trailingSilenceLengthSec?: number | null;
+    };
     callbackContext?: { archiveId?: string };
   };
   try {
@@ -70,29 +89,62 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'newUrl missing' }, { status: 400 });
   }
 
-  // Swap: preserve the original URL for one-click rollback, swap the active URL.
-  // The original R2 object is NEVER deleted by the worker (a new "...-normalized-v1.<ext>"
-  // sibling is written), so setting recordingUrl back to previousRecordingUrl is
-  // the only step needed to revert.
+  // Swap to the trimmed URL when available; otherwise the v2 untrimmed URL.
+  // Original R2 object is NEVER deleted by the worker (sibling keys
+  // "...-normalized-v2.<ext>" and "...-normalized-v2-trimmed.<ext>" are
+  // written), so setting recordingUrl back to previousRecordingUrl is the
+  // only step needed to revert.
+  //
+  // Layered URL preservation:
+  //   previousRecordingUrl     — points at the ORIGINAL raw upload (only set
+  //                              once; never overwritten)
+  //   untrimmedRecordingUrl    — when trim happened, points at the v2
+  //                              untrimmed file so the trim itself is reversible
+  //                              without re-rendering
+  //   recordingUrl             — what listeners actually hear (trimmed if
+  //                              available, otherwise v2)
   //
   // If the Firestore update throws, we log and still return ok: the original
-  // upload's recordingUrl is untouched so the archive remains fully playable
-  // with the un-normalized audio. The normalized R2 object exists as an
-  // orphan in this case — a future admin job can reconcile, but listeners
-  // are never broken by a failed swap.
-  const originalUrl = archiveDoc.data()?.recordingUrl;
+  // upload's recordingUrl is untouched so the archive remains fully playable.
+  // The normalized R2 files exist as orphans in that case — a future admin
+  // job can reconcile, but listeners are never broken by a failed swap.
+  const archiveData = archiveDoc.data() || {};
+  const originalUrl = archiveData.recordingUrl as string | undefined;
+  const useTrimmed = !!body.trimmedUrl;
+  const activeUrl = useTrimmed ? (body.trimmedUrl as string) : body.newUrl;
+  const activeDuration = useTrimmed ? body.trimmedDurationSec : body.durationSec;
+
+  const update: Record<string, unknown> = {
+    recordingUrl: activeUrl,
+    normalizedAt: Date.now(),
+  };
+  // Only set previousRecordingUrl on first normalize — preserves the true
+  // original through subsequent renormalizes (v2 → v3 etc).
+  if (!archiveData.previousRecordingUrl && originalUrl) {
+    update.previousRecordingUrl = originalUrl;
+  }
+  if (useTrimmed) {
+    update.untrimmedRecordingUrl = body.newUrl;
+    if (body.measurements?.trailingSilenceStartSec != null) {
+      update.trailingSilenceStartSec = body.measurements.trailingSilenceStartSec;
+    }
+    if (body.measurements?.trailingSilenceLengthSec != null) {
+      update.trailingSilenceLengthSec = body.measurements.trailingSilenceLengthSec;
+    }
+  }
+  if (typeof activeDuration === 'number' && activeDuration > 0) {
+    update.duration = Math.round(activeDuration);
+  }
+  if (body.measurements?.outputI != null) update.normalizedOutputI = body.measurements.outputI;
+  if (body.measurements?.outputTP != null) update.normalizedOutputTP = body.measurements.outputTP;
+
   try {
-    await archiveRef.update({
-      previousRecordingUrl: originalUrl,
-      recordingUrl: body.newUrl,
-      normalizedAt: Date.now(),
-      normalizedGainDb: body.gainDb ?? null,
-    });
+    await archiveRef.update(update);
   } catch (err) {
-    console.error(`[normalize-callback] Firestore swap failed for ${archiveId}; archive keeps original URL. Orphan normalized file: ${body.newUrl}`, err);
+    console.error(`[normalize-callback] Firestore swap failed for ${archiveId}; archive keeps original URL. Orphan normalized files: ${body.newUrl}${body.trimmedUrl ? ', ' + body.trimmedUrl : ''}`, err);
     return NextResponse.json({ ok: true, action: 'none', warning: 'swap failed, original URL preserved' });
   }
-  console.log(`[normalize-callback] Archive ${archiveId}: +${body.gainDb}dB → ${body.newUrl}`);
+  console.log(`[normalize-callback] Archive ${archiveId} → ${activeUrl}${useTrimmed ? ' (trimmed)' : ''}`);
 
-  return NextResponse.json({ ok: true, action: 'swapped' });
+  return NextResponse.json({ ok: true, action: useTrimmed ? 'swapped-trimmed' : 'swapped' });
 }

@@ -311,16 +311,27 @@ export async function POST(request: NextRequest) {
                 } else if (normResult.skipped) {
                   console.log(`[webhook] Normalize skipped for ${mp4File.filename}: ${normResult.reason}`);
                 } else if (normResult.newUrl) {
-                  console.log(`[webhook] Normalize applied +${normResult.gainDb}dB for ${mp4File.filename} → ${normResult.newUrl}`);
-                  // Swap effective URL to the normalized version — archive doc below
-                  // will pick this up. Original stays as previousRecordingUrl for rollback.
-                  recordingUrl = normResult.newUrl;
-                  await slotRef.update({
+                  // Prefer trimmed when available (worker only produces it when
+                  // trailing silence ≥ 5s was detected). Archive doc below picks
+                  // up `recordingUrl` from the slot.
+                  const activeUrl = normResult.trimmedUrl || normResult.newUrl;
+                  const activeDuration = normResult.trimmedUrl
+                    ? normResult.trimmedDurationSec
+                    : normResult.durationSec;
+                  console.log(`[webhook] Normalize applied for ${mp4File.filename} → ${activeUrl}${normResult.trimmedUrl ? ' (trimmed)' : ''}`);
+                  recordingUrl = activeUrl;
+                  const slotUpdate: Record<string, unknown> = {
                     previousRecordingUrl: originalRecordingUrl,
-                    recordingUrl: normResult.newUrl,
+                    recordingUrl: activeUrl,
                     normalizedAt: new Date(),
-                    normalizedGainDb: normResult.gainDb,
-                  });
+                  };
+                  if (normResult.trimmedUrl) {
+                    slotUpdate.untrimmedRecordingUrl = normResult.newUrl;
+                  }
+                  if (typeof activeDuration === 'number' && activeDuration > 0) {
+                    slotUpdate.duration = Math.round(activeDuration);
+                  }
+                  await slotRef.update(slotUpdate);
                 }
               }
             } catch (normError) {
