@@ -619,6 +619,20 @@ export async function GET(request: NextRequest) {
             }
           }
 
+          // P2: Engagement with X directly (hearted X, or streamed any of X's
+          // archives / live broadcasts). Channel Radio only, gated by
+          // emailNotifications.engagementGoLive — same rule as listeners.
+          if (!matched) {
+            const engaged = engagedByShowId.get(show.showId);
+            if (engaged?.has(userId)) {
+              const optOut = emailNotificationsData?.engagementGoLive === false;
+              if (!optOut) {
+                matched = true;
+                engagementReason = "engaged";
+              }
+            }
+          }
+
           // P3-crew: DJ-side affiliation only (parent + direct affiliates +
           // siblings via affiliatedWithUid). No listener-side bridge.
           if (!matched) {
