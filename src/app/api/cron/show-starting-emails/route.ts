@@ -394,39 +394,41 @@ export async function GET(request: NextRequest) {
       if (cu) uidToUsername.set(djUser.id, normalizeForLookup(cu));
     }
 
-    // 4b''. Build related(X) per Channel Radio show: crew(X) ∪ Audience(X).
-    // Keyed by normalized chatUsername so it composes with the existing
-    // engagement / watchlist matchers (which also use normalized usernames).
-    // Always excludes X itself — the live DJ is handled by the direct paths.
-    const audienceUidsByLiveDjUid = new Map<string, string[]>();
+    // Listener-side bridge: inverse audience map.
+    //
+    // Semantic: M.audienceDjUids = [K] means "when K goes live, notify fans
+    // of M" — M borrows audience reach via K. So for a live DJ K, we need
+    // every M that lists K in M.audienceDjUids, then bridge to fans of M.
+    //
+    // Build reverse map K → set of M's that listed K. Keyed by normalized
+    // chatUsername so it composes with the existing engagement / watchlist
+    // matchers (which also use normalized usernames). Always excludes the
+    // live DJ themselves — the live DJ is handled by direct paths.
+    const ownersByAudienceMemberUid = new Map<string, Set<string>>(); // K-uid → set of M-uid
     for (const djUser of djUsers) {
       const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
       const aud = djProfile?.audienceDjUids;
-      if (Array.isArray(aud) && aud.length > 0) {
-        audienceUidsByLiveDjUid.set(
-          djUser.id,
-          aud.filter((u): u is string => typeof u === "string" && u.length > 0),
-        );
+      if (!Array.isArray(aud)) continue;
+      for (const memberUid of aud) {
+        if (typeof memberUid !== "string" || !memberUid) continue;
+        const bucket = ownersByAudienceMemberUid.get(memberUid) ?? new Set<string>();
+        bucket.add(djUser.id);
+        ownersByAudienceMemberUid.set(memberUid, bucket);
       }
     }
 
-    // Listener-side bridge set: Audience(X) only — admin-curated. Crew is
-    // intentionally NOT included here; crew bridging is covered by the
-    // DJ-side `affiliatedRecipientsByShowId` path, which emails the crew
-    // directly without needing a listener engagement signal.
     const relatedUsernamesByShowId = new Map<string, Set<string>>();
     for (const show of liveShows) {
       if (show.stationId !== "broadcast") continue;
       if (!show.djUserId || !show.djUsername) continue;
       const related = new Set<string>();
-      const audUids = audienceUidsByLiveDjUid.get(show.djUserId);
-      if (audUids) {
-        audUids.forEach((uid) => {
+      const ownerUids = ownersByAudienceMemberUid.get(show.djUserId);
+      if (ownerUids) {
+        ownerUids.forEach((uid) => {
           const name = uidToUsername.get(uid);
           if (name) related.add(name);
         });
       }
-      // Drop X itself (we want related ≠ X — direct paths handle X)
       related.delete(normalizeForLookup(show.djUsername));
       if (related.size > 0) relatedUsernamesByShowId.set(show.showId, related);
     }
