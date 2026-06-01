@@ -494,10 +494,15 @@ async function resolveLoopPlan(
   }
 
   // Short mode: also pick the post-anchor subset to land endTimeMs in
-  // [3am, 4am] PT of the 2nd anchor's UTC day (10:00–11:00 UTC).
-  const secondAnchorDay = new Date(secondAnchor!.endTimeMs);
-  secondAnchorDay.setUTCHours(0, 0, 0, 0);
-  const endDayStartUtcMs = secondAnchorDay.getTime();
+  // [3am, 4am] PT the morning AFTER loop start. The next 1am-PT cron
+  // generates loop N+1 with start in [1am, 3am] PT — N must end at 3-4am PT
+  // the same morning so there's no silence gap (N's tail overlaps N+1's
+  // start by ~2h, useArchiveRadio picks the highest-loopNumber).
+  // (The 2nd anchor only signals "this should be short" — its actual day
+  // doesn't dictate the end window.)
+  const loopStartUtcDay = new Date(windowStartMs);  // UTC midnight of the start window's day
+  loopStartUtcDay.setUTCHours(0, 0, 0, 0);
+  const endDayStartUtcMs = loopStartUtcDay.getTime() + 24 * 3600 * 1000;  // next UTC day
   const endWindowStartMs = endDayStartUtcMs + 10 * 3600 * 1000;  // 10:00 UTC = 3am PT
   const endWindowEndMs = endDayStartUtcMs + 11 * 3600 * 1000;    // 11:00 UTC = 4am PT
 
