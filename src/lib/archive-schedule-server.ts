@@ -353,10 +353,14 @@ interface LoopPlan {
 // Decide the loop's startTimeMs (and optionally a pre-anchor archive subset)
 // for loop N. The 1am PT cron's algorithm:
 //   1. If there's an upcoming live-block end ("anchor") in the next 28h, try
-//      to land the cron-run-day's dead-zone window (1-4am PT) on that anchor:
+//      to land the cron-run-day's dead-zone window (1-3am PT) on that anchor:
 //      search for an archive subset whose total duration places the
 //      post-subset interlude EXACTLY on the anchor. If a subset's computed
-//      startTime falls in [1am PT, 4am PT] of the cron-run day, use it.
+//      startTime falls in [1am PT, 3am PT] of the cron-run day, use it.
+//      The 3am upper bound (not 4am) gives prev — which is capped at 25h
+//      when a next anchor exists, and itself starts in [1am, 3am] PT — a
+//      guaranteed natural end in [2am, 4am+ε] PT, so N's start always lands
+//      before prev's end and there's no silence gap between loops.
 //   2. If no subset fits the window, fall back to startTimeMs = anchor.end
 //      (Model B: anchor interlude at loop offset 0; loop transition happens
 //      whenever live ends rather than in dead zone).
@@ -418,15 +422,16 @@ async function resolveLoopPlan(
   }
 
   // Compute the dead-zone window for the cron-run day, in UTC.
-  // 1am PT = 08:00 UTC, 4am PT = 11:00 UTC (PST/PDT-aware math is overkill;
+  // 1am PT = 08:00 UTC, 3am PT = 10:00 UTC (PST/PDT-aware math is overkill;
   // we use UTC-7 as a simplification).
-  // The window also has to be >= earliestStartMs so loop N doesn't overlap
-  // loop N-1 even if the dead zone falls during N-1's window.
+  // The window upper bound is 3am (not 4am) so prev's natural end — capped
+  // at 25h when the next anchor exists, prev start is itself in [1am, 3am] —
+  // always lands AFTER N's start, guaranteeing overlap and no silence gap.
   const cronDay = new Date(nowMs);
   cronDay.setUTCHours(0, 0, 0, 0);
   const dayStartUtcMs = cronDay.getTime();
   const windowStartMs = Math.max(earliestStartMs, dayStartUtcMs + 8 * 3600 * 1000);   // 08:00 UTC = 1am PT
-  const windowEndMs = Math.max(windowStartMs, dayStartUtcMs + 11 * 3600 * 1000);      // 11:00 UTC = 4am PT
+  const windowEndMs = Math.max(windowStartMs, dayStartUtcMs + 10 * 3600 * 1000);      // 10:00 UTC = 3am PT
 
   const avgInterludeSec = interstitials.length === 0
     ? 0
