@@ -394,26 +394,25 @@ export async function GET(request: NextRequest) {
       if (cu) uidToUsername.set(djUser.id, normalizeForLookup(cu));
     }
 
-    // Listener-side bridge: inverse audience map.
+    // Listener-side bridge: audience map (direct, not inverse).
     //
-    // Semantic: M.audienceDjUids = [K] means "when K goes live, notify fans
-    // of M" — M borrows audience reach via K. So for a live DJ K, we need
-    // every M that lists K in M.audienceDjUids, then bridge to fans of M.
+    // Semantic: X.audienceDjUids = [Y] means "X borrows from Y" — when X
+    // goes live, notify fans of Y. So for a live DJ X, read X's own
+    // audienceDjUids and bridge to fans of every DJ in that list.
     //
-    // Build reverse map K → set of M's that listed K. Keyed by normalized
-    // chatUsername so it composes with the existing engagement / watchlist
-    // matchers (which also use normalized usernames). Always excludes the
-    // live DJ themselves — the live DJ is handled by direct paths.
-    const ownersByAudienceMemberUid = new Map<string, Set<string>>(); // K-uid → set of M-uid
+    // Keyed by normalized chatUsername so it composes with the existing
+    // engagement / watchlist matchers (which also use normalized usernames).
+    // Always excludes the live DJ themselves — the live DJ is handled by
+    // direct paths.
+    const audienceUidsByLiveDjUid = new Map<string, string[]>();
     for (const djUser of djUsers) {
       const djProfile = djUser.data.djProfile as Record<string, unknown> | undefined;
       const aud = djProfile?.audienceDjUids;
-      if (!Array.isArray(aud)) continue;
-      for (const memberUid of aud) {
-        if (typeof memberUid !== "string" || !memberUid) continue;
-        const bucket = ownersByAudienceMemberUid.get(memberUid) ?? new Set<string>();
-        bucket.add(djUser.id);
-        ownersByAudienceMemberUid.set(memberUid, bucket);
+      if (Array.isArray(aud) && aud.length > 0) {
+        audienceUidsByLiveDjUid.set(
+          djUser.id,
+          aud.filter((u): u is string => typeof u === "string" && u.length > 0),
+        );
       }
     }
 
@@ -422,9 +421,9 @@ export async function GET(request: NextRequest) {
       if (show.stationId !== "broadcast") continue;
       if (!show.djUserId || !show.djUsername) continue;
       const related = new Set<string>();
-      const ownerUids = ownersByAudienceMemberUid.get(show.djUserId);
-      if (ownerUids) {
-        ownerUids.forEach((uid) => {
+      const audUids = audienceUidsByLiveDjUid.get(show.djUserId);
+      if (audUids) {
+        audUids.forEach((uid) => {
           const name = uidToUsername.get(uid);
           if (name) related.add(name);
         });

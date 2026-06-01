@@ -587,14 +587,14 @@ function DjRow({
       {/* Audience column */}
       <div className="flex flex-col gap-2 w-[260px] flex-shrink-0">
         <ColumnHeading>Audience</ColumnHeading>
-        <FieldRow label="Shared with">
+        <FieldRow label="Borrows from">
           <AudiencePicker
             value={dj.audienceDjUids ?? []}
             options={affiliationOptions}
             onChange={(uids) => onSetAudience(dj, uids)}
           />
         </FieldRow>
-        <FieldRow label="Expanded from">
+        <FieldRow label="Lent to">
           <ChipPicker
             selected={listedInAudienceOf}
             addOptions={listedInAudienceAddOptions}
