@@ -511,35 +511,41 @@ function DjRow({
   }, [affiliationOptions, listedInAudienceOf]);
 
   return (
-    <div className="flex items-center gap-4 px-4 py-3 bg-[#1f1f1f] rounded-lg border border-gray-800">
-      <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-800 flex-shrink-0">
-        {dj.photoUrl ? (
-          <Image
-            src={dj.photoUrl}
-            alt={dj.displayName}
-            width={40}
-            height={40}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">
-            {dj.displayName.charAt(0).toUpperCase()}
+    <div className="flex items-start gap-6 px-4 py-3 bg-[#1f1f1f] rounded-lg border border-gray-800">
+      {/* Identity column */}
+      <div className="flex items-start gap-3 w-[200px] flex-shrink-0">
+        <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-800 flex-shrink-0">
+          {dj.photoUrl ? (
+            <Image
+              src={dj.photoUrl}
+              alt={dj.displayName}
+              width={40}
+              height={40}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm">
+              {dj.displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
+        <div className="min-w-0">
+          <div className="text-sm text-white truncate">
+            {dj.chatUsername || dj.name || dj.displayName}
           </div>
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm text-white truncate">
-          {dj.chatUsername || dj.name || dj.displayName}
-        </div>
-        {dj.name && dj.name !== dj.chatUsername && (
-          <div className="text-xs text-gray-500 truncate">{dj.name}</div>
-        )}
-        <div className="text-[10px] text-gray-500 mt-0.5 flex gap-2">
-          <span title="On watchlists">👁 {engagement ? engagement.watchlist : '–'}</span>
-          <span title="Distinct listeners (hearts ∪ streams)">🎧 {engagement ? engagement.listeners : '–'}</span>
+          {dj.name && dj.name !== dj.chatUsername && (
+            <div className="text-xs text-gray-500 truncate">{dj.name}</div>
+          )}
+          <div className="text-[10px] text-gray-500 mt-0.5 flex gap-2">
+            <span title="On watchlists">👁 {engagement ? engagement.watchlist : '–'}</span>
+            <span title="Distinct listeners (hearts ∪ streams)">🎧 {engagement ? engagement.listeners : '–'}</span>
+          </div>
         </div>
       </div>
-      <div className="flex flex-col items-end gap-1 mr-2 flex-shrink-0">
+
+      {/* Residency column */}
+      <div className="flex flex-col gap-1 w-[180px] flex-shrink-0">
+        <ColumnHeading>Residency</ColumnHeading>
         <div className="flex items-center gap-1">
           <ResidencyPill active={!cadence} label="No" onClick={() => onSetResidency(dj, null)} />
           <ResidencyPill
@@ -556,71 +562,106 @@ function DjRow({
         <div className="text-[10px] text-gray-500 whitespace-nowrap">
           Next show: {formatNextSlot(dj.nextSlotStart)}
         </div>
-        <AffiliationPicker
-          value={dj.affiliatedWithUid ?? null}
-          options={affiliationOptions}
-          onChange={(uid) => onSetAffiliation(dj, uid)}
-        />
-        <ChipPicker
-          label="Crew members"
-          selected={crewMembers}
-          addOptions={crewMemberAddOptions}
-          onAdd={(child) => onSetChildAffiliation(dj, child, true)}
-          onRemove={(child) => onSetChildAffiliation(dj, child, false)}
-        />
-        <AudiencePicker
-          value={dj.audienceDjUids ?? []}
-          options={affiliationOptions}
-          onChange={(uids) => onSetAudience(dj, uids)}
-        />
-        <ChipPicker
-          label="Audience expanded from"
-          selected={listedInAudienceOf}
-          addOptions={listedInAudienceAddOptions}
-          onAdd={(owner) => onSetMembershipInAudience(dj, owner, true)}
-          onRemove={(owner) => onSetMembershipInAudience(dj, owner, false)}
-        />
       </div>
-      <div className="flex flex-wrap gap-1.5 justify-end">
-        {scenes.map((scene) => {
-          const active = dj.sceneIds?.includes(scene.id);
-          return (
-            <button
-              key={scene.id}
-              onClick={() => onToggle(dj, scene.id)}
-              className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
-                active
-                  ? scene.color
-                  : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:text-gray-300'
-              }`}
-            >
-              <span className="mr-1 text-base leading-none">{scene.emoji}</span>
-              {scene.name}
-            </button>
-          );
-        })}
+
+      {/* Crew column */}
+      <div className="flex flex-col gap-2 w-[260px] flex-shrink-0">
+        <ColumnHeading>Crew</ColumnHeading>
+        <FieldRow label="Affiliated with">
+          <AffiliationPicker
+            value={dj.affiliatedWithUid ?? null}
+            options={affiliationOptions}
+            onChange={(uid) => onSetAffiliation(dj, uid)}
+          />
+        </FieldRow>
+        <FieldRow label="Crew members">
+          <ChipPicker
+            selected={crewMembers}
+            addOptions={crewMemberAddOptions}
+            onAdd={(child) => onSetChildAffiliation(dj, child, true)}
+            onRemove={(child) => onSetChildAffiliation(dj, child, false)}
+          />
+        </FieldRow>
       </div>
+
+      {/* Audience column */}
+      <div className="flex flex-col gap-2 w-[260px] flex-shrink-0">
+        <ColumnHeading>Audience</ColumnHeading>
+        <FieldRow label="Shared with">
+          <AudiencePicker
+            value={dj.audienceDjUids ?? []}
+            options={affiliationOptions}
+            onChange={(uids) => onSetAudience(dj, uids)}
+          />
+        </FieldRow>
+        <FieldRow label="Expanded from">
+          <ChipPicker
+            selected={listedInAudienceOf}
+            addOptions={listedInAudienceAddOptions}
+            onAdd={(owner) => onSetMembershipInAudience(dj, owner, true)}
+            onRemove={(owner) => onSetMembershipInAudience(dj, owner, false)}
+          />
+        </FieldRow>
+      </div>
+
+      {/* Scenes column — takes remaining space */}
+      <div className="flex-1 min-w-0 flex flex-col gap-1">
+        <ColumnHeading>Scenes</ColumnHeading>
+        <div className="flex flex-wrap gap-1.5">
+          {scenes.map((scene) => {
+            const active = dj.sceneIds?.includes(scene.id);
+            return (
+              <button
+                key={scene.id}
+                onClick={() => onToggle(dj, scene.id)}
+                className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                  active
+                    ? scene.color
+                    : 'bg-gray-800/50 text-gray-500 border-gray-700 hover:text-gray-300'
+                }`}
+              >
+                <span className="mr-1 text-base leading-none">{scene.emoji}</span>
+                {scene.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ColumnHeading({ children }: { children: ReactNode }) {
+  return (
+    <div className="text-[9px] uppercase tracking-[0.18em] text-gray-600 font-medium">
+      {children}
+    </div>
+  );
+}
+
+function FieldRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className="text-[10px] text-gray-500">{label}</div>
+      {children}
     </div>
   );
 }
 
 // Generic add/remove chip picker used by the two inverse sections.
 function ChipPicker({
-  label,
   selected,
   addOptions,
   onAdd,
   onRemove,
 }: {
-  label: string;
   selected: DjForScenesAdmin[];
   addOptions: DjForScenesAdmin[];
   onAdd: (dj: DjForScenesAdmin) => void;
   onRemove: (dj: DjForScenesAdmin) => void;
 }) {
   return (
-    <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[260px]">
-      <span className="text-[10px] text-gray-500 whitespace-nowrap italic">{label}</span>
+    <div className="flex items-center gap-1.5 flex-wrap">
       {selected.map((d) => (
         <span
           key={d.userId}
@@ -645,7 +686,7 @@ function ChipPicker({
           const target = addOptions.find((o) => o.userId === uid);
           if (target) onAdd(target);
         }}
-        className="bg-gray-800 text-gray-200 text-[11px] rounded border border-gray-700 px-1.5 py-0.5 max-w-[120px]"
+        className="bg-gray-800 text-gray-200 text-[11px] rounded border border-gray-700 px-1.5 py-0.5 max-w-[140px]"
       >
         <option value="">+ add DJ</option>
         {addOptions.map((o) => (
@@ -752,8 +793,7 @@ function AudiencePicker({
   };
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[260px]">
-      <span className="text-[10px] text-gray-500 whitespace-nowrap">Audience shared with</span>
+    <div className="flex items-center gap-1.5 flex-wrap">
       {selected.map((uid) => (
         <span
           key={uid}
@@ -775,7 +815,7 @@ function AudiencePicker({
           handleAdd(e.target.value);
           e.target.value = '';
         }}
-        className="bg-gray-800 text-gray-200 text-[11px] rounded border border-gray-700 px-1.5 py-0.5 max-w-[120px]"
+        className="bg-gray-800 text-gray-200 text-[11px] rounded border border-gray-700 px-1.5 py-0.5 max-w-[140px]"
       >
         <option value="">+ add DJ</option>
         {unselectedOptions.map((o) => (
@@ -798,21 +838,18 @@ function AffiliationPicker({
   onChange: (uid: string | null) => void;
 }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[10px] text-gray-500 whitespace-nowrap">Affiliated with</span>
-      <select
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value || null)}
-        className="bg-gray-800 text-gray-200 text-[11px] rounded border border-gray-700 px-1.5 py-0.5 max-w-[160px]"
-      >
-        <option value="">— none —</option>
-        {options.map((o) => (
-          <option key={o.userId} value={o.userId}>
-            {o.chatUsername || o.name || o.displayName}
-          </option>
-        ))}
-      </select>
-    </div>
+    <select
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value || null)}
+      className="bg-gray-800 text-gray-200 text-[11px] rounded border border-gray-700 px-1.5 py-0.5 max-w-[200px]"
+    >
+      <option value="">— none —</option>
+      {options.map((o) => (
+        <option key={o.userId} value={o.userId}>
+          {o.chatUsername || o.name || o.displayName}
+        </option>
+      ))}
+    </select>
   );
 }
 
