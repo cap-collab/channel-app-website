@@ -466,12 +466,18 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   // 3. Run a same-DJ adjacency pass.
   const sequence: (EligibleArchive | null)[] = new Array(totalEntries).fill(null);
 
+  // Random phase shift: highs are placed at deterministic slot offsets
+  // (floor(i * spacing)), which means the high/medium rhythm is structurally
+  // identical across runs — only the identity at each slot rotates. Adding a
+  // per-run phase shift rotates the whole pattern so successive regenerations
+  // produce audibly different slot rhythms, not just shuffled archive identities.
+  const phaseShift = Math.floor(rng() * totalEntries);
   if (highCount > 0 && mode === 'long') {
     const spacing = totalEntries / (highCount * 2);
     const halfShift = Math.floor(totalEntries / 2);
     for (let i = 0; i < highCount; i++) {
       const high = shuffledHighs[i];
-      let firstPos = Math.floor(i * spacing);
+      let firstPos = (Math.floor(i * spacing) + phaseShift) % totalEntries;
       let secondPos = (firstPos + halfShift) % totalEntries;
       // Resolve collisions: if a slot is already taken, walk forward to the
       // next free slot. This can happen when totalEntries is small and the
@@ -490,7 +496,7 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     // subset pick (decided by the cron) controls actual ordering. We just need
     // them present in the pool.
     for (let i = 0; i < highCount; i++) {
-      let pos = Math.floor(i * (totalEntries / highCount));
+      let pos = (Math.floor(i * (totalEntries / highCount)) + phaseShift) % totalEntries;
       while (sequence[pos] !== null) {
         pos = (pos + 1) % totalEntries;
       }
