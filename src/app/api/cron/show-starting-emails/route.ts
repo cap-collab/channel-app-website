@@ -364,9 +364,6 @@ export async function GET(request: NextRequest) {
     }
 
     const affiliatedRecipientsByShowId = new Map<string, Set<string>>();
-    // Per-show crew uid set (used both for DJ-side recipients and to feed
-    // related(X) for the listener-side affiliation fan-out below).
-    const crewUidsByShowId = new Map<string, Set<string>>();
     for (const show of liveShows) {
       if (!show.djUserId) continue;
       const recipients = new Set<string>();
@@ -383,7 +380,6 @@ export async function GET(request: NextRequest) {
       }
       // Don't email the live DJ themselves
       recipients.delete(show.djUserId);
-      crewUidsByShowId.set(show.showId, new Set(recipients));
       if (recipients.size > 0) affiliatedRecipientsByShowId.set(show.showId, recipients);
     }
 
@@ -414,20 +410,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Listener-side bridge set: Audience(X) only — admin-curated. Crew is
+    // intentionally NOT included here; crew bridging is covered by the
+    // DJ-side `affiliatedRecipientsByShowId` path, which emails the crew
+    // directly without needing a listener engagement signal.
     const relatedUsernamesByShowId = new Map<string, Set<string>>();
     for (const show of liveShows) {
       if (show.stationId !== "broadcast") continue;
       if (!show.djUserId || !show.djUsername) continue;
       const related = new Set<string>();
-      // Crew
-      const crewUids = crewUidsByShowId.get(show.showId);
-      if (crewUids) {
-        crewUids.forEach((uid) => {
-          const name = uidToUsername.get(uid);
-          if (name) related.add(name);
-        });
-      }
-      // Audience (admin-curated)
       const audUids = audienceUidsByLiveDjUid.get(show.djUserId);
       if (audUids) {
         audUids.forEach((uid) => {
