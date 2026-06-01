@@ -427,11 +427,16 @@ async function resolveLoopPlan(
   // The window upper bound is 3am (not 4am) so prev's natural end — capped
   // at 25h when the next anchor exists, prev start is itself in [1am, 3am] —
   // always lands AFTER N's start, guaranteeing overlap and no silence gap.
-  const cronDay = new Date(nowMs);
-  cronDay.setUTCHours(0, 0, 0, 0);
-  const dayStartUtcMs = cronDay.getTime();
-  const windowStartMs = Math.max(earliestStartMs, dayStartUtcMs + 8 * 3600 * 1000);   // 08:00 UTC = 1am PT
-  const windowEndMs = Math.max(windowStartMs, dayStartUtcMs + 10 * 3600 * 1000);      // 10:00 UTC = 3am PT
+  // 1-3 AM PT window of the day loop N-1 ends on. Loop N is allowed to start
+  // BEFORE loop N-1 ends (small overlap is fine — useArchiveRadio picks the
+  // highest-loopNumber loop whose startTimeMs has passed). We anchor the
+  // window to the day loop N-1 ends, not "now", so the window is meaningful
+  // even when generation runs mid-day.
+  const prevEndDay = new Date(prevNaturalEnd);
+  prevEndDay.setUTCHours(0, 0, 0, 0);
+  const dayStartUtcMs = prevEndDay.getTime();
+  const windowStartMs = dayStartUtcMs + 8 * 3600 * 1000;   // 08:00 UTC = 1am PT
+  const windowEndMs = dayStartUtcMs + 10 * 3600 * 1000;    // 10:00 UTC = 3am PT
 
   const avgInterludeSec = interstitials.length === 0
     ? 0
@@ -602,20 +607,28 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
       );
     }
     if (anchorArchiveIdx < 0) {
+      // buildLoop assembly order: [startInt, pa0, int, pa1, int, ..., pa(N-1),
+      // anchorInt, anchorArchive, restInt, rest...]
+      // anchorArchive index = 1 (startInt) + N (pre-anchor archives)
+      //                       + (N-1) (interludes between pre-anchors)
+      //                       + 1 (anchor interlude) = 2N + 1
       const preLen = plan.preAnchorArchiveIds.length;
-      anchorArchiveIdx = preLen * 2;
+      anchorArchiveIdx = 2 * preLen + 1;
     }
     if (anchorArchiveIdx > 0 && result.items[anchorArchiveIdx - 1].kind === 'interstitial') {
       const anchorInterludeOffset = result.items[anchorArchiveIdx - 1].startOffsetSec;
       startTimeMs = plan.anchor.endTimeMs - anchorInterludeOffset * 1000;
     }
   }
-  // Final clamp: never let the two-pass anchor shift drag startTimeMs before
-  // the previous loop's natural end. Without this, picking an anchor close to
-  // the previous loop's tail (or any pre-anchor subset that overshoots) writes
-  // a doc that overlaps the currently-playing loop — listeners get yanked.
-  if (startTimeMs < plan.earliestStartMs) {
-    startTimeMs = plan.earliestStartMs;
+  // Small overlap with the previous loop is intentional: useArchiveRadio
+  // picks the highest-loopNumber loop whose startTimeMs has passed, so when
+  // loop N's start arrives, listeners cross over from N-1. The 1-3 AM PT
+  // window already sits BEFORE loop N-1's natural end (which is itself in
+  // 1-3 AM PT a day later), giving a clean handoff.
+  // Guard against unbounded backwards drift: cap overlap at 4 hours.
+  const MAX_OVERLAP_MS = 4 * 3600 * 1000;
+  if (startTimeMs < plan.earliestStartMs - MAX_OVERLAP_MS) {
+    startTimeMs = plan.earliestStartMs - MAX_OVERLAP_MS;
   }
   const generatedAtMs = Date.now();
 
