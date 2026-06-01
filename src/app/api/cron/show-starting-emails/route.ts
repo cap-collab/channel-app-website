@@ -573,93 +573,142 @@ export async function GET(request: NextRequest) {
         (userData.goLiveMutes as string[] | undefined) || [],
       );
 
+      // DJ users get a stricter matcher: Channel Radio only, and only via
+      // favorite / watchlist / crew. No engagement tier, no listener-side
+      // bridge, no audience-list expansion. Keeps the DJ inbox quiet.
+      const userRole = (userData.role as string | undefined) || "user";
+      const isDjUser = userRole === "dj" || userRole === "broadcaster";
+
       for (const show of liveShows) {
-        // Match priority: favorite > watchlist > affiliation > engagement.
-        // First hit wins; that determines the email's footer/caption copy.
         let matched = false;
         let matchedViaAffiliation = false;
-        let affiliationBridgeDj: string | undefined;  // set when listener-side affiliation match: the related DJ R that bridged
+        let affiliationBridgeDj: string | undefined;  // listener-branch only: the related DJ R that bridged
         let engagementReason: "engaged" | undefined;
 
         const emailNotificationsData = userData.emailNotifications as Record<string, unknown> | undefined;
 
-        // P1a: "show" type favorites (exact show name + station match)
-        for (const fav of showFavorites) {
-          const favTerm = ((fav.data.term as string) || "").toLowerCase();
-          const favStation = (fav.data.stationId as string) || "";
-          const favShowName = ((fav.data.showName as string) || "").toLowerCase();
-          if (
-            (favStation === show.stationId || !favStation) &&
-            (favTerm === show.name.toLowerCase() || favShowName === show.name.toLowerCase())
-          ) {
-            matched = true;
-            break;
-          }
-        }
+        if (isDjUser) {
+          // DJ branch: Channel Radio only.
+          if (show.stationId !== "broadcast") continue;
 
-        // P1b: "search" type favorites (watchlist — direct match on X / show name).
-        if (!matched) {
-          for (const term of searchTerms) {
+          // P1a: "show" type favorites (exact show name + station match)
+          for (const fav of showFavorites) {
+            const favTerm = ((fav.data.term as string) || "").toLowerCase();
+            const favStation = (fav.data.stationId as string) || "";
+            const favShowName = ((fav.data.showName as string) || "").toLowerCase();
             if (
-              wordBoundaryMatch(show.name, term) ||
-              (show.dj && wordBoundaryMatch(show.dj, term)) ||
-              (show.collectiveOwnerUsernames && show.collectiveOwnerUsernames.some(u => wordBoundaryMatch(u, term)))
+              (favStation === show.stationId || !favStation) &&
+              (favTerm === show.name.toLowerCase() || favShowName === show.name.toLowerCase())
             ) {
               matched = true;
               break;
             }
           }
-        }
 
-        // P2: Engagement with X directly (hearted X, or streamed any of X's
-        // archives / live broadcasts). Channel Radio only, gated by
-        // emailNotifications.engagementGoLive. Engagement outranks
-        // affiliation because it's a direct first-party signal — the user
-        // already knows X, no need for a "recommended" framing.
-        if (!matched && show.stationId === "broadcast") {
-          const engaged = engagedByShowId.get(show.showId);
-          if (engaged?.has(userId)) {
-            const optOut = emailNotificationsData?.engagementGoLive === false;
-            if (!optOut) {
-              matched = true;
-              engagementReason = "engaged";
+          // P1b: "search" type favorites (watchlist).
+          if (!matched) {
+            for (const term of searchTerms) {
+              if (
+                wordBoundaryMatch(show.name, term) ||
+                (show.dj && wordBoundaryMatch(show.dj, term)) ||
+                (show.collectiveOwnerUsernames && show.collectiveOwnerUsernames.some(u => wordBoundaryMatch(u, term)))
+              ) {
+                matched = true;
+                break;
+              }
             }
           }
-        }
 
-        // P3: Affiliation — DJ-side (user IS in the crew) OR listener-side
-        // (user has a watchlist or engagement signal for any R in related(X)).
-        // Both gated by emailNotifications.affiliatedGoLive (defaults true).
-        if (!matched) {
-          const affOptOut = emailNotificationsData?.affiliatedGoLive === false;
-          if (!affOptOut) {
-            // DJ-side (today's path, unchanged)
-            const affiliatedRecipients = affiliatedRecipientsByShowId.get(show.showId);
-            if (affiliatedRecipients?.has(userId)) {
+          // P3-crew: DJ-side affiliation only (parent + direct affiliates +
+          // siblings via affiliatedWithUid). No listener-side bridge.
+          if (!matched) {
+            const affOptOut = emailNotificationsData?.affiliatedGoLive === false;
+            if (!affOptOut) {
+              const affiliatedRecipients = affiliatedRecipientsByShowId.get(show.showId);
+              if (affiliatedRecipients?.has(userId)) {
+                matched = true;
+                matchedViaAffiliation = true;
+              }
+            }
+          }
+        } else {
+          // Listener branch: unchanged. Match priority: favorite > watchlist >
+          // engagement > affiliation. First hit wins; that determines the
+          // email's footer/caption copy.
+
+          // P1a: "show" type favorites (exact show name + station match)
+          for (const fav of showFavorites) {
+            const favTerm = ((fav.data.term as string) || "").toLowerCase();
+            const favStation = (fav.data.stationId as string) || "";
+            const favShowName = ((fav.data.showName as string) || "").toLowerCase();
+            if (
+              (favStation === show.stationId || !favStation) &&
+              (favTerm === show.name.toLowerCase() || favShowName === show.name.toLowerCase())
+            ) {
               matched = true;
-              matchedViaAffiliation = true;
-              // No bridge DJ — DJ-side gets the existing "affiliated artist" copy.
-            } else if (show.stationId === "broadcast") {
-              // Listener-side: find the first R in related(X) such that U has
-              // a watchlist match for R, or has engaged with R (heart/stream).
-              const related = relatedUsernamesByShowId.get(show.showId);
-              const engagedByR = engagedByRelatedDjByShowId.get(show.showId);
-              if (related) {
-                for (const r of Array.from(related)) {
-                  // Watchlist match against the related DJ's username
-                  let bridged = false;
-                  for (const term of searchTerms) {
-                    if (wordBoundaryMatch(r, term)) {
-                      bridged = true;
+              break;
+            }
+          }
+
+          // P1b: "search" type favorites (watchlist — direct match on X / show name).
+          if (!matched) {
+            for (const term of searchTerms) {
+              if (
+                wordBoundaryMatch(show.name, term) ||
+                (show.dj && wordBoundaryMatch(show.dj, term)) ||
+                (show.collectiveOwnerUsernames && show.collectiveOwnerUsernames.some(u => wordBoundaryMatch(u, term)))
+              ) {
+                matched = true;
+                break;
+              }
+            }
+          }
+
+          // P2: Engagement with X directly (hearted X, or streamed any of X's
+          // archives / live broadcasts). Channel Radio only, gated by
+          // emailNotifications.engagementGoLive. Engagement outranks
+          // affiliation because it's a direct first-party signal — the user
+          // already knows X, no need for a "recommended" framing.
+          if (!matched && show.stationId === "broadcast") {
+            const engaged = engagedByShowId.get(show.showId);
+            if (engaged?.has(userId)) {
+              const optOut = emailNotificationsData?.engagementGoLive === false;
+              if (!optOut) {
+                matched = true;
+                engagementReason = "engaged";
+              }
+            }
+          }
+
+          // P3: Affiliation — DJ-side (user IS in the crew) OR listener-side
+          // (user has a watchlist or engagement signal for any R in related(X)).
+          // Both gated by emailNotifications.affiliatedGoLive (defaults true).
+          if (!matched) {
+            const affOptOut = emailNotificationsData?.affiliatedGoLive === false;
+            if (!affOptOut) {
+              const affiliatedRecipients = affiliatedRecipientsByShowId.get(show.showId);
+              if (affiliatedRecipients?.has(userId)) {
+                matched = true;
+                matchedViaAffiliation = true;
+              } else if (show.stationId === "broadcast") {
+                const related = relatedUsernamesByShowId.get(show.showId);
+                const engagedByR = engagedByRelatedDjByShowId.get(show.showId);
+                if (related) {
+                  for (const r of Array.from(related)) {
+                    let bridged = false;
+                    for (const term of searchTerms) {
+                      if (wordBoundaryMatch(r, term)) {
+                        bridged = true;
+                        break;
+                      }
+                    }
+                    if (!bridged && engagedByR?.get(r)?.has(userId)) bridged = true;
+                    if (bridged) {
+                      matched = true;
+                      matchedViaAffiliation = true;
+                      affiliationBridgeDj = r;
                       break;
                     }
-                  }
-                  if (!bridged && engagedByR?.get(r)?.has(userId)) bridged = true;
-                  if (bridged) {
-                    matched = true;
-                    matchedViaAffiliation = true;
-                    affiliationBridgeDj = r;
-                    break;
                   }
                 }
               }

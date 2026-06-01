@@ -6,6 +6,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import type { SceneSerialized } from '@/types/scenes';
 import type { DjForScenesAdmin, ResidencyCadence } from '@/app/api/admin/scenes/djs/route';
 import type { CollectiveForScenesAdmin } from '@/app/api/admin/scenes/collectives/route';
+import type { DjEngagementResponse, DjEngagementCounts } from '@/app/api/admin/scenes/dj-engagement/route';
 
 const UNASSIGNED_FILTER = '__unassigned__';
 const ALL_FILTER = '__all__';
@@ -18,6 +19,8 @@ export function ScenesTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sceneFilter, setSceneFilter] = useState<string>(ALL_FILTER);
+  const [engagement, setEngagement] = useState<DjEngagementResponse | null>(null);
+  const [engagementRefreshing, setEngagementRefreshing] = useState(false);
 
   const authedFetch = useCallback(
     async (url: string, init?: RequestInit): Promise<Response> => {
@@ -56,13 +59,37 @@ export function ScenesTab() {
     setCollectives(data.collectives || []);
   }, [authedFetch]);
 
+  const fetchEngagement = useCallback(
+    async (force = false) => {
+      const url = `/api/admin/scenes/dj-engagement${force ? '?force=1' : ''}`;
+      const res = await authedFetch(url);
+      if (!res.ok) throw new Error('Failed to load engagement counts');
+      const data = (await res.json()) as DjEngagementResponse;
+      setEngagement(data);
+    },
+    [authedFetch]
+  );
+
+  const handleRefreshEngagement = useCallback(async () => {
+    setEngagementRefreshing(true);
+    try {
+      await fetchEngagement(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEngagementRefreshing(false);
+    }
+  }, [fetchEngagement]);
+
   useEffect(() => {
     if (!user) return;
     setIsLoading(true);
     Promise.all([fetchScenes(), fetchDjs(), fetchCollectives()])
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load'))
       .finally(() => setIsLoading(false));
-  }, [user, fetchScenes, fetchDjs, fetchCollectives]);
+    // Engagement is heavy; fetch lazily and don't block the page.
+    fetchEngagement().catch((err) => console.error(err));
+  }, [user, fetchScenes, fetchDjs, fetchCollectives, fetchEngagement]);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = { [UNASSIGNED_FILTER]: 0 };
@@ -99,6 +126,27 @@ export function ScenesTab() {
     if (sceneFilter === UNASSIGNED_FILTER) return collectives.filter((c) => !c.sceneIds || c.sceneIds.length === 0);
     return collectives.filter((c) => c.sceneIds?.includes(sceneFilter));
   }, [collectives, sceneFilter]);
+
+  // Inverse maps derived from the full DJ list. Re-derive whenever djs changes
+  // (which happens on every optimistic update), so both sides of a relationship
+  // re-render in sync.
+  const inverseMaps = useMemo(() => {
+    const crewMembersByLeadUid = new Map<string, DjForScenesAdmin[]>();
+    const listedInAudienceOfByUid = new Map<string, DjForScenesAdmin[]>();
+    for (const d of djs) {
+      if (d.affiliatedWithUid) {
+        const bucket = crewMembersByLeadUid.get(d.affiliatedWithUid) ?? [];
+        bucket.push(d);
+        crewMembersByLeadUid.set(d.affiliatedWithUid, bucket);
+      }
+      for (const audUid of d.audienceDjUids ?? []) {
+        const bucket = listedInAudienceOfByUid.get(audUid) ?? [];
+        bucket.push(d);
+        listedInAudienceOfByUid.set(audUid, bucket);
+      }
+    }
+    return { crewMembersByLeadUid, listedInAudienceOfByUid };
+  }, [djs]);
 
   // Split into residents (any cadence set) vs non-residents. Within each group:
   // residents sort by soonest next-slot then name; non-residents sort by name.
@@ -201,6 +249,68 @@ export function ScenesTab() {
     [authedFetch, fetchDjs]
   );
 
+  // Inverse-edit: write to the child's affiliatedWithUid from the parent's row.
+  // value=true → child joins parent's crew; value=false → child leaves it.
+  const handleSetChildAffiliation = useCallback(
+    async (parent: DjForScenesAdmin, child: DjForScenesAdmin, value: boolean) => {
+      if (value && child.affiliatedWithUid && child.affiliatedWithUid !== parent.userId) {
+        const currentLead = djs.find((d) => d.userId === child.affiliatedWithUid);
+        const currentLeadName = currentLead?.chatUsername || currentLead?.name || currentLead?.displayName || 'another DJ';
+        const childName = child.chatUsername || child.name || child.displayName;
+        const ok = window.confirm(
+          `${childName} is currently affiliated with ${currentLeadName}. Replace?`
+        );
+        if (!ok) return;
+      }
+      const nextLead = value ? parent.userId : null;
+      setDjs((prev) =>
+        prev.map((d) =>
+          d.userId === child.userId ? { ...d, affiliatedWithUid: nextLead ?? undefined } : d
+        )
+      );
+      try {
+        const res = await authedFetch('/api/admin/scenes/dj-affiliation', {
+          method: 'PATCH',
+          body: JSON.stringify({ userId: child.userId, affiliatedWithUid: nextLead }),
+        });
+        if (!res.ok) throw new Error('Failed to update');
+      } catch {
+        await fetchDjs();
+      }
+    },
+    [authedFetch, djs, fetchDjs]
+  );
+
+  // Inverse-edit: from DJ Y's "Listed in audience of" row, add/remove Y to/from
+  // the audienceDjUids array on the other DJ X's doc.
+  const handleSetMembershipInAudience = useCallback(
+    async (
+      memberDj: DjForScenesAdmin,        // the DJ being listed (Y)
+      ownerDj: DjForScenesAdmin,         // the DJ whose audience list we're writing to (X)
+      value: boolean,
+    ) => {
+      const currentOwnerAudience = ownerDj.audienceDjUids ?? [];
+      const next = value
+        ? currentOwnerAudience.includes(memberDj.userId)
+          ? currentOwnerAudience
+          : [...currentOwnerAudience, memberDj.userId]
+        : currentOwnerAudience.filter((u) => u !== memberDj.userId);
+      setDjs((prev) =>
+        prev.map((d) => (d.userId === ownerDj.userId ? { ...d, audienceDjUids: next } : d))
+      );
+      try {
+        const res = await authedFetch('/api/admin/scenes/dj-audience', {
+          method: 'PATCH',
+          body: JSON.stringify({ userId: ownerDj.userId, audienceDjUids: next }),
+        });
+        if (!res.ok) throw new Error('Failed to update');
+      } catch {
+        await fetchDjs();
+      }
+    },
+    [authedFetch, fetchDjs]
+  );
+
   const handleToggleCollectiveScene = useCallback(
     async (collective: CollectiveForScenesAdmin, sceneId: string) => {
       const current = collective.sceneIds ?? [];
@@ -241,6 +351,18 @@ export function ScenesTab() {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between text-[10px] text-gray-500">
+        <div>
+          Engagement counts {engagement ? `as of ${new Date(engagement.computedAt).toLocaleString()}` : 'loading…'}
+        </div>
+        <button
+          onClick={handleRefreshEngagement}
+          disabled={engagementRefreshing}
+          className="px-2 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-50"
+        >
+          {engagementRefreshing ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </div>
       <div className="flex flex-wrap gap-2 items-center">
         <SceneSwitcherPill
           active={sceneFilter === ALL_FILTER}
@@ -277,10 +399,15 @@ export function ScenesTab() {
             emptyLabel="No residents in this view."
             scenes={scenes}
             allDjs={djs}
+            crewMembersByLeadUid={inverseMaps.crewMembersByLeadUid}
+            listedInAudienceOfByUid={inverseMaps.listedInAudienceOfByUid}
+            engagementCounts={engagement?.counts}
             onToggle={handleToggleDjScene}
             onSetResidency={handleSetResidency}
             onSetAffiliation={handleSetAffiliation}
             onSetAudience={handleSetAudience}
+            onSetChildAffiliation={handleSetChildAffiliation}
+            onSetMembershipInAudience={handleSetMembershipInAudience}
           />
           <DjGroup
             title="Not residents"
@@ -288,10 +415,15 @@ export function ScenesTab() {
             emptyLabel="No non-resident DJs in this view."
             scenes={scenes}
             allDjs={djs}
+            crewMembersByLeadUid={inverseMaps.crewMembersByLeadUid}
+            listedInAudienceOfByUid={inverseMaps.listedInAudienceOfByUid}
+            engagementCounts={engagement?.counts}
             onToggle={handleToggleDjScene}
             onSetResidency={handleSetResidency}
             onSetAffiliation={handleSetAffiliation}
             onSetAudience={handleSetAudience}
+            onSetChildAffiliation={handleSetChildAffiliation}
+            onSetMembershipInAudience={handleSetMembershipInAudience}
           />
           <CollectiveGroup
             title="Collectives"
@@ -337,24 +469,47 @@ function DjRow({
   dj,
   scenes,
   allDjs,
+  crewMembers,
+  listedInAudienceOf,
+  engagement,
   onToggle,
   onSetResidency,
   onSetAffiliation,
   onSetAudience,
+  onSetChildAffiliation,
+  onSetMembershipInAudience,
 }: {
   dj: DjForScenesAdmin;
   scenes: SceneSerialized[];
   allDjs: DjForScenesAdmin[];
+  crewMembers: DjForScenesAdmin[];        // DJs whose affiliatedWithUid === dj.userId
+  listedInAudienceOf: DjForScenesAdmin[]; // DJs whose audienceDjUids includes dj.userId
+  engagement?: DjEngagementCounts;
   onToggle: (dj: DjForScenesAdmin, sceneId: string) => void;
   onSetResidency: (dj: DjForScenesAdmin, cadence: ResidencyCadence | null) => void;
   onSetAffiliation: (dj: DjForScenesAdmin, affiliatedWithUid: string | null) => void;
   onSetAudience: (dj: DjForScenesAdmin, audienceDjUids: string[]) => void;
+  onSetChildAffiliation: (parent: DjForScenesAdmin, child: DjForScenesAdmin, value: boolean) => void;
+  onSetMembershipInAudience: (member: DjForScenesAdmin, owner: DjForScenesAdmin, value: boolean) => void;
 }) {
   const cadence = dj.residencyCadence;
   const affiliationOptions = useMemo(
     () => allDjs.filter((d) => d.userId !== dj.userId),
     [allDjs, dj.userId]
   );
+  // Crew-members picker excludes the current DJ AND any DJ whose lead is
+  // already this DJ (those render as removable chips).
+  const crewMemberAddOptions = useMemo(() => {
+    const inCrew = new Set(crewMembers.map((c) => c.userId));
+    return affiliationOptions.filter((d) => !inCrew.has(d.userId));
+  }, [affiliationOptions, crewMembers]);
+  // Owner-side picker for "Listed in audience of": exclude DJs who already
+  // include this DJ in their audienceDjUids.
+  const listedInAudienceAddOptions = useMemo(() => {
+    const owners = new Set(listedInAudienceOf.map((o) => o.userId));
+    return affiliationOptions.filter((d) => !owners.has(d.userId));
+  }, [affiliationOptions, listedInAudienceOf]);
+
   return (
     <div className="flex items-center gap-4 px-4 py-3 bg-[#1f1f1f] rounded-lg border border-gray-800">
       <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-800 flex-shrink-0">
@@ -379,6 +534,10 @@ function DjRow({
         {dj.name && dj.name !== dj.chatUsername && (
           <div className="text-xs text-gray-500 truncate">{dj.name}</div>
         )}
+        <div className="text-[10px] text-gray-500 mt-0.5 flex gap-2">
+          <span title="On watchlists">👁 {engagement ? engagement.watchlist : '–'}</span>
+          <span title="Distinct listeners (hearts ∪ streams)">🎧 {engagement ? engagement.listeners : '–'}</span>
+        </div>
       </div>
       <div className="flex flex-col items-end gap-1 mr-2 flex-shrink-0">
         <div className="flex items-center gap-1">
@@ -402,10 +561,24 @@ function DjRow({
           options={affiliationOptions}
           onChange={(uid) => onSetAffiliation(dj, uid)}
         />
+        <ChipPicker
+          label="Crew members"
+          selected={crewMembers}
+          addOptions={crewMemberAddOptions}
+          onAdd={(child) => onSetChildAffiliation(dj, child, true)}
+          onRemove={(child) => onSetChildAffiliation(dj, child, false)}
+        />
         <AudiencePicker
           value={dj.audienceDjUids ?? []}
           options={affiliationOptions}
           onChange={(uids) => onSetAudience(dj, uids)}
+        />
+        <ChipPicker
+          label="In audience of"
+          selected={listedInAudienceOf}
+          addOptions={listedInAudienceAddOptions}
+          onAdd={(owner) => onSetMembershipInAudience(dj, owner, true)}
+          onRemove={(owner) => onSetMembershipInAudience(dj, owner, false)}
         />
       </div>
       <div className="flex flex-wrap gap-1.5 justify-end">
@@ -431,26 +604,90 @@ function DjRow({
   );
 }
 
+// Generic add/remove chip picker used by the two inverse sections.
+function ChipPicker({
+  label,
+  selected,
+  addOptions,
+  onAdd,
+  onRemove,
+}: {
+  label: string;
+  selected: DjForScenesAdmin[];
+  addOptions: DjForScenesAdmin[];
+  onAdd: (dj: DjForScenesAdmin) => void;
+  onRemove: (dj: DjForScenesAdmin) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[260px]">
+      <span className="text-[10px] text-gray-500 whitespace-nowrap italic">{label}</span>
+      {selected.map((d) => (
+        <span
+          key={d.userId}
+          className="inline-flex items-center gap-1 bg-gray-800 text-gray-200 text-[10px] rounded border border-gray-700 px-1.5 py-0.5"
+        >
+          {d.chatUsername || d.name || d.displayName}
+          <button
+            onClick={() => onRemove(d)}
+            className="text-gray-500 hover:text-red-400 leading-none"
+            aria-label={`Remove ${d.chatUsername || d.displayName}`}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      <select
+        value=""
+        onChange={(e) => {
+          const uid = e.target.value;
+          e.target.value = '';
+          if (!uid) return;
+          const target = addOptions.find((o) => o.userId === uid);
+          if (target) onAdd(target);
+        }}
+        className="bg-gray-800 text-gray-200 text-[11px] rounded border border-gray-700 px-1.5 py-0.5 max-w-[120px]"
+      >
+        <option value="">+ add DJ</option>
+        {addOptions.map((o) => (
+          <option key={o.userId} value={o.userId}>
+            {o.chatUsername || o.name || o.displayName}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function DjGroup({
   title,
   djs,
   emptyLabel,
   scenes,
   allDjs,
+  crewMembersByLeadUid,
+  listedInAudienceOfByUid,
+  engagementCounts,
   onToggle,
   onSetResidency,
   onSetAffiliation,
   onSetAudience,
+  onSetChildAffiliation,
+  onSetMembershipInAudience,
 }: {
   title: string;
   djs: DjForScenesAdmin[];
   emptyLabel: string;
   scenes: SceneSerialized[];
   allDjs: DjForScenesAdmin[];
+  crewMembersByLeadUid: Map<string, DjForScenesAdmin[]>;
+  listedInAudienceOfByUid: Map<string, DjForScenesAdmin[]>;
+  engagementCounts?: Record<string, DjEngagementCounts>;
   onToggle: (dj: DjForScenesAdmin, sceneId: string) => void;
   onSetResidency: (dj: DjForScenesAdmin, cadence: ResidencyCadence | null) => void;
   onSetAffiliation: (dj: DjForScenesAdmin, affiliatedWithUid: string | null) => void;
   onSetAudience: (dj: DjForScenesAdmin, audienceDjUids: string[]) => void;
+  onSetChildAffiliation: (parent: DjForScenesAdmin, child: DjForScenesAdmin, value: boolean) => void;
+  onSetMembershipInAudience: (member: DjForScenesAdmin, owner: DjForScenesAdmin, value: boolean) => void;
 }) {
   return (
     <div>
@@ -468,10 +705,15 @@ function DjGroup({
               dj={dj}
               scenes={scenes}
               allDjs={allDjs}
+              crewMembers={crewMembersByLeadUid.get(dj.userId) ?? []}
+              listedInAudienceOf={listedInAudienceOfByUid.get(dj.userId) ?? []}
+              engagement={engagementCounts?.[dj.userId]}
               onToggle={onToggle}
               onSetResidency={onSetResidency}
               onSetAffiliation={onSetAffiliation}
               onSetAudience={onSetAudience}
+              onSetChildAffiliation={onSetChildAffiliation}
+              onSetMembershipInAudience={onSetMembershipInAudience}
             />
           ))}
         </div>
