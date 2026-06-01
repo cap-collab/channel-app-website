@@ -304,6 +304,11 @@ export interface BuildLoopOptions {
   archives: EligibleArchive[];
   interstitials?: Interstitial[];   // empty/undefined = no interludes inserted
   rng?: () => number;
+  // 'long' (default): highs play 2× ~half-loop apart, mediums 1×.
+  // 'short': every archive plays 1×, no repeats. Pool is highs ∪ mediums.
+  // Short mode is used when the next cron run will need to start a fresh loop
+  // soon (a 2nd anchor exists), so doubling highs here would waste the slot.
+  mode?: 'long' | 'short';
   // Single anchor (≤1 per loop by cron contract). When provided, an interlude
   // + curated/random archive land at the anchor moment. If preAnchorArchiveIds
   // is ALSO provided, those archives fill the pre-anchor window (cron picked
@@ -316,6 +321,11 @@ export interface BuildLoopOptions {
   // cumulative offset (= sum of these archives' durations + interleave
   // interludes).
   preAnchorArchiveIds?: string[];
+  // Short-mode only: explicit archive IDs to play AFTER the anchor archive,
+  // in order. Picked by the cron to land endTimeMs in the target window.
+  // When set, post-anchor truncation/catalog-looping is bypassed entirely —
+  // the post-anchor block is exactly these archives plus interleaved interludes.
+  postAnchorArchiveIds?: string[];
   // Soft cap on the loop's total duration. When set, post-anchor archives are
   // dropped after this point. If the natural catalog can't fill the cap, the
   // catalog is looped (replayed from the start). Used by the cron to avoid
@@ -413,11 +423,15 @@ function spaceSameDj(items: ScheduleItem[], maxPasses = 2): ScheduleItem[] {
 export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   const rng = opts.rng ?? Math.random;
   const warnings: string[] = [];
+  const mode = opts.mode ?? 'long';
   const highs = opts.archives.filter((a) => a.priority === 'high');
   const mediums = opts.archives.filter((a) => a.priority === 'medium');
   const highCount = highs.length;
   const mediumCount = mediums.length;
-  const totalEntries = highCount * 2 + mediumCount;
+  // Long mode: each high plays twice. Short mode: every archive plays once.
+  const totalEntries = mode === 'short'
+    ? highCount + mediumCount
+    : highCount * 2 + mediumCount;
 
   if (totalEntries === 0) {
     warnings.push('no eligible archives');
@@ -452,7 +466,7 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   // 3. Run a same-DJ adjacency pass.
   const sequence: (EligibleArchive | null)[] = new Array(totalEntries).fill(null);
 
-  if (highCount > 0) {
+  if (highCount > 0 && mode === 'long') {
     const spacing = totalEntries / (highCount * 2);
     const halfShift = Math.floor(totalEntries / 2);
     for (let i = 0; i < highCount; i++) {
@@ -470,6 +484,17 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
         secondPos = (secondPos + 1) % totalEntries;
       }
       sequence[secondPos] = high;
+    }
+  } else if (highCount > 0) {
+    // Short mode: each high plays once. Drop them anywhere; the pre/post-anchor
+    // subset pick (decided by the cron) controls actual ordering. We just need
+    // them present in the pool.
+    for (let i = 0; i < highCount; i++) {
+      let pos = Math.floor(i * (totalEntries / highCount));
+      while (sequence[pos] !== null) {
+        pos = (pos + 1) % totalEntries;
+      }
+      sequence[pos] = shuffledHighs[i];
     }
   }
 
@@ -522,6 +547,7 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   let alignedAnchorCount = 0;
   const anchor = opts.anchor ?? null;
   const preAnchorIds = opts.preAnchorArchiveIds ?? null;
+  const postAnchorIds = opts.postAnchorArchiveIds ?? null;
 
   // Pull preAnchor items in given order (if set) and the curated archive out
   // of `items`, so the assembler can place them deliberately.
@@ -556,18 +582,36 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     if (anchorArchive) alignedAnchorCount = 1;
   }
 
+  // Short-mode post-anchor: pull the cron-picked subset out of `items` in the
+  // order specified. Anything left in `items` is dropped — short loops end
+  // when the post-anchor subset ends, no tail catalog.
+  let postAnchorItems: ScheduleItem[] = [];
+  if (postAnchorIds) {
+    for (const id of postAnchorIds) {
+      const idx = items.findIndex((it) => it.archiveId === id);
+      if (idx >= 0) postAnchorItems.push(items.splice(idx, 1)[0]);
+    }
+    postAnchorItems = spaceSameDj(postAnchorItems);
+  }
+
   // Every loop starts with an interlude at position 0 (per cron contract).
   const startInterlude = pickInterstitial();
 
-  // Assemble. Order: [startInterlude, preAnchorItems, anchorInterlude,
-  // anchorArchive, rest of catalog].
+  // Assemble. Order:
+  //   [startInterlude, preAnchorItems, anchorInterlude, anchorArchive,
+  //    postAnchorItems (short-mode only) OR rest-of-catalog (long-mode)].
   let interstitialCount = 0;
   const assembled: ScheduleItem[] = [];
   if (startInterlude) { assembled.push(startInterlude); interstitialCount++; }
   for (const it of preAnchorItems) assembled.push(it);
   if (anchorInterlude) { assembled.push(anchorInterlude); interstitialCount++; }
   if (anchorArchive) assembled.push(anchorArchive);
-  for (const it of items) assembled.push(it);
+  if (postAnchorIds) {
+    // Short mode with explicit tail — drop unused catalog items.
+    for (const it of postAnchorItems) assembled.push(it);
+  } else {
+    for (const it of items) assembled.push(it);
+  }
   items = assembled;
 
   // Interleave one interstitial between every pair of consecutive archive
@@ -598,7 +642,8 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   // loop will truncate this one), drop items past the cap. If the natural
   // sequence is shorter than the cap, loop the catalog by repeating items
   // (with an interlude between) until the cap is met.
-  if (typeof opts.maxDurationSec === 'number' && opts.maxDurationSec > 0) {
+  // Skipped when postAnchorIds is set — short mode already sized the tail.
+  if (!postAnchorIds && typeof opts.maxDurationSec === 'number' && opts.maxDurationSec > 0) {
     const cap = opts.maxDurationSec;
     let cursor = 0;
     let keepUntilIdx = items.length;
@@ -779,6 +824,115 @@ export function findStartTimeAndSubset(
     if (bestR & (1 << bit)) archiveIds.push(catalog[rightIdx[bit]].id);
   }
   return { startTimeMs: bestStart, archiveIds };
+}
+
+// Find a subset of the catalog such that, played sequentially after an existing
+// known prefix, the loop's endTimeMs lands in [windowStartMs, windowEndMs].
+//
+// `prefixEndTimeMs` = the wall-clock moment the post-anchor block starts
+// (e.g. anchor.endTimeMs + curatedArchiveDur - crossfade, in ms).
+// `avgInterludeSec` accounts for one interlude between every pair of post-anchor
+// archives (= subset.length - 1 interludes).
+//
+// Caller responsibility: prefix the catalog with archives already used in the
+// pre-anchor block + the curated anchor archive, so we only pick from the
+// remaining pool.
+export function findEndSubset(
+  catalog: EligibleArchive[],
+  avgInterludeSec: number,
+  prefixEndTimeMs: number,
+  windowStartMs: number,
+  windowEndMs: number,
+): { endTimeMs: number; archiveIds: string[] } | null {
+  if (catalog.length === 0) return null;
+  const MAX_N = 36;
+  const n = Math.min(catalog.length, MAX_N);
+  const halfSize = Math.ceil(n / 2);
+  const leftIdx = Array.from({ length: halfSize }, (_, i) => i);
+  const rightIdx = Array.from({ length: n - halfSize }, (_, i) => halfSize + i);
+
+  const midpointMs = (windowStartMs + windowEndMs) / 2;
+
+  type Entry = { sum: number; count: number; mask: number };
+  const enumerate = (idxs: number[]): Entry[] => {
+    const out: Entry[] = new Array(1 << idxs.length);
+    const total = 1 << idxs.length;
+    for (let mask = 0; mask < total; mask++) {
+      let sum = 0;
+      let count = 0;
+      for (let bit = 0; bit < idxs.length; bit++) {
+        if (mask & (1 << bit)) {
+          sum += catalog[idxs[bit]].durationSec;
+          count++;
+        }
+      }
+      out[mask] = { sum, count, mask };
+    }
+    return out;
+  };
+
+  const LS = enumerate(leftIdx);
+  const RS = enumerate(rightIdx);
+  RS.sort((a, b) => a.sum - b.sum);
+  const rSums = RS.map((e) => e.sum);
+
+  // Listener-side crossfade: each transition compresses the schedule.
+  // Post-anchor block has N archives with (N-1) interludes between them.
+  // Crossfade count between prefix → first post-anchor archive is already in
+  // the prefix-side calc (caller subtracts it from prefixEndTimeMs). Inside
+  // the post-anchor block, transitions = (2N - 1) for N archives with
+  // (N-1) interleaved interludes.
+  const CROSSFADE_SEC = 5;
+  let bestDist = Number.POSITIVE_INFINITY;
+  let bestL = -1;
+  let bestR = -1;
+  let bestEnd = 0;
+  for (const l of LS) {
+    for (let rCount = 0; rCount <= rightIdx.length; rCount++) {
+      const combinedCount = l.count + rCount;
+      if (combinedCount < 1) continue;
+      const interludeCount = Math.max(0, combinedCount - 1);
+      const gapAdj = interludeCount * avgInterludeSec;
+      const crossfadeAdj = (2 * combinedCount - 1) * CROSSFADE_SEC;
+      const idealRSum = (midpointMs - prefixEndTimeMs) / 1000 - l.sum - gapAdj + crossfadeAdj;
+      let lo = 0;
+      let hi = rSums.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (rSums[mid] < idealRSum) lo = mid + 1;
+        else hi = mid;
+      }
+      for (let k = Math.max(0, lo - 4); k <= Math.min(rSums.length - 1, lo + 4); k++) {
+        const r = RS[k];
+        if (r.count !== rCount) continue;
+        const actualCount = l.count + r.count;
+        const actualInterludeCount = Math.max(0, actualCount - 1);
+        const actualGap = actualInterludeCount * avgInterludeSec;
+        const actualCrossfade = (2 * actualCount - 1) * CROSSFADE_SEC;
+        const totalSec = l.sum + r.sum + actualGap - actualCrossfade;
+        const endMs = prefixEndTimeMs + totalSec * 1000;
+        if (endMs < windowStartMs || endMs > windowEndMs) continue;
+        const dist = Math.abs(endMs - midpointMs);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestL = l.mask;
+          bestR = r.mask;
+          bestEnd = endMs;
+        }
+      }
+    }
+  }
+
+  if (bestL < 0) return null;
+
+  const archiveIds: string[] = [];
+  for (let bit = 0; bit < leftIdx.length; bit++) {
+    if (bestL & (1 << bit)) archiveIds.push(catalog[leftIdx[bit]].id);
+  }
+  for (let bit = 0; bit < rightIdx.length; bit++) {
+    if (bestR & (1 << bit)) archiveIds.push(catalog[rightIdx[bit]].id);
+  }
+  return { endTimeMs: bestEnd, archiveIds };
 }
 
 // Find the item playing at `nowMs` inside a loop. Returns null when nowMs is
