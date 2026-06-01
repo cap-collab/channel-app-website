@@ -412,14 +412,18 @@ async function resolveLoopPlan(
   const anchors = await loadAnchors(db, earliestStartMs);
   const firstAnchor = anchors.find((a) => a.endTimeMs > earliestStartMs && a.endTimeMs <= anchorHorizonMs);
 
-  // Short-mode detection: if a SECOND anchor exists past the first one within
-  // 48h, this is a short loop. Every archive plays once, and the loop ends
-  // in [3am, 4am] PT of the day the 2nd anchor lands on. When no 2nd anchor,
-  // this is a long loop (today's behaviour).
-  const nextDayHorizonMs = nowMs + 48 * 3600 * 1000;
+  // Short-mode detection: if a SECOND anchor exists within ~48h AFTER the
+  // first anchor, this is a short loop. (Anchored to firstAnchor, not now —
+  // otherwise a regen near midnight could miss an anchor 30h later that the
+  // morning cron would have caught.) Every archive plays once, and the loop
+  // ends in [3am, 4am] PT of the day the 2nd anchor lands on. When no 2nd
+  // anchor, this is a long loop.
+  const secondAnchorHorizonMs = firstAnchor
+    ? firstAnchor.endTimeMs + 48 * 3600 * 1000
+    : 0;
   const secondAnchor = firstAnchor
     ? anchors.find((a) =>
-        a.endTimeMs > firstAnchor.endTimeMs && a.endTimeMs <= nextDayHorizonMs)
+        a.endTimeMs > firstAnchor.endTimeMs && a.endTimeMs <= secondAnchorHorizonMs)
     : undefined;
   const mode: 'long' | 'short' = secondAnchor ? 'short' : 'long';
 
