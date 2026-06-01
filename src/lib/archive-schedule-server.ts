@@ -453,17 +453,18 @@ async function resolveLoopPlan(
     ? archives.filter((a) => a.id !== curatedId)
     : archives;
 
-  const preResult = findStartTimeAndSubset(
-    searchCatalog,
-    avgInterludeSec,
-    firstAnchor.endTimeMs,
-    windowStartMs,
-    windowEndMs,
-  );
-
   if (mode === 'long') {
     // Long mode: pre-anchor subset locks startTime, post-anchor block runs
-    // out the natural catalog (highs×2 + mediums).
+    // out the natural catalog (highs×2 + mediums). No diversity tier — long
+    // mode already covers the bulk of the catalog so cross-loop overlap is
+    // structural and unavoidable.
+    const preResult = findStartTimeAndSubset(
+      searchCatalog,
+      avgInterludeSec,
+      firstAnchor.endTimeMs,
+      windowStartMs,
+      windowEndMs,
+    );
     if (preResult) {
       return {
         startTimeMs: preResult.startTimeMs,
@@ -508,25 +509,95 @@ async function resolveLoopPlan(
   // playback (= anchor.endTimeMs + curated.dur - crossfade).
   const postBlockStartMs = firstAnchor.endTimeMs + (curatedDurSec - CROSSFADE_SEC) * 1000;
 
-  // Pre-anchor used archives (must be excluded from post-anchor pool).
-  const preIds = new Set(preResult?.archiveIds ?? []);
-  const postSearchCatalog = archives.filter((a) =>
+  // Diversity: prefer archives that did NOT play in the last 24h. Try
+  // subset search with fresh-only pool first; fall back to full pool when no
+  // fresh subset fits the duration window. Whatever repeats end up in the
+  // subset will be reordered below so their wall-clock slot is ~8h offset
+  // from yesterday's slot (best-effort).
+  const recentPlays = await loadRecentPlays(db, nowMs);
+  const freshArchives = archives.filter((a) => !recentPlays.has(a.id));
+
+  // ── Pre-anchor: fresh-first, then full pool fallback ──
+  const preFreshSearchCatalog = freshArchives.filter((a) => a.id !== curatedId);
+  let preResultShort = findStartTimeAndSubset(
+    preFreshSearchCatalog,
+    avgInterludeSec,
+    firstAnchor.endTimeMs,
+    windowStartMs,
+    windowEndMs,
+  );
+  if (!preResultShort) {
+    preResultShort = findStartTimeAndSubset(
+      searchCatalog,
+      avgInterludeSec,
+      firstAnchor.endTimeMs,
+      windowStartMs,
+      windowEndMs,
+    );
+  }
+
+  // ── Post-anchor: fresh-first, then full pool fallback. Both pools exclude
+  // the curated archive AND any archive already picked for pre-anchor. ──
+  const preIds = new Set(preResultShort?.archiveIds ?? []);
+  const postFreshSearchCatalog = freshArchives.filter((a) =>
     a.id !== curatedId && !preIds.has(a.id),
   );
-  const postResult = findEndSubset(
-    postSearchCatalog,
+  let postResult = findEndSubset(
+    postFreshSearchCatalog,
     avgInterludeSec,
     postBlockStartMs,
     endWindowStartMs,
     endWindowEndMs,
   );
+  if (!postResult) {
+    const postFullSearchCatalog = archives.filter((a) =>
+      a.id !== curatedId && !preIds.has(a.id),
+    );
+    postResult = findEndSubset(
+      postFullSearchCatalog,
+      avgInterludeSec,
+      postBlockStartMs,
+      endWindowStartMs,
+      endWindowEndMs,
+    );
+  }
 
-  if (preResult) {
+  // Reorder both subsets so any repeats from yesterday land at a wall-clock
+  // time-of-day with the largest available offset from yesterday's slot.
+  // Resolves IDs → EligibleArchive once so we can call the reorder helper.
+  const byId = new Map(archives.map((a) => [a.id, a] as const));
+  const resolveSubset = (ids: string[] | undefined): EligibleArchive[] => {
+    if (!ids) return [];
+    const out: EligibleArchive[] = [];
+    for (const id of ids) {
+      const a = byId.get(id);
+      if (a) out.push(a);
+    }
+    return out;
+  };
+  const reorderedPreIds = preResultShort
+    ? reorderForTimeOfDayDiversity(
+        resolveSubset(preResultShort.archiveIds),
+        recentPlays,
+        preResultShort.startTimeMs + avgInterludeSec * 1000,  // skip the start interlude
+        avgInterludeSec,
+      ).map((a) => a.id)
+    : null;
+  const reorderedPostIds = postResult
+    ? reorderForTimeOfDayDiversity(
+        resolveSubset(postResult.archiveIds),
+        recentPlays,
+        postBlockStartMs,
+        avgInterludeSec,
+      ).map((a) => a.id)
+    : null;
+
+  if (preResultShort) {
     return {
-      startTimeMs: preResult.startTimeMs,
+      startTimeMs: preResultShort.startTimeMs,
       anchor: firstAnchor,
-      preAnchorArchiveIds: preResult.archiveIds,
-      postAnchorArchiveIds: postResult?.archiveIds ?? null,
+      preAnchorArchiveIds: reorderedPreIds,
+      postAnchorArchiveIds: reorderedPostIds,
       mode: 'short',
       maxDurationSec: null,
       earliestStartMs,
@@ -540,7 +611,7 @@ async function resolveLoopPlan(
     startTimeMs: firstAnchor.endTimeMs,
     anchor: firstAnchor,
     preAnchorArchiveIds: null,
-    postAnchorArchiveIds: postResult?.archiveIds ?? null,
+    postAnchorArchiveIds: reorderedPostIds,
     mode: 'short',
     maxDurationSec: null,
     earliestStartMs,
@@ -561,6 +632,125 @@ export async function maxLoopNumber(): Promise<number> {
   if (snap.empty) return 0;
   const data = snap.docs[0].data();
   return Number(data.loopNumber ?? 0);
+}
+
+// Per-archive recency info: when (UTC seconds-of-day) it last played in the
+// 24h window before `nowMs`. Used by short-mode reorder to land yesterday's
+// repeats at a wall-clock offset of ~8h from yesterday's slot, so a listener
+// tuning in at a given time-of-day doesn't hear the same show two days running.
+interface RecentPlay {
+  // UTC seconds-of-day of the START of this archive's most-recent prior play.
+  // 0–86399. Used modulo 86400 to compute time-of-day offsets.
+  todStartSec: number;
+}
+
+async function loadRecentPlays(
+  db: FirebaseFirestore.Firestore,
+  nowMs: number,
+): Promise<Map<string, RecentPlay>> {
+  const windowStartMs = nowMs - 24 * 3600 * 1000;
+  const out = new Map<string, RecentPlay>();
+  const snap = await db
+    .collection(LOOP_COLLECTION)
+    .orderBy('loopNumber', 'desc')
+    .limit(3)
+    .get();
+  for (const doc of snap.docs) {
+    const d = doc.data();
+    const loopStartMs = Number(d.startTimeMs ?? 0);
+    if (!loopStartMs) continue;
+    const items: Array<{ kind: string; archiveId?: string; startOffsetSec?: number; durationSec?: number }> = Array.isArray(d.items) ? d.items : [];
+    for (const it of items) {
+      if (it.kind !== 'archive' || !it.archiveId) continue;
+      const offsetSec = Number(it.startOffsetSec ?? 0);
+      const durSec = Number(it.durationSec ?? 0);
+      const itemStartMs = loopStartMs + offsetSec * 1000;
+      const itemEndMs = itemStartMs + durSec * 1000;
+      if (itemEndMs > windowStartMs && itemStartMs < nowMs) {
+        const todStartSec = Math.floor((itemStartMs % 86_400_000) / 1000);
+        // Keep the most-recent play (loop docs are scanned newest-first).
+        if (!out.has(it.archiveId)) {
+          out.set(it.archiveId, { todStartSec });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+// Reorder a chosen subset so that archives which already played in the last 24h
+// land at a wall-clock time-of-day with the largest available offset from
+// yesterday's slot — aiming for 8h (mod 24h), accepting closest-available when
+// a small subset can't hit 8h. Fresh archives (not in `recentPlays`) fill any
+// remaining slots in their existing order.
+//
+// `subset` is an ordered list of archives the subset search picked. `startMs`
+// is the wall-clock moment the FIRST item in the block starts (audible). The
+// algorithm projects each slot's wall-clock start using cumulative durations
+// and avgInterludeSec (matches what buildLoop will produce).
+function reorderForTimeOfDayDiversity(
+  subset: EligibleArchive[],
+  recentPlays: Map<string, RecentPlay>,
+  startMs: number,
+  avgInterludeSec: number,
+): EligibleArchive[] {
+  if (subset.length <= 1) return subset;
+  const CROSSFADE_SEC = 5;
+  // Compute projected start-of-slot time-of-day (UTC seconds) for each slot
+  // index. Slot i starts at startMs + (sum of durations up to i) + i *
+  // (avgInterlude - crossfade). We don't know which archive ends up in which
+  // slot yet, so use the AVERAGE archive duration for projection — close
+  // enough given catalog durations cluster around 60-120 min.
+  const avgArchiveSec = subset.reduce((s, a) => s + a.durationSec, 0) / subset.length;
+  const slotTODs: number[] = [];
+  for (let i = 0; i < subset.length; i++) {
+    const slotStartMs = startMs + i * (avgArchiveSec + avgInterludeSec - CROSSFADE_SEC) * 1000;
+    slotTODs.push(Math.floor((slotStartMs % 86_400_000) / 1000));
+  }
+  // Split subset into repeats (have a yesterdayTOD constraint) and fresh.
+  const repeats: EligibleArchive[] = [];
+  const fresh: EligibleArchive[] = [];
+  for (const a of subset) {
+    if (recentPlays.has(a.id)) repeats.push(a);
+    else fresh.push(a);
+  }
+  if (repeats.length === 0) return subset;
+  // For each repeat archive, score each slot by |offset - 8h| (mod 24h).
+  // Lower score = closer to ideal 8h offset. Greedy assignment: pick best
+  // (archive, slot) pair, mark slot taken, repeat until all repeats placed.
+  const IDEAL_OFFSET_SEC = 8 * 3600;
+  const DAY_SEC = 24 * 3600;
+  const slotTaken: boolean[] = new Array(subset.length).fill(false);
+  const assignment = new Array<EligibleArchive | null>(subset.length).fill(null);
+  for (const repeat of repeats) {
+    const ytod = recentPlays.get(repeat.id)!.todStartSec;
+    let bestSlot = -1;
+    let bestScore = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < subset.length; i++) {
+      if (slotTaken[i]) continue;
+      const slotTod = slotTODs[i];
+      // Circular distance in [0, 12h]; offset closer to 8h wins.
+      let diff = Math.abs(slotTod - ytod);
+      if (diff > DAY_SEC / 2) diff = DAY_SEC - diff;
+      const score = Math.abs(diff - IDEAL_OFFSET_SEC);
+      if (score < bestScore) {
+        bestScore = score;
+        bestSlot = i;
+      }
+    }
+    if (bestSlot >= 0) {
+      assignment[bestSlot] = repeat;
+      slotTaken[bestSlot] = true;
+    }
+  }
+  // Fill remaining slots with fresh archives in their existing order.
+  let freshIdx = 0;
+  for (let i = 0; i < subset.length; i++) {
+    if (assignment[i] === null && freshIdx < fresh.length) {
+      assignment[i] = fresh[freshIdx++];
+    }
+  }
+  return assignment.filter((a): a is EligibleArchive => a !== null);
 }
 
 // Load upcoming live broadcast-slot boundaries within ~48h of the loop start.
