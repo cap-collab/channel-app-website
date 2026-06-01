@@ -54,8 +54,9 @@ export function CardRemoveButton({
       aria-label={ariaLabel}
       type="button"
     >
+      {/* Subtle green glow matches the lit Edit LED in the YOUR SCENE header. */}
       <span
-        className="flex items-center justify-center w-7 h-7 bg-black/85 border border-white/40 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black"
+        className="flex items-center justify-center w-7 h-7 bg-black/85 border border-green-400/70 text-white shadow-[0_0_6px_2px_rgba(74,222,128,0.45)] backdrop-blur-sm transition-colors hover:bg-black"
       >
         {isRemoving ? (
           <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />

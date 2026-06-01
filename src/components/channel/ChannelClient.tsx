@@ -388,10 +388,21 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
     const seenShowIds = new Set<string>();
     const seenDJs = new Set<string>();
 
-    const tryAddShow = (id: string, djName: string | undefined): boolean => {
-      const djKey = djName?.toLowerCase();
+    // tryAddShow dedupes both identical show ids and (optionally) repeats of
+    // the same DJ across discovery sections. The DJ cap matters for the
+    // todayTomorrow / nextWeek / genreOnline / recommendedBy rows below — we
+    // don't want one DJ to dominate. For YOUR SCENE (s0Candidates) the user
+    // explicitly chose to follow that artist, so they get every upcoming
+    // show: pass `allowDjRepeat: true` from that loop.
+    const tryAddShow = (
+      id: string,
+      djName: string | undefined,
+      opts?: { allowDjRepeat?: boolean },
+    ): boolean => {
       if (seenShowIds.has(id)) return false;
-      if (djKey && seenDJs.has(djKey)) return false;
+      const djKey = djName?.toLowerCase();
+      const skipDjCap = opts?.allowDjRepeat;
+      if (!skipDjCap && djKey && seenDJs.has(djKey)) return false;
       seenShowIds.add(id);
       if (djKey) seenDJs.add(djKey);
       return true;
@@ -464,7 +475,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       if (!djFollowed && !isValidShow(show)) continue;
       const showFaved = isShowFavorited(show);
       if (djFollowed || showFaved) {
-        if (tryAddShow(show.id, show.dj)) {
+        if (tryAddShow(show.id, show.dj, { allowDjRepeat: true })) {
           const live = startTime <= now && endTime > now;
           const item = makeRadioItem(show, undefined, live || undefined);
           if (item) s0Candidates.push({ item, id: show.id, djName: show.dj, startMs: startTime.getTime(), live });
@@ -474,6 +485,8 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
     // IRL shows from followed DJs in next 2 weeks (from schedule)
     const s0IrlKeys = new Set<string>();
     for (const show of irlShows) {
+      // Future-only — skip events whose date already passed.
+      if (show.date < nowDateStr) continue;
       if (show.date > twoWeeksDateStr) continue;
       let djFollowed = isInWatchlist(show.djName) || isInWatchlist(show.djUsername);
       // Also check all DJs in the lineup for multi-DJ events
@@ -483,7 +496,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       if (!djFollowed) continue;
       const id = `irl-${show.djUsername}-${show.date}`;
       s0IrlKeys.add(id);
-      if (tryAddShow(id, show.djName)) {
+      if (tryAddShow(id, show.djName, { allowDjRepeat: true })) {
         s0Candidates.push({ item: makeIRLItem(show, undefined), id, djName: show.djName, startMs: new Date(show.date + 'T00:00:00').getTime(), live: false });
       }
     }
@@ -492,7 +505,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
     for (const fav of irlFavorites) {
       const id = `irl-${fav.djUsername || ''}-${fav.irlDate}`;
       if (s0IrlKeys.has(id)) continue; // Already covered by schedule data
-      if (!tryAddShow(id, fav.djName)) continue;
+      if (!tryAddShow(id, fav.djName, { allowDjRepeat: true })) continue;
       const syntheticShow: IRLShowData = {
         djUsername: fav.djUsername || '',
         djName: fav.djName || fav.irlEventName || 'Event',
