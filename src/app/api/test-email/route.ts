@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendWatchlistDigestEmail, sendShowStartingEmail, sendBroadcast48HourReminderEmail, sendBroadcast2HourReminderEmail, sendPostBroadcastEmail } from "@/lib/email";
+import { sendWatchlistDigestEmail, sendShowStartingEmail, sendBroadcast1WeekReminderEmail, sendBroadcast48HourReminderEmail, sendBroadcast2HourReminderEmail, sendPostBroadcastEmail } from "@/lib/email";
 import { queryUsersWhere, queryCollection, getUserFavorites } from "@/lib/firebase-rest";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { matchesGenre } from "@/lib/genres";
@@ -757,6 +757,21 @@ export async function GET(request: NextRequest) {
     const showName = request.nextUrl.searchParams.get("show") || "Celebrity Bitcrush";
     const stationId = request.nextUrl.searchParams.get("station") || "subtle";
     return sendTestShowStartingEmail(to, showName, stationId);
+  }
+
+  if (type === "broadcast-1week-reminder") {
+    const inOneWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const dateStr = inOneWeek.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    const success = await sendBroadcast1WeekReminderEmail({
+      to,
+      djName: request.nextUrl.searchParams.get("djName") || "Cap",
+      showName: request.nextUrl.searchParams.get("show") || "Late Night Sessions",
+      broadcastUrl: "",
+      profileUrl: null,
+      startTime: dateStr,
+      timeRange: "8:00 PM – 10:00 PM ET",
+    });
+    return NextResponse.json({ success, type: "broadcast-1week-reminder" });
   }
 
   if (type === "broadcast-48h-reminder") {

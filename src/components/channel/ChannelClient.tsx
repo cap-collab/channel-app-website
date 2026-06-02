@@ -850,7 +850,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
   // (DJs with upcoming Channel Radio shows) when the watchlist is empty.
   // Each entry includes the bridge DJ display name shown in the badge.
   const suggestedItems = useMemo(() => {
-    if (!sceneMode) return [] as Array<{ item: MatchedItem; bridge: string }>;
+    if (!sceneMode) return [] as Array<{ item: MatchedItem; bridge: string; kind: 'crew' | 'audience' }>;
 
     // Quick lookup helpers — username (normalised) → DJProfile
     const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -919,26 +919,30 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
 
     // Build candidate uids: union of crew(seed) and audienceDjUids(seed) for
     // every seed, with the bridge being the seed that produced the candidate.
-    type Candidate = { profile: DJProfile; bridge: string };
+    // `kind` distinguishes the relationship: 'crew' renders "Affiliated with
+    // {bridge}", 'audience' renders "Similar to {bridge}". Crew is added
+    // first so when a DJ is in both pools for the same seed, the stronger
+    // "affiliated" label wins.
+    type Candidate = { profile: DJProfile; bridge: string; kind: 'crew' | 'audience' };
     const candidates: Candidate[] = [];
     const seenCandidate = new Set<string>();
 
-    const addCandidate = (uid: string, bridge: string) => {
+    const addCandidate = (uid: string, bridge: string, kind: 'crew' | 'audience') => {
       if (!uid || seenSeedUid.has(uid) || seenCandidate.has(uid)) return;
       const p = djByUid.get(uid);
       if (!p) return;
       if (alreadyIn(p)) return;
       seenCandidate.add(uid);
-      candidates.push({ profile: p, bridge });
+      candidates.push({ profile: p, bridge, kind });
     };
 
     for (const seed of seedProfiles) {
       if (!seed.userId) continue;
       const bridge = seed.displayName || seed.username;
-      crewUids(seed.userId).forEach((uid) => addCandidate(uid, bridge));
+      crewUids(seed.userId).forEach((uid) => addCandidate(uid, bridge, 'crew'));
       const audienceUids = seed.audienceDjUids;
       if (Array.isArray(audienceUids)) {
-        audienceUids.forEach((uid) => addCandidate(uid, bridge));
+        audienceUids.forEach((uid) => addCandidate(uid, bridge, 'audience'));
       }
     }
 
@@ -960,14 +964,15 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
         // Empty-state suggestions have no bridge — these are surfacing
         // for users without watchlist/heart/stream history, so we render
         // a plain "Suggested" banner with no "Similar to" attribution.
-        candidates.push({ profile, bridge: '' });
+        // Kind is irrelevant when bridge is empty, but default to 'audience'.
+        candidates.push({ profile, bridge: '', kind: 'audience' });
         if (candidates.length >= 6) break;
       }
     }
 
     // For each candidate, prefer the next upcoming radio show, then the next
     // upcoming IRL show, falling back to a profile card.
-    type Out = { item: MatchedItem; bridge: string; rank: number; sortKey: number };
+    type Out = { item: MatchedItem; bridge: string; kind: 'crew' | 'audience'; rank: number; sortKey: number };
     // rank: 0 = live radio/online, 1 = upcoming radio, 2 = upcoming IRL, 3 = profile-only
     const out: Out[] = [];
     for (const c of candidates) {
@@ -1002,6 +1007,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
           out.push({
             item: { type: 'radio', data: nextRadio, station, matchLabel: undefined, live },
             bridge: c.bridge,
+            kind: c.kind,
             rank: live ? 0 : 1,
             sortKey: startMs,
           });
@@ -1026,6 +1032,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
         out.push({
           item: { type: 'irl', data: nextIrl, matchLabel: undefined },
           bridge: c.bridge,
+          kind: c.kind,
           rank: 2,
           sortKey: new Date(nextIrl.date + 'T00:00:00').getTime(),
         });
@@ -1034,6 +1041,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       out.push({
         item: { type: 'profile', data: c.profile, matchLabel: undefined },
         bridge: c.bridge,
+        kind: c.kind,
         rank: 3,
         sortKey: nowMs,
       });
@@ -1044,7 +1052,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       return a.sortKey - b.sortKey;
     });
 
-    return out.map(({ item, bridge }) => ({ item, bridge }));
+    return out.map(({ item, bridge, kind }) => ({ item, bridge, kind }));
   }, [sceneMode, djProfiles, favoritesNowLive, allShows, irlShows, stationsMap, isInWatchlist]);
 
   // Compute result counts for Tuner bar
@@ -1190,16 +1198,19 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
 
   // Render a single matched card (IRL, Radio, or DJ Profile).
   // `opts.suggestionBridge` marks the card as a /scene SUGGESTED entry — the
-  // bridge DJ's display name shown in the badge ("Similar to X").
+  // bridge DJ's display name shown in the badge. `opts.suggestionKind`
+  // chooses the wording: 'crew' → "Affiliated with X", 'audience' →
+  // "Similar to X" (default).
   // `opts.allowRemove` overrides the default profileMode → onRemove mapping
   // (used by /scene's edit-mode toggle).
   const renderCard = (
     item: MatchedItem,
     index: number,
     profileMode?: boolean,
-    opts?: { suggestionBridge?: string; allowRemove?: boolean },
+    opts?: { suggestionBridge?: string; suggestionKind?: 'crew' | 'audience'; allowRemove?: boolean },
   ) => {
     const suggestionBridge = opts?.suggestionBridge;
+    const suggestionKind = opts?.suggestionKind;
     const allowRemove = opts?.allowRemove ?? profileMode;
     if (item.type === 'profile') {
       const profile = item.data;
@@ -1221,6 +1232,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
           }
           isRemoving={removing}
           suggestionBridge={suggestionBridge}
+          suggestionKind={suggestionKind}
         />
       );
     }
@@ -1256,6 +1268,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
           matchLabel={item.matchLabel}
           profileMode={profileMode}
           suggestionBridge={suggestionBridge}
+          suggestionKind={suggestionKind}
           onRemove={
             allowRemove && !suggestionBridge ? removeIrl : undefined
           }
@@ -1296,6 +1309,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
             profileMode={profileMode}
             bpm={stationBPM[getMetadataKeyByStationId(show.stationId) || '']?.bpm ?? null}
             suggestionBridge={suggestionBridge}
+            suggestionKind={suggestionKind}
             onRemove={onRemoveShow}
             isRemoving={removingShow}
           />
@@ -1319,6 +1333,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
           matchLabel={item.matchLabel}
           profileMode={profileMode}
           suggestionBridge={suggestionBridge}
+          suggestionKind={suggestionKind}
           onRemove={onRemoveShow}
           isRemoving={removingShow}
         />
@@ -1437,7 +1452,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
                       renderCard(item, index, true, { allowRemove: sceneEditMode })
                     )}
                     {inlineSuggestions.map((s, i) =>
-                      renderCard(s.item, visibleWatchlist.length + i, false, { suggestionBridge: s.bridge })
+                      renderCard(s.item, visibleWatchlist.length + i, false, { suggestionBridge: s.bridge, suggestionKind: s.kind })
                     )}
                   </div>
                   {favoritesNowLive.length > GRID_CAP && (
@@ -1457,7 +1472,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
                 <div className={hasWatchlist ? 'mt-3' : ''}>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 md:gap-x-8 gap-y-4">
                     {trailingSuggestions.map((s, i) =>
-                      renderCard(s.item, 1000 + i, false, { suggestionBridge: s.bridge })
+                      renderCard(s.item, 1000 + i, false, { suggestionBridge: s.bridge, suggestionKind: s.kind })
                     )}
                   </div>
                 </div>

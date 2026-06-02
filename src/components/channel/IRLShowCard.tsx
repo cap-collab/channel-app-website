@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { IRLShowData } from '@/types';
-import { SuggestedBanner } from '@/components/channel/SuggestedCardBadge';
+import { SuggestedBanner, type SuggestionKind } from '@/components/channel/SuggestedCardBadge';
 import { CardRemoveButton } from '@/components/CardRemoveButton';
 import { CardActions } from '@/components/channel/CardActions';
 
@@ -17,6 +17,7 @@ interface IRLShowCardProps {
   profileMode?: boolean;
   // /scene SUGGESTED variant
   suggestionBridge?: string;
+  suggestionKind?: SuggestionKind;
   // /scene Edit mode — when set, the card renders a CardRemoveButton overlay.
   onRemove?: () => void | Promise<void>;
   isRemoving?: boolean;
@@ -30,6 +31,7 @@ export function IRLShowCard({
   matchLabel,
   profileMode,
   suggestionBridge,
+  suggestionKind,
   onRemove,
   isRemoving,
 }: IRLShowCardProps) {
@@ -117,7 +119,7 @@ export function IRLShowCard({
           </span>
         )}
       </div>
-      {suggestionBridge !== undefined && <SuggestedBanner bridgeDjName={suggestionBridge} />}
+      {suggestionBridge !== undefined && <SuggestedBanner bridgeDjName={suggestionBridge} kind={suggestionKind} />}
       {/* Full width image with overlays */}
       <div className="relative">
         {href ? (

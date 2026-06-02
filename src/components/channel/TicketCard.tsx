@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Show, Station } from '@/types';
 import { getStationLogoUrl } from '@/lib/stations';
-import { SuggestedBanner } from '@/components/channel/SuggestedCardBadge';
+import { SuggestedBanner, type SuggestionKind } from '@/components/channel/SuggestedCardBadge';
 import { CardRemoveButton } from '@/components/CardRemoveButton';
 import { CardActions } from '@/components/channel/CardActions';
 
@@ -23,6 +23,7 @@ interface TicketCardProps {
   profileMode?: boolean;
   // /scene SUGGESTED variant
   suggestionBridge?: string;
+  suggestionKind?: SuggestionKind;
   // /scene Edit mode — when set, the card renders a CardRemoveButton overlay.
   onRemove?: () => void | Promise<void>;
   isRemoving?: boolean;
@@ -40,6 +41,7 @@ export function TicketCard({
   matchLabel,
   profileMode,
   suggestionBridge,
+  suggestionKind,
   onRemove,
   isRemoving,
 }: TicketCardProps) {
@@ -122,7 +124,7 @@ export function TicketCard({
           </span>
         )}
       </div>
-      {suggestionBridge !== undefined && <SuggestedBanner bridgeDjName={suggestionBridge} />}
+      {suggestionBridge !== undefined && <SuggestedBanner bridgeDjName={suggestionBridge} kind={suggestionKind} />}
       {/* Full width image with overlays - links to DJ profile if available */}
       <div className="relative">
         {show.djUsername ? (
