@@ -690,10 +690,15 @@ export async function GET(request: NextRequest) {
       );
 
       // DJ users get a stricter matcher: Channel Radio only, and only via
-      // favorite / watchlist / crew. No engagement tier, no listener-side
-      // bridge, no audience-list expansion. Keeps the DJ inbox quiet.
+      // favorite / watchlist / crew. No engagement tier, no general
+      // listener-side bridge, no broad audience-list expansion. Keeps the
+      // DJ inbox quiet — but with one narrow exception: when the live DJ
+      // explicitly names THIS recipient in their audienceDjUids (i.e. "I
+      // lend my audience to you"), the recipient is the entire point of
+      // the audience link and should still be notified.
       const userRole = (userData.role as string | undefined) || "user";
       const isDjUser = userRole === "dj" || userRole === "broadcaster";
+      const recipientUsernameNorm = (userData.chatUsernameNormalized as string | undefined) || undefined;
 
       const emailNotificationsData = userData.emailNotifications as Record<string, unknown> | undefined;
 
@@ -759,6 +764,20 @@ export async function GET(request: NextRequest) {
               if (affiliatedRecipients?.has(userId)) {
                 matched = true;
                 matchedViaAffiliation = true;
+              } else if (
+                show.stationId === "broadcast" &&
+                recipientUsernameNorm
+              ) {
+                // Narrow audience-bridge exception for DJ recipients: only
+                // fire when the live DJ's audienceDjUids resolves to THIS
+                // recipient's own username (the live DJ lends their audience
+                // to them by name). Generic audience expansion stays off.
+                const related = relatedUsernamesByShowId.get(show.showId);
+                if (related?.has(recipientUsernameNorm)) {
+                  matched = true;
+                  matchedViaAffiliation = true;
+                  affiliationBridgeDj = recipientUsernameNorm;
+                }
               }
             }
           }
