@@ -13,9 +13,9 @@ export const maxDuration = 800; // up to ~13 min — single normalize takes 5-8
 // before the next DJ goes live.
 const PRE_LIVE_BUFFER_MIN = 45;
 
-// Process at most one queue entry per tick. Worker is single-threaded for the
-// ffmpeg ops; running two normalizes concurrently doubles CPU load.
-const MAX_PER_TICK = 1;
+// Process at most one queue entry per tick (sliced from the pending set
+// after a client-side sort). Worker is single-threaded for the ffmpeg ops;
+// running two normalizes concurrently doubles CPU load.
 
 function verifyCronRequest(request: NextRequest): boolean {
   const isVercelCron = request.headers.get('x-vercel-cron') === '1';
@@ -169,21 +169,24 @@ async function runDrain() {
     return NextResponse.json({ skipped: 'busy', reason: quiet.reason });
   }
 
-  // Pull oldest pending entry. Process MAX_PER_TICK = 1 per call.
+  // Pull pending entries; sort + slice in JS to avoid a composite index.
+  // Queue stays small (single-digit entries typical), so full scan is fine.
   const snap = await db.collection('normalize-queue')
     .where('status', '==', 'pending')
-    .orderBy('queuedAt', 'asc')
-    .limit(MAX_PER_TICK)
     .get();
   if (snap.empty) {
     return NextResponse.json({ skipped: 'empty' });
   }
+  const sortedDocs = snap.docs.sort(
+    (a, b) => Number(a.data().queuedAt || 0) - Number(b.data().queuedAt || 0),
+  );
+  const oldest = sortedDocs[0];
 
   const entry: QueueEntry = {
-    id: snap.docs[0].id,
-    ...(snap.docs[0].data() as Omit<QueueEntry, 'id'>),
+    id: oldest.id,
+    ...(oldest.data() as Omit<QueueEntry, 'id'>),
   };
-  const entryRef = snap.docs[0].ref;
+  const entryRef = oldest.ref;
 
   // Claim before calling the worker, so a re-trigger of the cron during a long
   // normalize doesn't fire a second concurrent worker call on the same entry.
