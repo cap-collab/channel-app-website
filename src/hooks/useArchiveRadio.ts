@@ -468,14 +468,23 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     crossfadeInFlightRef.current = true;
     try { incoming.currentTime = 0; } catch { /* ignore */ }
     incoming.volume = 0;
+    const fromSide = activeKeyRef.current;
     // Flip active immediately. Guard is gated by crossfadeInFlightRef.
     activeKeyRef.current = activeKeyRef.current === 'A' ? 'B' : 'A';
+    const toSide = activeKeyRef.current;
+    console.log(
+      '[radio-debug] CROSSFADE-START token=' + myToken,
+      'out=' + fromSide + '(ct=' + outgoing.currentTime.toFixed(2) + ' paused=' + outgoing.paused + ')',
+      'in=' + toSide + '(rs=' + incoming.readyState + ' paused=' + incoming.paused + ')',
+    );
     const p = incoming.play();
     if (p && typeof p.catch === 'function') {
       p.catch((err) => console.warn('[useArchiveRadio] crossfade play() rejected', err));
     }
 
     const startedAt = performance.now();
+    let midLogged = false;
+    let tickCount = 0;
     const finish = () => {
       // Stale: a newer fade's force-finish handled cleanup already. Bail.
       if (fadeTokenRef.current !== myToken) return;
@@ -487,6 +496,12 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
         clearTimeout(crossfadeWatchdogRef.current);
         crossfadeWatchdogRef.current = null;
       }
+      console.log(
+        '[radio-debug] CROSSFADE-END token=' + myToken,
+        'ticks=' + tickCount,
+        'out.ct=' + outgoing.currentTime.toFixed(2),
+        'in.ct=' + incoming.currentTime.toFixed(2),
+      );
       try { outgoing.pause(); } catch { /* ignore */ }
       outgoing.volume = 0;
       incoming.volume = 1;
@@ -502,8 +517,21 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       // Clamp p to [0, 1] — negative p from clock skew makes pow(neg, frac)=NaN
       // which throws when assigned to audio.volume, killing the rAF loop.
       const p = Math.min(1, Math.max(0, elapsed / CROSSFADE_MS));
-      outgoing.volume = invSqrt(p);
-      incoming.volume = sqrtCurve(p);
+      const outV = invSqrt(p);
+      const inV = sqrtCurve(p);
+      outgoing.volume = outV;
+      incoming.volume = inV;
+      tickCount++;
+      if (!midLogged && p >= 0.5) {
+        midLogged = true;
+        console.log(
+          '[radio-debug] CROSSFADE-MID token=' + myToken,
+          'outV=' + outV.toFixed(2),
+          'inV=' + inV.toFixed(2),
+          'out.paused=' + outgoing.paused,
+          'in.paused=' + incoming.paused,
+        );
+      }
       if (p < 1) {
         crossfadeRafRef.current = requestAnimationFrame(tick);
       } else {
