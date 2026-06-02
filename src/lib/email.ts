@@ -1019,6 +1019,12 @@ export async function sendBroadcast1WeekReminderEmail({
               </td>
             </tr>
           </table>
+          <p style="margin: 24px 0 12px; font-size: 16px; color: #1a1a1a;">
+            Something come up? No stress, just let me know.
+          </p>
+          <p style="margin: 0; font-size: 16px; color: #1a1a1a;">
+            I'd much rather reschedule than have you feel pressured to make it happen. The priority is always for you to be in a good place and genuinely excited about doing the show.
+          </p>
           <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
             Cap
           </p>
@@ -1052,6 +1058,7 @@ export async function sendBroadcast2HourReminderEmail({
   to,
   djName,
   showName,
+  broadcastUrl,
   startTime,
   timeRange,
 }: BroadcastReminderEmailParams) {
@@ -1096,6 +1103,19 @@ export async function sendBroadcast2HourReminderEmail({
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Auto go live" 1 minute before your start time</td>
             </tr>
           </table>
+          <p style="margin: 24px 0 12px; font-size: 14px; color: #1a1a1a;">
+            Using a different computer today? Your private broadcast link works without logging in. Just open the link below and you're ready to stream.
+          </p>
+          <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 8px;">
+            <tr>
+              <td style="background: #1a1a1a; padding: 12px 20px;">
+                <a href="${broadcastUrl}" style="color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; display: inline-block;">Open your broadcast link</a>
+              </td>
+            </tr>
+          </table>
+          <p style="margin: 0; font-size: 12px; color: #888; word-break: break-all;">
+            <a href="${broadcastUrl}" style="color: #888; text-decoration: underline;">${broadcastUrl}</a>
+          </p>
           <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
             See you soon, Cap
           </p>
