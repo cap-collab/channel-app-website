@@ -957,6 +957,12 @@ export async function sendBroadcast48HourReminderEmail({
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG and tag us <a href="https://www.instagram.com/channelrad.io" style="color: #555; text-decoration: underline;">@channelrad.io</a></td>
             </tr>
           </table>
+          <p style="margin: 24px 0 12px; font-size: 16px; color: #1a1a1a;">
+            Something come up? No stress, just let me know.
+          </p>
+          <p style="margin: 0; font-size: 16px; color: #1a1a1a;">
+            I'd much rather reschedule than have you feel pressured to make it happen. The priority is always for you to be in a good place and genuinely excited about doing the show.
+          </p>
           <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
             Cap
           </p>
