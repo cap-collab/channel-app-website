@@ -148,6 +148,18 @@ export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  try {
+    return await runDrain();
+  } catch (err) {
+    console.error('[drain-normalize-queue] uncaught error:', err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 },
+    );
+  }
+}
+
+async function runDrain() {
   const db = getAdminDb();
   if (!db) return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
 
