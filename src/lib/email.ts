@@ -565,7 +565,7 @@ function buildLaterTodayRowHtml(row: LaterTodayShowRow, timezone: string): strin
               ${row.showName}
             </div>
             <div style="font-size: 12px; color: #999;">
-              ${djDisplayName} · ${row.stationName} · ${timeStr}
+              ${djDisplayName} · ${row.stationId === "broadcast" ? "channel" : row.stationName} · ${timeStr}
             </div>
           </td>
         </tr>
