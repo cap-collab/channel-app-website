@@ -1093,20 +1093,17 @@ export async function sendBroadcast2HourReminderEmail({
             </tr>
           </table>
           <p style="margin: 0 0 4px; font-size: 14px; color: #1a1a1a;">
-            Use the studio to get set up: <a href="https://channel-app.com/studio" style="color: #555; font-size: 14px; text-decoration: underline;">channel-app.com/studio</a>
+            Use your broadcast link to get set up:
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Prepare to go live" ahead of time to avoid any surprises</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Check your audio levels before going live and during your show. If the signal gets too hot, it can cause clipping and glitches in the recording.</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Preview what your show will look like</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Select Stereo stream optimization if you're sending a stereo signal from your interface.</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG and tag us <a href="https://www.instagram.com/channelrad.io" style="color: #555; text-decoration: underline;">@channelrad.io</a></td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Auto go live" 1 minute before your start time</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Reach out if you have any questions or doubts: email, channel chat, text, or IG. I'll be here, locked in with you.</td>
             </tr>
           </table>
           <p style="margin: 24px 0 12px; font-size: 14px; color: #1a1a1a;">
