@@ -582,6 +582,13 @@ export function StudioProfileClient() {
       if (data) {
         setChatUsername(data.chatUsername || null);
         setIsResident(!!data.djProfile?.residency?.cadence);
+        // Brand-new DJs may not have a djProfile map yet — release the
+        // initial-load gate so auto-save effects can fire. Without this,
+        // every save is silently no-op'd at the `if (initialLoadRef.current) return`
+        // check, the user types but nothing persists.
+        if (initialLoadRef.current && !data.djProfile) {
+          initialLoadRef.current = false;
+        }
         if (data.djProfile) {
           setDjProfile({
             bio: data.djProfile.bio || null,

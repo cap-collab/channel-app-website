@@ -64,6 +64,14 @@ export async function POST(request: NextRequest) {
         updateData['emailNotifications.djInsiders'] = true;
       }
 
+      // Ensure djProfile map exists so /studio auto-save can write into it.
+      // Without this, brand-new DJs (no pre-existing pending-dj-profile) end up
+      // with no djProfile field and the studio page's initial-load gate never
+      // releases, silently no-op'ing every save.
+      if (!userData.djProfile) {
+        updateData.djProfile = {};
+      }
+
       // Check for pending DJ profiles and claim them
       // First try with normalized email
       let pendingProfilesSnapshot = await db.collection('pending-dj-profiles')
