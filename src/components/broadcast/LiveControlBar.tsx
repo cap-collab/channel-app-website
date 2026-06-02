@@ -210,26 +210,63 @@ export function LiveControlBar({
     }
   }, [peak, hasStream, audioTooLow]);
 
-  // --- Audio too hot (clipping) ---
-  // True peak at or above -1 dBFS sustained for 1.5s = clipping. Catches the
-  // pattern seen in Beggar's first broadcast (true peaks at +0.027 dBFS) while
-  // ignoring single transients near the ceiling. Uses TRUE peak, not RMS,
-  // because a single sample at 1.0 clips the codec regardless of average level.
+  // --- Audio too hot (3-tier escalating warning) ---
+  // Tier thresholds calibrated from Ava Blank's 2026-06-02 broadcast: her
+  // first 5 min hovered at true peak -0.3 dBFS for 5+ minutes without her
+  // acting on the old single-tier "Levels too hot" banner. Listeners heard
+  // encoder distress (Opus + low-latency buffers struggle with sustained
+  // near-ceiling peaks). She lowered her mixer ~4 dB mid-show and the audio
+  // immediately stabilised. So:
+  //   WARM (-3 dBFS sustained 2s)    — gentle yellow nudge, exits at -5 dBFS
+  //   HOT  (-1 dBFS sustained 1.5s)  — red banner, exits at -3 dBFS
+  //   CLIP ( 0 dBFS sustained 0.5s)  — critical pulsing banner, exits at -1 dBFS
+  // Single banner shown (highest active tier wins). All use TRUE peak.
+  const WARM_ENTER_DB = -3;
+  const WARM_EXIT_DB = -5;
+  const WARM_ENTER_MS = 2000;
+  const WARM_EXIT_MS = 2000;
   const HOT_ENTER_DB = -1;
   const HOT_EXIT_DB = -3;
   const HOT_ENTER_MS = 1500;
   const HOT_EXIT_MS = 1500;
+  const CLIP_ENTER_DB = 0;
+  const CLIP_EXIT_DB = -1;
+  const CLIP_ENTER_MS = 500;
+  const CLIP_EXIT_MS = 1500;
+  const [audioWarm, setAudioWarm] = useState(false);
   const [audioTooHot, setAudioTooHot] = useState(false);
+  const [audioClipping, setAudioClipping] = useState(false);
+  const warmSinceRef = useRef<number | null>(null);
+  const warmOkSinceRef = useRef<number | null>(null);
   const hotSinceRef = useRef<number | null>(null);
   const hotOkSinceRef = useRef<number | null>(null);
+  const clipSinceRef = useRef<number | null>(null);
+  const clipOkSinceRef = useRef<number | null>(null);
   useEffect(() => {
     if (!hasStream) {
+      setAudioWarm(false);
       setAudioTooHot(false);
+      setAudioClipping(false);
+      warmSinceRef.current = null;
+      warmOkSinceRef.current = null;
       hotSinceRef.current = null;
       hotOkSinceRef.current = null;
+      clipSinceRef.current = null;
+      clipOkSinceRef.current = null;
       return;
     }
     const now = performance.now();
+    // CLIP tier — fastest entry, slowest exit (sticky)
+    if (truePeak >= CLIP_ENTER_DB) {
+      clipOkSinceRef.current = null;
+      if (clipSinceRef.current === null) clipSinceRef.current = now;
+      if (!audioClipping && now - clipSinceRef.current >= CLIP_ENTER_MS) setAudioClipping(true);
+    } else if (truePeak <= CLIP_EXIT_DB) {
+      clipSinceRef.current = null;
+      if (clipOkSinceRef.current === null) clipOkSinceRef.current = now;
+      if (audioClipping && now - clipOkSinceRef.current >= CLIP_EXIT_MS) setAudioClipping(false);
+    }
+    // HOT tier
     if (truePeak >= HOT_ENTER_DB) {
       hotOkSinceRef.current = null;
       if (hotSinceRef.current === null) hotSinceRef.current = now;
@@ -239,7 +276,17 @@ export function LiveControlBar({
       if (hotOkSinceRef.current === null) hotOkSinceRef.current = now;
       if (audioTooHot && now - hotOkSinceRef.current >= HOT_EXIT_MS) setAudioTooHot(false);
     }
-  }, [truePeak, hasStream, audioTooHot]);
+    // WARM tier
+    if (truePeak >= WARM_ENTER_DB) {
+      warmOkSinceRef.current = null;
+      if (warmSinceRef.current === null) warmSinceRef.current = now;
+      if (!audioWarm && now - warmSinceRef.current >= WARM_ENTER_MS) setAudioWarm(true);
+    } else if (truePeak <= WARM_EXIT_DB) {
+      warmSinceRef.current = null;
+      if (warmOkSinceRef.current === null) warmOkSinceRef.current = now;
+      if (audioWarm && now - warmOkSinceRef.current >= WARM_EXIT_MS) setAudioWarm(false);
+    }
+  }, [truePeak, hasStream, audioWarm, audioTooHot, audioClipping]);
 
   // --- Dead channel (one side silent while the other is carrying audio) ---
   // Only meaningful once the stream is actually delivering signal to at least
@@ -358,11 +405,21 @@ export function LiveControlBar({
               ⚠ {deadChannelSide === 'L' ? 'Left' : 'Right'} channel is silent — check cable between mixer and interface
             </div>
           )}
-          {audioTooHot && (
-            <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
-              ⚠ Levels too hot — turn down your mixer master or interface gain knob
+          {/* Audio level warnings — single banner, highest-tier wins.
+              CLIP > HOT > WARM. See HOT_ENTER_DB et al for thresholds. */}
+          {audioClipping ? (
+            <div className="w-full bg-red-700 border-2 border-red-400 rounded px-3 py-2.5 text-white text-sm font-bold animate-pulse">
+              ⛔ CLIPPING — your audio is distorting on listeners&apos; streams. Lower your mixer master immediately.
             </div>
-          )}
+          ) : audioTooHot ? (
+            <div className="w-full bg-red-950/80 border border-red-500 rounded px-3 py-2 text-red-100 text-sm font-bold">
+              🔴 Levels too hot — turn down your mixer master now. Sustained peaks above &minus;1 dBFS cause encoder distortion.
+            </div>
+          ) : audioWarm ? (
+            <div className="w-full bg-amber-950/70 border border-amber-600 rounded px-3 py-2 text-amber-200 text-sm font-semibold">
+              ⚠ Levels getting hot — consider lowering your mixer slightly to keep peaks below &minus;3 dBFS
+            </div>
+          ) : null}
           {audioTooLow && (
             <div className="w-full bg-red-950/70 border border-red-600 rounded px-3 py-2 text-red-200 text-sm font-semibold">
               ⚠ Audio levels are very low — check your mixer output or gain staging
