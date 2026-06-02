@@ -37,6 +37,10 @@ const CROSSFADE_MS = 5000;
 // Curve fns (pure). p in [0, 1]. Equal-power crossfade: outV² + inV² = 1.
 const sqrtCurve = (p: number) => Math.sqrt(p);
 const invSqrt = (p: number) => Math.sqrt(1 - p);
+// Smoothstep — gentler in-ramp for incoming archive after an interlude.
+// √p hits 0.45 at p=0.2 (1s); smoothstep hits 0.10. Soft enough that the
+// archive sneaks in over the interlude's tail rather than punching in.
+const smoothstep = (p: number) => p * p * (3 - 2 * p);
 
 interface UseArchiveRadioResult {
   ready: boolean;
@@ -434,12 +438,15 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
 
   // 5s equal-power crossfade. Flip activeKeyRef so the new incoming is treated
   // as active, start incoming.play() while outgoing is still playing, rAF tick
-  // ramps volumes via invSqrt/sqrt (outV² + inV² = 1). Watchdog forces finish
-  // if rAF was throttled. Token-tagged so a newer fade's force-finish doesn't
-  // have its captured `outgoing` paused by a stale finish() callback.
+  // ramps volumes via invSqrt out + caller-chosen in curve. Default is sqrt
+  // (equal-power). interlude→archive passes smoothstep so the archive doesn't
+  // punch in over the interlude's tail. Watchdog forces finish if rAF was
+  // throttled. Token-tagged so a newer fade's force-finish doesn't have its
+  // captured `outgoing` paused by a stale finish() callback.
   const runCrossfade = useCallback((
     outgoing: HTMLAudioElement,
     incoming: HTMLAudioElement,
+    inCurve: (p: number) => number,
     onFinish?: () => void,
   ) => {
     // A previous fade still in flight (rAF takes slightly longer than
@@ -518,7 +525,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       // which throws when assigned to audio.volume, killing the rAF loop.
       const p = Math.min(1, Math.max(0, elapsed / CROSSFADE_MS));
       const outV = invSqrt(p);
-      const inV = sqrtCurve(p);
+      const inV = inCurve(p);
       outgoing.volume = outV;
       incoming.volume = inV;
       tickCount++;
@@ -609,7 +616,12 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       const outgoing = getActive();
       const incoming = getStandby();
       if (!outgoing || !incoming) return;
-      runCrossfade(outgoing, incoming, () => {
+      // Gentler in-curve when bringing an archive in after an interlude —
+      // music punching in over speech is harsh; smoothstep eases it.
+      const inCurve = current.item.kind === 'interstitial' && next.item.kind === 'archive'
+        ? smoothstep
+        : sqrtCurve;
+      runCrossfade(outgoing, incoming, inCurve, () => {
         playingKeyRef.current = nextKey;
         const afterNext = getNext({ loop: next.loop, index: next.index }, nextLoop);
         if (!afterNext) return;
