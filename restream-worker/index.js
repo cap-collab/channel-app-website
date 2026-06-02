@@ -710,8 +710,11 @@ app.post('/normalize', authenticate, async (req, res) => {
     );
 
     // --- 5. Verify output loudness ---
+    // Note: NOT using framelog=quiet here — older ffmpeg builds (including the
+    // one on the worker VPS as of 2026-06-02) reject 'quiet' as a parse error.
+    // Default framelog is fine; we just regex the Summary block below.
     const verifyOut = execSync(
-      `ffmpeg -hide_banner -nostats -i ${tmpOut} -af "ebur128=peak=true:framelog=quiet" -f null - 2>&1`,
+      `ffmpeg -hide_banner -nostats -i ${tmpOut} -af "ebur128=peak=true" -f null - 2>&1`,
       { encoding: 'utf-8' }
     );
     const grab = (re) => parseFloat((verifyOut.match(re) || [])[1] || 'NaN');
