@@ -5,6 +5,7 @@ import {
   getUserFavorites,
   getUser,
   updateUser,
+  updateDocument,
   queryCollection,
   queryCollectionGroup,
   isRestApiConfigured,
@@ -537,6 +538,9 @@ export async function GET(request: NextRequest) {
 
     let emailsSent = 0;
     let skipped = 0;
+    // Track per-slot send counts so we can stamp Channel Radio slot docs at
+    // the end. Keyed by broadcast-slot doc id (parsed from showId).
+    const perSlotCount = new Map<string, number>();
 
     for (const userDoc of usersWithNotifications) {
       const userId = userDoc.id;
@@ -771,6 +775,10 @@ export async function GET(request: NextRequest) {
           lastShowStartingEmailAt[show.showId] = now.toISOString();
           await updateUser(userId, { lastShowStartingEmailAt });
           emailsSent++;
+          if (show.showId.startsWith("broadcast-")) {
+            const slotId = show.showId.slice("broadcast-".length);
+            perSlotCount.set(slotId, (perSlotCount.get(slotId) ?? 0) + 1);
+          }
           console.log(`[show-starting] Sent email to ${userId} for "${show.name}" on ${show.stationName}`);
         }
       }
@@ -778,11 +786,38 @@ export async function GET(request: NextRequest) {
 
     console.log(`[show-starting] Done: ${emailsSent} emails sent, ${skipped} skipped (rate limited)`);
 
+    // Stamp Channel Radio slot docs with the cumulative email count + last
+    // run timestamp. Powers the Marketing tab readout. Best-effort: never
+    // blocks the cron response. Reads the prior count from the in-memory
+    // broadcastSlots fetched earlier so we accumulate across runs without
+    // an extra Firestore round-trip.
+    const runAt = now.toISOString();
+    const priorCountBySlotId = new Map<string, number>();
+    for (const slot of broadcastSlots) {
+      const prior = slot.data.goLiveEmailsTotalCount;
+      if (typeof prior === "number") priorCountBySlotId.set(slot.id, prior);
+    }
+    const perSlotResults: Array<{ slotId: string; emailsSent: number }> = [];
+    for (const [slotId, count] of Array.from(perSlotCount.entries())) {
+      perSlotResults.push({ slotId, emailsSent: count });
+      const newTotal = (priorCountBySlotId.get(slotId) ?? 0) + count;
+      try {
+        await updateDocument("broadcast-slots", slotId, {
+          goLiveEmailsLastRunAt: runAt,
+          goLiveEmailsLastRunCount: count,
+          goLiveEmailsTotalCount: newTotal,
+        });
+      } catch (err) {
+        console.error(`[show-starting] Failed to stamp slot ${slotId}:`, err);
+      }
+    }
+
     return NextResponse.json({
       liveShows: liveShows.length,
       usersChecked: usersWithNotifications.length,
       emailsSent,
       skipped,
+      perSlot: perSlotResults,
     });
   } catch (error) {
     console.error("[show-starting] Error:", error);

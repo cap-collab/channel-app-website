@@ -69,6 +69,10 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     archiveDuration: data.archiveDuration as number | undefined,
     // Radio loop alignment
     postLiveArchiveId: data.postLiveArchiveId as string | undefined,
+    // Go-live email tracking
+    goLiveEmailsTotalCount: data.goLiveEmailsTotalCount as number | undefined,
+    goLiveEmailsLastRunCount: data.goLiveEmailsLastRunCount as number | undefined,
+    goLiveEmailsLastRunAt: data.goLiveEmailsLastRunAt as string | undefined,
   };
 }
 

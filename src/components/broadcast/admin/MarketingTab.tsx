@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 import { ShareableShowCardStory } from '@/components/studio/ShareableShowCardStory';
 import { extractInstagramHandle } from '@/lib/genres';
@@ -160,6 +161,74 @@ function CopyLinkButton({ link }: { link: string }) {
       </svg>
       {copied ? 'Copied!' : 'Copy broadcast link'}
     </button>
+  );
+}
+
+// Per-show "Send go-live emails now" control. Triggers the admin endpoint
+// which internally re-invokes the show-starting-emails cron. The cron's
+// own per-user dedup prevents double-sends if it already ran for this slot.
+function GoLiveEmailsControl({ slot }: { slot: BroadcastSlotSerialized }) {
+  const { user } = useAuthContext();
+  // Track the latest count optimistically: the slot prop holds the value
+  // from the last AdminDashboard fetch; after a manual trigger we surface
+  // the response's per-slot count without forcing a parent refresh.
+  const [latestCount, setLatestCount] = useState<number | undefined>(slot.goLiveEmailsTotalCount);
+  const [lastRunAt, setLastRunAt] = useState<string | undefined>(slot.goLiveEmailsLastRunAt);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Only render for currently-live shows — the cron only fans out for
+  // status: live broadcasts, so clicking on a scheduled card would do
+  // nothing.
+  if (slot.status !== 'live') return null;
+
+  const handleSend = async () => {
+    if (!user) return;
+    setSending(true);
+    setError(null);
+    try {
+      const token = await user.getIdToken();
+      const resp = await fetch('/api/admin/trigger-go-live-emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await resp.json();
+      if (!resp.ok) {
+        setError(body?.error || 'Failed');
+        return;
+      }
+      const perSlot = (body?.perSlot as Array<{ slotId: string; emailsSent: number }> | undefined) || [];
+      const thisSlot = perSlot.find((p) => p.slotId === slot.id);
+      const added = thisSlot?.emailsSent ?? 0;
+      setLatestCount((prev) => (prev ?? 0) + added);
+      setLastRunAt(new Date().toISOString());
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const countLabel = typeof latestCount === 'number' ? `${latestCount} sent` : 'not sent yet';
+  const lastRunLabel = lastRunAt
+    ? `last run ${new Date(lastRunAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+    : null;
+
+  return (
+    <div className="mt-2 text-xs flex items-center justify-between gap-2">
+      <span className="text-gray-500">
+        Go-live emails: <span className="text-gray-300">{countLabel}</span>
+        {lastRunLabel && <span className="text-gray-600"> · {lastRunLabel}</span>}
+      </span>
+      <button
+        onClick={handleSend}
+        disabled={sending}
+        className="text-gray-300 hover:text-white border border-gray-700 hover:border-gray-500 rounded px-2 py-1 text-xs transition-colors disabled:opacity-50"
+      >
+        {sending ? 'Sending…' : 'Send now'}
+      </button>
+      {error && <span className="text-red-400">{error}</span>}
+    </div>
   );
 }
 
@@ -533,6 +602,7 @@ export function MarketingTab({ slots }: MarketingTabProps) {
                         </div>
                       )}
                       <InstagramHandles handles={igHandles} />
+                      <GoLiveEmailsControl slot={slot} />
                     </>
                   )}
                 </div>

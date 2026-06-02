@@ -206,6 +206,12 @@ export interface BroadcastSlotSerialized {
   streamCount?: number;            // Number of streams (counted after 5+ min playback)
   sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
   postLiveArchiveId?: string;     // see BroadcastSlot.postLiveArchiveId
+  // Go-live email fan-out tracking (written by show-starting-emails cron +
+  // the admin manual trigger). totalCount accumulates across runs; the
+  // lastRun pair is the most recent batch only.
+  goLiveEmailsTotalCount?: number;
+  goLiveEmailsLastRunCount?: number;
+  goLiveEmailsLastRunAt?: string;  // ISO timestamp
 }
 
 // Recording status type
