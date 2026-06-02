@@ -109,6 +109,13 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   // Last MediaSession metadata signature we wrote. Skipping no-op rewrites
   // avoids iOS yanking the audio session under rapid metadata churn.
   const lastMediaSessionSigRef = useRef<string | null>(null);
+  // True when a `pause` event has fired since the last `playing` event.
+  // On the next `playing` we invalidate lastMediaSessionSigRef so the
+  // MediaSession effect re-writes metadata — covers the case where another
+  // source (radio) wrote metadata while we were paused (e.g. iOS audio-session
+  // kill while backgrounded). Gated on a real pause event so stall→recovery
+  // doesn't trigger repeated identical writes.
+  const sawPauseSincePlayingRef = useRef(false);
   const onLockedInRef = useRef<(() => void) | null>(null);
   const onArchiveEndedRef = useRef<((endedArchive: ArchiveSerialized) => void) | null>(null);
   // Snapshot of the currently-playing archive for use inside audio event
@@ -152,12 +159,17 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         setIsPlaying(true);
         setIsLoading(false);
         retryCountRef.current = 0;
+        if (sawPauseSincePlayingRef.current) {
+          sawPauseSincePlayingRef.current = false;
+          lastMediaSessionSigRef.current = null;
+        }
         if (!playbackStartedAtRef.current) {
           playbackStartedAtRef.current = Date.now();
           captureEvent('playback_started', { type: 'archive', protocol: 'native' });
         }
       });
       audio.addEventListener('pause', () => {
+        sawPauseSincePlayingRef.current = true;
         setIsPlaying(false);
       });
       audio.addEventListener('waiting', () => {
@@ -542,6 +554,17 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       });
     } else if (!isPlaying) {
+      // iOS WKWebView can silently kill the audio session when the page is
+      // backgrounded long enough (~15 min locked). No 'error' event fires,
+      // but the element's currentTime resets to 0 internally even though our
+      // React state still says we were mid-track. Detect this drift and force
+      // a hard reload so the existing branch below restores the playhead.
+      const reactSaysMidTrack = currentTime > 1 || resumePositionRef.current > 1;
+      const elementSaysAtStart = audio.currentTime < 0.5;
+      if (reactSaysMidTrack && elementSaysAtStart) {
+        resumePositionRef.current = resumePositionRef.current || currentTime;
+        needsHardReloadRef.current = true;
+      }
       // Resume same archive. If retries previously exhausted (or src looks
       // stale), force a fresh load and restore the playhead position.
       if (needsHardReloadRef.current || !audio.src || audio.src === window.location.href) {

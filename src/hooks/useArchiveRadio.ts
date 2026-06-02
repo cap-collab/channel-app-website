@@ -244,6 +244,12 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   // chain — iOS plays the standby audibly (ignoring muted=true) when the
   // prime fires too close to the user gesture that started the active.
   const preloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // True only when the user explicitly started the radio. Gates the
+  // MediaSession effect so internal crossfade `play` events (which flip
+  // setIsPlaying(true) via the play-event listener) can't overwrite the
+  // lock-screen metadata while the user is listening to a different source
+  // (archive or live) on another page.
+  const userInitiatedRef = useRef(false);
 
   const attachStateListeners = useCallback((el: HTMLAudioElement) => {
     el.addEventListener('pause', () => {
@@ -359,12 +365,14 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   }, [current, ensureAudio, getActive, itemKey, opts.active, currentLoop, nextLoop]);
 
   const play = useCallback(async () => {
+    userInitiatedRef.current = true;
     setError(null);
     setStalled(false);
     await playCurrent();
   }, [playCurrent]);
 
   const pause = useCallback(() => {
+    userInitiatedRef.current = false;
     if (boundaryTimerRef.current) {
       clearTimeout(boundaryTimerRef.current);
       boundaryTimerRef.current = null;
@@ -689,6 +697,10 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
     if (!current) return;
     if (!isPlaying) return;
+    // Internal crossfade `play` events can flip isPlaying true even when the
+    // user is listening to a different source on another page. Skip the
+    // MediaSession write unless the user explicitly started the radio.
+    if (!userInitiatedRef.current) return;
     const item = current.item;
     const artist = (item.djs?.length ? item.djs.map((d) => d.name).join(', ') : undefined);
     const fallback = `${window.location.origin}/artwork-fallback.png`;
