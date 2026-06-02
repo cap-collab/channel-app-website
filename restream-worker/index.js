@@ -710,12 +710,14 @@ app.post('/normalize', authenticate, async (req, res) => {
     );
 
     // --- 5. Verify output loudness ---
-    // Note: NOT using framelog=quiet here — older ffmpeg builds (including the
-    // one on the worker VPS as of 2026-06-02) reject 'quiet' as a parse error.
-    // Default framelog is fine; we just regex the Summary block below.
+    // framelog uses integer log-level (older VPS ffmpeg rejects 'quiet' as a
+    // parse error). 8 = AV_LOG_FATAL, effectively silences per-frame output
+    // while keeping the final Summary block we regex below. Without this, a
+    // 2hr file emits ~50 MB of frame logs that overflow execSync's buffer
+    // with ENOBUFS.
     const verifyOut = execSync(
-      `ffmpeg -hide_banner -nostats -i ${tmpOut} -af "ebur128=peak=true" -f null - 2>&1`,
-      { encoding: 'utf-8' }
+      `ffmpeg -hide_banner -nostats -i ${tmpOut} -af "ebur128=peak=true:framelog=8" -f null - 2>&1`,
+      { encoding: 'utf-8', maxBuffer: 256 * 1024 * 1024 }
     );
     const grab = (re) => parseFloat((verifyOut.match(re) || [])[1] || 'NaN');
     const outputI = grab(/I:\s*(-?\d+\.\d+)\s*LUFS/);
