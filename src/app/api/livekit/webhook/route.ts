@@ -291,51 +291,25 @@ export async function POST(request: NextRequest) {
               console.error('[webhook] Faststart error:', faststartError);
             }
 
-            // Auto-normalize loudness for broken captures (quiet uniform recordings).
-            // The worker decides internally whether to apply gain or skip — original R2
-            // key is NEVER overwritten; a new "-normalized-v1.mp4" is uploaded instead.
-            // Only updates Firestore recordingUrl if normalization was actually applied.
+            // Enqueue normalize for post-broadcast processing. Running inline
+            // here would compete for CPU with any live or restream broadcast on
+            // the same VPS, so we defer. The drain cron
+            // (/api/cron/drain-normalize-queue, 5 * * * *) picks one entry per
+            // tick and only runs when no live show is starting in <15 min and
+            // none ended in the last 2 min. See normalize-queue collection.
             try {
-              if (restreamWorkerUrl && mp4File.filename) {
-                const normRes = await fetch(`${restreamWorkerUrl}/normalize`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${cronSecret}`,
-                  },
-                  body: JSON.stringify({ r2Key: mp4File.filename }),
+              if (mp4File.filename) {
+                await db.collection('normalize-queue').add({
+                  r2Key: mp4File.filename,
+                  slotId,
+                  queuedAt: Date.now(),
+                  status: 'pending',
+                  attempts: 0,
                 });
-                const normResult = await normRes.json();
-                if (!normRes.ok) {
-                  console.error(`[webhook] Normalize failed (${normRes.status}) for ${mp4File.filename}:`, normResult);
-                } else if (normResult.skipped) {
-                  console.log(`[webhook] Normalize skipped for ${mp4File.filename}: ${normResult.reason}`);
-                } else if (normResult.newUrl) {
-                  // Prefer trimmed when available (worker only produces it when
-                  // trailing silence ≥ 5s was detected). Archive doc below picks
-                  // up `recordingUrl` from the slot.
-                  const activeUrl = normResult.trimmedUrl || normResult.newUrl;
-                  const activeDuration = normResult.trimmedUrl
-                    ? normResult.trimmedDurationSec
-                    : normResult.durationSec;
-                  console.log(`[webhook] Normalize applied for ${mp4File.filename} → ${activeUrl}${normResult.trimmedUrl ? ' (trimmed)' : ''}`);
-                  recordingUrl = activeUrl;
-                  const slotUpdate: Record<string, unknown> = {
-                    previousRecordingUrl: originalRecordingUrl,
-                    recordingUrl: activeUrl,
-                    normalizedAt: new Date(),
-                  };
-                  if (normResult.trimmedUrl) {
-                    slotUpdate.untrimmedRecordingUrl = normResult.newUrl;
-                  }
-                  if (typeof activeDuration === 'number' && activeDuration > 0) {
-                    slotUpdate.duration = Math.round(activeDuration);
-                  }
-                  await slotRef.update(slotUpdate);
-                }
+                console.log(`[webhook] Normalize queued for ${mp4File.filename}`);
               }
-            } catch (normError) {
-              console.error('[webhook] Normalize error:', normError);
+            } catch (queueError) {
+              console.error('[webhook] Normalize enqueue error:', queueError);
             }
 
             // Create archive for the recording
