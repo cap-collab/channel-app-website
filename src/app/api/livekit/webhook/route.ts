@@ -184,11 +184,13 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ received: true, warning: 'DB not configured' });
         }
 
-        // Construct public URL from filename.
-        // `originalRecordingUrl` stays pointing to the raw R2 upload.
-        // `recordingUrl` may later be reassigned if auto-normalization produces a new version.
+        // Construct public URL from filename. The post-broadcast normalize
+        // pipeline runs asynchronously through the normalize-queue (see
+        // /api/cron/drain-normalize-queue), so `recordingUrl` here always
+        // points at the raw upload. The drain endpoint swaps slot + archive
+        // doc URLs to v2 once normalization completes.
         const originalRecordingUrl = `${r2PublicUrl}/${mp4File.filename}`;
-        let recordingUrl = originalRecordingUrl;
+        const recordingUrl = originalRecordingUrl;
 
         // Duration is in nanoseconds, convert to seconds
         const durationNs = mp4File.duration ? Number(mp4File.duration) : 0;
