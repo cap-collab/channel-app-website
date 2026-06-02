@@ -12,6 +12,11 @@ import {
 } from "@/lib/firebase-rest";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 
+// Discovery now also scans up to 36h ahead to bundle "later today" shows
+// per user. Bumped from the default 60s so the matcher state pre-build
+// over (live ∪ upcoming) has headroom.
+export const maxDuration = 300;
+
 // Verify request is from Vercel Cron
 function verifyCronRequest(request: NextRequest): boolean {
   const isVercelCron = request.headers.get("x-vercel-cron") === "1";
@@ -59,6 +64,10 @@ interface LiveShow {
   // any of them about their own collective's broadcast.
   collectiveOwnerUsernames?: string[];
   collectiveOwnerUserIds?: string[];
+  // ISO start time, populated for upcoming-today shows so the per-user TZ
+  // filter and the bundled-row time label can read it. Currently-live shows
+  // don't need it.
+  startTime?: string;
 }
 
 const STATION_NAMES: Record<string, string> = {
@@ -75,6 +84,38 @@ const STATION_NAMES: Record<string, string> = {
 // This matches how pending-dj-profiles stores chatUsernameNormalized
 function normalizeForLookup(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// YYYY-MM-DD in the given timezone. Mirrors the helper in
+// broadcast-emails/route.ts so the daily cap rolls over on the user's
+// local midnight, not UTC's.
+function startDayKey(timestampMs: number, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric", month: "2-digit", day: "2-digit", timeZone: timezone,
+  }).formatToParts(new Date(timestampMs));
+  const y = parts.find((p) => p.type === "year")?.value ?? "0000";
+  const m = parts.find((p) => p.type === "month")?.value ?? "01";
+  const d = parts.find((p) => p.type === "day")?.value ?? "01";
+  return `${y}-${m}-${d}`;
+}
+
+// Walk forward from now until the day key changes — DST-safe, never relies
+// on `+24h`. Step coarse first (1h) then fine (1min) to keep the loop
+// cheap. Caller passes user's timezone.
+function endOfDayMsForUser(nowMs: number, timezone: string): number {
+  const todayKey = startDayKey(nowMs, timezone);
+  let t = nowMs;
+  // Coarse: bump by 1 hour until we cross the day boundary
+  while (startDayKey(t, timezone) === todayKey) {
+    t += 60 * 60 * 1000;
+    if (t > nowMs + 48 * 60 * 60 * 1000) return nowMs + 24 * 60 * 60 * 1000; // safety
+  }
+  // Fine: back off in 1-minute steps until we're back inside today
+  while (startDayKey(t - 60 * 1000, timezone) !== todayKey) {
+    t -= 60 * 1000;
+    if (t < nowMs) return nowMs + 24 * 60 * 60 * 1000;
+  }
+  return t - 1; // last millisecond of today in user's TZ
 }
 
 export async function GET(request: NextRequest) {
@@ -110,6 +151,11 @@ export async function GET(request: NextRequest) {
     const windowStart = new Date(now.getTime() - 5 * 60 * 1000);
     const windowEnd = new Date(now.getTime() + 5 * 60 * 1000);
     const liveShows: LiveShow[] = [];
+    // "Later today" bundling: capture every show starting after the live
+    // window and up to 36h ahead. 36h is wide enough to cover any user TZ's
+    // local end-of-day; per-user filtering narrows below.
+    const bundleHorizon = new Date(now.getTime() + 36 * 60 * 60 * 1000);
+    const upcomingTodayShows: LiveShow[] = [];
 
     // Fetch DJ users early — reused for DJ radio show extraction and profile lookup
     const djUsers = await queryUsersWhere("role", "EQUAL", "dj");
@@ -130,54 +176,88 @@ export async function GET(request: NextRequest) {
             stationId: stationKey,
             stationName: STATION_NAMES[stationKey] || stationKey,
             showId: `${stationKey}-${show.s}`,
+            startTime: show.s,
+          });
+        } else if (start > windowEnd && start <= bundleHorizon) {
+          upcomingTodayShows.push({
+            name: show.n,
+            dj: show.j || undefined,
+            profileUsername: show.p || undefined,
+            additionalProfileUsernames: show.ap || undefined,
+            stationId: stationKey,
+            stationName: STATION_NAMES[stationKey] || stationKey,
+            showId: `${stationKey}-${show.s}`,
+            startTime: show.s,
           });
         }
       }
     }
 
-    // Also check Channel Radio shows that are live
+    // Also check Channel Radio shows that are live + scheduled within the
+    // bundle horizon. The live set powers the primary card; the scheduled
+    // set feeds the "later today" bundle.
     const broadcastSlots = await queryCollection(
       "broadcast-slots",
       [{ field: "status", op: "EQUAL", value: "live" }],
-      100
+      100,
+    );
+    const scheduledBroadcastSlots = await queryCollection(
+      "broadcast-slots",
+      [{ field: "status", op: "EQUAL", value: "scheduled" }],
+      200,
     );
 
-    for (const slot of broadcastSlots) {
-      const data = slot.data;
-      if (data.broadcastType === "restream") continue;
-      // Skip channelbroadcast shows (test broadcasts) — no notifications
-      if (data.djUsername === "channelbroadcast") continue;
-
-      // Collective fan-out: when the slot's djUsername matches a collective
-      // slug, pull the owners so we can (a) widen watchlist matching to any
-      // owner and (b) skip sending owners their own collective's email.
-      let collectiveOwnerUsernames: string[] | undefined;
-      let collectiveOwnerUserIds: string[] | undefined;
-      const slug = (data.djUsername as string | undefined) || undefined;
-      if (slug) {
+    // Batch collective-owner resolution: collect every unique slug used as
+    // djUsername across both live + scheduled slots, then resolve owners in
+    // a single pass. Avoids the N+1 cost of looking up collectives + owners
+    // inline per slot when the schedule has many slots.
+    const collectiveOwnerInfoBySlug = new Map<
+      string,
+      { ownerUids: string[]; ownerUsernames: string[] }
+    >();
+    const candidateSlugs = new Set<string>();
+    for (const s of [...broadcastSlots, ...scheduledBroadcastSlots]) {
+      const slug = s.data.djUsername as string | undefined;
+      if (slug && slug !== "channelbroadcast") candidateSlugs.add(slug);
+    }
+    if (candidateSlugs.size > 0) {
+      // queryCollection's `in` operator could batch by 10, but the REST
+      // helper here doesn't expose that directly. Keep it simple: 1 query
+      // per slug, but cache the result so the user-loop pre-build doesn't
+      // re-query.
+      for (const slug of Array.from(candidateSlugs)) {
         const collectives = await queryCollection(
           "collectives",
           [{ field: "slug", op: "EQUAL", value: slug }],
           1,
         );
-        if (collectives.length > 0) {
-          const ownerUids = (collectives[0].data.owners as string[] | undefined) || [];
-          if (ownerUids.length > 0) {
-            collectiveOwnerUserIds = ownerUids;
-            const usernames: string[] = [];
-            // queryCollection doesn't support __name__ in; fetch each owner.
-            for (const uid of ownerUids) {
-              const u = await getUser(uid);
-              const cu = (u?.chatUsernameNormalized as string | undefined)
-                || (u?.chatUsername as string | undefined);
-              if (cu) usernames.push(cu);
-            }
-            if (usernames.length > 0) collectiveOwnerUsernames = usernames;
-          }
+        if (collectives.length === 0) continue;
+        const ownerUids = (collectives[0].data.owners as string[] | undefined) || [];
+        const ownerUsernames: string[] = [];
+        for (const uid of ownerUids) {
+          const u = await getUser(uid);
+          const cu = (u?.chatUsernameNormalized as string | undefined)
+            || (u?.chatUsername as string | undefined);
+          if (cu) ownerUsernames.push(cu);
         }
+        collectiveOwnerInfoBySlug.set(slug, { ownerUids, ownerUsernames });
       }
+    }
 
-      liveShows.push({
+    const pushBroadcastSlot = (
+      slot: { id: string; data: Record<string, unknown> },
+      target: LiveShow[],
+    ): void => {
+      const data = slot.data;
+      if (data.broadcastType === "restream") return;
+      if (data.djUsername === "channelbroadcast") return;
+      const slug = data.djUsername as string | undefined;
+      const collectiveInfo = slug ? collectiveOwnerInfoBySlug.get(slug) : undefined;
+      const startTime = data.startTime as { toMillis?: () => number; toDate?: () => Date } | undefined;
+      const startMs = typeof startTime?.toMillis === "function"
+        ? startTime.toMillis()
+        : startTime?.toDate?.()?.getTime();
+      target.push({
         name: data.showName as string,
         dj: data.djName as string | undefined,
         profileUsername: undefined,
@@ -186,9 +266,28 @@ export async function GET(request: NextRequest) {
         showId: `broadcast-${slot.id}`,
         djUsername: data.djUsername as string | undefined,
         djUserId: (data.liveDjUserId as string) || (data.djUserId as string) || undefined,
-        collectiveOwnerUsernames,
-        collectiveOwnerUserIds,
+        collectiveOwnerUsernames: collectiveInfo?.ownerUsernames.length
+          ? collectiveInfo.ownerUsernames
+          : undefined,
+        collectiveOwnerUserIds: collectiveInfo?.ownerUids.length
+          ? collectiveInfo.ownerUids
+          : undefined,
+        startTime: typeof startMs === "number" ? new Date(startMs).toISOString() : undefined,
       });
+    };
+
+    for (const slot of broadcastSlots) {
+      pushBroadcastSlot(slot, liveShows);
+    }
+    for (const slot of scheduledBroadcastSlots) {
+      const startTime = slot.data.startTime as { toMillis?: () => number; toDate?: () => Date } | undefined;
+      const startMs = typeof startTime?.toMillis === "function"
+        ? startTime.toMillis()
+        : startTime?.toDate?.()?.getTime();
+      if (typeof startMs !== "number") continue;
+      if (startMs <= windowEnd.getTime()) continue;
+      if (startMs > bundleHorizon.getTime()) continue;
+      pushBroadcastSlot(slot, upcomingTodayShows);
     }
 
     // Also check DJ radio shows (manually added via /studio) starting within the window
@@ -225,14 +324,16 @@ export async function GET(request: NextRequest) {
         const startTimeMs = testDate.getTime() + offsetHours * 60 * 60 * 1000;
         const startTime = new Date(startTimeMs);
 
-        if (startTime >= windowStart && startTime <= windowEnd) {
+        const inLiveWindow = startTime >= windowStart && startTime <= windowEnd;
+        const inBundleWindow = startTime > windowEnd && startTime <= bundleHorizon;
+        if (inLiveWindow || inBundleWindow) {
           const showNameSlug = (show.name || "").replace(/\s+/g, "-").toLowerCase().slice(0, 20);
           const radioNameSlug = (show.radioName || "radio").replace(/\s+/g, "-").toLowerCase();
           const normalizedUsername = chatUsername?.replace(/\s+/g, "").toLowerCase();
           const showId = `dj-radio-${normalizedUsername}-${show.date}-${radioNameSlug}-${showNameSlug}`;
           const showName = show.name || (show.radioName ? `${chatUsername} on ${show.radioName}` : `${chatUsername} Radio Show`);
 
-          liveShows.push({
+          const entry: LiveShow = {
             name: showName,
             dj: chatUsername || undefined,
             stationId: "dj-radio",
@@ -243,7 +344,10 @@ export async function GET(request: NextRequest) {
             djHasEmail: !!(djUser.data.email),
             djUserId: djUser.id,
             streamingUrl: show.url,
-          });
+            startTime: new Date(startTimeMs).toISOString(),
+          };
+          if (inLiveWindow) liveShows.push(entry);
+          else upcomingTodayShows.push(entry);
         }
       }
     }
@@ -252,7 +356,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ liveShows: 0, emailsSent: 0 });
     }
 
-    console.log(`[show-starting] Found ${liveShows.length} live shows`);
+    console.log(
+      `[show-starting] Found ${liveShows.length} live shows, ${upcomingTodayShows.length} upcoming-today shows`,
+    );
+
+    // Matcher pre-build (sections 4, 4b, 4b', 4c) runs over the union so
+    // that bundled "later today" shows can be matched per user without
+    // re-querying engagement / affiliation state.
+    const allMatchableShows: LiveShow[] = [...liveShows, ...upcomingTodayShows];
 
     // 3. Build DJ profile lookup map (same approach as watchlist-digest)
     // Maps normalized name to { chatUsername, photoUrl, hasEmail, userId }
@@ -314,8 +425,8 @@ export async function GET(request: NextRequest) {
     // Generic words that should never resolve to a DJ profile
     const ignoredProfileUsernames = new Set(["guests"]);
 
-    // 4. Resolve DJ profiles for live shows using `p` field, falling back to `ap`
-    for (const show of liveShows) {
+    // 4. Resolve DJ profiles for all matchable shows using `p` field, falling back to `ap`
+    for (const show of allMatchableShows) {
       if (show.djUsername) continue; // Already resolved (broadcast)
 
       const effectiveProfileUsername = show.profileUsername && !ignoredProfileUsernames.has(show.profileUsername)
@@ -365,7 +476,7 @@ export async function GET(request: NextRequest) {
     }
 
     const affiliatedRecipientsByShowId = new Map<string, Set<string>>();
-    for (const show of liveShows) {
+    for (const show of allMatchableShows) {
       if (!show.djUserId) continue;
       const recipients = new Set<string>();
       // X's own affiliation (the artist X is affiliated with)
@@ -418,7 +529,7 @@ export async function GET(request: NextRequest) {
     }
 
     const relatedUsernamesByShowId = new Map<string, Set<string>>();
-    for (const show of liveShows) {
+    for (const show of allMatchableShows) {
       if (show.stationId !== "broadcast") continue;
       if (!show.djUserId || !show.djUsername) continue;
       const related = new Set<string>();
@@ -457,9 +568,9 @@ export async function GET(request: NextRequest) {
     const engagedByDjUsername = new Map<string, Set<string>>();
 
     // Collect the full set of DJ usernames we need to query: live DJ +
-    // related DJs for every Channel Radio show.
+    // upcoming-today DJ + related DJs for every Channel Radio show.
     const allRelatedUsernames = new Set<string>();
-    for (const show of liveShows) {
+    for (const show of allMatchableShows) {
       if (show.stationId !== "broadcast") continue;
       if (!show.djUsername) continue;
       allRelatedUsernames.add(normalizeForLookup(show.djUsername));
@@ -498,7 +609,7 @@ export async function GET(request: NextRequest) {
     // Materialize the per-show structures: X-direct sets + per-related-DJ
     // sets. Filter out the live DJ + collective owners (they shouldn't get
     // their own show's email).
-    for (const show of liveShows) {
+    for (const show of allMatchableShows) {
       if (show.stationId !== "broadcast") continue;
       if (!show.djUsername) continue;
       const xUsername = normalizeForLookup(show.djUsername);
@@ -550,6 +661,15 @@ export async function GET(request: NextRequest) {
       const userEmail = userData.email as string;
       if (!userEmail) continue;
 
+      // Daily cap: at most one go-live email per user per local calendar day.
+      // Checked BEFORE per-show matching so a capped user short-circuits the
+      // whole loop. Rolls over at user's local midnight, not UTC.
+      const userTz = (userData.timezone as string) || "America/Los_Angeles";
+      const todayKey = startDayKey(now.getTime(), userTz);
+      const lastDate = userData.lastShowStartingEmailDate as string | undefined;
+      if (lastDate === todayKey) { skipped++; continue; }
+      const endOfTodayMs = endOfDayMsForUser(now.getTime(), userTz);
+
       // Dedup: track which show occurrences we've already emailed about
       // Key: showId (e.g. "nts1-2026-02-05T22:00:00Z") → timestamp
       // Using showId (stationId + startTime) ensures:
@@ -575,19 +695,26 @@ export async function GET(request: NextRequest) {
       const userRole = (userData.role as string | undefined) || "user";
       const isDjUser = userRole === "dj" || userRole === "broadcaster";
 
-      for (const show of liveShows) {
+      const emailNotificationsData = userData.emailNotifications as Record<string, unknown> | undefined;
+
+      // Run the existing 4-tier matcher against a single show. Returns
+      // match metadata if the user matched (and how), or null. Reused for
+      // the primary live-show pass AND the "later today" bundle pass — the
+      // same matching rules govern both so a bundled row honors the same
+      // engagement / affiliation / mute logic.
+      const matchShow = (show: LiveShow): {
+        matchedViaAffiliation: boolean;
+        affiliationBridgeDj?: string;
+        engagementReason?: "engaged";
+      } | null => {
         let matched = false;
         let matchedViaAffiliation = false;
-        let affiliationBridgeDj: string | undefined;  // listener-branch only: the related DJ R that bridged
+        let affiliationBridgeDj: string | undefined;
         let engagementReason: "engaged" | undefined;
 
-        const emailNotificationsData = userData.emailNotifications as Record<string, unknown> | undefined;
-
         if (isDjUser) {
-          // DJ branch: Channel Radio only.
-          if (show.stationId !== "broadcast") continue;
+          if (show.stationId !== "broadcast") return null;
 
-          // P1a: "show" type favorites (exact show name + station match)
           for (const fav of showFavorites) {
             const favTerm = ((fav.data.term as string) || "").toLowerCase();
             const favStation = (fav.data.stationId as string) || "";
@@ -601,7 +728,6 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          // P1b: "search" type favorites (watchlist).
           if (!matched) {
             for (const term of searchTerms) {
               if (
@@ -615,9 +741,6 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          // P2: Engagement with X directly (hearted X, or streamed any of X's
-          // archives / live broadcasts). Channel Radio only, gated by
-          // emailNotifications.engagementGoLive — same rule as listeners.
           if (!matched) {
             const engaged = engagedByShowId.get(show.showId);
             if (engaged?.has(userId)) {
@@ -629,8 +752,6 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          // P3-crew: DJ-side affiliation only (parent + direct affiliates +
-          // siblings via affiliatedWithUid). No listener-side bridge.
           if (!matched) {
             const affOptOut = emailNotificationsData?.affiliatedGoLive === false;
             if (!affOptOut) {
@@ -642,11 +763,6 @@ export async function GET(request: NextRequest) {
             }
           }
         } else {
-          // Listener branch: unchanged. Match priority: favorite > watchlist >
-          // engagement > affiliation. First hit wins; that determines the
-          // email's footer/caption copy.
-
-          // P1a: "show" type favorites (exact show name + station match)
           for (const fav of showFavorites) {
             const favTerm = ((fav.data.term as string) || "").toLowerCase();
             const favStation = (fav.data.stationId as string) || "";
@@ -660,7 +776,6 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          // P1b: "search" type favorites (watchlist — direct match on X / show name).
           if (!matched) {
             for (const term of searchTerms) {
               if (
@@ -674,11 +789,6 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          // P2: Engagement with X directly (hearted X, or streamed any of X's
-          // archives / live broadcasts). Channel Radio only, gated by
-          // emailNotifications.engagementGoLive. Engagement outranks
-          // affiliation because it's a direct first-party signal — the user
-          // already knows X, no need for a "recommended" framing.
           if (!matched && show.stationId === "broadcast") {
             const engaged = engagedByShowId.get(show.showId);
             if (engaged?.has(userId)) {
@@ -690,9 +800,6 @@ export async function GET(request: NextRequest) {
             }
           }
 
-          // P3: Affiliation — DJ-side (user IS in the crew) OR listener-side
-          // (user has a watchlist or engagement signal for any R in related(X)).
-          // Both gated by emailNotifications.affiliatedGoLive (defaults true).
           if (!matched) {
             const affOptOut = emailNotificationsData?.affiliatedGoLive === false;
             if (!affOptOut) {
@@ -726,61 +833,126 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        if (!matched) continue;
+        return matched ? { matchedViaAffiliation, affiliationBridgeDj, engagementReason } : null;
+      };
 
-        // Universal per-DJ mute: regardless of how this user matched, if they
-        // previously clicked "Unsubscribe from {DJ}" in an email or removed
-        // an engagement-added card on /explore, skip.
-        if (show.djUsername && goLiveMutes.has(show.djUsername)) {
-          skipped++;
-          continue;
-        }
+      // Shared universal gates that must hold for ANY show going into the
+      // email (primary or bundled). Returns true if the show should be
+      // skipped for this user.
+      const failsUniversalGates = (show: LiveShow): boolean => {
+        if (show.djUsername && goLiveMutes.has(show.djUsername)) return true;
+        if (!show.djUserId && !(show.collectiveOwnerUserIds && show.collectiveOwnerUserIds.length > 0)) return true;
+        if (show.djUserId === userId) return true;
+        if (show.collectiveOwnerUserIds && show.collectiveOwnerUserIds.includes(userId)) return true;
+        return false;
+      };
 
-        // Only notify when the DJ is a Channel user (has a linked account).
-        // For collectives, "Channel user" means the collective has at least
-        // one owner with a UID — the broadcast itself may not have a single
-        // djUserId since any owner can claim the slot.
-        if (!show.djUserId && !(show.collectiveOwnerUserIds && show.collectiveOwnerUserIds.length > 0)) continue;
+      // ── Primary pass: find the first matching currently-live show ────
+      let primary: LiveShow | null = null;
+      let primaryMatch: NonNullable<ReturnType<typeof matchShow>> | null = null;
+      for (const show of liveShows) {
+        const m = matchShow(show);
+        if (!m) continue;
+        if (failsUniversalGates(show)) continue;
+        if (lastShowStartingEmailAt[show.showId]) { skipped++; continue; }
+        primary = show;
+        primaryMatch = m;
+        break;
+      }
 
-        // Don't email the DJ about their own live show. For collectives,
-        // skip every owner of the collective.
-        if (show.djUserId === userId) continue;
-        if (show.collectiveOwnerUserIds && show.collectiveOwnerUserIds.includes(userId)) continue;
+      if (!primary || !primaryMatch) continue;
 
-        // Dedup: skip if we already emailed about this exact show occurrence
-        if (lastShowStartingEmailAt[show.showId]) {
-          skipped++;
-          continue;
-        }
-
-        // Send email
-        const success = await sendShowStartingEmail({
-          to: userEmail,
-          recipientUserId: userId,
+      // ── Bundle pass: scan upcoming-today shows for additional matches ─
+      // Same matcher, same gates. Filtered to the user's local end-of-day
+      // and deduped against shows we've already emailed this user about.
+      type BundledRow = {
+        showId: string;
+        showName: string;
+        djName?: string;
+        djUsername?: string;
+        djPhotoUrl?: string;
+        stationName: string;
+        stationId: string;
+        startTime: string;
+        startTimeMs: number;
+      };
+      const bundled: BundledRow[] = [];
+      for (const show of upcomingTodayShows) {
+        if (!show.startTime) continue;
+        const startMs = Date.parse(show.startTime);
+        if (!Number.isFinite(startMs)) continue;
+        if (startMs <= now.getTime()) continue;
+        if (startMs > endOfTodayMs) continue;
+        if (show.showId === primary.showId) continue;
+        if (lastShowStartingEmailAt[show.showId]) continue;
+        if (failsUniversalGates(show)) continue;
+        if (!matchShow(show)) continue;
+        bundled.push({
+          showId: show.showId,
           showName: show.name,
           djName: show.dj,
           djUsername: show.djUsername,
           djPhotoUrl: show.djPhotoUrl,
-          djHasEmail: show.djHasEmail,
           stationName: show.stationName,
           stationId: show.stationId,
-          streamingUrl: show.streamingUrl,
-          isAffiliated: matchedViaAffiliation,
-          affiliationBridgeDj,
-          engagementReason,
+          startTime: show.startTime,
+          startTimeMs: startMs,
         });
+      }
+      bundled.sort((a, b) => a.startTimeMs - b.startTimeMs);
+      const laterToday = bundled.map((b) => ({
+        showId: b.showId,
+        showName: b.showName,
+        djName: b.djName,
+        djUsername: b.djUsername,
+        djPhotoUrl: b.djPhotoUrl,
+        stationName: b.stationName,
+        stationId: b.stationId,
+        startTime: b.startTime,
+      }));
 
-        if (success) {
-          // Mark this show occurrence as emailed
-          lastShowStartingEmailAt[show.showId] = now.toISOString();
-          await updateUser(userId, { lastShowStartingEmailAt });
-          emailsSent++;
-          if (show.showId.startsWith("broadcast-")) {
-            const slotId = show.showId.slice("broadcast-".length);
-            perSlotCount.set(slotId, (perSlotCount.get(slotId) ?? 0) + 1);
-          }
-          console.log(`[show-starting] Sent email to ${userId} for "${show.name}" on ${show.stationName}`);
+      // ── Send ──────────────────────────────────────────────────────────
+      const success = await sendShowStartingEmail({
+        to: userEmail,
+        recipientUserId: userId,
+        showName: primary.name,
+        djName: primary.dj,
+        djUsername: primary.djUsername,
+        djPhotoUrl: primary.djPhotoUrl,
+        djHasEmail: primary.djHasEmail,
+        stationName: primary.stationName,
+        stationId: primary.stationId,
+        streamingUrl: primary.streamingUrl,
+        isAffiliated: primaryMatch.matchedViaAffiliation,
+        affiliationBridgeDj: primaryMatch.affiliationBridgeDj,
+        engagementReason: primaryMatch.engagementReason,
+        laterToday: laterToday.length > 0 ? laterToday : undefined,
+        userTimezone: userTz,
+      });
+
+      if (success) {
+        // Stamp the primary + every bundled show. Stamping bundled rows is
+        // belt-and-suspenders: the daily-cap field is the primary guard,
+        // but if it ever resets (manual admin action, etc.), the per-show
+        // dedup still blocks a duplicate for any bundled show that later
+        // goes live.
+        lastShowStartingEmailAt[primary.showId] = now.toISOString();
+        for (const row of laterToday) {
+          lastShowStartingEmailAt[row.showId] = now.toISOString();
         }
+        await updateUser(userId, {
+          lastShowStartingEmailAt,
+          lastShowStartingEmailDate: todayKey,
+        });
+        emailsSent++;
+        // Only bump perSlotCount for the PRIMARY broadcast slot — bundled
+        // scheduled-slot showIds shouldn't inflate goLiveEmailsTotalCount
+        // on those slot docs (their go-live moment hasn't fired yet).
+        if (primary.showId.startsWith("broadcast-")) {
+          const slotId = primary.showId.slice("broadcast-".length);
+          perSlotCount.set(slotId, (perSlotCount.get(slotId) ?? 0) + 1);
+        }
+        console.log(`[show-starting] Sent email to ${userId} for "${primary.name}" on ${primary.stationName}${laterToday.length > 0 ? ` (+${laterToday.length} bundled)` : ""}`);
       }
     }
 

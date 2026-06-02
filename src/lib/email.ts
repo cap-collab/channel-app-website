@@ -227,6 +227,17 @@ function getEmailPhotoUrl(djUsername?: string, djPhotoUrl?: string): string | un
   return undefined;
 }
 
+export interface LaterTodayShowRow {
+  showId: string;
+  showName: string;
+  djName?: string;
+  djUsername?: string;
+  djPhotoUrl?: string;
+  stationName: string;
+  stationId: string;
+  startTime: string; // ISO 8601
+}
+
 interface ShowStartingEmailParams {
   to: string;
   recipientUserId?: string; // For per-DJ unsubscribe link in footer
@@ -250,6 +261,14 @@ interface ShowStartingEmailParams {
   // Recipient was matched via past engagement (heart or lock-in) rather than
   // a watchlist/favorite. Changes footer copy only.
   engagementReason?: "engaged";
+  // Other shows the recipient would have matched today, bundled into a
+  // single email so we cap each user at one go-live notification per day.
+  // Sorted by startTime ascending. When empty/absent, no section renders
+  // and the email is byte-identical to the single-show layout.
+  laterToday?: LaterTodayShowRow[];
+  // Recipient's timezone (e.g. "America/Los_Angeles") — used to format the
+  // time label on each bundled row.
+  userTimezone?: string;
 }
 
 export async function sendShowStartingEmail({
@@ -266,6 +285,8 @@ export async function sendShowStartingEmail({
   isAffiliated,
   affiliationBridgeDj,
   engagementReason,
+  laterToday,
+  userTimezone,
 }: ShowStartingEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -320,6 +341,10 @@ export async function sendShowStartingEmail({
         </tr>
       </table>`;
 
+  const laterTodayHtml = laterToday && laterToday.length > 0
+    ? buildLaterTodaySection(laterToday, userTimezone || "America/Los_Angeles")
+    : "";
+
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
       <tr>
@@ -335,6 +360,7 @@ export async function sendShowStartingEmail({
         </td>
       </tr>
     </table>
+    ${laterTodayHtml}
   `;
 
   // Per-DJ mute link in the footer applies to every recipient — one click
@@ -498,6 +524,65 @@ function buildShowCardHtml(
         </td>
       </tr>
     </table>
+  `;
+}
+
+// Compact 48x48-photo row used by the "Also coming up later today" bundle
+// at the bottom of go-live emails. Whole row is one tappable link to the
+// DJ profile. No CTA button — tighter than buildShowCardHtml.
+function buildLaterTodayRowHtml(row: LaterTodayShowRow, timezone: string): string {
+  const djDisplayName = row.djName || row.djUsername || row.showName;
+  const timeStr = new Date(row.startTime).toLocaleTimeString("en-US", {
+    timeZone: timezone, hour: "numeric", minute: "2-digit",
+  });
+  const djProfileUrl = row.djUsername
+    ? `https://channel-app.com/dj/${normalizeDjUsername(row.djUsername)}`
+    : row.djName
+      ? `https://channel-app.com/dj/${normalizeDjUsername(row.djName)}`
+      : `https://channel-app.com/dj/${normalizeDjUsername(row.showName)}`;
+
+  const fallbackColor = STATION_ACCENT_COLORS[row.stationId] || "#DC9B50";
+  const emailPhotoUrl = getEmailPhotoUrl(row.djUsername, row.djPhotoUrl);
+  const photoHtml = emailPhotoUrl
+    ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="48" height="48" style="width: 48px; height: 48px; border-radius: 0; object-fit: cover; border: 1px solid #e5e5e5; display: block;" />`
+    : `<table width="48" height="48" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #e5e5e5; background-color: ${fallbackColor};">
+        <tr>
+          <td align="center" valign="middle" style="font-size: 20px; font-weight: bold; color: #fff;">
+            ${djDisplayName.charAt(0).toUpperCase()}
+          </td>
+        </tr>
+      </table>`;
+
+  return `
+    <a href="${djProfileUrl}" style="text-decoration: none; color: inherit; display: block;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
+        <tr>
+          <td width="48" valign="top" style="padding-right: 12px;">
+            ${photoHtml}
+          </td>
+          <td valign="middle">
+            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; line-height: 1.3;">
+              ${row.showName}
+            </div>
+            <div style="font-size: 12px; color: #999;">
+              ${djDisplayName} · ${row.stationName} · ${timeStr}
+            </div>
+          </td>
+        </tr>
+      </table>
+    </a>
+  `;
+}
+
+// Build the full "Also coming up later today" section, including heading
+// and top divider. Caller already filtered rows + sorted by startTime.
+function buildLaterTodaySection(rows: LaterTodayShowRow[], timezone: string): string {
+  if (rows.length === 0) return "";
+  return `
+    <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e5e5;">
+      <p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">Also coming up later today</p>
+      ${rows.map((r) => buildLaterTodayRowHtml(r, timezone)).join("")}
+    </div>
   `;
 }
 
