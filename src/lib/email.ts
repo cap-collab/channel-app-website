@@ -330,7 +330,7 @@ export async function sendShowStartingEmail({
           <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #1a1a1a;">
             ${displayName} <span style="color: #999;">is live</span>
           </h1>
-          <p style="margin: 0 0 24px; font-size: 14px; color: #666;">on ${stationName}</p>
+          <p style="margin: 0 0 24px; font-size: 14px; color: #666;">on ${isChannelRadio ? "channel" : stationName}</p>
           <a href="${buttonUrl}" style="${BUTTON_STYLE}">${buttonText}</a>
         </td>
       </tr>
@@ -367,7 +367,7 @@ export async function sendShowStartingEmail({
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
-      subject: `${djUsername || djName ? djDisplayName : displayName} is live on ${stationName}`,
+      subject: `${djUsername || djName ? djDisplayName : displayName} is live on ${isChannelRadio ? "channel" : stationName}`,
       html: wrapEmailContent(content, footerText, muteOverride, aboveContentHtml),
       headers: muteUrl
         ? {
