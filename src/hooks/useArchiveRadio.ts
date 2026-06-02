@@ -33,13 +33,19 @@ const ENSURE_NEXT_LEAD_MS = 6 * 60 * 60 * 1000;
 // archive). Schedule offsets are -CROSSFADE_SEC-compressed in
 // archive-schedule.ts so the audible boundary lines up with schedule time.
 const CROSSFADE_MS = 5000;
-// Interlude clips peak at this gain (matches test page's tuning). Archives
-// peak at 1.0.
-const INTERLUDE_GAIN = 0.6;
+// Interlude clips peak at this gain. Archives peak at 1.0. Raised from 0.6
+// → 0.75 so the interlude is audible over the still-loud archive at mid-fade
+// (at p=0.5 the archive is at 0.50, interlude reaches 0.66 — crossover at
+// p≈0.43 instead of p≈0.7 with the old gain).
+const INTERLUDE_GAIN = 0.75;
 
 // Curve fns (pure). p in [0, 1].
 const sqrtCurve = (p: number) => Math.sqrt(p);
 const invSqrt = (p: number) => Math.sqrt(1 - p);
+// Linear out-curve for archive→interlude. invSqrt held the archive at 0.71
+// at p=0.5, masking the rising interlude (cap 0.75) until p≈0.7. Linear drops
+// to 0.50 at p=0.5, letting the interlude take over by mid-fade.
+const linearOut = (p: number) => 1 - p;
 // Incoming-interlude curve for archive→interlude. Punchy rise then settle.
 // Targets (multiplied by incomingTargetGain=INTERLUDE_GAIN=0.6):
 //   p=0   → 0     (silent at fade start)
@@ -71,11 +77,12 @@ function curvesFor(
   incomingTargetGain: number;
 } {
   if (outgoingKind === 'archive' && incomingKind === 'interstitial') {
-    // archive→interlude: invSqrt outgoing (was quad — too fast a drop, made
-    // the overlap feel like a hard cut). Now symmetric with interlude→archive
-    // so both directions sound the same: outgoing stays clearly audible
-    // through the middle of the fade, incoming rises into it.
-    return { outCurve: invSqrt, inCurve: peakTaper, outgoingPeakGain: 1, incomingTargetGain: INTERLUDE_GAIN };
+    // archive→interlude: linear outgoing so the archive recedes through the
+    // middle of the fade (0.50 at p=0.5) instead of holding at 0.71 like
+    // invSqrt did. With INTERLUDE_GAIN=0.75 the interlude (0.66 at p=0.5)
+    // wins by mid-fade — overlap becomes audibly perceivable. Quad (1-p)²
+    // was tried earlier and felt like a hard cut; linear is the sweet spot.
+    return { outCurve: linearOut, inCurve: peakTaper, outgoingPeakGain: 1, incomingTargetGain: INTERLUDE_GAIN };
   }
   if (outgoingKind === 'interstitial' && incomingKind === 'archive') {
     return { outCurve: invSqrt, inCurve: smoothstep, outgoingPeakGain: INTERLUDE_GAIN, incomingTargetGain: 1 };
