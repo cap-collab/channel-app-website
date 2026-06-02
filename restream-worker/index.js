@@ -710,15 +710,30 @@ app.post('/normalize', authenticate, async (req, res) => {
     );
 
     // --- 5. Verify output loudness ---
-    // framelog uses integer log-level (older VPS ffmpeg rejects 'quiet' as a
-    // parse error). 8 = AV_LOG_FATAL, effectively silences per-frame output
-    // while keeping the final Summary block we regex below. Without this, a
-    // 2hr file emits ~50 MB of frame logs that overflow execSync's buffer
-    // with ENOBUFS.
-    const verifyOut = execSync(
-      `ffmpeg -hide_banner -nostats -i ${tmpOut} -af "ebur128=peak=true:framelog=8" -f null - 2>&1`,
-      { encoding: 'utf-8', maxBuffer: 256 * 1024 * 1024 }
-    );
+    // Use spawn-with-streaming so per-frame ebur128 output flows through but
+    // only the trailing Summary block is retained in memory. Avoids the
+    // ENOBUFS that killed execSync on 2hr files, and avoids the older VPS
+    // ffmpeg's rejection of framelog=quiet. We keep ~64KB of stderr tail —
+    // more than enough for the Summary block (~400 bytes).
+    const verifyOut = await new Promise((resolve, reject) => {
+      const ff = spawn('ffmpeg', [
+        '-hide_banner', '-nostats',
+        '-i', tmpOut,
+        '-af', 'ebur128=peak=true',
+        '-f', 'null', '-',
+      ]);
+      let tail = '';
+      const TAIL_BYTES = 64 * 1024;
+      ff.stderr.on('data', (chunk) => {
+        tail += chunk.toString();
+        if (tail.length > TAIL_BYTES) tail = tail.slice(-TAIL_BYTES);
+      });
+      ff.on('error', reject);
+      ff.on('close', (code) => {
+        if (code === 0) resolve(tail);
+        else reject(new Error(`ebur128 verify exited ${code}: ${tail.slice(-1000)}`));
+      });
+    });
     const grab = (re) => parseFloat((verifyOut.match(re) || [])[1] || 'NaN');
     const outputI = grab(/I:\s*(-?\d+\.\d+)\s*LUFS/);
     const outputTP = grab(/Peak:\s*(-?\d+\.\d+)\s*dBFS/);
