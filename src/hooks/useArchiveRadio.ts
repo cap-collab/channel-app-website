@@ -265,6 +265,21 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     el.addEventListener('pause', () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
       if (el === active) {
+        // Natural end of the audio file (vs. user pause): leave the queued
+        // boundary timer alone so the next fade can still fire. Two reasons
+        // this matters:
+        //   1) durationSec is stored as Math.ceil(probeDuration) — so the
+        //      actual file is almost always slightly shorter than the
+        //      schedule. The boundary timer was queued at duration-5s, but
+        //      the file ends a fraction of a second early → pause fires
+        //      first → without this guard, the timer was cleared and
+        //      playback stopped forever.
+        //   2) Backgrounded tabs throttle setTimeout. The timer may fire
+        //      late, well after the audio has naturally ended — same
+        //      failure mode.
+        // Leaving isPlaying=true here is fine: the next fade's incoming.play
+        // will fire the active-element 'play' handler and re-affirm it.
+        if (el.ended) return;
         if (boundaryTimerRef.current) {
           clearTimeout(boundaryTimerRef.current);
           boundaryTimerRef.current = null;
