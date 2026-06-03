@@ -1735,7 +1735,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
           <div className="md:col-span-8 flex flex-col md:h-full">
             {/* Large: DJ Name */}
-            <h1 className="text-4xl sm:text-7xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-4 break-words">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-black uppercase tracking-tighter leading-none mb-4 [overflow-wrap:normal] [word-break:keep-all]">
               {profile.chatUsername}
             </h1>
 
