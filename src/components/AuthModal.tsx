@@ -222,8 +222,11 @@ export function AuthModal({
       window.localStorage.setItem('djTermsAccepted', 'true');
       sessionStorage.setItem('djTermsJustAccepted', 'true');
     }
-    // Store redirect target — if from /studio (includeDjTerms), always redirect back there
-    const targetRedirect = redirectTo || (includeDjTerms ? '/studio' : null);
+    // Store redirect target — if from /studio (includeDjTerms), return to the
+    // current URL (preserves ?code= so the gate re-validates on return).
+    const targetRedirect =
+      redirectTo ||
+      (includeDjTerms ? window.location.pathname + window.location.search : null);
     if (targetRedirect) {
       window.localStorage.setItem('authRedirectTo', targetRedirect);
     }

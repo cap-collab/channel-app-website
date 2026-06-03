@@ -1941,14 +1941,21 @@ export function StudioProfileClient() {
     setCodeValidating(true);
     setCodeError("");
     try {
+      const trimmed = inviteCode.trim();
       const res = await fetch("/api/validate-invite-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: inviteCode.trim() }),
+        body: JSON.stringify({ code: trimmed }),
       });
       const data = await res.json();
       if (data.valid) {
         setCodeValidated(true);
+        // Stamp the code into the URL so it survives the magic-link round-trip
+        // (AuthModal sets authRedirectTo to current location, /emailSignIn
+        // returns here, and the URL-param effect re-validates).
+        if (typeof window !== 'undefined') {
+          window.history.replaceState(null, '', `/studio?code=${encodeURIComponent(trimmed)}`);
+        }
       } else {
         setCodeError("Invalid code. Please try again.");
       }
