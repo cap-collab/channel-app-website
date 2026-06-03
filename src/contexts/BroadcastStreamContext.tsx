@@ -28,7 +28,7 @@ export interface BroadcastStreamContextValue {
   djName: string | null;
   // Resolved external tip link (tipButtonLink > bandcamp)
   tipLink: string | null;
-  // Whether the hero sticky bar on /radio is currently visible
+  // Whether the hero sticky bar on the homepage is currently visible
   heroBarVisible: boolean;
   setHeroBarVisible: (visible: boolean) => void;
   // Whether the IntersectionObserver for the hero bar has initialized

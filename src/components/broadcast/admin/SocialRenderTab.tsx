@@ -98,7 +98,7 @@ export function SocialRenderTab() {
   const { djSceneMap } = useScenesData();
 
   // First non-grid scene slug for the selected archive — same logic as the
-  // /radio archive player. Passed through to the render page so the preview
+  // homepage archive player. Passed through to the render page so the preview
   // and final mp4 show the scene icon next to the play button.
   const sceneSlug = useMemo(() => {
     if (!selected) return null;
@@ -578,7 +578,7 @@ function DoneJobActions({
   // Title format: "<DJ> – <Show> (Live DJ Set) | <Month YYYY>"
   // Note the en-dash (–) not a hyphen — matches Cap's house style.
   // Names are kept exactly as the DJ/admin entered them — no case
-  // normalization, since lowercase is part of /radio's stylistic look
+  // normalization, since lowercase is part of the site's stylistic look
   // and Cap wants the same treatment carried over to YouTube.
   const youtubeTitle = `${djNameDisplay} – ${showNameDisplay} (Live DJ Set) | ${monthYear}`;
 

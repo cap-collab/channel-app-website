@@ -316,7 +316,7 @@ export interface ArchiveDJ {
 // 'hidden' is the strongest exclusion: archives at this tier are dropped
 // entirely from /api/archives's default response (gated behind
 // includeHidden=true for admin views like /broadcast/admin → Archives so
-// they can still be managed/unhidden). Public surfaces (/radio, DJ
+// they can still be managed/unhidden). Public surfaces (homepage, DJ
 // profiles, scenes, social render picker) never see them.
 export type ArchivePriority = 'high' | 'medium' | 'low' | 'hidden';
 

@@ -45,7 +45,7 @@ function URLSceneSync({
     onScene(override);
   }, [override, onScene]);
   // Expose a "strip scene params from the URL" callback to the provider so
-  // a manual chip toggle on /radio?star cleans the URL back to /radio.
+  // a manual chip toggle on /?star cleans the URL back to /.
   useEffect(() => {
     onRegisterClear(() => {
       if (!searchParams) return;
@@ -70,7 +70,7 @@ interface FilterContextValue {
   setSelectedGenres: (genres: string[]) => void;
   handleCityChange: (city: string) => void;
   handleGenresChange: (genres: string[]) => void;
-  // Scene filter (Past shows grid on /radio).
+  // Scene filter (Past shows grid on the homepage).
   // `null` means "not yet initialized" — consumers should treat this as "all scenes"
   // until scenes are loaded and the chip row seeds the set.
   selectedSceneIds: string[] | null;

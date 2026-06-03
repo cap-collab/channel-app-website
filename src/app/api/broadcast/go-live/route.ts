@@ -464,10 +464,11 @@ export async function POST(request: NextRequest) {
     try {
       console.log('[go-live] Attempting Firestore update with data:', JSON.stringify(updateData, null, 2));
 
-      // Recording sessions live in studio-sessions and must never touch the /radio
-      // live slot. Only DJ→DJ transitions on broadcast-slots should sweep the
-      // previous live slot. On 2026-04-02 a recording going live flipped the
-      // on-air DJ's broadcast-slots status to 'completed', vanishing /radio.
+      // Recording sessions live in studio-sessions and must never touch the
+      // live broadcast slot. Only DJ→DJ transitions on broadcast-slots should
+      // sweep the previous live slot. On 2026-04-02 a recording going live
+      // flipped the on-air DJ's broadcast-slots status to 'completed',
+      // vanishing the live broadcast from the homepage.
       const isRecordingSession = doc.ref.parent.id === 'studio-sessions';
 
       const batch = db.batch();

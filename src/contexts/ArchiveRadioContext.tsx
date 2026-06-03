@@ -82,7 +82,7 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   }, [radio, archivePlayer, broadcast]);
 
   // Single-source rule: when a regular archive *actually starts playing*,
-  // pause the radio. Mirrors archivePlayer.play→pauseBroadcast on /radio.
+  // pause the radio. Mirrors archivePlayer.play→pauseBroadcast on the homepage.
   useEffect(() => {
     if (radio.isPlaying && archivePlayer.isPlaying) radio.pause();
   }, [archivePlayer.isPlaying, radio]);
@@ -353,8 +353,8 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   );
 }
 
-// Returns null when no provider is present (i.e. on /radio, where the radio
-// isn't surfaced yet). Callers should treat null as "no radio in this tree."
+// Returns null when no provider is present. Callers should treat null as
+// "no radio in this tree."
 export function useArchiveRadioContext(): ArchiveRadioContextValue | null {
   return useContext(ArchiveRadioContext);
 }

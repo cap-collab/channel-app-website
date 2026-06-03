@@ -89,8 +89,8 @@ function RenderMixHeroOverlay({
   djDescription: string | null;
 }) {
   const genreText = djGenres.length > 0 ? djGenres.join(' · ') : null;
-  // Sizes are ~15% bigger than /radio's DJImageOverlay (Cap's request for
-  // the YouTube render). /radio uses text-xs (12px) / text-[10px] /
+  // Sizes are ~15% bigger than the homepage's DJImageOverlay (Cap's request
+  // for the YouTube render). The homepage uses text-xs (12px) / text-[10px] /
   // text-[11px]; render-mix uses 14px / 11.5px / 12.65px.
   return (
     <div>
@@ -143,11 +143,12 @@ function RenderMixInner() {
   }
 
   // The hero components (DJImageOverlay, ScrollingShowName, etc.) were sized
-  // against /radio's ~768px-wide hero. We render the image+overlays+player
-  // block at that reference width and scale it up to fill the full 1920px
-  // frame so every internal proportion (text, padding, bio scroll speed)
-  // matches /radio exactly while filling the YouTube canvas with no black
-  // borders. The image goes object-cover at the frame's actual aspect ratio.
+  // against the homepage's ~768px-wide hero. We render the image+overlays+
+  // player block at that reference width and scale it up to fill the full
+  // 1920px frame so every internal proportion (text, padding, bio scroll
+  // speed) matches the homepage exactly while filling the YouTube canvas
+  // with no black borders. The image goes object-cover at the frame's
+  // actual aspect ratio.
   const FRAME_WIDTH = 1920;
   const FRAME_HEIGHT = 1080;
   const REFERENCE_WIDTH = 768;
@@ -181,10 +182,10 @@ function RenderMixInner() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
         <div className="absolute top-2 left-2 drop-shadow-lg">
-          {/* Show name: text-sm on /radio → text-base for ~15% bump on the YouTube render. */}
+          {/* Show name: text-sm on the homepage → text-base for ~15% bump on the YouTube render. */}
           <span className="text-base font-bold text-white uppercase tracking-wide">{data.showName}</span>
         </div>
-        {/* Static hero overlay — replicates /radio's DJImageOverlay layout
+        {/* Static hero overlay — replicates the homepage's DJImageOverlay layout
             but with truncation rules instead of scrolling animations.
             Genres line moves below the DJ name when too long; bio is
             clamped to 5 lines with ellipsis; everything else is single-
@@ -210,11 +211,11 @@ function RenderMixInner() {
                   <SceneGlyph slug={data.sceneSlug} className="!w-6 !h-6" />
                 </div>
               )}
-              {/* Pause button — mirrors /radio archive player exactly:
+              {/* Pause button — mirrors the homepage archive player exactly:
                   h-[27px] container with pl-2 pr-1 (asymmetric so the icon
                   sits visually centered between the scene block and the
                   show-name column), and a w-8 h-8 SVG that overflows the
-                  container vertically (intentional — same on /radio). */}
+                  container vertically (intentional — same on the homepage). */}
               <div className="h-[27px] pl-2 pr-1 flex items-center justify-center flex-shrink-0">
                 <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />

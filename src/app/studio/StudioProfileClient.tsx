@@ -3168,7 +3168,7 @@ export function StudioProfileClient() {
               IRL Events
             </h2>
             <p className="text-gray-500 text-xs mb-3 px-1">
-              Promote your upcoming in-person gigs. Events appear on your profile, /radio, and linked venue/collective pages.
+              Promote your upcoming in-person gigs. Events appear on your profile and on linked scene pages.
             </p>
             <div className="bg-[#1e1e1e] rounded p-4 space-y-3">
               {/* Existing events */}

@@ -51,7 +51,7 @@ interface ArchivePlayerContextValue {
   /** The top/featured archive — always available for the GlobalBroadcastBar fallback */
   featuredArchive: ArchiveSerialized | null;
   setFeaturedArchive: (archive: ArchiveSerialized | null) => void;
-  /** Whatever the /radio hero is currently displaying — sticky mirrors this when set */
+  /** Whatever the homepage hero is currently displaying — sticky mirrors this when set */
   heroDisplayedArchive: ArchiveSerialized | null;
   setHeroDisplayedArchive: (archive: ArchiveSerialized | null) => void;
   // Ref callback for "locked in" message — set by consuming component (GlobalBroadcastBar)

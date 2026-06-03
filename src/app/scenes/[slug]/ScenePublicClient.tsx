@@ -134,7 +134,7 @@ export function ScenePublicClient({ data }: Props) {
   const { isFavoriteScene, toggleFavoriteScene } = useFavoriteScenes();
   const { shows: allShows } = useSchedule();
 
-  // Live broadcast state for the hero (same hookup /radio uses).
+  // Live broadcast state for the hero (same hookup the homepage uses).
   const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentShow } =
     useBroadcastStreamContext();
   const { stationBPM } = useBPM();
@@ -258,7 +258,7 @@ export function ScenePublicClient({ data }: Props) {
       <Header position="sticky" />
 
       <main className="max-w-7xl mx-auto px-4 md:px-8 py-4 pb-24">
-        {/* HERO — same component as /radio, scene-scoped archives.
+        {/* HERO — same component as the homepage, scene-scoped archives.
             Title becomes "Live <emoji> Radio" inline, and the subtitle is kept. */}
         {featuredArchive && (
           <ArchiveHero

@@ -139,10 +139,10 @@ interface ArchiveHeroProps {
   isRestream?: boolean;
   liveBPM?: number | null;
   liveDJChatRoom?: string;
-  // Max number of slides in the offline hero carousel. Default 3 (used on /radio).
+  // Max number of slides in the offline hero carousel. Default 3 (used on the homepage).
   // Pass 1 for scene pages where we want a single featured archive.
   maxHeroSlides?: number;
-  // Custom section title. Defaults to "Human Radio" on /radio.
+  // Custom section title. Defaults to "Human Radio" on the homepage.
   // Scene pages pass <>Live {emoji} Radio</> so the scene emoji sits inline.
   titleOverride?: ReactNode;
   // Hide the subtitle under the title (scene pages want a cleaner header).
@@ -1587,15 +1587,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         // the new layout, slide 1 of the carousel is whatever we featured —
         // pin that one to position 3 of the past-shows grid for continuity.
         const heroFirstId = secondHeroArchive?.id ?? heroArchives[0]?.id;
-        const priorityRank = (p: ArchiveSerialized['priority']) =>
-          p === 'high' ? 0 : p === 'low' ? 2 : 1;
         const prefiltered = archives
           .slice()
-          .sort((a, b) => {
-            const pr = priorityRank(a.priority) - priorityRank(b.priority);
-            if (pr !== 0) return pr;
-            return (b.recordedAt || 0) - (a.recordedAt || 0);
-          });
+          .sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0));
 
         // Compute effective scenes per archive once and attach as a tuple list.
         const archivesWithScenes = prefiltered.map((a) => ({

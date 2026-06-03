@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const includePrivate = searchParams.get('includePrivate') === 'true';
     // includeHidden gates the priority='hidden' tier (the strongest
-    // exclusion below 'low'). Public surfaces (/radio, DJ pages, scenes,
+    // exclusion below 'low'). Public surfaces (homepage, DJ pages, scenes,
     // social render picker) call without it; the admin Archives tab
     // passes includeHidden=true so admin can still see + un-hide them.
     const includeHidden = searchParams.get('includeHidden') === 'true';

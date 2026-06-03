@@ -6,7 +6,7 @@ import { db } from '@/lib/firebase';
 import type { SceneSerialized } from '@/types/scenes';
 
 // Client-side scene data: the list of scenes + a map of DJ keys (userId AND
-// normalized chatUsername) to their sceneIds. Used on /radio to decorate
+// normalized chatUsername) to their sceneIds. Used on the homepage to decorate
 // archive cards with scene emojis and filter by scene.
 export interface DjSceneMap {
   byUserId: Map<string, string[]>;
