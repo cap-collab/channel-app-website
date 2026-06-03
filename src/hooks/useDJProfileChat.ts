@@ -358,12 +358,16 @@ export function useDJProfileChat({
   }, [username, chatUsernameNormalized, djUsername, userId, djPhotoUrl, isArchivePlayback]);
 
   // Send a "locked in" message after sustained listening
-  // Posts to DJ chat + channelbroadcast, then increments love count by 1
+  // Posts to DJ chat + channelbroadcast, then increments love count by 1.
+  // When lockedInMessagesEnabled is false, posts an anonymous "Someone is
+  // locked in..." instead of suppressing entirely — the DJ still sees the
+  // engagement signal, just without attribution.
   const sendLockedIn = useCallback(async () => {
     if (!chatUsernameNormalized) return;
-    if (!lockedInMessagesEnabled) return;
     // Don't post automated messages when the DJ is listening to their own mix
     if (username && djUsername && username.toLowerCase() === djUsername.toLowerCase()) return;
+
+    const anonymous = !lockedInMessagesEnabled;
 
     const app = getFirebaseApp();
     const auth = getAuth(app);
@@ -376,7 +380,7 @@ export function useDJProfileChat({
 
     try {
       const shouldCrossPost = chatUsernameNormalized !== 'channelbroadcast';
-      const displayName = username || 'Someone';
+      const displayName = anonymous ? 'Someone' : (username || 'Someone');
       const message = `${displayName} is locked in 🔐 with ${djUsername}`;
 
       const lockedInData = {
