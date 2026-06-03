@@ -72,6 +72,11 @@ export default function CrossfadeTestPage() {
   const [bVol, setBVol] = useState(0);
   const [interludeIdx, setInterludeIdx] = useState(0);
   const [crossfadeOn, setCrossfadeOn] = useState(true);
+  // When ON, fade progress is driven by a Web Worker setInterval timer
+  // (~60Hz). Workers aren't throttled when the tab is backgrounded, so the
+  // fade ticks survive backgrounded tabs and locked screens. When OFF, the
+  // legacy rAF tick loop runs on the main thread and freezes in background.
+  const [useWorker, setUseWorker] = useState(true);
 
   const audioARef = useRef<HTMLAudioElement | null>(null);
   const audioBRef = useRef<HTMLAudioElement | null>(null);
@@ -80,6 +85,15 @@ export default function CrossfadeTestPage() {
   const crossfadeInFlightRef = useRef(false);
   const crossfadeRafRef = useRef<number | null>(null);
   const crossfadeWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Worker that emits tick messages at ~60Hz from a background thread.
+  // Lazy-instantiated on first start(). Single worker for the page lifetime;
+  // start/cancel messages reuse it across multiple fades.
+  const workerRef = useRef<Worker | null>(null);
+  // Bookkeeping for the active worker-driven fade. Set when we post 'start',
+  // cleared when we receive 'done' or send 'cancel'. The handler is kept in
+  // a ref so the singleton worker's onmessage can call the live closure for
+  // whichever fade is currently in flight.
+  const workerHandlerRef = useRef<((m: { type: 'tick' | 'done'; token: number; elapsedMs?: number }) => void) | null>(null);
   // When true, the auto-pause-non-active guard skips. Used during preload
   // priming (we intentionally play+pause a non-active element to force the
   // browser to actually buffer bytes; the guard would otherwise abort the
@@ -108,6 +122,10 @@ export default function CrossfadeTestPage() {
       if (crossfadeRafRef.current !== null) cancelAnimationFrame(crossfadeRafRef.current);
       audioARef.current?.pause();
       audioBRef.current?.pause();
+      if (workerRef.current) {
+        try { workerRef.current.terminate(); } catch { /* noop */ }
+        workerRef.current = null;
+      }
     };
   }, []);
 
@@ -153,6 +171,31 @@ export default function CrossfadeTestPage() {
     if (!audioARef.current) audioARef.current = mkAudio('A');
     if (!audioBRef.current) audioBRef.current = mkAudio('B');
     return { A: audioARef.current!, B: audioBRef.current! };
+  };
+
+  // Lazy-instantiate the crossfade timer worker. Singleton — one worker for
+  // the page lifetime; start/cancel messages reuse it across fades. The
+  // worker emits tick messages at ~60Hz from a background thread, which
+  // (unlike main-thread setInterval/rAF) is not throttled when the tab is
+  // hidden. The onmessage routes messages to the currently-installed
+  // handler ref so the latest fade's closure receives them.
+  const ensureWorker = (): Worker | null => {
+    if (workerRef.current) return workerRef.current;
+    if (typeof window === 'undefined' || typeof Worker === 'undefined') return null;
+    try {
+      const w = new Worker(new URL('./crossfade-timer.worker.ts', import.meta.url));
+      w.onmessage = (e: MessageEvent<{ type: 'tick' | 'done'; token: number; elapsedMs?: number }>) => {
+        const h = workerHandlerRef.current;
+        if (h) h(e.data);
+      };
+      w.onerror = (e) => append(`worker error: ${e.message}`);
+      workerRef.current = w;
+      append('worker instantiated');
+      return w;
+    } catch (e) {
+      append(`worker init failed: ${(e as Error)?.name} ${(e as Error)?.message}`);
+      return null;
+    }
   };
 
   // Preload the standby. Split by item kind:
@@ -269,6 +312,13 @@ export default function CrossfadeTestPage() {
         clearTimeout(crossfadeWatchdogRef.current);
         crossfadeWatchdogRef.current = null;
       }
+      // If a prior worker-driven fade is still ticking, tell the worker to
+      // stop. The handler ref is replaced below by the new fade's installer,
+      // so stale tick messages are dropped even before this cancel lands.
+      if (workerRef.current) {
+        try { workerRef.current.postMessage({ type: 'cancel', token: fadeTokenRef.current }); } catch { /* noop */ }
+      }
+      workerHandlerRef.current = null;
       // The prior fade's outgoing was the element BEFORE this fade's outgoing
       // (which is the prior fade's incoming, now active). Pause it directly.
       const priorOutgoing = activeKeyRef.current === 'A' ? audioBRef.current : audioARef.current;
@@ -315,6 +365,12 @@ export default function CrossfadeTestPage() {
         clearTimeout(crossfadeWatchdogRef.current);
         crossfadeWatchdogRef.current = null;
       }
+      // If this fade was worker-driven, tell the worker to stop ticking and
+      // detach the handler so the next fade installs cleanly.
+      if (workerRef.current) {
+        try { workerRef.current.postMessage({ type: 'cancel', token: myToken }); } catch { /* noop */ }
+      }
+      if (workerHandlerRef.current) workerHandlerRef.current = null;
       try { outgoing.pause(); } catch { /* noop */ }
       outgoing.volume = 0;
       incoming.volume = incomingTargetGain;
@@ -328,6 +384,61 @@ export default function CrossfadeTestPage() {
     };
 
     let tickCount = 0;
+    // Apply curves at progress p (0..1) and update audio.volume + meter UI.
+    // Shared by both the worker-driven and rAF-driven paths.
+    const applyProgress = (p: number, nowMs: number) => {
+      const cp = Math.min(1, Math.max(0, p));
+      const outV = outCurve(cp) * outgoingPeakGain;
+      const inV = inCurve(cp) * incomingTargetGain;
+      outgoing.volume = outV;
+      incoming.volume = inV;
+      if (which(outgoing) === 'A') { setAVol(outV); setBVol(inV); }
+      else { setAVol(inV); setBVol(outV); }
+      if (nowMs - lastLog > 200) {
+        append(`[fade] p=${cp.toFixed(2)} outV=${outV.toFixed(2)} inV=${inV.toFixed(2)} (ticks=${tickCount})`);
+        lastLog = nowMs;
+      }
+    };
+
+    if (useWorker) {
+      const worker = ensureWorker();
+      if (worker) {
+        // Install the message handler for this fade. The singleton worker's
+        // onmessage routes to whatever handler ref is currently installed —
+        // so the latest fade owns the messages, and stale fades' handlers
+        // are simply replaced (their token check would discard them anyway).
+        workerHandlerRef.current = (m) => {
+          if (m.token !== myToken) return;
+          if (fadeTokenRef.current !== myToken) return;
+          if (m.type === 'tick' && typeof m.elapsedMs === 'number') {
+            tickCount++;
+            if (tickCount === 1) append(`[worker-tick] token ${myToken} FIRST TICK at t=${m.elapsedMs.toFixed(1)}ms`);
+            applyProgress(m.elapsedMs / CROSSFADE_MS, performance.now());
+            return;
+          }
+          if (m.type === 'done') {
+            append(`[worker-done] token ${myToken} after ${tickCount} ticks`);
+            finish('natural');
+            workerHandlerRef.current = null;
+            return;
+          }
+        };
+        append(`worker: start token=${myToken} dur=${CROSSFADE_MS}ms tickHz=60`);
+        worker.postMessage({ type: 'start', token: myToken, durationMs: CROSSFADE_MS, tickHz: 60 });
+        // Watchdog: if the worker is somehow throttled too (we don't expect
+        // this on any current browser, but belt-and-suspenders), force the
+        // final state ~500ms after the expected end.
+        crossfadeWatchdogRef.current = setTimeout(() => {
+          if (crossfadeInFlightRef.current && fadeTokenRef.current === myToken) {
+            append('CROSSFADE-WATCHDOG triggered (worker timer overran)');
+            finish('watchdog');
+          }
+        }, CROSSFADE_MS + 500);
+        return;
+      }
+      append('worker unavailable — falling back to rAF');
+    }
+
     const tick = (t: number) => {
       tickCount++;
       // Log the very first tick so we know rAF ran at all.
@@ -343,16 +454,7 @@ export default function CrossfadeTestPage() {
       // pow(negative, fractional) is NaN, which then sets audio.volume=NaN
       // and throws in Chrome — killing the rAF loop.
       const p = Math.min(1, Math.max(0, elapsed / CROSSFADE_MS));
-      const outV = outCurve(p) * outgoingPeakGain;
-      const inV = inCurve(p) * incomingTargetGain;
-      outgoing.volume = outV;
-      incoming.volume = inV;
-      if (which(outgoing) === 'A') { setAVol(outV); setBVol(inV); }
-      else { setAVol(inV); setBVol(outV); }
-      if (t - lastLog > 200) {
-        append(`[fade] p=${p.toFixed(2)} outV=${outV.toFixed(2)} inV=${inV.toFixed(2)}`);
-        lastLog = t;
-      }
+      applyProgress(p, t);
       if (p < 1) {
         crossfadeRafRef.current = requestAnimationFrame(tick);
       } else {
@@ -395,9 +497,10 @@ export default function CrossfadeTestPage() {
     setLog([]);
     activeKeyRef.current = 'A';
     const interlude = INTERLUDES[interludeIdx];
-    append(`user gesture: starting (interlude="${interlude.label}", crossfade=${crossfadeOn ? 'ON' : 'OFF'})`);
+    append(`user gesture: starting (interlude="${interlude.label}", crossfade=${crossfadeOn ? 'ON' : 'OFF'}, worker=${useWorker ? 'ON' : 'OFF'})`);
 
     const { A } = ensureAudio();
+    if (useWorker) ensureWorker();
     A.volume = 1;
     if (audioBRef.current) audioBRef.current.volume = 0;
     setAVol(1);
@@ -500,6 +603,10 @@ export default function CrossfadeTestPage() {
       clearTimeout(crossfadeWatchdogRef.current);
       crossfadeWatchdogRef.current = null;
     }
+    if (workerRef.current) {
+      try { workerRef.current.postMessage({ type: 'cancel', token: fadeTokenRef.current }); } catch { /* noop */ }
+    }
+    workerHandlerRef.current = null;
     crossfadeInFlightRef.current = false;
     audioARef.current?.pause();
     audioBRef.current?.pause();
@@ -538,6 +645,16 @@ export default function CrossfadeTestPage() {
               className="accent-white"
             />
             5s crossfade
+          </label>
+          <label className="text-sm text-zinc-300 flex items-center gap-2 cursor-pointer" title="When ON, fade progress is driven by a Web Worker timer (~60Hz, not throttled in background tabs / locked screens). When OFF, fade progress is driven by rAF (freezes in background — reproduces the prod bug).">
+            <input
+              type="checkbox"
+              checked={useWorker}
+              onChange={(e) => setUseWorker(e.target.checked)}
+              disabled={stage !== 'idle' && stage !== 'done'}
+              className="accent-white"
+            />
+            worker timer
           </label>
         </div>
 
