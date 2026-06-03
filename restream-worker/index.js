@@ -657,7 +657,7 @@ app.post('/normalize', authenticate, async (req, res) => {
   //   continuously to EOF AND is ≥ MIN_TRAILING_SILENCE_SEC. Don't truncate
   //   if the silence starts inside the first 30 min (would indicate a
   //   broken file, not a DJ leaving dead air at the end).
-  const MIN_TRAILING_SILENCE_SEC = 2;
+  const MIN_TRAILING_SILENCE_SEC = 1;
   const SAFETY_TAIL_SEC = 0.5; // keep last 0.5s of music to avoid cutting a tail
 
   // Leading-silence trim policy:
@@ -796,7 +796,7 @@ app.post('/normalize', authenticate, async (req, res) => {
         // is past the 30-min mark.
         const scanFromSec = Math.max(0, outDur - 15 * 60);
         const silenceOut = execSync(
-          `ffmpeg -hide_banner -nostats -ss ${scanFromSec} -i ${tmpOut} -af "silencedetect=noise=-50dB:d=1.5" -f null - 2>&1`,
+          `ffmpeg -hide_banner -nostats -ss ${scanFromSec} -i ${tmpOut} -af "silencedetect=noise=-50dB:d=0.8" -f null - 2>&1`,
           { encoding: 'utf-8' }
         );
         const startMatches = [...silenceOut.matchAll(/silence_start:\s*(-?\d+\.?\d*)/g)];
