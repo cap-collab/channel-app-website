@@ -172,7 +172,7 @@ export default function CrossfadeTestPage() {
     if (workerRef.current) return workerRef.current;
     if (typeof window === 'undefined' || typeof Worker === 'undefined') return null;
     try {
-      const w = new Worker(new URL('./crossfade-timer.worker.ts', import.meta.url));
+      const w = new Worker(new URL('../../../workers/crossfade-timer.worker.ts', import.meta.url));
       w.onmessage = (e: MessageEvent<{ type: 'tick' | 'done'; token: number; elapsedMs?: number }>) => {
         const h = workerHandlerRef.current;
         if (h) h(e.data);

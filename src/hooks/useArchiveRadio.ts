@@ -237,9 +237,19 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   // current one's natural finish runs).
   const crossfadeInFlightRef = useRef(false);
   const primingInFlightRef = useRef(false);
-  const crossfadeRafRef = useRef<number | null>(null);
   const crossfadeWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fadeTokenRef = useRef(0);
+  // Crossfade timer worker — singleton for the hook lifetime, lazy-instantiated
+  // on first runCrossfade. Drives volume-ramp progress at ~60Hz from a
+  // background thread, which (unlike main-thread setInterval/rAF) is not
+  // throttled when the tab is hidden or the screen is locked. Validated on
+  // iOS Chrome locked-screen at /internal/crossfade-test before this port.
+  // See src/workers/crossfade-timer.worker.ts.
+  const workerRef = useRef<Worker | null>(null);
+  // Handler ref so the singleton worker's onmessage can route to whichever
+  // fade is currently in flight. Replaced on each new fade; stale fades' token
+  // checks discard their messages even if the handler wasn't swapped yet.
+  const workerHandlerRef = useRef<((m: { type: 'tick' | 'done'; token: number; elapsedMs?: number }) => void) | null>(null);
   // Separate timer for the standby preload-prime. Kept off the play() gesture
   // chain — iOS plays the standby audibly (ignoring muted=true) when the
   // prime fires too close to the user gesture that started the active.
@@ -382,14 +392,14 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       preloadTimerRef.current = null;
     }
     // Cancel any in-flight crossfade so a future resume starts clean.
-    if (crossfadeRafRef.current !== null) {
-      cancelAnimationFrame(crossfadeRafRef.current);
-      crossfadeRafRef.current = null;
-    }
     if (crossfadeWatchdogRef.current) {
       clearTimeout(crossfadeWatchdogRef.current);
       crossfadeWatchdogRef.current = null;
     }
+    if (workerRef.current) {
+      try { workerRef.current.postMessage({ type: 'cancel', token: fadeTokenRef.current }); } catch { /* ignore */ }
+    }
+    workerHandlerRef.current = null;
     crossfadeInFlightRef.current = false;
     audioARef.current?.pause();
     audioBRef.current?.pause();
@@ -457,18 +467,18 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     inCurve: (p: number) => number,
     onFinish?: () => void,
   ) => {
-    // A previous fade still in flight (rAF takes slightly longer than
-    // CROSSFADE_MS to reach p=1). Synchronously snap it to final state so
-    // its captured `outgoing` is paused and won't fight this new fade.
+    // A previous fade still in flight. Synchronously snap it to final state
+    // so its captured `outgoing` is paused and won't fight this new fade.
     if (crossfadeInFlightRef.current) {
-      if (crossfadeRafRef.current !== null) {
-        cancelAnimationFrame(crossfadeRafRef.current);
-        crossfadeRafRef.current = null;
-      }
       if (crossfadeWatchdogRef.current) {
         clearTimeout(crossfadeWatchdogRef.current);
         crossfadeWatchdogRef.current = null;
       }
+      // Cancel the prior worker timer so its stale ticks stop arriving.
+      if (workerRef.current) {
+        try { workerRef.current.postMessage({ type: 'cancel', token: fadeTokenRef.current }); } catch { /* ignore */ }
+      }
+      workerHandlerRef.current = null;
       // Prior fade's outgoing = element BEFORE this fade's outgoing (which
       // is the prior fade's incoming, now active). Pause directly.
       const priorOutgoing = activeKeyRef.current === 'A' ? audioBRef.current : audioARef.current;
@@ -477,6 +487,25 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
         priorOutgoing.volume = 0;
       }
       crossfadeInFlightRef.current = false;
+    }
+
+    // Lazy-instantiate the worker on first fade. Singleton for the hook
+    // lifetime; subsequent fades reuse it. If the worker fails to load (e.g.
+    // older browser), we fall through to the watchdog-only path — the fade
+    // becomes a 5500ms hard cut instead of a smooth ramp, but it still
+    // completes cleanly.
+    if (!workerRef.current && typeof Worker !== 'undefined') {
+      try {
+        const w = new Worker(new URL('../workers/crossfade-timer.worker.ts', import.meta.url));
+        w.onmessage = (e: MessageEvent<{ type: 'tick' | 'done'; token: number; elapsedMs?: number }>) => {
+          const h = workerHandlerRef.current;
+          if (h) h(e.data);
+        };
+        w.onerror = (e) => console.warn('[useArchiveRadio] crossfade worker error', e.message);
+        workerRef.current = w;
+      } catch (err) {
+        console.warn('[useArchiveRadio] crossfade worker init failed', err);
+      }
     }
 
     const myToken = ++fadeTokenRef.current;
@@ -497,20 +526,19 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       p.catch((err) => console.warn('[useArchiveRadio] crossfade play() rejected', err));
     }
 
-    const startedAt = performance.now();
     let midLogged = false;
     let tickCount = 0;
     const finish = () => {
       // Stale: a newer fade's force-finish handled cleanup already. Bail.
       if (fadeTokenRef.current !== myToken) return;
-      if (crossfadeRafRef.current !== null) {
-        cancelAnimationFrame(crossfadeRafRef.current);
-        crossfadeRafRef.current = null;
-      }
       if (crossfadeWatchdogRef.current) {
         clearTimeout(crossfadeWatchdogRef.current);
         crossfadeWatchdogRef.current = null;
       }
+      if (workerRef.current) {
+        try { workerRef.current.postMessage({ type: 'cancel', token: myToken }); } catch { /* ignore */ }
+      }
+      workerHandlerRef.current = null;
       console.log(
         '[radio-debug] CROSSFADE-END token=' + myToken,
         'ticks=' + tickCount,
@@ -526,36 +554,45 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       }
     };
 
-    const tick = (t: number) => {
+    // Install handler for the worker's tick/done messages. Token check
+    // discards messages from prior fades that haven't drained yet.
+    workerHandlerRef.current = (m) => {
+      if (m.token !== myToken) return;
       if (fadeTokenRef.current !== myToken) return;
-      const elapsed = t - startedAt;
-      // Clamp p to [0, 1] — negative p from clock skew makes pow(neg, frac)=NaN
-      // which throws when assigned to audio.volume, killing the rAF loop.
-      const p = Math.min(1, Math.max(0, elapsed / CROSSFADE_MS));
-      const outV = invSqrt(p);
-      const inV = inCurve(p);
-      outgoing.volume = outV;
-      incoming.volume = inV;
-      tickCount++;
-      if (!midLogged && p >= 0.5) {
-        midLogged = true;
-        console.log(
-          '[radio-debug] CROSSFADE-MID token=' + myToken,
-          'outV=' + outV.toFixed(2),
-          'inV=' + inV.toFixed(2),
-          'out.paused=' + outgoing.paused,
-          'in.paused=' + incoming.paused,
-        );
+      if (m.type === 'tick' && typeof m.elapsedMs === 'number') {
+        // Clamp p to [0, 1] — negative p from clock skew makes pow(neg, frac)=NaN
+        // which throws when assigned to audio.volume.
+        const p = Math.min(1, Math.max(0, m.elapsedMs / CROSSFADE_MS));
+        const outV = invSqrt(p);
+        const inV = inCurve(p);
+        outgoing.volume = outV;
+        incoming.volume = inV;
+        tickCount++;
+        if (!midLogged && p >= 0.5) {
+          midLogged = true;
+          console.log(
+            '[radio-debug] CROSSFADE-MID token=' + myToken,
+            'outV=' + outV.toFixed(2),
+            'inV=' + inV.toFixed(2),
+            'out.paused=' + outgoing.paused,
+            'in.paused=' + incoming.paused,
+          );
+        }
+        return;
       }
-      if (p < 1) {
-        crossfadeRafRef.current = requestAnimationFrame(tick);
-      } else {
+      if (m.type === 'done') {
         finish();
       }
     };
-    crossfadeRafRef.current = requestAnimationFrame(tick);
+
+    if (workerRef.current) {
+      workerRef.current.postMessage({ type: 'start', token: myToken, durationMs: CROSSFADE_MS, tickHz: 60 });
+    }
+    // Watchdog: forces finish if the worker timer overran or the worker
+    // failed to instantiate above. In the no-worker fallback, this becomes
+    // the fade's only completion path — a 5500ms hard cut.
     crossfadeWatchdogRef.current = setTimeout(() => {
-      if (crossfadeInFlightRef.current) {
+      if (crossfadeInFlightRef.current && fadeTokenRef.current === myToken) {
         finish();
       }
     }, CROSSFADE_MS + 500);
@@ -758,8 +795,12 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     return () => {
       if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
       if (preloadTimerRef.current) clearTimeout(preloadTimerRef.current);
-      if (crossfadeRafRef.current !== null) cancelAnimationFrame(crossfadeRafRef.current);
       if (crossfadeWatchdogRef.current) clearTimeout(crossfadeWatchdogRef.current);
+      if (workerRef.current) {
+        try { workerRef.current.terminate(); } catch { /* ignore */ }
+        workerRef.current = null;
+      }
+      workerHandlerRef.current = null;
       const a = audioARef.current;
       const b = audioBRef.current;
       try { a?.pause(); } catch { /* ignore */ }
