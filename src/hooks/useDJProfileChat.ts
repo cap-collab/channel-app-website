@@ -357,8 +357,7 @@ export function useDJProfileChat({
     }
   }, [username, chatUsernameNormalized, djUsername, userId, djPhotoUrl, isArchivePlayback]);
 
-  // Send a "locked in" message after sustained listening
-  // Posts to DJ chat + channelbroadcast, then increments love count by 1.
+  // Send a "locked in" message after sustained listening.
   // When lockedInMessagesEnabled is false, posts an anonymous "Someone is
   // locked in..." instead of suppressing entirely — the DJ still sees the
   // engagement signal, just without attribution.
@@ -402,32 +401,10 @@ export function useDJProfileChat({
           timestamp: serverTimestamp(),
         }).catch((err) => console.error('Failed to cross-post locked in:', err));
       }
-
-      // Re-engagement clears any prior per-DJ go-live mute (fire-and-forget).
-      if (userId && djUsername) {
-        updateDoc(doc(db, 'users', userId), {
-          goLiveMutes: arrayRemove(djUsername),
-        }).catch(() => {});
-      }
-
-      // Increment love count by 1 if user already has a love message (no new visible message)
-      if (currentLoveMessageIdRef.current) {
-        await updateDoc(
-          doc(db, 'chats', chatUsernameNormalized, 'messages', currentLoveMessageIdRef.current),
-          { heartCount: increment(1), timestamp: serverTimestamp() }
-        );
-        if (shouldCrossPost && currentLoveBroadcastMessageIdRef.current) {
-          updateDoc(
-            doc(db, 'chats', 'channelbroadcast', 'messages', currentLoveBroadcastMessageIdRef.current),
-            { heartCount: increment(1), timestamp: serverTimestamp() }
-          ).catch(() => {});
-        }
-      }
-
     } catch (err) {
       console.error('Failed to send locked in:', err);
     }
-  }, [username, chatUsernameNormalized, djUsername, lockedInMessagesEnabled, userId]);
+  }, [username, chatUsernameNormalized, djUsername, lockedInMessagesEnabled]);
 
   return {
     messages,

@@ -454,7 +454,7 @@ export function SettingsClient() {
               <div className="bg-[#1a1a1a] rounded divide-y divide-gray-800">
                 <div className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-white font-medium">Show going live</p>
+                    <p className="text-white font-medium">Artists on watchlist going live</p>
                     <p className="text-gray-500 text-sm">
                       Email when your saved shows go live
                     </p>
@@ -523,6 +523,7 @@ export function SettingsClient() {
             </section>
 
             {/* Newsletter & Updates section (marketing) */}
+            {isDJ(role) && (
             <section>
               <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
                 Newsletter & Updates
@@ -530,53 +531,31 @@ export function SettingsClient() {
               <div className="bg-[#1a1a1a] rounded divide-y divide-gray-800">
                 <div className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-white font-medium">Curated for you</p>
+                    <p className="text-white font-medium">DJ Insiders</p>
                     <p className="text-gray-500 text-sm">
-                      Bi-weekly email with shows picked for you
+                      Product and marketing updates for DJs
                     </p>
                   </div>
                   <button
-                    onClick={() => handleToggle("watchlistMatch")}
+                    onClick={() => handleToggle("djInsiders")}
                     disabled={saving}
                     className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
-                      notifications.watchlistMatch ? "bg-white" : "bg-gray-700"
+                      notifications.djInsiders ? "bg-white" : "bg-gray-700"
                     }`}
                   >
                     <div
                       className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
-                        notifications.watchlistMatch ? "bg-black translate-x-6" : "bg-gray-400"
+                        notifications.djInsiders ? "bg-black translate-x-6" : "bg-gray-400"
                       }`}
                     />
                   </button>
                 </div>
-                {isDJ(role) && (
-                  <div className="p-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-white font-medium">DJ Insiders</p>
-                      <p className="text-gray-500 text-sm">
-                        Product and marketing updates for DJs
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleToggle("djInsiders")}
-                      disabled={saving}
-                      className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
-                        notifications.djInsiders ? "bg-white" : "bg-gray-700"
-                      }`}
-                    >
-                      <div
-                        className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
-                          notifications.djInsiders ? "bg-black translate-x-6" : "bg-gray-400"
-                        }`}
-                      />
-                    </button>
-                  </div>
-                )}
               </div>
               <p className="text-gray-600 text-xs mt-2 px-1">
                 You can unsubscribe from these emails at any time
               </p>
             </section>
+            )}
 
             {/* Activity messages section */}
             <section>
