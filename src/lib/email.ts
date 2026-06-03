@@ -928,7 +928,7 @@ export async function sendBroadcast48HourReminderEmail({
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
       <tr>
         <td style="padding: 32px;">
-          <p style="margin: 0 0 16px; font-size: 14px; color: #1a1a1a;">
+          <p style="margin: 0 0 16px; font-size: 14px; color: #666;">
             Hi ${djName},
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #ffffff; border: 1px solid #e5e5e5; margin-bottom: 24px;">
@@ -1010,10 +1010,10 @@ export async function sendBroadcast1WeekReminderEmail({
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
       <tr>
         <td style="padding: 32px;">
-          <p style="margin: 0 0 16px; font-size: 14px; color: #1a1a1a;">
+          <p style="margin: 0 0 16px; font-size: 14px; color: #666;">
             Hi ${djName},
           </p>
-          <p style="margin: 0 0 20px; font-size: 14px; color: #1a1a1a;">
+          <p style="margin: 0 0 20px; font-size: 14px; color: #666;">
             Quick reminder — you're live on Channel in 1 week.
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #ffffff; border: 1px solid #e5e5e5;">
@@ -1077,10 +1077,10 @@ export async function sendBroadcast2HourReminderEmail({
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
       <tr>
         <td style="padding: 32px;">
-          <p style="margin: 0 0 16px; font-size: 14px; color: #1a1a1a;">
+          <p style="margin: 0 0 16px; font-size: 14px; color: #666;">
             Hi ${djName},
           </p>
-          <p style="margin: 0 0 20px; font-size: 14px; color: #1a1a1a;">
+          <p style="margin: 0 0 20px; font-size: 14px; color: #666;">
             Your show is coming up soon — time to get set up!
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #ffffff; border: 1px solid #e5e5e5; margin-bottom: 24px;">
