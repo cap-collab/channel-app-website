@@ -928,15 +928,15 @@ export async function sendBroadcast48HourReminderEmail({
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
       <tr>
         <td style="padding: 32px;">
-          <p style="margin: 0 0 16px; font-size: 16px; color: #1a1a1a;">
+          <p style="margin: 0 0 16px; font-size: 14px; color: #1a1a1a;">
             Hi ${djName},
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #ffffff; border: 1px solid #e5e5e5; margin-bottom: 24px;">
             <tr>
               <td style="padding: 16px;">
-                <p style="margin: 0 0 4px; font-size: 16px; font-weight: 700; color: #1a1a1a;">${showName}</p>
-                <p style="margin: 0 0 2px; font-size: 14px; color: #666;">${startTime}</p>
-                <p style="margin: 0; font-size: 14px; color: #666;">${timeRange}</p>
+                <p style="margin: 0 0 4px; font-size: 14px; font-weight: 700; color: #1a1a1a;">${showName}</p>
+                <p style="margin: 0 0 2px; font-size: 14px; color: #1a1a1a;">${startTime}</p>
+                <p style="margin: 0; font-size: 14px; color: #1a1a1a;">${timeRange}</p>
               </td>
             </tr>
           </table>
@@ -945,16 +945,16 @@ export async function sendBroadcast48HourReminderEmail({
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; <strong>Pick a strong image and a good show name.</strong> It's what people see first, and it shapes how your show stands out.</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; <strong>Pick a strong image and a good show name.</strong> It's what people see first, and it shapes how your show stands out.</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Test your audio setup by doing a short recording</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Test your audio setup by doing a short recording</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Click "Prepare to go live" ahead of time to avoid any surprises</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Click "Prepare to go live" ahead of time to avoid any surprises</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG and tag us <a href="https://www.instagram.com/channelrad.io" style="color: #555; text-decoration: underline;">@channelrad.io</a></td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Share it on IG and tag us <a href="https://www.instagram.com/channelrad.io" style="color: #555; text-decoration: underline;">@channelrad.io</a></td>
             </tr>
           </table>
           <p style="margin: 24px 0 12px; font-size: 14px; color: #666;">
@@ -1010,18 +1010,18 @@ export async function sendBroadcast1WeekReminderEmail({
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
       <tr>
         <td style="padding: 32px;">
-          <p style="margin: 0 0 16px; font-size: 16px; color: #1a1a1a;">
+          <p style="margin: 0 0 16px; font-size: 14px; color: #1a1a1a;">
             Hi ${djName},
           </p>
-          <p style="margin: 0 0 20px; font-size: 16px; color: #1a1a1a;">
+          <p style="margin: 0 0 20px; font-size: 14px; color: #1a1a1a;">
             Quick reminder — you're live on Channel in 1 week.
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #ffffff; border: 1px solid #e5e5e5;">
             <tr>
               <td style="padding: 16px;">
-                <p style="margin: 0 0 4px; font-size: 16px; font-weight: 700; color: #1a1a1a;">${showName}</p>
-                <p style="margin: 0 0 2px; font-size: 14px; color: #666;">${startTime}</p>
-                <p style="margin: 0; font-size: 14px; color: #666;">${timeRange}</p>
+                <p style="margin: 0 0 4px; font-size: 14px; font-weight: 700; color: #1a1a1a;">${showName}</p>
+                <p style="margin: 0 0 2px; font-size: 14px; color: #1a1a1a;">${startTime}</p>
+                <p style="margin: 0; font-size: 14px; color: #1a1a1a;">${timeRange}</p>
               </td>
             </tr>
           </table>
@@ -1077,18 +1077,18 @@ export async function sendBroadcast2HourReminderEmail({
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
       <tr>
         <td style="padding: 32px;">
-          <p style="margin: 0 0 16px; font-size: 16px; color: #1a1a1a;">
+          <p style="margin: 0 0 16px; font-size: 14px; color: #1a1a1a;">
             Hi ${djName},
           </p>
-          <p style="margin: 0 0 20px; font-size: 16px; color: #1a1a1a;">
+          <p style="margin: 0 0 20px; font-size: 14px; color: #1a1a1a;">
             Your show is coming up soon — time to get set up!
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #ffffff; border: 1px solid #e5e5e5; margin-bottom: 24px;">
             <tr>
               <td style="padding: 16px;">
-                <p style="margin: 0 0 4px; font-size: 16px; font-weight: 700; color: #1a1a1a;">${showName}</p>
-                <p style="margin: 0 0 2px; font-size: 14px; color: #666;">${startTime}</p>
-                <p style="margin: 0; font-size: 14px; color: #666;">${timeRange}</p>
+                <p style="margin: 0 0 4px; font-size: 14px; font-weight: 700; color: #1a1a1a;">${showName}</p>
+                <p style="margin: 0 0 2px; font-size: 14px; color: #1a1a1a;">${startTime}</p>
+                <p style="margin: 0; font-size: 14px; color: #1a1a1a;">${timeRange}</p>
               </td>
             </tr>
           </table>
@@ -1097,13 +1097,13 @@ export async function sendBroadcast2HourReminderEmail({
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Check your audio levels before going live and during your show. If the signal gets too hot, it can cause clipping and glitches in the recording.</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Check your audio levels before going live and during your show. If the signal gets too hot, it can cause clipping and glitches in the recording.</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Select Stereo stream optimization if you're sending a stereo signal from your interface.</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Select Stereo stream optimization if you're sending a stereo signal from your interface.</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Reach out if you have any questions or doubts: email, channel chat, text, or IG. I'll be here, locked in with you.</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Reach out if you have any questions or doubts: email, channel chat, text, or IG. I'll be here, locked in with you.</td>
             </tr>
           </table>
           <p style="margin: 24px 0 12px; font-size: 14px; color: #666;">
