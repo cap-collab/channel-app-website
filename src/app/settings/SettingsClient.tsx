@@ -293,7 +293,7 @@ export function SettingsClient() {
                   <div>
                     <p className="text-white font-medium">City</p>
                     <p className="text-gray-500 text-sm">
-                      Filter shows and DJs near you
+                      Filter shows and Artists near you
                     </p>
                   </div>
                   <div className="relative" ref={cityDropdownRef}>
@@ -430,9 +430,9 @@ export function SettingsClient() {
                 <div className="bg-[#1a1a1a] rounded p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-white font-medium">Upgrade to DJ</p>
+                      <p className="text-white font-medium">Upgrade to Artist</p>
                       <p className="text-gray-500 text-sm">
-                        Build your DJ profile and host your show on Channel
+                        Build your Artist profile and host your show on Channel
                       </p>
                     </div>
                     <Link
@@ -531,9 +531,9 @@ export function SettingsClient() {
               <div className="bg-[#1a1a1a] rounded divide-y divide-gray-800">
                 <div className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-white font-medium">DJ Insiders</p>
+                    <p className="text-white font-medium">Artist Insiders</p>
                     <p className="text-gray-500 text-sm">
-                      Product and marketing updates for DJs
+                      Product and marketing updates for Artists
                     </p>
                   </div>
                   <button
