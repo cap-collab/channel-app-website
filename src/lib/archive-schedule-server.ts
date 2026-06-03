@@ -889,7 +889,13 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
     }
     if (anchorArchiveIdx > 0 && result.items[anchorArchiveIdx - 1].kind === 'interstitial') {
       const anchorInterludeOffset = result.items[anchorArchiveIdx - 1].startOffsetSec;
-      startTimeMs = plan.anchor.endTimeMs - anchorInterludeOffset * 1000;
+      // +2s warmup: the listener-side audio source switch (live → radio) takes
+      // ~2s (Rule B's 2s debounce + audio element load). Push the anchor
+      // interlude's audible start to anchor.endTimeMs + 2s so the listener
+      // lands at interlude offset 0 after switching sources, hearing the
+      // full interlude before the normal 5s crossfade into the curated archive.
+      const ANCHOR_WARMUP_MS = 2000;
+      startTimeMs = plan.anchor.endTimeMs + ANCHOR_WARMUP_MS - anchorInterludeOffset * 1000;
     }
   }
   // Small overlap with the previous loop is intentional: useArchiveRadio
