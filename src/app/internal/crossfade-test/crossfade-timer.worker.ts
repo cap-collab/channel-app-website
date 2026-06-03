@@ -39,7 +39,7 @@ const stopTimer = () => {
 self.onmessage = (e: MessageEvent<InMsg>) => {
   const msg = e.data;
   if (msg.type === 'start') {
-    stop();
+    stopTimer();
     currentToken = msg.token;
     durationMs = msg.durationMs;
     startedAt = performance.now();
@@ -48,14 +48,14 @@ self.onmessage = (e: MessageEvent<InMsg>) => {
       const elapsed = performance.now() - startedAt;
       post({ type: 'tick', token: currentToken, elapsedMs: elapsed });
       if (elapsed >= durationMs) {
-        stop();
+        stopTimer();
         post({ type: 'done', token: currentToken });
       }
     }, periodMs);
     return;
   }
   if (msg.type === 'cancel') {
-    if (msg.token === currentToken) stop();
+    if (msg.token === currentToken) stopTimer();
     return;
   }
 };
