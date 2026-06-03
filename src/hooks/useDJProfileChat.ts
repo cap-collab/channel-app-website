@@ -5,6 +5,7 @@ import { getFirestore, collection, query, orderBy, limit, onSnapshot, addDoc, se
 import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { ChatMessageSerialized } from '@/types/broadcast';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -276,6 +277,10 @@ export function useDJProfileChat({
           console.log('[recordLoveHistory] Existing doc exists:', existing.exists());
           const data: Record<string, unknown> = {
             djUsername,
+            // Canonical form the go-live cron queries against. Matches
+            // chatUsernameNormalized. djUsername stays as the display form
+            // for the UI.
+            djUsernameNormalized: normalizeUsername(djUsername),
             djDisplayName: djUsername,
             djPhotoUrl: djPhotoUrl || null,
             loveCount: increment(1),

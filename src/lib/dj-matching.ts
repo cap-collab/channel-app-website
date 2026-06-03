@@ -12,6 +12,14 @@ export function normalizeName(name: string): string {
   return name.toLowerCase().trim();
 }
 
+// Canonical username form. Matches the rule used when chatUsernameNormalized
+// is written in src/app/api/chat/register-username/route.ts: strip spaces and
+// hyphens, lowercase. ANY field meant to match chatUsernameNormalized at query
+// time MUST be produced by this function.
+export function normalizeUsername(name: string): string {
+  return name.replace(/[\s-]+/g, "").toLowerCase();
+}
+
 /**
  * Check if searchTerm appears as a whole word in text (word boundary match).
  * Case-insensitive.

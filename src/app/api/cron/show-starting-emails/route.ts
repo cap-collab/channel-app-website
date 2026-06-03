@@ -581,10 +581,11 @@ export async function GET(request: NextRequest) {
     for (const djUsername of Array.from(allRelatedUsernames)) {
       const engaged = new Set<string>();
 
-      // Hearters (loveHistory subcollection)
+      // Hearters (loveHistory subcollection). djUsernameNormalized is the
+      // canonical field; queries match chatUsernameNormalized exactly.
       const heartDocs = await queryCollectionGroup(
         "loveHistory",
-        [{ field: "djUsername", op: "EQUAL", value: djUsername }],
+        [{ field: "djUsernameNormalized", op: "EQUAL", value: djUsername }],
         5000,
       );
       for (const d of heartDocs) {
@@ -592,10 +593,10 @@ export async function GET(request: NextRequest) {
         if (parts.length >= 2 && parts[0] === "users") engaged.add(parts[1]);
       }
 
-      // Streamers (streamHistory subcollection — flat djUsernames array)
+      // Streamers (streamHistory subcollection — flat djUsernamesNormalized array)
       const streamDocs = await queryCollectionGroup(
         "streamHistory",
-        [{ field: "djUsernames", op: "ARRAY_CONTAINS", value: djUsername }],
+        [{ field: "djUsernamesNormalized", op: "ARRAY_CONTAINS", value: djUsername }],
         5000,
       );
       for (const d of streamDocs) {

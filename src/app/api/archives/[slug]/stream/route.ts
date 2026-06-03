@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 export async function POST(
   request: Request,
@@ -73,6 +74,14 @@ export async function POST(
           new Set(
             djsArr
               .map((d) => (d.username || '').toString().trim())
+              .filter((u) => u.length > 0),
+          ),
+        ),
+        // Canonical form for go-live cron queries (matches chatUsernameNormalized).
+        djUsernamesNormalized: Array.from(
+          new Set(
+            djsArr
+              .map((d) => normalizeUsername((d.username || '').toString().trim()))
               .filter((u) => u.length > 0),
           ),
         ),
