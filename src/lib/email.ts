@@ -957,10 +957,10 @@ export async function sendBroadcast48HourReminderEmail({
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Share it on IG and tag us <a href="https://www.instagram.com/channelrad.io" style="color: #555; text-decoration: underline;">@channelrad.io</a></td>
             </tr>
           </table>
-          <p style="margin: 24px 0 12px; font-size: 16px; color: #1a1a1a;">
+          <p style="margin: 24px 0 12px; font-size: 14px; color: #666;">
             Something come up? No stress, just let me know.
           </p>
-          <p style="margin: 0; font-size: 16px; color: #1a1a1a;">
+          <p style="margin: 0; font-size: 14px; color: #666;">
             I'd much rather reschedule than have you feel pressured to make it happen. The priority is always for you to be in a good place and genuinely excited about doing the show.
           </p>
           <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
@@ -1025,10 +1025,10 @@ export async function sendBroadcast1WeekReminderEmail({
               </td>
             </tr>
           </table>
-          <p style="margin: 24px 0 12px; font-size: 16px; color: #1a1a1a;">
+          <p style="margin: 24px 0 12px; font-size: 14px; color: #666;">
             Something come up? No stress, just let me know.
           </p>
-          <p style="margin: 0; font-size: 16px; color: #1a1a1a;">
+          <p style="margin: 0; font-size: 14px; color: #666;">
             I'd much rather reschedule than have you feel pressured to make it happen. The priority is always for you to be in a good place and genuinely excited about doing the show.
           </p>
           <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
@@ -1106,7 +1106,7 @@ export async function sendBroadcast2HourReminderEmail({
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #666;">&#8226; Reach out if you have any questions or doubts: email, channel chat, text, or IG. I'll be here, locked in with you.</td>
             </tr>
           </table>
-          <p style="margin: 24px 0 12px; font-size: 14px; color: #1a1a1a;">
+          <p style="margin: 24px 0 12px; font-size: 14px; color: #666;">
             Using a different computer today? Your private broadcast link works without logging in. Just open the link below and you're ready to stream.
           </p>
           <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 8px;">
