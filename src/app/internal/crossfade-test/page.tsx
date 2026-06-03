@@ -6,10 +6,12 @@ import { InterludeSlide } from '@/components/channel/ArchiveHero';
 // Mirrors the prod radio path: dual <audio> elements (A and B) with the
 // standby preloading the next item. When the crossfade toggle is OFF the
 // boundary is a hard-cut (pause active, play standby). When ON, the boundary
-// starts a 5s overlap with per-transition volume curves:
-//   archive → interlude: outgoing fades (1-p)² (fast drop), incoming peakTaper
-//   interlude → archive: outgoing fades √(1-p), incoming smoothstep
-//   (archive → archive uses equal-power √ on both sides; not exercised here.)
+// starts a 5s overlap with per-transition volume curves matching prod:
+//   outgoing always invSqrt
+//   incoming smoothstep when bringing an archive in over an interlude
+//   incoming sqrt (equal-power) otherwise
+// Interludes are loudness-normalized at upload (reference_interlude_normalize)
+// so no peak-gain caps are applied.
 //
 // The auto-pause-non-active guard is GATED by crossfadeInFlightRef so both
 // elements are allowed to play during the 5s overlap.
@@ -23,15 +25,18 @@ const ARCHIVE_A_DURATION_SEC = 3594;
 const ARCHIVE_B_URL =
   'https://media.channel-app.com/recordings/channel-radio/channel-radio-2026-05-08T230009.mp4';
 
+// Snapshot of the prod `interstitials` collection — keep in sync with what
+// listeners actually hear. Pulled fresh via list-interludes-throwaway.ts on
+// 2026-06-02. All URLs are the -normalized-v2 loudness-normalized versions
+// (see reference_interlude_normalize) so the test page exercises the same
+// audible target as prod.
 const INTERLUDES = [
-  { label: 'berlin clubs', durationSec: 18, url: 'https://media.channel-app.com/interludes/berlin-clubs-1780101591578.m4a' },
-  { label: 'my mom is a big fat bitch', durationSec: 27, url: 'https://media.channel-app.com/interludes/my-mom-is-a-big-fat-bitch-1780101844012.m4a' },
-  { label: 'weed convo birds', durationSec: 24, url: 'https://media.channel-app.com/interludes/weed-convo-birds-1779973930315.m4a' },
-  { label: 'toilet therapist', durationSec: 23, url: 'https://media.channel-app.com/interludes/toilet-therapist-1779907421108.m4a' },
-  { label: 'water refill smoking area', durationSec: 20, url: 'https://media.channel-app.com/interludes/water-refill-smoking-area-1779973923793.m4a' },
+  { label: 'berlin clubs', durationSec: 19, url: 'https://media.channel-app.com/interludes/berlin-clubs-1780101591578-normalized-v2.m4a' },
+  { label: 'my mom is a big fat bitch', durationSec: 28, url: 'https://media.channel-app.com/interludes/my-mom-is-a-big-fat-bitch-1780101844012-normalized-v2.m4a' },
+  { label: 'toilet therapist', durationSec: 23, url: 'https://media.channel-app.com/interludes/toilet-therapist-1779907421108-normalized-v2.m4a' },
+  { label: 'water refill smoking area', durationSec: 20, url: 'https://media.channel-app.com/interludes/water-refill-smoking-area-1779973923793-normalized-v2.m4a' },
+  { label: 'weed convo birds', durationSec: 24, url: 'https://media.channel-app.com/interludes/weed-convo-birds-1779973930315-normalized-v2.m4a' },
 ];
-
-const INTERLUDE_GAIN = 0.6;
 const CROSSFADE_MS = 5000;
 // Seconds of archive A before the fade STARTS. With crossfade ON the fade
 // runs from A_PRE_SEC to A_PRE_SEC + 5s; with crossfade OFF the hard-cut
@@ -40,29 +45,13 @@ const A_PRE_SEC = 10;
 
 type Stage = 'idle' | 'archive-a' | 'interlude' | 'archive-b' | 'done';
 
-// Curve fns (pure). p in [0, 1].
+// Curve fns (pure). p in [0, 1]. Match prod (useArchiveRadio.runCrossfade):
+// outgoing always uses invSqrt; incoming uses smoothstep for interlude→archive
+// (gentler music kick-in over speech) and sqrtCurve otherwise (equal-power).
+// No peak/target gain caps — interludes are loudness-normalized at upload
+// (reference_interlude_normalize) so they match archive volume natively.
 const sqrt = (p: number) => Math.sqrt(p);
 const invSqrt = (p: number) => Math.sqrt(1 - p);
-// Incoming-interlude curve for archive→interlude transition. Targets
-// (multiplied by incomingTargetGain=INTERLUDE_GAIN=0.6):
-//   p=0   → 0.33 (audible kick-in at 0.20 absolute, no silent fade-in)
-//   p=0.4 → 0.83 (loud-ish peak at 2s, absolute 0.50)
-//   p=1   → 1.00 (steady-state 0.60 by fade end)
-// Two-segment: sublinear ramp up to PEAK_P, smoothstep gentle climb to 1.
-const INTERLUDE_START_FRAC = 0.33;
-const INTERLUDE_PEAK_FRAC = 0.83;
-const PEAK_P = 0.4;
-const peakTaper = (p: number): number => {
-  if (p <= PEAK_P) {
-    const local = p / PEAK_P; // 0..1
-    // pow(local, 0.6) is sublinear — climbs fast early then eases into peak.
-    return INTERLUDE_START_FRAC + (INTERLUDE_PEAK_FRAC - INTERLUDE_START_FRAC) * Math.pow(local, 0.6);
-  }
-  const local = (p - PEAK_P) / (1 - PEAK_P); // 0..1
-  // Smoothstep gentle climb from peak fraction to 1.0.
-  const ease = local * local * (3 - 2 * local);
-  return INTERLUDE_PEAK_FRAC + (1 - INTERLUDE_PEAK_FRAC) * ease;
-};
 const smoothstep = (p: number): number => p * p * (3 - 2 * p);
 
 export default function CrossfadeTestPage() {
@@ -259,28 +248,21 @@ export default function CrossfadeTestPage() {
     }
   };
 
-  // Pick curves for a transition.
-  // Returns: outCurve(p), inCurve(p), outgoingPeakGain (cap on outgoing's
-  // starting volume), incomingTargetGain (volume to snap incoming to at end).
+  // Pick curves for a transition. Matches prod (useArchiveRadio.runCrossfade):
+  // outgoing always invSqrt; incoming uses smoothstep when the incoming kind
+  // is archive AND the outgoing kind is interlude (music kick-in over speech),
+  // sqrt (equal-power) otherwise.
   const curvesFor = (
     outgoingKind: 'archive' | 'interlude',
     incomingKind: 'archive' | 'interlude',
   ): {
     outCurve: (p: number) => number;
     inCurve: (p: number) => number;
-    outgoingPeakGain: number;
-    incomingTargetGain: number;
   } => {
-    if (outgoingKind === 'archive' && incomingKind === 'interlude') {
-      // archive→interlude: invSqrt outgoing (matches interlude→archive).
-      // Earlier quad curve dropped too fast — overlap felt like a hard cut.
-      return { outCurve: invSqrt, inCurve: peakTaper, outgoingPeakGain: 1, incomingTargetGain: INTERLUDE_GAIN };
-    }
     if (outgoingKind === 'interlude' && incomingKind === 'archive') {
-      return { outCurve: invSqrt, inCurve: smoothstep, outgoingPeakGain: INTERLUDE_GAIN, incomingTargetGain: 1 };
+      return { outCurve: invSqrt, inCurve: smoothstep };
     }
-    // archive ↔ archive: equal-power.
-    return { outCurve: invSqrt, inCurve: sqrt, outgoingPeakGain: 1, incomingTargetGain: 1 };
+    return { outCurve: invSqrt, inCurve: sqrt };
   };
 
   // 5s overlapping crossfade. Outgoing keeps playing while incoming ramps up.
@@ -292,8 +274,6 @@ export default function CrossfadeTestPage() {
     incoming: HTMLAudioElement,
     outCurve: (p: number) => number,
     inCurve: (p: number) => number,
-    outgoingPeakGain: number,
-    incomingTargetGain: number,
     label: string,
     onFinish?: () => void,
   ) => {
@@ -373,9 +353,9 @@ export default function CrossfadeTestPage() {
       if (workerHandlerRef.current) workerHandlerRef.current = null;
       try { outgoing.pause(); } catch { /* noop */ }
       outgoing.volume = 0;
-      incoming.volume = incomingTargetGain;
-      if (inLabel === 'A') { setAVol(incomingTargetGain); setBVol(0); }
-      else { setAVol(0); setBVol(incomingTargetGain); }
+      incoming.volume = 1;
+      if (inLabel === 'A') { setAVol(1); setBVol(0); }
+      else { setAVol(0); setBVol(1); }
       crossfadeInFlightRef.current = false;
       append(`CROSSFADE-END (${reason}, token ${myToken}) — guard re-armed`);
       if (onFinish) {
@@ -388,8 +368,8 @@ export default function CrossfadeTestPage() {
     // Shared by both the worker-driven and rAF-driven paths.
     const applyProgress = (p: number, nowMs: number) => {
       const cp = Math.min(1, Math.max(0, p));
-      const outV = outCurve(cp) * outgoingPeakGain;
-      const inV = inCurve(cp) * incomingTargetGain;
+      const outV = outCurve(cp);
+      const inV = inCurve(cp);
       outgoing.volume = outV;
       incoming.volume = inV;
       if (which(outgoing) === 'A') { setAVol(outV); setBVol(inV); }
@@ -488,9 +468,9 @@ export default function CrossfadeTestPage() {
       return;
     }
     const outgoingKind: 'archive' | 'interlude' = stage === 'interlude' ? 'interlude' : 'archive';
-    const { outCurve, inCurve, outgoingPeakGain, incomingTargetGain } = curvesFor(outgoingKind, incomingKind);
+    const { outCurve, inCurve } = curvesFor(outgoingKind, incomingKind);
     void nextGain;
-    runCrossfade(outgoing, incoming, outCurve, inCurve, outgoingPeakGain, incomingTargetGain, label, onFinish);
+    runCrossfade(outgoing, incoming, outCurve, inCurve, label, onFinish);
   };
 
   const start = async () => {
@@ -529,7 +509,7 @@ export default function CrossfadeTestPage() {
     // is enough). Fire immediately in the gesture chain so iOS pre-fetches
     // while archive A starts playing.
     void preloadStandby(interlude.url, `interlude "${interlude.label}"`, 'interlude');
-    nextItemRef.current = { url: interlude.url, gain: INTERLUDE_GAIN, label: interlude.label, kind: 'interlude' };
+    nextItemRef.current = { url: interlude.url, gain: 1, label: interlude.label, kind: 'interlude' };
 
     // Mirror prod: stub MediaSession dedupe write.
     const sig = `radio|archive A| `;
@@ -723,7 +703,6 @@ export default function CrossfadeTestPage() {
             <li>Interlude duration: {INTERLUDES[interludeIdx].durationSec}s</li>
             <li>Archive B: {ARCHIVE_B_URL}</li>
             <li>CROSSFADE_MS: {CROSSFADE_MS}</li>
-            <li>INTERLUDE_GAIN: {INTERLUDE_GAIN}</li>
           </ul>
         </details>
       </div>
