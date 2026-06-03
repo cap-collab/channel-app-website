@@ -525,24 +525,28 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
 
   // Interlude picker: round-robin through ONE shuffled order. Every interlude
   // plays once before any repeats; the order is the same throughout the loop
-  // (e.g. A B C D A B C D A B C D…). Simpler than reshuffling each cycle,
-  // and visually predictable.
+  // (e.g. A B C D A B C D A B C D…).
+  //
+  // CRITICAL: pick interludes ONLY when finalising the array, in left-to-right
+  // order. Earlier code picked startInterlude (pick 0) and anchorInterlude
+  // (pick 1) up front before assembly, which placed pool[1] in the MIDDLE of
+  // the array while the interleaves filled left-to-right with pool[2, 3, ...].
+  // That created A,arc,A duplicates near the anchor when preLen ≡ 0 (mod L).
+  // The placeholder + finalise pass keeps every picked index sequential in
+  // the final array.
   const interstitialPool = opts.interstitials ?? [];
   const shuffledInterludes = interstitialPool.length > 0 ? shuffle(interstitialPool, rng) : [];
-  let interludeCursor = 0;
-  const pickInterstitial = (): ScheduleItem | null => {
-    if (shuffledInterludes.length === 0) return null;
-    const ix = shuffledInterludes[interludeCursor % shuffledInterludes.length];
-    interludeCursor++;
-    return {
-      kind: 'interstitial',
-      interstitialId: ix.id,
-      recordingUrl: ix.url,
-      durationSec: ix.durationSec,
-      startOffsetSec: 0, // recomputed cumulatively below
-      title: ix.label,
-    };
-  };
+  // Sentinel for an interlude slot to be filled in the finalise pass. The
+  // assembly + interleave passes only inspect `kind`, so a placeholder behaves
+  // like a real interlude during assembly. The finalise pass replaces each
+  // placeholder with a real pool pick in left-to-right order.
+  const PLACEHOLDER_URL = '__placeholder__';
+  const interludePlaceholder = (): ScheduleItem => ({
+    kind: 'interstitial',
+    recordingUrl: PLACEHOLDER_URL,
+    durationSec: 0,
+    startOffsetSec: 0,
+  });
 
   // Anchor placement. Two modes:
   //   A) opts.preAnchorArchiveIds is set → cron picked a specific subset to
@@ -568,10 +572,8 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     preAnchorItems = spaceSameDj(preAnchorItems);
   }
 
-  let anchorInterlude: ScheduleItem | null = null;
   let anchorArchive: ScheduleItem | null = null;
   if (anchor) {
-    anchorInterlude = pickInterstitial();
     if (anchor.curatedArchiveId) {
       const idx = items.findIndex((it) => it.archiveId === anchor.curatedArchiveId);
       if (idx >= 0) {
@@ -600,17 +602,15 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     postAnchorItems = spaceSameDj(postAnchorItems);
   }
 
-  // Every loop starts with an interlude at position 0 (per cron contract).
-  const startInterlude = pickInterstitial();
-
-  // Assemble. Order:
-  //   [startInterlude, preAnchorItems, anchorInterlude, anchorArchive,
-  //    postAnchorItems (short-mode only) OR rest-of-catalog (long-mode)].
-  let interstitialCount = 0;
+  // Assemble with placeholder interludes. Order:
+  //   [startInterlude(placeholder), preAnchorItems,
+  //    anchorInterlude(placeholder), anchorArchive,
+  //    postAnchorItems (short-mode) OR rest-of-catalog (long-mode)].
   const assembled: ScheduleItem[] = [];
-  if (startInterlude) { assembled.push(startInterlude); interstitialCount++; }
+  const usingInterludes = interstitialPool.length > 0;
+  if (usingInterludes) assembled.push(interludePlaceholder());
   for (const it of preAnchorItems) assembled.push(it);
-  if (anchorInterlude) { assembled.push(anchorInterlude); interstitialCount++; }
+  if (anchor && usingInterludes) assembled.push(interludePlaceholder());
   if (anchorArchive) assembled.push(anchorArchive);
   if (postAnchorIds) {
     // Short mode with explicit tail — drop unused catalog items.
@@ -620,20 +620,43 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   }
   items = assembled;
 
-  // Interleave one interstitial between every pair of consecutive archive
-  // entries (skips when previous is already an interlude).
-  if (interstitialPool.length > 0 && items.length > 1) {
+  // Interleave placeholder interludes between every pair of consecutive
+  // archive entries. Real pool picks happen in the finalise pass below.
+  if (usingInterludes && items.length > 1) {
     const withInterludes: ScheduleItem[] = [];
     for (let i = 0; i < items.length; i++) {
       withInterludes.push(items[i]);
       const cur = items[i];
       const nxt = i < items.length - 1 ? items[i + 1] : null;
       if (nxt && cur.kind === 'archive' && nxt.kind === 'archive') {
-        const ins = pickInterstitial();
-        if (ins) { withInterludes.push(ins); interstitialCount++; }
+        withInterludes.push(interludePlaceholder());
       }
     }
     items = withInterludes;
+  }
+
+  // Finalise pass: walk the final array left-to-right and fill each
+  // interlude placeholder with pool[cursor++]. This keeps the pool's
+  // round-robin order aligned with the listener's left-to-right experience,
+  // so the same interlude can't appear with only one archive between picks
+  // unless the pool length itself is 1.
+  let interstitialCount = 0;
+  if (usingInterludes) {
+    let cursor = 0;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].recordingUrl !== PLACEHOLDER_URL) continue;
+      const ix = shuffledInterludes[cursor % shuffledInterludes.length];
+      cursor++;
+      items[i] = {
+        kind: 'interstitial',
+        interstitialId: ix.id,
+        recordingUrl: ix.url,
+        durationSec: ix.durationSec,
+        startOffsetSec: 0,
+        title: ix.label,
+      };
+      interstitialCount++;
+    }
   }
 
   // Listener-side crossfade overlap: each transition compresses the schedule
@@ -660,16 +683,28 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     }
     if (keepUntilIdx < items.length) {
       items = items.slice(0, keepUntilIdx);
-    } else if (cursor < cap) {
+    } else if (cursor < cap && usingInterludes) {
+      // Catalog tail repeats with a separator interlude. The finalise pass
+      // already ran; pick directly from shuffledInterludes here with a cursor
+      // continuing from where finalise left off so we don't restart the
+      // round-robin mid-loop.
+      let sepCursor = interstitialCount;
       const catalogTail = items.slice();
       let pass = 0;
       while (cursor < cap && pass < 5) {
-        const sep = pickInterstitial();
-        if (sep) {
-          items.push(sep);
-          cursor += sep.durationSec - CROSSFADE_SEC;
-          interstitialCount++;
-        }
+        const ix = shuffledInterludes[sepCursor % shuffledInterludes.length];
+        sepCursor++;
+        const sep: ScheduleItem = {
+          kind: 'interstitial',
+          interstitialId: ix.id,
+          recordingUrl: ix.url,
+          durationSec: ix.durationSec,
+          startOffsetSec: 0,
+          title: ix.label,
+        };
+        items.push(sep);
+        cursor += sep.durationSec - CROSSFADE_SEC;
+        interstitialCount++;
         for (const it of catalogTail) {
           if (cursor >= cap) break;
           items.push({ ...it });
