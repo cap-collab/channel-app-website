@@ -227,29 +227,20 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
     return matching.map((g) => g.toUpperCase()).join(' + ');
   }, [getMatchingGenres]);
 
-  // Sort archives by priority and genre match
-  // - No genre filter: high priority first, medium next, low last
-  // - Genre filter: high+genre match first, then medium+genre match, then no
-  //   match; low priority always sits at the very bottom
-  // Within every tier, archives stay ordered most-recent-first.
+  // Sort archives chronologically (most recent first). With a genre filter
+  // active, matching archives float to the top, ordered by match count then
+  // recency; unmatched fall to the bottom in recency order.
   const { archives, featuredArchive } = useMemo(() => {
     const sourceArchives = rawArchives;
     if (sourceArchives.length === 0) return { archives: sourceArchives, featuredArchive: rawFeaturedArchive };
 
-    const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
-
     if (selectedGenres.length === 0) {
-      // No genre filter: sort by priority tier, preserve date order within each tier
-      const sorted = [...sourceArchives].sort((a, b) => {
-        const pa = PRIORITY_RANK[a.priority || 'medium'] ?? 1;
-        const pb = PRIORITY_RANK[b.priority || 'medium'] ?? 1;
-        if (pa !== pb) return pa - pb;
-        return (b.recordedAt || 0) - (a.recordedAt || 0);
-      });
+      const sorted = [...sourceArchives].sort(
+        (a, b) => (b.recordedAt || 0) - (a.recordedAt || 0)
+      );
       return { archives: sorted, featuredArchive: sorted[0] };
     }
 
-    // Genre filter active: score each archive
     const scored = sourceArchives.map((archive) => {
       let genreScore = 0;
       for (const dj of archive.djs) {
@@ -258,26 +249,13 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
           genreScore += selectedGenres.filter((g) => matchesGenreLib(genres, g)).length;
         }
       }
-      const priority = archive.priority || 'medium';
-      // Sorting bucket:
-      // 0 = high priority + genre match
-      // 1 = medium priority + genre match
-      // 2 = high priority + no genre match
-      // 3 = medium priority + no genre match
-      // 4 = low priority (always last regardless of genre)
-      let bucket: number;
-      if (priority === 'low') {
-        bucket = 4;
-      } else if (genreScore > 0) {
-        bucket = priority === 'high' ? 0 : 1;
-      } else {
-        bucket = priority === 'high' ? 2 : 3;
-      }
-      return { archive, genreScore, bucket };
+      return { archive, genreScore };
     });
 
     scored.sort((a, b) => {
-      if (a.bucket !== b.bucket) return a.bucket - b.bucket;
+      const aMatched = a.genreScore > 0 ? 0 : 1;
+      const bMatched = b.genreScore > 0 ? 0 : 1;
+      if (aMatched !== bMatched) return aMatched - bMatched;
       if (a.genreScore !== b.genreScore) return b.genreScore - a.genreScore;
       return (b.archive.recordedAt || 0) - (a.archive.recordedAt || 0);
     });
