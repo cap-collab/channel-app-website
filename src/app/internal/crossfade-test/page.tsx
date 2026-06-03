@@ -72,9 +72,23 @@ export default function CrossfadeTestPage() {
   const [bVol, setBVol] = useState(0);
   const [interludeIdx, setInterludeIdx] = useState(0);
   const [crossfadeOn, setCrossfadeOn] = useState(true);
+  // When ON, fade gain is driven by WebAudio GainNodes via
+  // linearRampToValueAtTime — runs on the audio thread, survives backgrounded
+  // tabs and locked screens. When OFF, fade gain is driven by rAF setting
+  // audio.volume — freezes when the tab loses focus (the prod bug we're
+  // diagnosing).
+  const [useWebAudio, setUseWebAudio] = useState(true);
 
   const audioARef = useRef<HTMLAudioElement | null>(null);
   const audioBRef = useRef<HTMLAudioElement | null>(null);
+  // WebAudio graph: one AudioContext, one GainNode per <audio> element.
+  // Element → MediaElementAudioSourceNode → GainNode → destination.
+  // Once an element is routed through a MediaElementSource, its native
+  // .volume property no longer affects audible output — the GainNode is the
+  // only volume knob. Created lazily on first user gesture (start()).
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const gainARef = useRef<GainNode | null>(null);
+  const gainBRef = useRef<GainNode | null>(null);
   const activeKeyRef = useRef<'A' | 'B'>('A');
   const boundaryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const crossfadeInFlightRef = useRef(false);
@@ -108,6 +122,9 @@ export default function CrossfadeTestPage() {
       if (crossfadeRafRef.current !== null) cancelAnimationFrame(crossfadeRafRef.current);
       audioARef.current?.pause();
       audioBRef.current?.pause();
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+        void audioCtxRef.current.close().catch(() => { /* noop */ });
+      }
     };
   }, []);
 
@@ -153,6 +170,68 @@ export default function CrossfadeTestPage() {
     if (!audioARef.current) audioARef.current = mkAudio('A');
     if (!audioBRef.current) audioBRef.current = mkAudio('B');
     return { A: audioARef.current!, B: audioBRef.current! };
+  };
+
+  // Lazily create the WebAudio graph. MUST be called inside a user-gesture
+  // handler on iOS — the AudioContext starts suspended and needs .resume()
+  // from a gesture to start producing sound. Once resumed it stays running
+  // for the page lifetime (backgrounded tab + locked screen don't suspend
+  // it). Safe to call multiple times — idempotent.
+  const ensureWebAudio = () => {
+    if (!useWebAudio) return null;
+    const { A, B } = ensureAudio();
+    if (!audioCtxRef.current) {
+      const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!Ctor) {
+        append('WebAudio not supported in this browser');
+        return null;
+      }
+      audioCtxRef.current = new Ctor();
+      append(`AudioContext created (state=${audioCtxRef.current.state})`);
+    }
+    const ctx = audioCtxRef.current;
+    if (!gainARef.current) {
+      try {
+        const src = ctx.createMediaElementSource(A);
+        const g = ctx.createGain();
+        g.gain.value = 1;
+        src.connect(g).connect(ctx.destination);
+        gainARef.current = g;
+        append('A routed through GainNode');
+      } catch (e) {
+        append(`A WebAudio route failed: ${(e as Error)?.name} ${(e as Error)?.message}`);
+      }
+    }
+    if (!gainBRef.current) {
+      try {
+        const src = ctx.createMediaElementSource(B);
+        const g = ctx.createGain();
+        g.gain.value = 0;
+        src.connect(g).connect(ctx.destination);
+        gainBRef.current = g;
+        append('B routed through GainNode');
+      } catch (e) {
+        append(`B WebAudio route failed: ${(e as Error)?.name} ${(e as Error)?.message}`);
+      }
+    }
+    if (ctx.state === 'suspended') {
+      void ctx.resume().then(() => append(`AudioContext resumed (state=${ctx.state})`));
+    }
+    return ctx;
+  };
+
+  // Set the audible volume for an element. In WebAudio mode, write to the
+  // GainNode's .value (instant change); in rAF mode, write to audio.volume.
+  // Used for non-ramp volume changes (hard-cut swap, fade-end snap).
+  const setVol = (el: HTMLAudioElement, v: number) => {
+    const isA = el === audioARef.current;
+    const gain = isA ? gainARef.current : gainBRef.current;
+    if (useWebAudio && gain && audioCtxRef.current) {
+      gain.gain.cancelScheduledValues(audioCtxRef.current.currentTime);
+      gain.gain.value = v;
+    } else {
+      el.volume = v;
+    }
   };
 
   // Preload the standby. Split by item kind:
@@ -207,7 +286,7 @@ export default function CrossfadeTestPage() {
     try { active.pause(); } catch { /* noop */ }
     activeKeyRef.current = activeKeyRef.current === 'A' ? 'B' : 'A';
     try { standby.currentTime = 0; } catch { /* noop */ }
-    standby.volume = nextGain;
+    setVol(standby, nextGain);
     if (activeKeyRef.current === 'A') { setAVol(nextGain); setBVol(0); }
     else { setAVol(0); setBVol(nextGain); }
     const p = standby.play();
@@ -279,11 +358,12 @@ export default function CrossfadeTestPage() {
       crossfadeInFlightRef.current = false;
     }
     const myToken = ++fadeTokenRef.current;
-    append(`CROSSFADE-START outgoing=${which(outgoing)} incoming=${which(incoming)} → ${label} (token ${myToken})`);
+    append(`CROSSFADE-START outgoing=${which(outgoing)} incoming=${which(incoming)} → ${label} (token ${myToken}, mode=${useWebAudio ? 'WebAudio' : 'rAF'})`);
     append(`  fade-start: incoming muted=${incoming.muted} vol=${incoming.volume} ct=${incoming.currentTime.toFixed(3)} paused=${incoming.paused} rs=${incoming.readyState}`);
     crossfadeInFlightRef.current = true;
     try { incoming.currentTime = 0; } catch { /* noop */ }
-    incoming.volume = 0;
+    // Reset incoming volume via the active mode's volume knob.
+    setVol(incoming, 0);
     // Flip active immediately so the rest of the code (and the auto-pause
     // guard) treats the new incoming as active. Both are allowed to play
     // during the overlap because of crossfadeInFlightRef.
@@ -316,8 +396,8 @@ export default function CrossfadeTestPage() {
         crossfadeWatchdogRef.current = null;
       }
       try { outgoing.pause(); } catch { /* noop */ }
-      outgoing.volume = 0;
-      incoming.volume = incomingTargetGain;
+      setVol(outgoing, 0);
+      setVol(incoming, incomingTargetGain);
       if (inLabel === 'A') { setAVol(incomingTargetGain); setBVol(0); }
       else { setAVol(0); setBVol(incomingTargetGain); }
       crossfadeInFlightRef.current = false;
@@ -327,6 +407,59 @@ export default function CrossfadeTestPage() {
       }
     };
 
+    // WebAudio path: schedule the entire ramp upfront on the audio thread.
+    // setValueCurveAtTime takes a pre-sampled curve array, which lets us
+    // honor the non-linear shapes (invSqrt, peakTaper, smoothstep) exactly.
+    // The ramp runs independent of the JS main thread — survives backgrounded
+    // tabs and locked screens, which is the whole point of this mode.
+    if (useWebAudio && audioCtxRef.current && gainARef.current && gainBRef.current) {
+      const ctx = audioCtxRef.current;
+      const outGain = outgoing === audioARef.current ? gainARef.current : gainBRef.current;
+      const inGain = incoming === audioARef.current ? gainARef.current : gainBRef.current;
+      const SAMPLES = 64;
+      const outCurveArr = new Float32Array(SAMPLES);
+      const inCurveArr = new Float32Array(SAMPLES);
+      for (let i = 0; i < SAMPLES; i++) {
+        const t = i / (SAMPLES - 1);
+        outCurveArr[i] = outCurve(t) * outgoingPeakGain;
+        inCurveArr[i] = inCurve(t) * incomingTargetGain;
+      }
+      const startT = ctx.currentTime;
+      const durSec = CROSSFADE_MS / 1000;
+      try {
+        outGain.gain.cancelScheduledValues(startT);
+        inGain.gain.cancelScheduledValues(startT);
+        outGain.gain.setValueCurveAtTime(outCurveArr, startT, durSec);
+        inGain.gain.setValueCurveAtTime(inCurveArr, startT, durSec);
+        append(`WebAudio curves scheduled (start=${startT.toFixed(3)} dur=${durSec}s out[0]=${outCurveArr[0].toFixed(2)} in[N-1]=${inCurveArr[SAMPLES - 1].toFixed(2)})`);
+      } catch (e) {
+        append(`WebAudio schedule failed: ${(e as Error)?.name} ${(e as Error)?.message}`);
+      }
+      // Drive the volume meter UI from rAF (purely cosmetic — the audible
+      // ramp is already in flight on the audio thread).
+      const drawMeter = (t: number) => {
+        if (fadeTokenRef.current !== myToken) return;
+        const elapsed = t - startedAt;
+        const pp = Math.min(1, Math.max(0, elapsed / CROSSFADE_MS));
+        const outV = outCurve(pp) * outgoingPeakGain;
+        const inV = inCurve(pp) * incomingTargetGain;
+        if (which(outgoing) === 'A') { setAVol(outV); setBVol(inV); }
+        else { setAVol(inV); setBVol(outV); }
+        if (t - lastLog > 200) {
+          append(`[fade-meter] p=${pp.toFixed(2)} outV=${outV.toFixed(2)} inV=${inV.toFixed(2)}`);
+          lastLog = t;
+        }
+        if (pp < 1) crossfadeRafRef.current = requestAnimationFrame(drawMeter);
+      };
+      crossfadeRafRef.current = requestAnimationFrame(drawMeter);
+      // Schedule finish via setTimeout (will fire in foreground; backgrounded
+      // tabs still get a coarse timer that lands eventually). Watchdog
+      // ensures we always finish even if the timer was throttled.
+      crossfadeWatchdogRef.current = setTimeout(() => finish('natural'), CROSSFADE_MS + 50);
+      return;
+    }
+
+    // rAF path (legacy): drive audio.volume from the main thread.
     let tickCount = 0;
     const tick = (t: number) => {
       tickCount++;
@@ -395,11 +528,16 @@ export default function CrossfadeTestPage() {
     setLog([]);
     activeKeyRef.current = 'A';
     const interlude = INTERLUDES[interludeIdx];
-    append(`user gesture: starting (interlude="${interlude.label}", crossfade=${crossfadeOn ? 'ON' : 'OFF'})`);
+    append(`user gesture: starting (interlude="${interlude.label}", crossfade=${crossfadeOn ? 'ON' : 'OFF'}, webAudio=${useWebAudio ? 'ON' : 'OFF'})`);
 
     const { A } = ensureAudio();
-    A.volume = 1;
-    if (audioBRef.current) audioBRef.current.volume = 0;
+    // Route + resume WebAudio synchronously inside the gesture handler — iOS
+    // requires AudioContext.resume() to be called from a user gesture, just
+    // like audio.play(). After this call the context stays running for the
+    // page lifetime, so fades work in backgrounded tabs and locked screens.
+    ensureWebAudio();
+    setVol(A, 1);
+    if (audioBRef.current) setVol(audioBRef.current, 0);
     setAVol(1);
     setBVol(0);
 
@@ -538,6 +676,16 @@ export default function CrossfadeTestPage() {
               className="accent-white"
             />
             5s crossfade
+          </label>
+          <label className="text-sm text-zinc-300 flex items-center gap-2 cursor-pointer" title="When ON, fade gain runs on the WebAudio thread (survives backgrounded tabs + locked screens). When OFF, fade gain runs on rAF (freezes in background — reproduces the prod bug).">
+            <input
+              type="checkbox"
+              checked={useWebAudio}
+              onChange={(e) => setUseWebAudio(e.target.checked)}
+              disabled={stage !== 'idle' && stage !== 'done'}
+              className="accent-white"
+            />
+            WebAudio gain
           </label>
         </div>
 
