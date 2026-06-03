@@ -629,9 +629,8 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     // Boundary in clock-time = current item's audible end. The crossfade
     // starts CROSSFADE_MS before that. Schedule offsets in Firestore are
     // already -CROSSFADE_SEC-compressed by buildLoop, so item.startOffset
-    // + item.duration IS the audible end moment.
-    const boundaryMs = current.loop.startTimeMs + (current.item.startOffsetSec + current.item.durationSec) * 1000;
-    const fadeStartMs = boundaryMs - CROSSFADE_MS;
+    // + item.duration IS the audible end moment. The actual timing math
+    // is inside scheduleBoundary below.
 
     // Preload `next` on the standby. Both kinds preload here when this
     // effect runs (which is only at boundaries thanks to our key-stable
@@ -655,27 +654,53 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       }
     }
 
-    const delay = Math.max(MIN_BOUNDARY_LEAD_MS, fadeStartMs - Date.now());
-    if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
-    boundaryTimerRef.current = setTimeout(() => {
-      const outgoing = getActive();
-      const incoming = getStandby();
-      if (!outgoing || !incoming) return;
-      // Gentler in-curve when bringing an archive in after an interlude —
-      // music punching in over speech is harsh; smoothstep eases it.
-      const inCurve = current.item.kind === 'interstitial' && next.item.kind === 'archive'
-        ? smoothstep
-        : sqrtCurve;
-      runCrossfade(outgoing, incoming, inCurve, () => {
-        playingKeyRef.current = nextKey;
-        const afterNext = getNext({ loop: next.loop, index: next.index }, nextLoop);
-        if (!afterNext) return;
-        const afterKey = itemKey(afterNext.loop, afterNext.index, afterNext.item);
-        if (preloadedNextKeyRef.current === afterKey) return;
-        preloadedNextKeyRef.current = afterKey;
-        void preloadStandby(afterNext.item.recordingUrl, afterNext.item.kind);
-      });
-    }, delay);
+    // Schedule fade N (current → next). Recursive: when fade N finishes,
+    // its onFinish hook directly schedules fade N+1 (next → afterNext)
+    // without waiting for the boundary-effect to re-run. The effect's
+    // re-run trigger (currentKey change) depends on nowMs ticking at 1Hz,
+    // which is throttled in backgrounded tabs — so without this self-
+    // chaining, the second crossfade after backgrounding never fires.
+    const scheduleBoundary = (
+      cur: { loop: ArchiveRadioLoop; index: number; item: ScheduleItem; seekSec: number },
+      nxt: { loop: ArchiveRadioLoop; index: number; item: ScheduleItem },
+      nxtKey: string,
+    ) => {
+      const curBoundaryMs = cur.loop.startTimeMs + (cur.item.startOffsetSec + cur.item.durationSec) * 1000;
+      const curFadeStartMs = curBoundaryMs - CROSSFADE_MS;
+      const curDelay = Math.max(MIN_BOUNDARY_LEAD_MS, curFadeStartMs - Date.now());
+      if (boundaryTimerRef.current) clearTimeout(boundaryTimerRef.current);
+      boundaryTimerRef.current = setTimeout(() => {
+        const outgoing = getActive();
+        const incoming = getStandby();
+        if (!outgoing || !incoming) return;
+        const inCurve = cur.item.kind === 'interstitial' && nxt.item.kind === 'archive'
+          ? smoothstep
+          : sqrtCurve;
+        runCrossfade(outgoing, incoming, inCurve, () => {
+          playingKeyRef.current = nxtKey;
+          // Compute the item AFTER nxt — becomes the next fade's incoming.
+          const afterNext = getNext({ loop: nxt.loop, index: nxt.index }, nextLoop);
+          if (!afterNext) return;
+          const afterKey = itemKey(afterNext.loop, afterNext.index, afterNext.item);
+          // Preload the after-next item on what is now the standby. Skip
+          // if it's already the preload target (effect would have done it).
+          if (preloadedNextKeyRef.current !== afterKey) {
+            preloadedNextKeyRef.current = afterKey;
+            void preloadStandby(afterNext.item.recordingUrl, afterNext.item.kind);
+          }
+          // Self-chain: schedule the (nxt → afterNext) fade directly. This
+          // is the line that survives backgrounded tabs — no dependence on
+          // the throttled 1Hz nowMs ticker to re-run the boundary effect.
+          scheduleBoundary(
+            { loop: nxt.loop, index: nxt.index, item: nxt.item, seekSec: 0 },
+            afterNext,
+            afterKey,
+          );
+        });
+      }, curDelay);
+    };
+
+    scheduleBoundary(current, next, nextKey);
 
     return () => {
       if (boundaryTimerRef.current) {
