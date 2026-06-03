@@ -546,12 +546,14 @@ app.post('/faststart', authenticate, async (req, res) => {
 
 // POST /normalize - Two-pass loudnorm to -14 LUFS / -1.5 dBTP / LRA 11
 // (linear=true preserves dynamic range when peaks allow). Additionally
-// detects trailing silence and stream-copies a trimmed sibling.
+// detects leading + trailing silence and stream-copies a single trimmed
+// sibling that cuts both.
 //
 // Output files (originals NEVER touched):
 //   <stem>-normalized-v2.<ext>          — loudness-normalized, full length
-//   <stem>-normalized-v2-trimmed.<ext>  — same as above, trailing silence cut
-//                                         (only when ≥ 5s of silence at EOF)
+//   <stem>-normalized-v2-trimmed.<ext>  — same, with leading silence ≥1s
+//                                         AND/OR trailing silence ≥2s at EOF
+//                                         (past the 30-min mark) removed
 //
 // Skip-if-already-correct: when input is in target band (I ∈ [-15, -13]
 // AND TP ≤ -1.0), no v2 is written. Callback gets { skipped: true }.
@@ -559,6 +561,7 @@ app.post('/faststart', authenticate, async (req, res) => {
 // Returns:
 //   { success: true, newUrl, trimmedUrl?, durationSec, trimmedDurationSec?,
 //     measurements: { inputI, inputTP, inputLRA, outputI, outputTP, outputLRA,
+//                     leadingSilenceEndSec?, leadingSilenceLengthSec?,
 //                     trailingSilenceStartSec?, trailingSilenceLengthSec? } }
 app.post('/normalize', authenticate, async (req, res) => {
   const { r2Key, callbackUrl, callbackContext } = req.body;
@@ -654,8 +657,17 @@ app.post('/normalize', authenticate, async (req, res) => {
   //   continuously to EOF AND is ≥ MIN_TRAILING_SILENCE_SEC. Don't truncate
   //   if the silence starts inside the first 30 min (would indicate a
   //   broken file, not a DJ leaving dead air at the end).
-  const MIN_TRAILING_SILENCE_SEC = 5;
+  const MIN_TRAILING_SILENCE_SEC = 2;
   const SAFETY_TAIL_SEC = 0.5; // keep last 0.5s of music to avoid cutting a tail
+
+  // Leading-silence trim policy:
+  //   Scan the first LEADING_PROBE_SEC of output. Only trim if silence starts
+  //   within the first 0.2s (real "head silence") AND lasts ≥
+  //   MIN_LEADING_SILENCE_SEC. No 30-min-style guard — leading silence is
+  //   always at the very head regardless of show length. No safety margin —
+  //   we WANT audio to start immediately when the DJ comes in.
+  const MIN_LEADING_SILENCE_SEC = 1;
+  const LEADING_PROBE_SEC = 20;
 
   try {
     // --- 1. Download ---
@@ -740,11 +752,12 @@ app.post('/normalize', authenticate, async (req, res) => {
     const outputLRA = grab(/LRA:\s*(-?\d+\.\d+)\s*LU/);
     console.log(`[normalize] Output: I=${outputI} TP=${outputTP} LRA=${outputLRA}`);
 
-    // --- 6. Detect trailing silence ---
-    // Scan only the last 15 min of OUTPUT (post-normalize so silence threshold
-    // is meaningful). Report silence_start of any silence run that goes to EOF.
-    // Wrapped: detection failure must not block the v2 upload.
+    // --- 6. Detect leading + trailing silence ---
+    // Two scans on the normalized output (post-loudnorm so the threshold is
+    // meaningful). Wrapped: detection failure must not block the v2 upload.
     let outDur = 0;
+    let leadingSilenceEndSec = null;
+    let leadingSilenceLengthSec = null;
     let trailingSilenceStartSec = null;
     let trailingSilenceLengthSec = null;
     try {
@@ -753,10 +766,37 @@ app.post('/normalize', authenticate, async (req, res) => {
         { encoding: 'utf-8' }
       );
       outDur = parseFloat(probe.trim()) || 0;
-      const scanFromSec = Math.max(0, outDur - 15 * 60);
+
       if (outDur > 0) {
+        // --- 6a. Leading silence ---
+        // Scan first LEADING_PROBE_SEC. silencedetect d=0.3 so 1s+ runs register
+        // reliably. Only count when silence_start ≤ 0.2s (real head silence).
+        const leadingOut = execSync(
+          `ffmpeg -hide_banner -nostats -t ${LEADING_PROBE_SEC} -i ${tmpOut} -af "silencedetect=noise=-50dB:d=0.3" -f null - 2>&1`,
+          { encoding: 'utf-8' }
+        );
+        const leadStart = leadingOut.match(/silence_start:\s*(-?\d+\.?\d*)/);
+        const leadEnd = leadingOut.match(/silence_end:\s*(-?\d+\.?\d*)/);
+        if (leadStart && parseFloat(leadStart[1]) <= 0.2) {
+          if (leadEnd) {
+            const end = parseFloat(leadEnd[1]);
+            const length = end - parseFloat(leadStart[1]);
+            if (length >= MIN_LEADING_SILENCE_SEC) {
+              leadingSilenceEndSec = end;
+              leadingSilenceLengthSec = length;
+            }
+          }
+          // If leadEnd is missing, silence ran past LEADING_PROBE_SEC — that's
+          // almost certainly a broken file. Don't trim; let it ship as v2.
+        }
+
+        // --- 6b. Trailing silence ---
+        // Scan last 15 min. silencedetect d=1.5 so 2s+ runs register reliably.
+        // Only treat as trimmable if it runs continuously to EOF AND lastStart
+        // is past the 30-min mark.
+        const scanFromSec = Math.max(0, outDur - 15 * 60);
         const silenceOut = execSync(
-          `ffmpeg -hide_banner -nostats -ss ${scanFromSec} -i ${tmpOut} -af "silencedetect=noise=-50dB:d=2" -f null - 2>&1`,
+          `ffmpeg -hide_banner -nostats -ss ${scanFromSec} -i ${tmpOut} -af "silencedetect=noise=-50dB:d=1.5" -f null - 2>&1`,
           { encoding: 'utf-8' }
         );
         const startMatches = [...silenceOut.matchAll(/silence_start:\s*(-?\d+\.?\d*)/g)];
@@ -779,6 +819,9 @@ app.post('/normalize', authenticate, async (req, res) => {
     } catch (silenceErr) {
       console.error(`[normalize] Silence detection failed; v2 will not be trimmed:`, silenceErr?.message || silenceErr);
     }
+    if (leadingSilenceEndSec !== null) {
+      console.log(`[normalize] Leading silence: ${leadingSilenceLengthSec.toFixed(2)}s (ends at ${leadingSilenceEndSec.toFixed(2)}s)`);
+    }
     if (trailingSilenceStartSec !== null) {
       console.log(`[normalize] Trailing silence: ${trailingSilenceLengthSec.toFixed(1)}s starting at ${trailingSilenceStartSec.toFixed(1)}s`);
     }
@@ -799,24 +842,30 @@ app.post('/normalize', authenticate, async (req, res) => {
     const v2Url = publicBase ? `${publicBase}/${v2Key}` : null;
     console.log(`[normalize] Uploaded v2: ${v2Key}`);
 
-    // --- 8. If trailing silence: trim (stream-copy, no re-encode) + upload ---
-    // Wrapped in its own try/catch so a trim failure doesn't lose the v2
-    // upload that already succeeded — caller still gets the v2 URL.
+    // --- 8. If leading and/or trailing silence: stream-copy a single trimmed
+    // sibling and upload. Wrapped in its own try/catch so a trim failure
+    // doesn't lose the v2 upload that already succeeded — caller still gets
+    // the v2 URL.
     let trimmedKey = null;
     let trimmedUrl = null;
     let trimmedDurationSec = null;
-    if (trailingSilenceStartSec !== null) {
+    const hasLeading = leadingSilenceEndSec !== null;
+    const hasTrailing = trailingSilenceStartSec !== null;
+    if (hasLeading || hasTrailing) {
       try {
-        const trimAtSec = Math.max(0, trailingSilenceStartSec - SAFETY_TAIL_SEC);
+        const ssArg = hasLeading ? `-ss ${leadingSilenceEndSec.toFixed(3)} ` : '';
+        const toArg = hasTrailing
+          ? `-to ${Math.max(0, trailingSilenceStartSec - SAFETY_TAIL_SEC).toFixed(3)} `
+          : '';
         const movflags = format === 'mp4' ? '-movflags +faststart' : '';
         execSync(
-          `ffmpeg -hide_banner -nostats -y -i ${tmpOut} -to ${trimAtSec.toFixed(3)} -c copy -avoid_negative_ts make_zero ${movflags} ${tmpTrimmed} 2>&1`
+          `ffmpeg -hide_banner -nostats -y ${ssArg}-i ${tmpOut} ${toArg}-c copy -avoid_negative_ts make_zero ${movflags} ${tmpTrimmed} 2>&1`
         );
         const trimProbe = execSync(
           `ffprobe -v error -show_entries format=duration -of csv=p=0 ${tmpTrimmed}`,
           { encoding: 'utf-8' }
         );
-        trimmedDurationSec = parseFloat(trimProbe.trim()) || trimAtSec;
+        trimmedDurationSec = parseFloat(trimProbe.trim()) || 0;
         const trimmedSuffix = `-normalized-v2-trimmed.${format}`;
         trimmedKey = format === 'mp3'
           ? r2Key.replace(/\.mp3$/i, trimmedSuffix)
@@ -829,10 +878,11 @@ app.post('/normalize', authenticate, async (req, res) => {
           CacheControl: 'public, max-age=31536000, immutable',
         }));
         trimmedUrl = publicBase ? `${publicBase}/${trimmedKey}` : null;
-        console.log(`[normalize] Uploaded v2-trimmed: ${trimmedKey} (${trimmedDurationSec.toFixed(1)}s)`);
+        const kinds = [hasLeading && 'leading', hasTrailing && 'trailing'].filter(Boolean).join('+');
+        console.log(`[normalize] Uploaded v2-trimmed (${kinds}): ${trimmedKey} (${trimmedDurationSec.toFixed(1)}s)`);
       } catch (trimErr) {
         // Non-fatal: v2 (untrimmed) is already uploaded and will be the
-        // active URL. The trailing silence stays in the file. Log + continue.
+        // active URL. Silence stays in the file. Log + continue.
         console.error(`[normalize] Trim step failed; keeping untrimmed v2:`, trimErr?.message || trimErr);
         trimmedKey = null;
         trimmedUrl = null;
@@ -855,6 +905,7 @@ app.post('/normalize', authenticate, async (req, res) => {
       measurements: {
         inputI, inputTP, inputLRA,
         outputI, outputTP, outputLRA,
+        leadingSilenceEndSec, leadingSilenceLengthSec,
         trailingSilenceStartSec, trailingSilenceLengthSec,
       },
     });
