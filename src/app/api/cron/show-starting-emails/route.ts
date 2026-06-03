@@ -1003,30 +1003,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Piggyback: also try to drain one normalize-queue entry. The drain
-    // endpoint is no-op when a live show is currently running or starting in
-    // the next 45 min, so this is safe to fire every hour. Fire-and-forget so
-    // it doesn't add latency to the email cron's response.
-    try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL
-        || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
-      const cronSecret = process.env.CRON_SECRET;
-      if (appUrl && cronSecret) {
-        // Don't await — let the drain run in the background. We pass our cron
-        // secret so the drain route accepts the call.
-        fetch(`${appUrl}/api/cron/drain-normalize-queue`, {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${cronSecret}` },
-        }).then((r) => {
-          console.log(`[show-starting] Drain trigger: ${r.status}`);
-        }).catch((err) => {
-          console.error('[show-starting] Drain trigger failed:', err);
-        });
-      }
-    } catch (err) {
-      console.error('[show-starting] Drain piggyback error:', err);
-    }
-
     return NextResponse.json({
       liveShows: liveShows.length,
       usersChecked: usersWithNotifications.length,
