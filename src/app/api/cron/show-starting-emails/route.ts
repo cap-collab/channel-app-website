@@ -528,17 +528,56 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Build the listener-side "related DJs" map. The listener-side bridge in
+    // matchShow() uses this to extend listener engagement (heart / stream / search
+    // favorite) from one DJ to a related DJ — i.e. "you've engaged with one
+    // member of this crew, you'll hear about the whole crew."
+    //
+    // Two sources are unioned per show:
+    //   1. Audience-lent: live DJ X has audienceDjUids = [Y, …] (X borrows from Y).
+    //      Fans of Y get bridged to X's show.
+    //   2. Crew/affiliation: X's parent + direct affiliates + siblings under
+    //      same parent. Fans of any one crew member get bridged to every crew
+    //      member's show.
+    //
+    // Keyed by normalized chatUsername so it composes with the existing
+    // engagement / watchlist matchers. Always excludes the live DJ themselves.
     const relatedUsernamesByShowId = new Map<string, Set<string>>();
     for (const show of allMatchableShows) {
       if (show.stationId !== "broadcast") continue;
       if (!show.djUserId || !show.djUsername) continue;
       const related = new Set<string>();
+      // 1. Audience-lent
       const audUids = audienceUidsByLiveDjUid.get(show.djUserId);
       if (audUids) {
         audUids.forEach((uid) => {
           const name = uidToUsername.get(uid);
           if (name) related.add(name);
         });
+      }
+      // 2. Crew/affiliation — mirror the DJ-side affiliatedRecipientsByShowId
+      // construction, but emit usernames (for the engagement bridge) instead
+      // of uids (for direct affiliated-recipients).
+      const xAffiliation = affiliatedByLiveDjUid.get(show.djUserId);
+      if (xAffiliation) {
+        const name = uidToUsername.get(xAffiliation);
+        if (name) related.add(name);
+      }
+      const directAffiliates = affiliatesByUid.get(show.djUserId);
+      if (directAffiliates) {
+        directAffiliates.forEach((uid) => {
+          const name = uidToUsername.get(uid);
+          if (name) related.add(name);
+        });
+      }
+      if (xAffiliation) {
+        const siblings = affiliatesByUid.get(xAffiliation);
+        if (siblings) {
+          siblings.forEach((uid) => {
+            const name = uidToUsername.get(uid);
+            if (name) related.add(name);
+          });
+        }
       }
       related.delete(normalizeForLookup(show.djUsername));
       if (related.size > 0) relatedUsernamesByShowId.set(show.showId, related);
