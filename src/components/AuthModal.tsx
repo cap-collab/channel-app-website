@@ -451,14 +451,6 @@ export function AuthModal({
               Continue with Email
             </button>
 
-            {/* Forgot password link */}
-            <button
-              onClick={() => setView("forgotPassword")}
-              className="w-full py-2 text-white/50 text-sm hover:text-white transition-colors"
-            >
-              Forgot password?
-            </button>
-
             {/* Email notifications opt-in */}
             <label className="flex items-start gap-3 mt-4 cursor-pointer group">
               <div className="relative flex-shrink-0 mt-0.5">
@@ -531,44 +523,31 @@ export function AuthModal({
             <p className="text-white/60 text-sm mb-4">{email}</p>
 
             <button
-              onClick={handleSendMagicLink}
+              onClick={() => setView("password")}
               disabled={loading}
               className="w-full flex items-center justify-center gap-3 bg-white text-black py-3 rounded-xl font-medium hover:bg-white/90 transition-all disabled:opacity-50"
             >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Continue with password
+            </button>
+
+            <button
+              onClick={handleSendMagicLink}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 bg-white/[0.08] text-white py-3 rounded-xl font-medium hover:bg-white/[0.15] transition-all disabled:opacity-50"
+            >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-gray-400 border-t-black rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-gray-400 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
-                  Send sign-in link
+                  Email me a sign-in link instead
                 </>
               )}
-            </button>
-
-            <button
-              onClick={() => setView("password")}
-              disabled={loading}
-              className="w-full flex flex-col items-center gap-1 bg-white/[0.08] text-white py-3 rounded-xl font-medium hover:bg-white/[0.15] transition-all disabled:opacity-50"
-            >
-              <span className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                Enter password manually
-              </span>
-              <span className="text-xs text-white/40 font-normal">Recommended if using a shared computer</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setForgotPasswordEmail(email);
-                setView("forgotPassword");
-              }}
-              className="w-full py-2 text-white/50 text-sm hover:text-white transition-colors"
-            >
-              Forgot password?
             </button>
 
             <button
