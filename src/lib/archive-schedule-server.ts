@@ -850,12 +850,15 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
     }
     if (anchorArchiveIdx > 0 && result.items[anchorArchiveIdx - 1].kind === 'interstitial') {
       const anchorInterludeOffset = result.items[anchorArchiveIdx - 1].startOffsetSec;
-      // +2s warmup: the listener-side audio source switch (live → radio) takes
-      // ~2s (Rule B's 2s debounce + audio element load). Push the anchor
-      // interlude's audible start to anchor.endTimeMs + 2s so the listener
-      // lands at interlude offset 0 after switching sources, hearing the
-      // full interlude before the normal 5s crossfade into the curated archive.
-      const ANCHOR_WARMUP_MS = 2000;
+      // +4s warmup: the listener-side audio source switch (live → radio)
+      // empirically takes ~4s (Rule B's 2s debounce + audio element load +
+      // observed extra slack). Push the anchor interlude's audible start to
+      // anchor.endTimeMs + 4s so the listener lands at interlude offset 0
+      // after switching sources, hearing the full interlude before the
+      // normal 5s crossfade into the curated archive. Was 2s originally,
+      // bumped to 4s on 2026-06-04 after listener report of clipping into
+      // the interlude mid-stream (weed convo birds, bilaliwood handoff).
+      const ANCHOR_WARMUP_MS = 4000;
       startTimeMs = plan.anchor.endTimeMs + ANCHOR_WARMUP_MS - anchorInterludeOffset * 1000;
     }
   }
