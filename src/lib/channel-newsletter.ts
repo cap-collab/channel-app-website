@@ -316,6 +316,27 @@ export async function getListenerRecipients(
     });
   }
 
+  // Pending DJ profiles → listener cohort. They've applied but don't have
+  // a users doc with role=="dj" yet, so they get the listener email (not the
+  // DJ one). Skipped if they exist as a users doc (handled above).
+  const pendingSnap = await db.collection("pending-dj-profiles").get();
+  for (const doc of pendingSnap.docs) {
+    const data = doc.data();
+    const email = typeof data.email === "string" ? data.email.trim().toLowerCase() : "";
+    if (!email) continue;
+    if (data.unsubscribed === true) continue;
+    if (EXCLUDE_EMAILS.has(email)) continue;
+    if (djEmails.has(email)) continue;
+    if (seen.has(email)) continue;
+    seen.add(email);
+    out.push({
+      email,
+      name: resolveFirstName(email, data.name, data.chatUsername, data.displayName),
+      id: doc.id,
+      cohort: "listener",
+    });
+  }
+
   const waitlistUnsubscribed = new Set<string>();
   const waitlistSnap = await db.collection("radio-notify-waitlist").get();
   for (const doc of waitlistSnap.docs) {
@@ -440,6 +461,7 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
     if (d.unsubscribed === true) unsubReasons.push("pending.unsubscribed=true");
     if (EXCLUDE_EMAILS.has(email)) unsubReasons.push("excluded");
     const onDj = sendDjEmails.has(email);
+    const onListener = sendListenerEmails.has(email);
     rows.push({
       email,
       source: "pending-dj",
@@ -449,8 +471,8 @@ export async function buildAuditRows(db: FirebaseFirestore.Firestore): Promise<A
       chatUsername: d.chatUsername ?? null,
       unsubscribed: unsubReasons.length > 0,
       unsubReason: unsubReasons,
-      onNextSend: onDj,
-      onNextSendCohort: onDj ? "dj" : null,
+      onNextSend: onDj || onListener,
+      onNextSendCohort: onDj ? "dj" : onListener ? "listener" : null,
       currentFirstName: resolveFirstName(email, d.name, d.chatUsername, d.displayName),
       displayNameFirstWord: firstWord(d.displayName),
       djProfileUrl: djProfileUrlFor(d),
