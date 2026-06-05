@@ -151,15 +151,13 @@ export function buildListUnsubscribeHeaders(email: string, category: "dj" | "mar
 }
 
 export function buildEmailHtml(
-  name: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _name: string,
   cohort: Cohort,
   email: string,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _djUsername?: string,
 ): string {
-  // resolveFirstName already handles capitalization (overrides preserved as-is,
-  // fallbacks capitalized) — don't double-capitalize here.
-  const displayName = name;
   const category: "dj" | "marketing" = cohort === "dj" ? "dj" : "marketing";
   const settingsUrl = buildUnsubscribeUrl(email, category);
   const footerText = cohort === "dj"
@@ -167,24 +165,22 @@ export function buildEmailHtml(
     : "You're receiving this as a member of Channel.";
 
   const p = (html: string) =>
-    `<p style="margin: 0 0 16px; color: #1a1a1a;">${html}</p>`;
+    `<p style="margin: 0 0 11px; color: #1a1a1a;">${html}</p>`;
 
   const paragraphs = [
-    `Channel launched two months ago.`,
-    `More than 80 DJs and producers have joined, with growing communities in Los Angeles and New York.`,
-    `We built the broadcasting, streaming, and archiving technology ourselves so we <strong>never have to dilute the culture to survive.</strong>`,
+    `Channel launched two months ago. Today, more than 80 DJs and producers have joined, with growing communities in Los Angeles and New York, alongside major improvements to audio quality and the listening experience.`,
+    `We built the broadcasting and archiving technology ourselves so we <strong>never have to dilute the culture to survive.</strong>`,
     `That independence lets us stay focused on what matters: <strong>intentional shows, creative depth, and genuine collaboration.</strong>`,
-    `The platform has come a long way in a short time, with major improvements to audio quality and the listening experience.`,
     `Thank you for being part of it. Whether you've hosted a show, tuned in, sent love, shared feedback, or simply believed in the project early on, you've helped shape what Channel is becoming.`,
     `I'm excited to keep building this with you.`,
   ];
 
   const ctaButton = `
-    <div style="text-align: center; margin: 16px 0 24px;">
+    <div style="text-align: center; margin: 14px 0 20px;">
       <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin: 0 auto;">
         <tr>
-          <td bgcolor="#1a1a1a" style="background-color: #1a1a1a; border-radius: 4px;">
-            <a href="${NEWSLETTER_APP_URL}" style="display: inline-block; padding: 12px 28px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none;">Tune In</a>
+          <td bgcolor="#DC9B50" style="background-color: #DC9B50; border-radius: 4px;">
+            <a href="${NEWSLETTER_APP_URL}" style="display: inline-block; padding: 11px 26px; font-size: 13px; font-weight: 600; color: #1a1a1a; text-decoration: none;">Tune In</a>
           </td>
         </tr>
       </table>
@@ -192,7 +188,6 @@ export function buildEmailHtml(
   `;
 
   const body = `
-    ${p(`Hi ${displayName},`)}
     ${paragraphs.map(p).join("\n")}
     ${ctaButton}
     <p style="margin: 0; color: #1a1a1a;">Cap</p>
@@ -216,14 +211,14 @@ export function buildEmailHtml(
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background-color: #ffffff;">
         <tr>
           <td align="center" style="padding: 40px 16px;" bgcolor="#ffffff">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 720px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 520px;">
               <tr>
                 <td align="center" style="padding-bottom: 32px;" bgcolor="#ffffff">
                   <a href="${NEWSLETTER_APP_URL}" style="text-decoration: none;"><img src="${NEWSLETTER_LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" /></a>
                 </td>
               </tr>
               <tr>
-                <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
+                <td bgcolor="#ffffff" style="font-size: 13px; line-height: 1.55; color: #1a1a1a;">
                   ${body}
                 </td>
               </tr>
