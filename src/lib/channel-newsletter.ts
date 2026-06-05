@@ -638,28 +638,33 @@ export function buildAuditHtml(rows: AuditRow[]): string {
     .map((h) => `<th style="text-align:left;padding:6px 8px;border:1px solid #ddd;font-size:12px;background:#f6f6f6;">${h}</th>`)
     .join("");
 
-  const isDjSource = (r: AuditRow) => r.source === "users-dj" || r.source === "pending-dj" || r.source === "extra-dj";
-  const djsWithProfile = rows.filter((r) => isDjSource(r) && r.djProfileUrl && r.djProfileUrl !== FALLBACK_DJ_URL);
-  const djsWithRadio = rows.filter((r) => isDjSource(r) && r.djProfileUrl === FALLBACK_DJ_URL);
-  const users = rows.filter((r) => r.source === "users-non-dj" || r.source === "waitlist" || r.source === "extra-listener");
+  // Group by cohort actually received, not by Firestore source. A
+  // pending-dj-profile that lacks a users.role=="dj" doc receives the
+  // listener email, so it belongs in the listeners section.
+  const djSends = rows.filter((r) => r.onNextSendCohort === "dj");
+  const listenerSends = rows.filter((r) => r.onNextSendCohort === "listener");
+  const notSending = rows.filter((r) => !r.onNextSend);
 
-  // Within each section: sending first, then everything else, then alpha by email.
-  const sortBySendThenEmail = (a: AuditRow, b: AuditRow): number => {
-    if (a.onNextSend !== b.onNextSend) return a.onNextSend ? -1 : 1;
-    return a.email.localeCompare(b.email);
+  const sortByEmail = (a: AuditRow, b: AuditRow): number => a.email.localeCompare(b.email);
+  djSends.sort(sortByEmail);
+  listenerSends.sort(sortByEmail);
+  notSending.sort(sortByEmail);
+
+  const sourceLabel = (r: AuditRow): string => {
+    switch (r.source) {
+      case "users-dj": return "DJ";
+      case "pending-dj": return "Pending DJ";
+      case "extra-dj": return "Extra DJ";
+      case "users-non-dj": return "User";
+      case "waitlist": return "Waitlist";
+      case "extra-listener": return "Extra listener";
+      default: return r.source;
+    }
   };
-  djsWithProfile.sort(sortBySendThenEmail);
-  djsWithRadio.sort(sortBySendThenEmail);
-  users.sort(sortBySendThenEmail);
 
   const renderRow = (r: AuditRow): string => {
     const rowBg = r.onNextSend ? "#ffffff" : "#fafafa";
-    const djOrUser =
-      isDjSource(r)
-        ? "DJ"
-        : r.source === "waitlist"
-          ? "Waitlist"
-          : "User";
+    const djOrUser = sourceLabel(r);
     const linkCell = r.djProfileUrl
       ? `<a href="${escapeHtml(r.djProfileUrl)}" style="color:#0070f3;text-decoration:none;">${escapeHtml(r.djProfileUrl.replace(/^https?:\/\//, ""))}</a>`
       : "";
@@ -687,12 +692,12 @@ export function buildAuditHtml(rows: AuditRow[]): string {
     `<tr><td colspan="${colCount}" style="padding:10px 8px;border:1px solid #ddd;background:#222;color:#fff;font-size:12px;font-weight:bold;letter-spacing:0.04em;">${escapeHtml(label)} (${count})</td></tr>`;
 
   const trs =
-    sectionHeader("1 · DJs with profile URL", djsWithProfile.length) +
-    djsWithProfile.map(renderRow).join("") +
-    sectionHeader("2 · DJs without profile (will use site root)", djsWithRadio.length) +
-    djsWithRadio.map(renderRow).join("") +
-    sectionHeader("3 · Users (listeners)", users.length) +
-    users.map(renderRow).join("");
+    sectionHeader("1 · Receiving DJ email (users.role==dj)", djSends.length) +
+    djSends.map(renderRow).join("") +
+    sectionHeader("2 · Receiving listener email", listenerSends.length) +
+    listenerSends.map(renderRow).join("") +
+    sectionHeader("3 · Not on next send", notSending.length) +
+    notSending.map(renderRow).join("");
 
   return `<!DOCTYPE html><html><body style="font-family:-apple-system,Arial,sans-serif;color:#111;">
     <h2 style="margin:0 0 8px;">Channel newsletter recipient audit</h2>
