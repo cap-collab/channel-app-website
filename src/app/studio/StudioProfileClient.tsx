@@ -2426,9 +2426,13 @@ export function StudioProfileClient() {
                           {canEdit && (
                             <button
                               onClick={() => handleStartEditShowName(show.slotId!, show.showName)}
-                              className="text-gray-500 hover:text-white text-xs transition-colors"
+                              className="inline-flex items-center gap-1 text-gray-300 hover:text-white text-xs px-2 py-1 rounded border border-gray-600 hover:border-white hover:bg-white/5 transition-colors"
                               aria-label="Edit show name"
+                              title="Edit show name"
                             >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
                               Edit
                             </button>
                           )}
