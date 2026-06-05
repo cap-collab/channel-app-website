@@ -2426,7 +2426,7 @@ export function StudioProfileClient() {
                           {canEdit && (
                             <button
                               onClick={() => handleStartEditShowName(show.slotId!, show.showName)}
-                              className="inline-flex items-center gap-1 text-gray-300 hover:text-white text-xs px-2 py-1 rounded border border-gray-600 hover:border-white hover:bg-white/5 transition-colors"
+                              className="inline-flex items-center gap-1 bg-white text-black hover:bg-gray-200 text-xs px-2 py-1 rounded transition-colors"
                               aria-label="Edit show name"
                               title="Edit show name"
                             >
