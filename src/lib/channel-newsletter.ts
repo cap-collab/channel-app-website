@@ -154,6 +154,7 @@ export function buildEmailHtml(
   name: string,
   cohort: Cohort,
   email: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _djUsername?: string,
 ): string {
   // resolveFirstName already handles capitalization (overrides preserved as-is,
