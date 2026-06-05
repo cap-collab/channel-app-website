@@ -546,6 +546,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
         };
         w.onerror = (e) => console.warn('[useArchiveRadio] crossfade worker error', e.message);
         workerRef.current = w;
+        console.log('[audio-diag] worker CREATED at', new Date().toISOString());
       } catch (err) {
         console.warn('[useArchiveRadio] crossfade worker init failed', err);
       }
@@ -859,14 +860,19 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     pause();
   }, [opts.active, pause]);
 
-  // [audio-diag] 10s heartbeat — log radio state snapshot so we can correlate
-  // user-reported silences with the underlying state. Strip when investigation
-  // wraps up.
+  // [audio-diag] 10s heartbeat — log radio state snapshot + stuck detector.
+  // The stuck detector compares each tick's currentTime to the previous tick;
+  // if paused=false but ct hasn't advanced by ~5s, log STUCK so we catch
+  // silent freezes that don't fire any error event. Strip with the rest of
+  // the audio-diag logs when investigation wraps.
+  const prevHeartbeatRef = useRef<{ ctA: number; ctB: number; t: number } | null>(null);
   useEffect(() => {
     if (!opts.active) return;
     const tick = () => {
       const a = audioARef.current;
       const b = audioBRef.current;
+      const now = Date.now();
+      const prev = prevHeartbeatRef.current;
       const fmt = (el: HTMLAudioElement | null, label: string) =>
         el
           ? label + ':ct=' + el.currentTime.toFixed(1) + ' paused=' + el.paused + ' vol=' + el.volume.toFixed(2) + ' muted=' + el.muted + ' rs=' + el.readyState + ' err=' + (el.error?.code ?? '-')
@@ -882,6 +888,37 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
         '|', fmt(a, 'A'),
         '|', fmt(b, 'B'),
       );
+      // Stuck detector — only meaningful when the active element should be
+      // advancing. Skip backgrounded tabs (iOS legitimately throttles audio
+      // currentTime updates when hidden) and the first heartbeat (no prev).
+      const visible = typeof document === 'undefined' || document.visibilityState === 'visible';
+      if (prev && visible) {
+        const wall = (now - prev.t) / 1000;
+        const checkStuck = (el: HTMLAudioElement | null, prevCt: number, label: string) => {
+          if (!el || el.paused) return;
+          const delta = el.currentTime - prevCt;
+          // Allow some slack for setInterval drift. If audio is playing,
+          // ct should advance by at least ~80% of wall time.
+          if (wall > 5 && delta < wall * 0.5) {
+            console.log(
+              '[audio-diag] STUCK radio.' + label,
+              'wallDelta=' + wall.toFixed(1) + 's',
+              'ctDelta=' + delta.toFixed(2) + 's',
+              'ct=' + el.currentTime.toFixed(2),
+              'paused=' + el.paused,
+              'rs=' + el.readyState,
+              'err=' + (el.error?.code ?? '-'),
+            );
+          }
+        };
+        checkStuck(a, prev.ctA, 'A');
+        checkStuck(b, prev.ctB, 'B');
+      }
+      prevHeartbeatRef.current = {
+        ctA: a?.currentTime ?? 0,
+        ctB: b?.currentTime ?? 0,
+        t: now,
+      };
     };
     const id = setInterval(tick, 10000);
     return () => clearInterval(id);

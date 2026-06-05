@@ -1097,12 +1097,16 @@ export function useBroadcastStream(
     return () => clearInterval(interval);
   }, [isPlaying, currentShow, onLockedInRef]);
 
-  // [audio-diag] 10s heartbeat — log live state snapshot so we can correlate
-  // user-reported silences with the underlying state. Strip when investigation
-  // wraps up.
+  // [audio-diag] 10s heartbeat — log live state snapshot + stuck detector.
+  // Stuck detector compares currentTime across heartbeats. If paused=false
+  // but ct hasn't advanced ~5s, log STUCK so we catch silent freezes that
+  // don't fire any error event. Strip when investigation wraps.
+  const prevLiveHeartbeatRef = useRef<{ ct: number; t: number } | null>(null);
   useEffect(() => {
     const tick = () => {
       const el = audioElementRef.current;
+      const now = Date.now();
+      const prev = prevLiveHeartbeatRef.current;
       const live = el
         ? 'el:ct=' + el.currentTime.toFixed(1) + ' paused=' + el.paused + ' vol=' + el.volume.toFixed(2) + ' muted=' + el.muted + ' rs=' + el.readyState + ' err=' + (el.error?.code ?? '-')
         : 'el:null';
@@ -1115,6 +1119,25 @@ export function useBroadcastStream(
         'vis=' + (typeof document !== 'undefined' ? document.visibilityState : '?'),
         '|', live,
       );
+      const visible = typeof document === 'undefined' || document.visibilityState === 'visible';
+      if (prev && visible && el && !el.paused) {
+        const wall = (now - prev.t) / 1000;
+        const delta = el.currentTime - prev.ct;
+        if (wall > 5 && delta < wall * 0.5) {
+          console.log(
+            '[audio-diag] STUCK live',
+            'wallDelta=' + wall.toFixed(1) + 's',
+            'ctDelta=' + delta.toFixed(2) + 's',
+            'ct=' + el.currentTime.toFixed(2),
+            'paused=' + el.paused,
+            'rs=' + el.readyState,
+            'err=' + (el.error?.code ?? '-'),
+          );
+        }
+      }
+      prevLiveHeartbeatRef.current = el
+        ? { ct: el.currentTime, t: now }
+        : null;
     };
     const id = setInterval(tick, 10000);
     return () => clearInterval(id);
