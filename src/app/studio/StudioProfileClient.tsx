@@ -2422,7 +2422,10 @@ export function StudioProfileClient() {
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <p className="text-white font-medium">{show.showName}</p>
+                          <p className="font-medium">
+                            <span className="text-gray-400">Show name: </span>
+                            <span className="text-white">{show.showName}</span>
+                          </p>
                           {canEdit && (
                             <button
                               onClick={() => handleStartEditShowName(show.slotId!, show.showName)}
