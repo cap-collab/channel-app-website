@@ -15,8 +15,8 @@ export const NEWSLETTER_FROM_EMAIL = "Cap from Channel <cap@channel-app.com>";
 export const NEWSLETTER_LOGO_URL = "https://channel-app.com/logo-black.png";
 export const NEWSLETTER_APP_URL = "https://channel-app.com";
 export const NEWSLETTER_SUBJECTS: Record<Cohort, string> = {
-  dj: "Two months in",
-  listener: "Two months in",
+  dj: "Why Ownership Matters",
+  listener: "Why Independent Radio Matters",
 };
 
 export function subjectFor(cohort: Cohort): string {
