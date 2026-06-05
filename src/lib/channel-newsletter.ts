@@ -180,13 +180,12 @@ export function buildEmailHtml(
   ];
 
   const listenerParagraphs = [
-    `<strong>Channel launched two months ago.</strong>`,
-    `Since then, more than 80 DJs and producers have joined the platform, Channel is now running continuously, 24/7, with growing communities in Los Angeles and New York.`,
-    `One thing that's important to me is that Channel isn't built on top of someone else's platform. <strong>We own the streaming, archiving, and distribution technology ourselves</strong>, which means we can build around our own values and needs, rather than the priorities of advertisers, algorithms, or third parties.`,
-    `That independence gives us the freedom to stay focused on what matters: creative intent, great music, and meaningful connections.`,
-    `Over the last two months, the platform has come a long way, with major improvements to both audio quality and the listening experience. Every show is now archived in pristine quality, building a growing library of independent radio that can be revisited anytime.`,
-    `<strong>Thank you for listening, sharing shows, and supporting the artists who make Channel possible.</strong>`,
-    `I'm excited for what's next. Please keep reaching out with ideas, and feedback. Channel is still evolving every week, and your input helps shape a better experience for both artists and listeners alike.`,
+    `Channel launched two months ago.`,
+    `More than 80 DJs and producers have joined, with growing communities in Los Angeles and New York.`,
+    `We own the broadcasting, streaming, and archiving technology ourselves. That independence lets us stay focused on what matters: supporting artists, creative depth, and genuine human connection.`,
+    `The platform has come a long way in a short time, with major improvements to audio quality and the listening experience.`,
+    `Thank you for being part of it. Whether you've tuned in, supported an artist, sent love, shared feedback, or simply believed in the project early on, you've helped shape what Channel is becoming.`,
+    `I'm excited for what's next.`,
   ];
 
   const paragraphs = cohort === "dj" ? djParagraphs : listenerParagraphs;
