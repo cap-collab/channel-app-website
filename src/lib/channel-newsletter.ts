@@ -15,8 +15,8 @@ export const NEWSLETTER_FROM_EMAIL = "Cap from Channel <cap@channel-app.com>";
 export const NEWSLETTER_LOGO_URL = "https://channel-app.com/logo-black.png";
 export const NEWSLETTER_APP_URL = "https://channel-app.com";
 export const NEWSLETTER_SUBJECTS: Record<Cohort, string> = {
-  dj: "Channel is now non stop radio",
-  listener: "Channel is now non stop radio",
+  dj: "Two months in",
+  listener: "Two months in",
 };
 
 export function subjectFor(cohort: Cohort): string {
@@ -97,10 +97,8 @@ const EXTRA_LISTENERS: Array<{ email: string; name: string; id: string }> = [
   { email: "jahichambers@gmail.com", name: "Jahi", id: "waitlist-jahi" },
 ];
 
-// Extra DJs — approved applicants who have a show booked but haven't
-// created a `users` account yet. djUsername intentionally left undefined:
-// their /dj/<slug> page renders 404 until they onboard, so the Channel
-// link falls back to the site root.
+// Extra DJs — kept for audit visibility only. Not used by getDjRecipients
+// (DJ cohort is strictly users where role=="dj").
 const EXTRA_DJS: Array<{ email: string; name: string; id: string; djUsername?: string }> = [
   { email: "jaketurpin@minimal.audio", name: "Jake", id: "applicant-jaketurpin" },
 ];
@@ -156,7 +154,7 @@ export function buildEmailHtml(
   name: string,
   cohort: Cohort,
   email: string,
-  djUsername?: string,
+  _djUsername?: string,
 ): string {
   // resolveFirstName already handles capitalization (overrides preserved as-is,
   // fallbacks capitalized) — don't double-capitalize here.
@@ -167,33 +165,46 @@ export function buildEmailHtml(
     ? "You're receiving this as an artist on Channel."
     : "You're receiving this as a member of Channel.";
 
-  const djProfileUrl = djUsername
-    ? `${NEWSLETTER_APP_URL}/dj/${encodeURIComponent(djUsername)}`
-    : NEWSLETTER_APP_URL;
+  const p = (html: string) =>
+    `<p style="margin: 0 0 16px; color: #1a1a1a;">${html}</p>`;
 
-  const djFooterBlock = cohort === "dj" ? `
-    <p style="margin: 24px 0 8px; font-size: 13px; color: #999;">*</p>
-    <p style="margin: 0 0 4px; font-size: 13px; line-height: 1.5; color: #999;">Channel: <a href="${djProfileUrl}" style="color: #999;">${djProfileUrl}</a></p>
-    <p style="margin: 0 0 4px; font-size: 13px; line-height: 1.5; color: #999;">YouTube: <a href="https://youtube.com/@channelrad-io" style="color: #999;">https://youtube.com/@channelrad-io</a></p>
-    <p style="margin: 0 0 4px; font-size: 13px; line-height: 1.5; color: #999;">SoundCloud: <a href="https://soundcloud.com/channel-254533657" style="color: #999;">https://soundcloud.com/channel-254533657</a></p>
-    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #999;">IG: <a href="https://instagram.com/channelrad.io" style="color: #999;">https://instagram.com/channelrad.io</a></p>
-  ` : "";
+  const djParagraphs = [
+    `<strong>Channel launched two months ago.</strong>`,
+    `Since then, more than 80 DJs and producers have joined the platform, and Channel is now running continuously, 24/7, with growing communities in Los Angeles and New York.`,
+    `One thing that's important to me is that Channel isn't built on top of someone else's platform. <strong>We own the streaming, archiving, and distribution technology ourselves</strong>, which means we can build around our own values and needs, rather than the priorities of advertisers, algorithms, or third parties.`,
+    `That independence gives us the freedom to stay focused on what matters: creative intent, great music, and meaningful connections.`,
+    `Over the last two months, the platform has evolved significantly, with major improvements to both audio quality and the listening experience. Every show is now archived in pristine quality, building a growing library of independent radio that can be revisited anytime.`,
+    `<strong>A huge thank you for joining the platform.</strong> Your feedback and ideas have directly shaped the product. The platform would not be where it is today without your collaboration.`,
+    `I'm excited for what's next and grateful to be building this with you.`,
+  ];
 
-  const listenerFooterBlock = cohort === "listener" ? `
-    <p style="margin: 24px 0 8px; font-size: 13px; color: #999;">*</p>
-    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #999;">Live moments and clips: <a href="https://instagram.com/channelrad.io" style="color: #999;">https://instagram.com/channelrad.io</a></p>
-  ` : "";
+  const listenerParagraphs = [
+    `<strong>Channel launched two months ago.</strong>`,
+    `Since then, more than 80 DJs and producers have joined the platform, Channel is now running continuously, 24/7, with growing communities in Los Angeles and New York.`,
+    `One thing that's important to me is that Channel isn't built on top of someone else's platform. <strong>We own the streaming, archiving, and distribution technology ourselves</strong>, which means we can build around our own values and needs, rather than the priorities of advertisers, algorithms, or third parties.`,
+    `That independence gives us the freedom to stay focused on what matters: creative intent, great music, and meaningful connections.`,
+    `Over the last two months, the platform has come a long way, with major improvements to both audio quality and the listening experience. Every show is now archived in pristine quality, building a growing library of independent radio that can be revisited anytime.`,
+    `<strong>Thank you for listening, sharing shows, and supporting the artists who make Channel possible.</strong>`,
+    `I'm excited for what's next. Please keep reaching out with ideas, and feedback. Channel is still evolving every week, and your input helps shape a better experience for both artists and listeners alike.`,
+  ];
+
+  const paragraphs = cohort === "dj" ? djParagraphs : listenerParagraphs;
+
+  const ctaButton = `
+    <table cellpadding="0" cellspacing="0" border="0" style="margin: 8px 0 24px;">
+      <tr>
+        <td bgcolor="#1a1a1a" style="background-color: #1a1a1a; border-radius: 4px;">
+          <a href="${NEWSLETTER_APP_URL}" style="display: inline-block; padding: 12px 28px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none;">Tune In</a>
+        </td>
+      </tr>
+    </table>
+  `;
 
   const body = `
-    <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${displayName},</p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>Channel is now running continuously, 24/7.</strong></p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;">Live sets and restreams moving throughout day and night.</p>
-    <p style="margin: 0 0 16px; color: #1a1a1a;"><strong>Lock in:</strong><br/>
-      <a href="${NEWSLETTER_APP_URL}" style="color: #1a1a1a;">https://channel-app.com</a>
-    </p>
+    ${p(`Hi ${displayName},`)}
+    ${paragraphs.map(p).join("\n")}
+    ${ctaButton}
     <p style="margin: 0; color: #1a1a1a;">Cap</p>
-    ${djFooterBlock}
-    ${listenerFooterBlock}
   `;
 
   return minifyHtml(`
@@ -257,6 +268,9 @@ function resolveDjUsername(data: FirebaseFirestore.DocumentData): string | undef
 }
 
 export async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<Recipient[]> {
+  // DJ cohort is strictly users where role=="dj". Pending-dj-profiles and
+  // EXTRA_DJS are excluded — they may still receive the listener email if
+  // they exist as a non-DJ user, but otherwise get nothing this send.
   const snap = await db.collection("users").where("role", "==", "dj").get();
   const out: Recipient[] = [];
   for (const doc of snap.docs) {
@@ -272,32 +286,6 @@ export async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<
       cohort: "dj",
       djUsername: resolveDjUsername(data),
     });
-  }
-
-  const pendingSnap = await db.collection("pending-dj-profiles").get();
-  const seenEmails = new Set(out.map((r) => r.email.toLowerCase()));
-  for (const doc of pendingSnap.docs) {
-    const data = doc.data();
-    const email = typeof data.email === "string" ? data.email.trim().toLowerCase() : "";
-    if (!email) continue;
-    if (data.unsubscribed === true) continue;
-    if (EXCLUDE_EMAILS.has(email)) continue;
-    if (seenEmails.has(email)) continue;
-    seenEmails.add(email);
-    out.push({
-      email,
-      name: resolveFirstName(email, data.name, data.chatUsername, data.displayName),
-      id: doc.id,
-      cohort: "dj",
-      djUsername: resolveDjUsername(data),
-    });
-  }
-
-  for (const extra of EXTRA_DJS) {
-    if (EXCLUDE_EMAILS.has(extra.email)) continue;
-    if (seenEmails.has(extra.email.toLowerCase())) continue;
-    seenEmails.add(extra.email.toLowerCase());
-    out.push({ ...extra, cohort: "dj" });
   }
   return out;
 }
