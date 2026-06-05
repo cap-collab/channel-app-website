@@ -199,7 +199,7 @@ export function buildEmailHtml(
     <body class="body-bg" bgcolor="#ffffff" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #ffffff; color: #1a1a1a; margin: 0; padding: 0;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background-color: #ffffff;">
         <tr>
-          <td align="center" style="padding: 40px 16px;" bgcolor="#ffffff">
+          <td align="center" style="padding: 40px 6px;" bgcolor="#ffffff">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 520px;">
               <tr>
                 <td bgcolor="#ffffff" style="font-size: 13px; line-height: 1.55; color: #1a1a1a;">
