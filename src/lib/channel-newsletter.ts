@@ -168,29 +168,18 @@ export function buildEmailHtml(
     `<p style="margin: 0 0 11px; color: #1a1a1a;">${html}</p>`;
 
   const paragraphs = [
-    `Channel launched two months ago. Today, more than 80 DJs and producers have joined, with growing communities in Los Angeles and New York, alongside major improvements to audio quality and the listening experience.`,
+    `Channel launched two months ago.`,
+    `Today, more than 80 DJs and producers have joined, with growing communities in Los Angeles and New York, alongside major improvements to audio quality and the listening experience.`,
     `We built the broadcasting and archiving technology ourselves so we <strong>never have to dilute the culture to survive.</strong>`,
     `That independence lets us stay focused on what matters: <strong>intentional shows, creative depth, and genuine collaboration.</strong>`,
     `Thank you for being part of it. Whether you've hosted a show, tuned in, sent love, shared feedback, or simply believed in the project early on, you've helped shape what Channel is becoming.`,
     `I'm excited to keep building this with you.`,
   ];
 
-  const ctaButton = `
-    <div style="text-align: center; margin: 14px 0 20px;">
-      <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin: 0 auto;">
-        <tr>
-          <td bgcolor="#DC9B50" style="background-color: #DC9B50; border-radius: 4px;">
-            <a href="${NEWSLETTER_APP_URL}" style="display: inline-block; padding: 11px 26px; font-size: 13px; font-weight: 600; color: #1a1a1a; text-decoration: none;">Tune In</a>
-          </td>
-        </tr>
-      </table>
-    </div>
-  `;
-
   const body = `
     ${paragraphs.map(p).join("\n")}
-    ${ctaButton}
     <p style="margin: 0; color: #1a1a1a;">Cap</p>
+    <p style="margin: 11px 0 0; color: #1a1a1a;"><a href="${NEWSLETTER_APP_URL}" style="color: #1a1a1a;">channel-app.com</a></p>
   `;
 
   return minifyHtml(`
@@ -212,11 +201,6 @@ export function buildEmailHtml(
         <tr>
           <td align="center" style="padding: 40px 16px;" bgcolor="#ffffff">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 520px;">
-              <tr>
-                <td align="center" style="padding-bottom: 32px;" bgcolor="#ffffff">
-                  <a href="${NEWSLETTER_APP_URL}" style="text-decoration: none;"><img src="${NEWSLETTER_LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" /></a>
-                </td>
-              </tr>
               <tr>
                 <td bgcolor="#ffffff" style="font-size: 13px; line-height: 1.55; color: #1a1a1a;">
                   ${body}
