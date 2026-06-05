@@ -936,16 +936,23 @@ export async function GET(request: NextRequest) {
         startTimeMs: number;
       };
       const bundled: BundledRow[] = [];
+      const bundleTrace: string[] = [];
       for (const show of upcomingTodayShows) {
-        if (!show.startTime) continue;
+        const reject = (reason: string) => bundleTrace.push(`${show.djUsername || show.name}:${reason}`);
+        if (!show.startTime) { reject("no-startTime"); continue; }
         const startMs = Date.parse(show.startTime);
-        if (!Number.isFinite(startMs)) continue;
-        if (startMs <= now.getTime()) continue;
-        if (startMs > endOfTodayMs) continue;
-        if (show.showId === primary.showId) continue;
-        if (lastShowStartingEmailAt[show.showId]) continue;
-        if (failsUniversalGates(show)) continue;
-        if (!matchShow(show)) continue;
+        if (!Number.isFinite(startMs)) { reject("bad-startMs"); continue; }
+        if (startMs <= now.getTime()) { reject("past"); continue; }
+        if (startMs > endOfTodayMs) { reject("after-today"); continue; }
+        if (show.showId === primary.showId) { reject("is-primary"); continue; }
+        if (lastShowStartingEmailAt[show.showId]) { reject("already-stamped"); continue; }
+        if (failsUniversalGates(show)) { reject("gates"); continue; }
+        if (!matchShow(show)) {
+          const affSize = affiliatedRecipientsByShowId.get(show.showId)?.size ?? -1;
+          reject(`no-match(affSetSize=${affSize})`);
+          continue;
+        }
+        bundleTrace.push(`${show.djUsername || show.name}:MATCHED`);
         bundled.push({
           showId: show.showId,
           showName: show.name,
@@ -1011,7 +1018,7 @@ export async function GET(request: NextRequest) {
           const slotId = primary.showId.slice("broadcast-".length);
           perSlotCount.set(slotId, (perSlotCount.get(slotId) ?? 0) + 1);
         }
-        console.log(`[show-starting] Sent email to ${userId} for "${primary.name}" on ${primary.stationName}${laterToday.length > 0 ? ` (+${laterToday.length} bundled)` : ""}`);
+        console.log(`[show-starting] Sent email to ${userId} for "${primary.name}" on ${primary.stationName}${laterToday.length > 0 ? ` (+${laterToday.length} bundled)` : ""} | bundleTrace=[${bundleTrace.join(", ")}] | upcomingTodayShows=${upcomingTodayShows.length}`);
       }
     }
 
