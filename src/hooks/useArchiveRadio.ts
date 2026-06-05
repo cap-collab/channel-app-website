@@ -262,8 +262,13 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   const userInitiatedRef = useRef(false);
 
   const attachStateListeners = useCallback((el: HTMLAudioElement) => {
+    // [audio-diag] tag for grep — investigating iOS audio session kills
+    // where audio goes silent but paused stays false. Strip once root cause
+    // is identified.
+    const which = el === audioARef.current ? 'A' : el === audioBRef.current ? 'B' : '?';
     el.addEventListener('pause', () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
+      console.log('[audio-diag] radio.' + which + ' PAUSE ct=' + el.currentTime.toFixed(2) + ' ended=' + el.ended + ' rs=' + el.readyState + ' active=' + activeKeyRef.current);
       if (el === active) {
         // Natural end of the audio file (vs. user pause): leave the queued
         // boundary timer alone so the next fade can still fire. Two reasons
@@ -289,6 +294,7 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     });
     el.addEventListener('play', () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
+      console.log('[audio-diag] radio.' + which + ' PLAY ct=' + el.currentTime.toFixed(2) + ' rs=' + el.readyState + ' active=' + activeKeyRef.current);
       if (el === active) {
         setIsPlaying(true);
         return;
@@ -296,6 +302,28 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       // Guard suppressed during legitimate crossfades and preload prime.
       if (crossfadeInFlightRef.current || primingInFlightRef.current) return;
       try { el.pause(); } catch { /* ignore */ }
+    });
+    // iOS fires these when the audio session gets weird. Capture for diagnosis.
+    el.addEventListener('error', () => {
+      console.log('[audio-diag] radio.' + which + ' ERROR code=' + el.error?.code + ' msg=' + el.error?.message + ' ct=' + el.currentTime.toFixed(2));
+    });
+    el.addEventListener('stalled', () => {
+      console.log('[audio-diag] radio.' + which + ' STALLED ct=' + el.currentTime.toFixed(2) + ' rs=' + el.readyState);
+    });
+    el.addEventListener('suspend', () => {
+      console.log('[audio-diag] radio.' + which + ' SUSPEND ct=' + el.currentTime.toFixed(2) + ' rs=' + el.readyState);
+    });
+    el.addEventListener('waiting', () => {
+      console.log('[audio-diag] radio.' + which + ' WAITING ct=' + el.currentTime.toFixed(2) + ' rs=' + el.readyState);
+    });
+    el.addEventListener('abort', () => {
+      console.log('[audio-diag] radio.' + which + ' ABORT ct=' + el.currentTime.toFixed(2));
+    });
+    el.addEventListener('emptied', () => {
+      console.log('[audio-diag] radio.' + which + ' EMPTIED');
+    });
+    el.addEventListener('ended', () => {
+      console.log('[audio-diag] radio.' + which + ' ENDED ct=' + el.currentTime.toFixed(2));
     });
   }, []);
 
@@ -830,6 +858,34 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     if (opts.active) return;
     pause();
   }, [opts.active, pause]);
+
+  // [audio-diag] 10s heartbeat — log radio state snapshot so we can correlate
+  // user-reported silences with the underlying state. Strip when investigation
+  // wraps up.
+  useEffect(() => {
+    if (!opts.active) return;
+    const tick = () => {
+      const a = audioARef.current;
+      const b = audioBRef.current;
+      const fmt = (el: HTMLAudioElement | null, label: string) =>
+        el
+          ? label + ':ct=' + el.currentTime.toFixed(1) + ' paused=' + el.paused + ' vol=' + el.volume.toFixed(2) + ' muted=' + el.muted + ' rs=' + el.readyState + ' err=' + (el.error?.code ?? '-')
+          : label + ':null';
+      console.log(
+        '[audio-diag] HB radio',
+        'active=' + activeKeyRef.current,
+        'isPlaying=' + isPlaying,
+        'inFlight=' + crossfadeInFlightRef.current,
+        'worker=' + (workerRef.current ? 'alive' : 'null'),
+        'vis=' + (typeof document !== 'undefined' ? document.visibilityState : '?'),
+        'playingKey=' + (playingKeyRef.current ? playingKeyRef.current.slice(0, 40) : 'null'),
+        '|', fmt(a, 'A'),
+        '|', fmt(b, 'B'),
+      );
+    };
+    const id = setInterval(tick, 10000);
+    return () => clearInterval(id);
+  }, [opts.active, isPlaying]);
 
   useEffect(() => {
     return () => {
