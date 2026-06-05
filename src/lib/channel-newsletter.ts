@@ -15,8 +15,8 @@ export const NEWSLETTER_FROM_EMAIL = "Cap from Channel <cap@channel-app.com>";
 export const NEWSLETTER_LOGO_URL = "https://channel-app.com/logo-black.png";
 export const NEWSLETTER_APP_URL = "https://channel-app.com";
 export const NEWSLETTER_SUBJECTS: Record<Cohort, string> = {
-  dj: "Why Ownership Matters",
-  listener: "Why Independent Radio Matters",
+  dj: "Why ownership matters",
+  listener: "Why ownership matters",
 };
 
 export function subjectFor(cohort: Cohort): string {
@@ -169,34 +169,26 @@ export function buildEmailHtml(
   const p = (html: string) =>
     `<p style="margin: 0 0 16px; color: #1a1a1a;">${html}</p>`;
 
-  const djParagraphs = [
+  const paragraphs = [
     `Channel launched two months ago.`,
     `More than 80 DJs and producers have joined, with growing communities in Los Angeles and New York.`,
-    `<strong>We own the broadcasting, streaming, and archiving technology ourselves.</strong> That independence lets us stay focused on what matters: <strong>intentional shows, creative depth, and genuine collaboration.</strong>`,
+    `We built the broadcasting, streaming, and archiving technology ourselves so we <strong>never have to dilute the culture to survive.</strong>`,
+    `That independence lets us stay focused on what matters: <strong>intentional shows, creative depth, and genuine collaboration.</strong>`,
     `The platform has come a long way in a short time, with major improvements to audio quality and the listening experience.`,
-    `Thank you for being part of it. Whether you've hosted a show, reported a bug, sent love, or simply believed in the project early on, you've helped shape what Channel is becoming.`,
-    `I'm excited for what's next.`,
+    `Thank you for being part of it. Whether you've hosted a show, tuned in, sent love, shared feedback, or simply believed in the project early on, you've helped shape what Channel is becoming.`,
+    `I'm excited to keep building this with you.`,
   ];
-
-  const listenerParagraphs = [
-    `Channel launched two months ago.`,
-    `More than 80 DJs and producers have joined, with growing communities in Los Angeles and New York.`,
-    `<strong>We own the broadcasting, streaming, and archiving technology ourselves.</strong> That independence lets us stay focused on what matters: <strong>supporting artists, creative depth, and genuine human connection.</strong>`,
-    `The platform has come a long way in a short time, with major improvements to audio quality and the listening experience.`,
-    `Thank you for being part of it. Whether you've tuned in, supported an artist, sent love, shared feedback, or simply believed in the project early on, you've helped shape what Channel is becoming.`,
-    `I'm excited for what's next.`,
-  ];
-
-  const paragraphs = cohort === "dj" ? djParagraphs : listenerParagraphs;
 
   const ctaButton = `
-    <table cellpadding="0" cellspacing="0" border="0" style="margin: 8px 0 24px;">
-      <tr>
-        <td bgcolor="#1a1a1a" style="background-color: #1a1a1a; border-radius: 4px;">
-          <a href="${NEWSLETTER_APP_URL}" style="display: inline-block; padding: 12px 28px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none;">Tune In</a>
-        </td>
-      </tr>
-    </table>
+    <div style="text-align: center; margin: 16px 0 24px;">
+      <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin: 0 auto;">
+        <tr>
+          <td bgcolor="#1a1a1a" style="background-color: #1a1a1a; border-radius: 4px;">
+            <a href="${NEWSLETTER_APP_URL}" style="display: inline-block; padding: 12px 28px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none;">Tune In</a>
+          </td>
+        </tr>
+      </table>
+    </div>
   `;
 
   const body = `
