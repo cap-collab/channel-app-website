@@ -3,7 +3,8 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 800; // up to ~13 min — single normalize takes 5-8
+// Async enqueue: the cron only enqueues; the worker calls back when done.
+// Each tick is now sub-second, so no maxDuration override is needed.
 
 // Quiet-window rule (per Cap 2026-06-02): only normalize when NO live show is
 // currently running AND no show is starting in the next 45 minutes. The
@@ -13,11 +14,9 @@ export const maxDuration = 800; // up to ~13 min — single normalize takes 5-8
 // before the next DJ goes live.
 const PRE_LIVE_BUFFER_MIN = 45;
 
-// Process up to this many entries per cron tick (sequential, NOT concurrent —
-// worker is single-threaded for ffmpeg). Each normalize takes ~5-8 min, so 3
-// sits comfortably inside Vercel's 800s maxDuration with safety margin. The
-// quiet-window check is re-run between each, so if a live show pops up mid-
-// drain we stop early.
+// Enqueue at most this many entries per tick. Worker is single-threaded for
+// ffmpeg — beyond 1 it'll just queue internally. We enqueue a few so we don't
+// have to wait until the next cron tick to fill the worker's pipeline.
 const MAX_PER_TICK = 3;
 
 function verifyCronRequest(request: NextRequest): boolean {
@@ -70,42 +69,53 @@ async function isWorkerQuiet(
   return { quiet: true };
 }
 
-// Hard ceiling on a single worker call. Legitimate normalizes take
-// ~30-60s for an hour-long show; anything past 8 min indicates a stuck
-// worker (Redis down, ffmpeg hang, etc). Without this, a hung fetch
-// kills the whole Vercel lambda mid-await — the cleanup code below
-// never runs and the queue entry stays in-progress forever.
-const WORKER_CALL_TIMEOUT_MS = 8 * 60 * 1000;
+// Short timeout for the ENQUEUE call. The worker now runs in async mode:
+// it returns 202 within milliseconds and POSTs the result to our callback
+// endpoint when done. This call shouldn't take more than a few seconds.
+const WORKER_ENQUEUE_TIMEOUT_MS = 15 * 1000;
 
-async function callWorkerNormalize(r2Key: string): Promise<{
-  ok: boolean;
-  status: number;
-  body: Record<string, unknown>;
-}> {
+// Async-callback enqueue. POSTs { r2Key, callbackUrl, callbackContext } to
+// the worker; the worker returns 202 immediately and does the normalize in
+// the background, then POSTs the result to /api/recording/normalize-queue-callback.
+// Decouples the worker's wall-clock from Vercel's lambda lifetime — Vercel
+// can't kill the connection mid-normalize because the connection is closed
+// within seconds.
+async function enqueueWorkerNormalize(
+  r2Key: string,
+  queueId: string,
+  slotId: string | undefined,
+): Promise<{ ok: boolean; status: number; body: Record<string, unknown> }> {
   const workerUrl = process.env.RESTREAM_WORKER_URL;
   const secret = process.env.CRON_SECRET;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '';
   if (!workerUrl || !secret) {
     return { ok: false, status: 0, body: { error: 'Worker URL or secret missing' } };
   }
+  if (!appUrl) {
+    return { ok: false, status: 0, body: { error: 'APP_URL not configured (needed for callback)' } };
+  }
+  const callbackUrl = `${appUrl.replace(/\/$/, '')}/api/recording/normalize-queue-callback`;
+  const callbackContext = { queueId, slotId };
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), WORKER_CALL_TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), WORKER_ENQUEUE_TIMEOUT_MS);
   try {
     const res = await fetch(`${workerUrl}/normalize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
-      body: JSON.stringify({ r2Key }),
+      body: JSON.stringify({ r2Key, callbackUrl, callbackContext }),
       signal: ctrl.signal,
     });
     let body: Record<string, unknown>;
     try { body = await res.json(); } catch { body = { error: 'invalid json' }; }
-    return { ok: res.ok, status: res.status, body };
+    // Worker returns 202 in async mode; treat that as success.
+    return { ok: res.ok || res.status === 202, status: res.status, body };
   } catch (e) {
     const aborted = ctrl.signal.aborted;
     return {
       ok: false,
       status: 0,
       body: {
-        error: aborted ? `worker timeout after ${WORKER_CALL_TIMEOUT_MS / 1000}s` : `fetch failed: ${(e as Error).message}`,
+        error: aborted ? `worker enqueue timeout after ${WORKER_ENQUEUE_TIMEOUT_MS / 1000}s` : `fetch failed: ${(e as Error).message}`,
       },
     };
   } finally {
@@ -116,60 +126,6 @@ async function callWorkerNormalize(r2Key: string): Promise<{
 // Update slot + archive docs to point at the normalized URL. Preserves original
 // in previousRecordingUrl (only set if not already present), and the untrimmed
 // v2 in untrimmedRecordingUrl when a trim happened.
-async function applyNormalizeResult(
-  db: FirebaseFirestore.Firestore,
-  slotId: string | undefined,
-  result: Record<string, unknown>,
-): Promise<void> {
-  const v2Url = result.newUrl as string | undefined;
-  const trimmedUrl = result.trimmedUrl as string | undefined | null;
-  const durationSec = result.durationSec as number | undefined;
-  const trimmedDurationSec = result.trimmedDurationSec as number | undefined | null;
-  if (!v2Url) return;
-
-  const activeUrl = trimmedUrl || v2Url;
-  const activeDuration = trimmedUrl ? trimmedDurationSec : durationSec;
-
-  if (slotId) {
-    const slotRef = db.collection('broadcast-slots').doc(slotId);
-    const slotDoc = await slotRef.get();
-    if (slotDoc.exists) {
-      const d = slotDoc.data()!;
-      const update: Record<string, unknown> = {
-        recordingUrl: activeUrl,
-        normalizedAt: new Date(),
-      };
-      if (!d.previousRecordingUrl) update.previousRecordingUrl = d.recordingUrl;
-      if (trimmedUrl) update.untrimmedRecordingUrl = v2Url;
-      if (typeof activeDuration === 'number' && activeDuration > 0) {
-        update.duration = Math.round(activeDuration);
-      }
-      await slotRef.update(update);
-    }
-
-    // Archive doc (may or may not exist yet) — webhook creates it inline after
-    // the queue write, so usually present by the time the drain fires.
-    const archivesSnap = await db.collection('archives')
-      .where('broadcastSlotId', '==', slotId)
-      .limit(1)
-      .get();
-    if (!archivesSnap.empty) {
-      const archRef = archivesSnap.docs[0].ref;
-      const d = archivesSnap.docs[0].data();
-      const update: Record<string, unknown> = {
-        recordingUrl: activeUrl,
-        normalizedAt: Date.now(),
-      };
-      if (!d.previousRecordingUrl) update.previousRecordingUrl = d.recordingUrl;
-      if (trimmedUrl) update.untrimmedRecordingUrl = v2Url;
-      if (typeof activeDuration === 'number' && activeDuration > 0) {
-        update.duration = Math.round(activeDuration);
-      }
-      await archRef.update(update);
-    }
-  }
-}
-
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -218,9 +174,13 @@ async function recoverStaleInProgress(db: FirebaseFirestore.Firestore): Promise<
   return recovered;
 }
 
-// Process the oldest pending queue entry. Returns the outcome, or null if the
-// queue is empty. The quiet-window check is done OUTSIDE this function so the
-// caller can re-check between entries in a multi-entry drain.
+// Enqueue the oldest pending queue entry with the worker (async mode).
+// Worker returns 202 within milliseconds; the actual normalize runs in the
+// background and the result lands on /api/recording/normalize-queue-callback
+// (which marks done/failed + applies the swap to slot + archive).
+//
+// Returns null if the queue is empty. The quiet-window check is done OUTSIDE
+// so the caller can re-check between entries.
 async function processOnePending(
   db: FirebaseFirestore.Firestore,
 ): Promise<DrainOutcome | null> {
@@ -238,12 +198,12 @@ async function processOnePending(
   };
   const entryRef = oldest.ref;
 
-  // Claim before calling the worker so a re-trigger of the cron during a long
-  // normalize doesn't fire a second concurrent worker call on the same entry.
+  // Claim before calling the worker so a re-trigger of the cron during the
+  // worker's normalize doesn't fire a second concurrent call on the same entry.
   await entryRef.update({ status: 'in-progress', startedAt: Date.now() });
 
-  console.log(`[drain-normalize-queue] Processing ${entry.r2Key} (slot=${entry.slotId || 'n/a'}, attempt ${entry.attempts + 1})`);
-  const result = await callWorkerNormalize(entry.r2Key);
+  console.log(`[drain-normalize-queue] Enqueueing ${entry.r2Key} (queue=${entry.id}, slot=${entry.slotId || 'n/a'}, attempt ${entry.attempts + 1})`);
+  const result = await enqueueWorkerNormalize(entry.r2Key, entry.id, entry.slotId);
 
   if (!result.ok) {
     const newAttempts = (entry.attempts || 0) + 1;
@@ -251,10 +211,10 @@ async function processOnePending(
     await entryRef.update({
       status: isExhausted ? 'failed' : 'pending',
       attempts: newAttempts,
-      lastError: `worker ${result.status}: ${JSON.stringify(result.body).slice(0, 500)}`,
+      lastError: `enqueue ${result.status}: ${JSON.stringify(result.body).slice(0, 500)}`,
       lastAttemptAt: Date.now(),
     });
-    console.error(`[drain-normalize-queue] Worker error for ${entry.r2Key}:`, result.body);
+    console.error(`[drain-normalize-queue] Worker enqueue error for ${entry.r2Key}:`, result.body);
     return {
       r2Key: entry.r2Key,
       action: isExhausted ? 'failed' : 'pending-retry',
@@ -262,29 +222,12 @@ async function processOnePending(
     };
   }
 
-  if (result.body.skipped) {
-    await entryRef.update({ status: 'done', doneAt: Date.now(), reason: result.body.reason });
-    console.log(`[drain-normalize-queue] Skipped (already in target): ${entry.r2Key}`);
-    return { r2Key: entry.r2Key, action: 'skipped' };
-  }
-
-  try {
-    await applyNormalizeResult(db, entry.slotId, result.body);
-  } catch (err) {
-    console.error(`[drain-normalize-queue] Apply-result failed for ${entry.r2Key}:`, err);
-    // Don't fail the tick — v2 is in R2; admin can re-apply later.
-  }
-  await entryRef.update({
-    status: 'done',
-    doneAt: Date.now(),
-    newUrl: result.body.newUrl ?? null,
-    trimmedUrl: result.body.trimmedUrl ?? null,
-  });
-  console.log(`[drain-normalize-queue] Done: ${entry.r2Key} → ${result.body.trimmedUrl || result.body.newUrl}`);
-  return {
-    r2Key: entry.r2Key,
-    action: result.body.trimmedUrl ? 'normalized-trimmed' : 'normalized',
-  };
+  // Worker accepted the job. It'll POST results to the callback when done.
+  // Queue entry stays in-progress until the callback marks it done (or until
+  // the stale-recovery sweep kicks in at the next drain tick if the callback
+  // never arrives).
+  console.log(`[drain-normalize-queue] Enqueued ${entry.r2Key} → worker is processing in background`);
+  return { r2Key: entry.r2Key, action: 'normalized' };
 }
 
 async function runDrain() {

@@ -77,8 +77,12 @@ export interface TechHealthResponse {
 async function probeWorker(name: string, url: string): Promise<WorkerHealth> {
   if (!url) return { name, url, reachable: false, error: 'URL not configured' };
   try {
+    // 20s timeout: the worker's event loop can be briefly blocked during
+    // ffmpeg spawn or large R2 stream pulls. A short timeout produces
+    // misleading "unreachable" flashes during legitimate work — 20s gives
+    // it room to answer while still catching real outages.
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
+    const t = setTimeout(() => ctrl.abort(), 20000);
     const res = await fetch(`${url}/health`, { method: 'GET', signal: ctrl.signal });
     clearTimeout(t);
     if (!res.ok) return { name, url, reachable: false, error: `HTTP ${res.status}` };
