@@ -70,6 +70,13 @@ async function isWorkerQuiet(
   return { quiet: true };
 }
 
+// Hard ceiling on a single worker call. Legitimate normalizes take
+// ~30-60s for an hour-long show; anything past 8 min indicates a stuck
+// worker (Redis down, ffmpeg hang, etc). Without this, a hung fetch
+// kills the whole Vercel lambda mid-await — the cleanup code below
+// never runs and the queue entry stays in-progress forever.
+const WORKER_CALL_TIMEOUT_MS = 8 * 60 * 1000;
+
 async function callWorkerNormalize(r2Key: string): Promise<{
   ok: boolean;
   status: number;
@@ -80,14 +87,30 @@ async function callWorkerNormalize(r2Key: string): Promise<{
   if (!workerUrl || !secret) {
     return { ok: false, status: 0, body: { error: 'Worker URL or secret missing' } };
   }
-  const res = await fetch(`${workerUrl}/normalize`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
-    body: JSON.stringify({ r2Key }),
-  });
-  let body: Record<string, unknown>;
-  try { body = await res.json(); } catch { body = { error: 'invalid json' }; }
-  return { ok: res.ok, status: res.status, body };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), WORKER_CALL_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${workerUrl}/normalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
+      body: JSON.stringify({ r2Key }),
+      signal: ctrl.signal,
+    });
+    let body: Record<string, unknown>;
+    try { body = await res.json(); } catch { body = { error: 'invalid json' }; }
+    return { ok: res.ok, status: res.status, body };
+  } catch (e) {
+    const aborted = ctrl.signal.aborted;
+    return {
+      ok: false,
+      status: 0,
+      body: {
+        error: aborted ? `worker timeout after ${WORKER_CALL_TIMEOUT_MS / 1000}s` : `fetch failed: ${(e as Error).message}`,
+      },
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // Update slot + archive docs to point at the normalized URL. Preserves original
@@ -168,6 +191,33 @@ interface DrainOutcome {
   attempts?: number;
 }
 
+// If a previous tick's worker call hung past the WORKER_CALL_TIMEOUT_MS
+// safety net OR before that safety net existed, the queue entry stays
+// `in-progress` forever. Re-queue any in-progress entry that hasn't
+// finished after STALE_IN_PROGRESS_MS so the next tick retries it.
+const STALE_IN_PROGRESS_MS = 30 * 60 * 1000;
+
+async function recoverStaleInProgress(db: FirebaseFirestore.Firestore): Promise<number> {
+  const snap = await db.collection('normalize-queue')
+    .where('status', '==', 'in-progress')
+    .get();
+  const cutoff = Date.now() - STALE_IN_PROGRESS_MS;
+  let recovered = 0;
+  for (const doc of snap.docs) {
+    const startedAt = Number(doc.data().startedAt || 0);
+    if (startedAt > 0 && startedAt < cutoff) {
+      await doc.ref.update({
+        status: 'pending',
+        lastError: `recovered from stale in-progress (startedAt ${new Date(startedAt).toISOString()})`,
+        lastAttemptAt: Date.now(),
+      });
+      recovered++;
+      console.log(`[drain-normalize-queue] Recovered stale in-progress: ${doc.id}`);
+    }
+  }
+  return recovered;
+}
+
 // Process the oldest pending queue entry. Returns the outcome, or null if the
 // queue is empty. The quiet-window check is done OUTSIDE this function so the
 // caller can re-check between entries in a multi-entry drain.
@@ -241,12 +291,17 @@ async function runDrain() {
   const db = getAdminDb();
   if (!db) return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
 
+  // Recover any entries stuck in-progress from prior ticks (worker hangs,
+  // lambda timeouts). Safe to run before the quiet-window check — it only
+  // resets the status flag, doesn't call the worker.
+  const recovered = await recoverStaleInProgress(db);
+
   // Initial quiet-window check. Even if a normalize is already running on the
   // worker (e.g. a manual call from admin), we still gate on broadcast slots —
   // the worker just queues internally if it's busy.
   const initialQuiet = await isWorkerQuiet(db, Date.now());
   if (!initialQuiet.quiet) {
-    return NextResponse.json({ skipped: 'busy', reason: initialQuiet.reason });
+    return NextResponse.json({ skipped: 'busy', reason: initialQuiet.reason, recovered });
   }
 
   const outcomes: DrainOutcome[] = [];
@@ -262,6 +317,7 @@ async function runDrain() {
           outcomes,
           stopped: 'window-closed',
           reason: stillQuiet.reason,
+          recovered,
         });
       }
     }
@@ -272,6 +328,7 @@ async function runDrain() {
         processed: outcomes.length,
         outcomes,
         stopped: 'queue-empty',
+        recovered,
       });
     }
     outcomes.push(outcome);
@@ -281,6 +338,7 @@ async function runDrain() {
         processed: outcomes.length,
         outcomes,
         stopped: 'worker-error',
+        recovered,
       });
     }
   }
@@ -289,5 +347,6 @@ async function runDrain() {
     processed: outcomes.length,
     outcomes,
     stopped: 'max-per-tick',
+    recovered,
   });
 }
