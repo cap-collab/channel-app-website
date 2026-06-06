@@ -43,6 +43,10 @@
     {
       "path": "/api/cron/drain-normalize-queue",
       "schedule": "3 * * * *"
+    },
+    {
+      "path": "/api/cron/audit-r2-stats",
+      "schedule": "0 8 * * *"
     }
   ]
 }

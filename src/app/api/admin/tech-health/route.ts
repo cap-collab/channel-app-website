@@ -32,12 +32,8 @@ export interface WorkerHealth {
   name: string;
   url: string;
   reachable: boolean;
-  diskUsedGb?: number;
-  diskTotalGb?: number;
-  diskPct?: number;
-  containers?: { name: string; status: string; uptimeSec?: number }[];
-  lastJobAt?: number;
-  uptimeSec?: number;
+  lastJob?: { at: number | null; ok: boolean | null; kind?: string | null; error?: string | null };
+  lastCleanup?: { at: number | null; ok: boolean | null; error?: string | null };
   error?: string;
 }
 
@@ -60,16 +56,13 @@ export interface NormalizeQueueHealth {
   failedLast24h: number;
 }
 
-export interface RecentBroadcast {
-  slotId: string;
-  djName: string;
-  startMs: number;
-  endMs: number;
-  status: string;
-  hasIngressId: boolean;
-  hasEgressId: boolean;
-  hasRecording: boolean;
-  isNormalized: boolean;
+export interface R2Stats {
+  generatedAt: number;
+  totalObjects: number;
+  referenced: { count: number; bytes: number };
+  hls: { count: number; bytes: number };
+  test: { count: number; bytes: number };
+  orphan: { count: number; bytes: number };
 }
 
 export interface TechHealthResponse {
@@ -77,35 +70,25 @@ export interface TechHealthResponse {
   workers: WorkerHealth[];
   livekit: LivekitHealth;
   normalizeQueue: NormalizeQueueHealth;
-  recentBroadcasts: RecentBroadcast[];
   upcomingSlots: { slotId: string; djName: string; startMs: number; type: string }[];
+  r2Stats: R2Stats | null;
 }
 
-async function probeWorker(name: string, url: string, secret: string): Promise<WorkerHealth> {
+async function probeWorker(name: string, url: string): Promise<WorkerHealth> {
   if (!url) return { name, url, reachable: false, error: 'URL not configured' };
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch(`${url}/health`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${secret}` },
-      signal: ctrl.signal,
-    });
+    const res = await fetch(`${url}/health`, { method: 'GET', signal: ctrl.signal });
     clearTimeout(t);
-    if (!res.ok) {
-      return { name, url, reachable: false, error: `HTTP ${res.status}` };
-    }
+    if (!res.ok) return { name, url, reachable: false, error: `HTTP ${res.status}` };
     const body = await res.json();
     return {
       name,
       url,
       reachable: true,
-      diskUsedGb: body.diskUsedGb,
-      diskTotalGb: body.diskTotalGb,
-      diskPct: body.diskPct,
-      containers: body.containers,
-      lastJobAt: body.lastJobAt,
-      uptimeSec: body.uptimeSec,
+      lastJob: body.lastJob,
+      lastCleanup: body.lastCleanup,
     };
   } catch (e) {
     return { name, url, reachable: false, error: (e as Error).message };
@@ -204,32 +187,12 @@ async function probeNormalizeQueue(): Promise<NormalizeQueueHealth> {
   };
 }
 
-async function probeRecentBroadcasts(): Promise<RecentBroadcast[]> {
+async function probeR2Stats(): Promise<R2Stats | null> {
   const db = getAdminDb();
-  if (!db) return [];
-  const now = Date.now();
-  const cutoff = now - 7 * 24 * 60 * 60 * 1000; // last 7 days
-  const snap = await db.collection('broadcast-slots')
-    .where('startTime', '>=', Timestamp.fromMillis(cutoff))
-    .where('startTime', '<=', Timestamp.fromMillis(now))
-    .get();
-  const rows: RecentBroadcast[] = [];
-  for (const d of snap.docs) {
-    const data = d.data();
-    rows.push({
-      slotId: d.id,
-      djName: String(data.djName ?? data.djUsername ?? '?'),
-      startMs: (data.startTime as Timestamp).toMillis(),
-      endMs: (data.endTime as Timestamp).toMillis(),
-      status: String(data.status ?? 'unknown'),
-      hasIngressId: !!data.ingressId,
-      hasEgressId: !!data.egressId,
-      hasRecording: !!data.recordingUrl,
-      isNormalized: typeof data.recordingUrl === 'string' && data.recordingUrl.includes('-normalized-v2'),
-    });
-  }
-  rows.sort((a, b) => b.startMs - a.startMs);
-  return rows.slice(0, 8);
+  if (!db) return null;
+  const doc = await db.collection('system').doc('r2-stats').get();
+  if (!doc.exists) return null;
+  return doc.data() as R2Stats;
 }
 
 async function probeUpcomingSlots(): Promise<{ slotId: string; djName: string; startMs: number; type: string }[]> {
@@ -260,19 +223,18 @@ export async function GET(request: NextRequest) {
   const { isAdmin } = await verifyAdminAccess(request);
   if (!isAdmin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const cronSecret = process.env.CRON_SECRET ?? '';
   const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL ?? '';
   const youtubeWorkerUrl = process.env.YOUTUBE_RENDER_WORKER_URL ?? '';
 
   // Probes run in parallel; each one swallows its own errors so the dashboard
   // shows partial data when a probe fails rather than a 500.
-  const [workersRestream, workersYoutube, livekit, normalizeQueue, recentBroadcasts, upcomingSlots] = await Promise.all([
-    probeWorker('Restream + normalize', restreamWorkerUrl, cronSecret),
-    probeWorker('YouTube render', youtubeWorkerUrl, cronSecret),
+  const [workersRestream, workersYoutube, livekit, normalizeQueue, upcomingSlots, r2Stats] = await Promise.all([
+    probeWorker('Restream + normalize', restreamWorkerUrl),
+    probeWorker('YouTube render', youtubeWorkerUrl),
     probeLivekit(),
     probeNormalizeQueue().catch(() => ({ pending: 0, inProgress: 0, oldestPendingAgeMin: null, doneLast24h: 0, failedLast24h: 0 })),
-    probeRecentBroadcasts().catch(() => []),
     probeUpcomingSlots().catch(() => []),
+    probeR2Stats().catch(() => null),
   ]);
 
   const body: TechHealthResponse = {
@@ -280,8 +242,8 @@ export async function GET(request: NextRequest) {
     workers: [workersRestream, workersYoutube],
     livekit,
     normalizeQueue,
-    recentBroadcasts,
     upcomingSlots,
+    r2Stats,
   };
   return NextResponse.json(body);
 }

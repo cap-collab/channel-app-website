@@ -49,6 +49,30 @@ const ZOMBIE_CHECK_OLDER_THAN_MS = 8 * 60 * 60 * 1000; // anything still 'render
 // cleanup re-marks orphaned 'rendering' jobs as 'failed' (see scanZombieJobs).
 const activeJobs = new Map(); // jobId -> { browser, ffmpegProcess, watchdogTimer, ffmpegRetryTimer, intentionalStop, tempPaths }
 
+// Health tracker for the admin Tech Health dashboard. Only tracks the last
+// observed outcome for each tracked operation — enough to answer:
+//   - is the worker healthy? (responding to /health at all)
+//   - did the last render run as expected?
+//   - did the last cleanup (disk prune) run as expected?
+const health = {
+  lastJobAt: 0,
+  lastJobOk: null,
+  lastJobError: null,
+  lastCleanupAt: 0,
+  lastCleanupOk: null,
+  lastCleanupError: null,
+};
+function recordJob(ok, error) {
+  health.lastJobAt = Date.now();
+  health.lastJobOk = ok;
+  health.lastJobError = ok ? null : String(error || '').slice(0, 200);
+}
+function recordCleanup(ok, error) {
+  health.lastCleanupAt = Date.now();
+  health.lastCleanupOk = ok;
+  health.lastCleanupError = ok ? null : String(error || '').slice(0, 200);
+}
+
 // ─── Firebase Admin init ─────────────────────────────────────────────────
 if (!admin.apps.length) {
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -118,10 +142,13 @@ app.post('/start', authenticate, async (req, res) => {
 
   // 202 immediately, work happens in background.
   res.status(202).json({ accepted: true, jobId });
-  runJob(job).catch((err) => {
-    console.error(`[${jobId}] Unhandled runJob error:`, err);
-    markFailed(jobId, err?.message || 'unhandled error').catch(() => {});
-  });
+  runJob(job)
+    .then(() => recordJob(true))
+    .catch((err) => {
+      recordJob(false, err?.message || 'unhandled error');
+      console.error(`[${jobId}] Unhandled runJob error:`, err);
+      markFailed(jobId, err?.message || 'unhandled error').catch(() => {});
+    });
 });
 
 // ─── POST /backfill-soundcloud ───────────────────────────────────────────
@@ -299,6 +326,38 @@ app.get('/status', (req, res) => {
     };
   }
   res.json({ activeJobs: jobs, uptime: process.uptime() });
+});
+
+// POST /cleanup-report — called by the daily prune cron (cron lives on the
+// VPS, not inside this process). Body: { ok: boolean, error?: string }.
+// Auth-gated since it mutates health state.
+app.post('/cleanup-report', authenticate, (req, res) => {
+  const { ok, error } = req.body || {};
+  if (typeof ok !== 'boolean') return res.status(400).json({ error: 'ok required (boolean)' });
+  recordCleanup(ok, error);
+  res.json({ recorded: true });
+});
+
+// GET /health — admin Tech Health probe. Returns the worker's last-known
+// state for the three things the dashboard surfaces:
+//   - healthy: the process is responding (true if you get a 200 at all)
+//   - lastJob: ok flag, timestamp, error if any
+//   - lastCleanup: ok flag, timestamp, error if any
+// No auth — read-only, no sensitive data.
+app.get('/health', (req, res) => {
+  res.json({
+    healthy: true,
+    lastJob: {
+      at: health.lastJobAt || null,
+      ok: health.lastJobOk,
+      error: health.lastJobError,
+    },
+    lastCleanup: {
+      at: health.lastCleanupAt || null,
+      ok: health.lastCleanupOk,
+      error: health.lastCleanupError,
+    },
+  });
 });
 
 // ─── runJob ──────────────────────────────────────────────────────────────

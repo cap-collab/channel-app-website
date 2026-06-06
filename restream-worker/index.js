@@ -13,6 +13,32 @@ const SHARED_SECRET = process.env.SHARED_SECRET || process.env.CRON_SECRET || ''
 // Active restreams keyed by slotId. Each value: { archiveFfmpeg, silenceFfmpeg, ingressId, slotEndTimer, intentionalStop }.
 const activeStreams = new Map();
 
+// Health tracker for the admin Tech Health dashboard. Only tracks the last
+// observed outcome for each tracked operation — enough to answer:
+//   - is the worker healthy? (responding to /health at all)
+//   - did the last job (start / normalize) run as expected?
+//   - did the last cleanup (disk prune) run as expected?
+const health = {
+  lastJobAt: 0,
+  lastJobOk: null,     // true on success, false on failure, null if never
+  lastJobKind: null,   // 'start' | 'normalize'
+  lastJobError: null,
+  lastCleanupAt: 0,
+  lastCleanupOk: null,
+  lastCleanupError: null,
+};
+function recordJob(kind, ok, error) {
+  health.lastJobAt = Date.now();
+  health.lastJobOk = ok;
+  health.lastJobKind = kind;
+  health.lastJobError = ok ? null : String(error || '').slice(0, 200);
+}
+function recordCleanup(ok, error) {
+  health.lastCleanupAt = Date.now();
+  health.lastCleanupOk = ok;
+  health.lastCleanupError = ok ? null : String(error || '').slice(0, 200);
+}
+
 // Pending restreams — scheduled to start at a future time but not yet started.
 // Keyed by slotId. Each value: { startTimer, params }.
 // When /stop is called for a pending slot (e.g., admin deletes before start),
@@ -37,8 +63,10 @@ app.post('/start', authenticate, async (req, res) => {
   const params = req.body;
   try {
     const result = await startSlot(params);
+    recordJob('start', true);
     res.json({ success: true, ...result });
   } catch (err) {
+    recordJob('start', false, err.message);
     if (err.statusCode) {
       res.status(err.statusCode).json({ error: err.message });
     } else {
@@ -408,6 +436,39 @@ app.get('/status', (req, res) => {
   res.json({ activeStreams: streams, pendingStarts: pending });
 });
 
+// POST /cleanup-report — called by the daily prune cron (cron lives on the
+// VPS, not inside this process). Body: { ok: boolean, error?: string }.
+// Auth-gated since it mutates health state.
+app.post('/cleanup-report', authenticate, (req, res) => {
+  const { ok, error } = req.body || {};
+  if (typeof ok !== 'boolean') return res.status(400).json({ error: 'ok required (boolean)' });
+  recordCleanup(ok, error);
+  res.json({ recorded: true });
+});
+
+// GET /health — admin Tech Health probe. Returns the worker's last-known
+// state for the three things the dashboard surfaces:
+//   - healthy: the process is responding (true if you get a 200 at all)
+//   - lastJob: kind, ok flag, timestamp, error if any
+//   - lastCleanup: ok flag, timestamp, error if any
+// No auth — read-only, no sensitive data, easier to integrate with monitors.
+app.get('/health', (req, res) => {
+  res.json({
+    healthy: true,
+    lastJob: {
+      at: health.lastJobAt || null,
+      ok: health.lastJobOk,
+      kind: health.lastJobKind,
+      error: health.lastJobError,
+    },
+    lastCleanup: {
+      at: health.lastCleanupAt || null,
+      ok: health.lastCleanupOk,
+      error: health.lastCleanupError,
+    },
+  });
+});
+
 async function stopStream(slotId, apiKey, apiSecret, livekitHost) {
   const stream = activeStreams.get(slotId);
   if (!stream) return false;
@@ -614,6 +675,7 @@ app.post('/normalize', authenticate, async (req, res) => {
   const respond = (status, payload) => {
     if (!res.headersSent) res.status(status).json(payload);
     fireCallback(payload);
+    recordJob('normalize', status === 200, payload && payload.error);
   };
 
   // Format detection. Each branch controls the re-encode args + content-type
