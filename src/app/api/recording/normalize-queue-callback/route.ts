@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     durationSec?: number | null;
     trimmedDurationSec?: number | null;
     measurements?: Record<string, number | null | undefined>;
-    callbackContext?: { queueId?: string; slotId?: string };
+    callbackContext?: { queueId?: string; slotId?: string; archiveId?: string };
   };
   try {
     body = await request.json();
@@ -91,17 +91,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'newUrl missing' }, { status: 400 });
   }
 
-  // Apply swap to slot + archive doc (same logic as drain-normalize-queue's
-  // applyNormalizeResult — kept duplicated for now since the cron version
-  // runs synchronously inside the drain loop).
+  // Apply swap. Two queue-entry shapes:
+  //   live recording → has slotId (broadcast-slots), find archive via
+  //                    broadcastSlotId field
+  //   artist upload  → has archiveId (direct ref), no slot involved
+  // The queue doc itself carries archiveId/slotId; we prefer those over
+  // the callbackContext from the worker (which can get garbled).
   const v2Url = body.newUrl;
   const trimmedUrl = body.trimmedUrl || null;
   const activeUrl = trimmedUrl || v2Url;
   const activeDuration = trimmedUrl ? body.trimmedDurationSec : body.durationSec;
 
-  if (slotId) {
-    try {
-      const slotRef = db.collection('broadcast-slots').doc(slotId);
+  const queueData = queueDoc.data() || {};
+  const archiveIdFromQueue = (queueData.archiveId as string | undefined) || body.callbackContext?.archiveId;
+  const slotIdFromQueue = (queueData.slotId as string | undefined) || slotId;
+
+  const applyArchiveSwap = async (archRef: FirebaseFirestore.DocumentReference, archData: FirebaseFirestore.DocumentData) => {
+    const update: Record<string, unknown> = {
+      recordingUrl: activeUrl,
+      normalizedAt: Date.now(),
+    };
+    if (!archData.previousRecordingUrl) update.previousRecordingUrl = archData.recordingUrl;
+    if (trimmedUrl) update.untrimmedRecordingUrl = v2Url;
+    if (typeof activeDuration === 'number' && activeDuration > 0) {
+      update.duration = Math.round(activeDuration);
+    }
+    await archRef.update(update);
+  };
+
+  try {
+    if (slotIdFromQueue) {
+      // Live-recording path: update slot doc, then find + update archive doc.
+      const slotRef = db.collection('broadcast-slots').doc(slotIdFromQueue);
       const slotDoc = await slotRef.get();
       if (slotDoc.exists) {
         const d = slotDoc.data()!;
@@ -118,26 +139,26 @@ export async function POST(request: NextRequest) {
       }
 
       const archivesSnap = await db.collection('archives')
-        .where('broadcastSlotId', '==', slotId).limit(1).get();
+        .where('broadcastSlotId', '==', slotIdFromQueue).limit(1).get();
       if (!archivesSnap.empty) {
-        const archRef = archivesSnap.docs[0].ref;
-        const d = archivesSnap.docs[0].data();
-        const update: Record<string, unknown> = {
-          recordingUrl: activeUrl,
-          normalizedAt: Date.now(),
-        };
-        if (!d.previousRecordingUrl) update.previousRecordingUrl = d.recordingUrl;
-        if (trimmedUrl) update.untrimmedRecordingUrl = v2Url;
-        if (typeof activeDuration === 'number' && activeDuration > 0) {
-          update.duration = Math.round(activeDuration);
-        }
-        await archRef.update(update);
+        await applyArchiveSwap(archivesSnap.docs[0].ref, archivesSnap.docs[0].data());
       }
-    } catch (err) {
-      console.error(`[normalize-queue-callback] Apply-swap failed for queue ${queueId}:`, err);
-      // Don't fail the response — v2 is in R2 and the queue moves on. Manual
-      // admin reconcile if needed.
+    } else if (archiveIdFromQueue) {
+      // Artist-upload path: just the archive doc.
+      const archRef = db.collection('archives').doc(archiveIdFromQueue);
+      const archDoc = await archRef.get();
+      if (archDoc.exists) {
+        await applyArchiveSwap(archRef, archDoc.data() || {});
+      } else {
+        console.warn(`[normalize-queue-callback] archive ${archiveIdFromQueue} not found — v2 in R2 but no swap`);
+      }
+    } else {
+      console.warn(`[normalize-queue-callback] queue ${queueId} has neither slotId nor archiveId — v2 in R2 but no swap`);
     }
+  } catch (err) {
+    console.error(`[normalize-queue-callback] Apply-swap failed for queue ${queueId}:`, err);
+    // Don't fail the response — v2 is in R2 and the queue moves on. Manual
+    // admin reconcile if needed.
   }
 
   await queueRef.update({

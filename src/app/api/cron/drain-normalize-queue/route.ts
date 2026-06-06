@@ -30,6 +30,7 @@ interface QueueEntry {
   id: string;
   r2Key: string;
   slotId?: string;
+  archiveId?: string;  // present on artist-upload entries (no slot)
   queuedAt: number;
   status: string;
   attempts: number;
@@ -84,6 +85,7 @@ async function enqueueWorkerNormalize(
   r2Key: string,
   queueId: string,
   slotId: string | undefined,
+  archiveId: string | undefined,
 ): Promise<{ ok: boolean; status: number; body: Record<string, unknown> }> {
   const workerUrl = process.env.RESTREAM_WORKER_URL;
   const secret = process.env.CRON_SECRET;
@@ -95,7 +97,10 @@ async function enqueueWorkerNormalize(
     return { ok: false, status: 0, body: { error: 'APP_URL not configured (needed for callback)' } };
   }
   const callbackUrl = `${appUrl.replace(/\/$/, '')}/api/recording/normalize-queue-callback`;
-  const callbackContext = { queueId, slotId };
+  // archiveId for artist-upload entries, slotId for live-recording entries.
+  // The callback prefers the queue doc's fields over this context, but
+  // sending both keeps things robust if the queue doc gets edited mid-flight.
+  const callbackContext = { queueId, slotId, archiveId };
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), WORKER_ENQUEUE_TIMEOUT_MS);
   try {
@@ -203,7 +208,7 @@ async function processOnePending(
   await entryRef.update({ status: 'in-progress', startedAt: Date.now() });
 
   console.log(`[drain-normalize-queue] Enqueueing ${entry.r2Key} (queue=${entry.id}, slot=${entry.slotId || 'n/a'}, attempt ${entry.attempts + 1})`);
-  const result = await enqueueWorkerNormalize(entry.r2Key, entry.id, entry.slotId);
+  const result = await enqueueWorkerNormalize(entry.r2Key, entry.id, entry.slotId, entry.archiveId);
 
   if (!result.ok) {
     const newAttempts = (entry.attempts || 0) + 1;

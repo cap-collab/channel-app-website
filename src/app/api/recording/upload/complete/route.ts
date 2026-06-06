@@ -138,56 +138,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Kick off loudness normalization for MP3 and MP4 uploads.
-    // Worker measures LUFS; if the track is uniformly quiet (broken-capture
-    // pattern) it writes a NEW R2 key "...-normalized-v1.<ext>" with gain
-    // applied. The original R2 object is NEVER overwritten or deleted.
+    // Enqueue loudness normalization for MP3 and MP4 uploads. Writing to
+    // the normalize-queue (instead of calling the worker directly) gives
+    // us:
+    //   - the drain cron's retry-on-failure (5 attempts, with backoff)
+    //   - stale-in-progress recovery if a callback gets lost
+    //   - Tech Health visibility (pending count, oldest age)
+    //   - one code path shared with live recordings — fewer subtle bugs
     //
-    // We pass a callbackUrl so the worker reports back to
-    // /api/recording/normalize-callback when it finishes (can take 60-180s).
-    // That callback does the Firestore swap. A fire-and-forget .then() here
-    // isn't reliable on Vercel — the serverless instance can be recycled
-    // after the response returns, dropping the handler before the worker
-    // responds. The callback pattern mirrors how the live pipeline uses
-    // LiveKit webhooks to drive state transitions asynchronously.
+    // The drain cron sees this entry on its next tick (within an hour) and
+    // POSTs to the worker with an async callback. The callback at
+    // /api/recording/normalize-queue-callback handles the archive doc swap.
     if (isMp3 || isMp4) {
-      if (restreamWorkerUrl && cronSecret) {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL
-          || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
-        const callbackUrl = appUrl ? `${appUrl}/api/recording/normalize-callback` : null;
-        if (!callbackUrl) {
-          console.warn(`[upload/complete] Normalize skipped: no appUrl for callback`);
-        } else {
-          // When callbackUrl is set, the worker's /normalize endpoint returns
-          // 202 immediately and runs the job in the background, then POSTs
-          // the result to callbackUrl when done. So this fetch resolves in
-          // <1s and doesn't depend on the serverless instance staying alive
-          // for the full normalization duration.
-          fetch(`${restreamWorkerUrl}/normalize`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${cronSecret}`,
-            },
-            body: JSON.stringify({
-              r2Key: uploadFilePath,
-              callbackUrl,
-              callbackContext: { archiveId },
-            }),
-          })
-            .then((res) => {
-              if (!res.ok) {
-                console.error(`[upload/complete] Normalize kickoff returned ${res.status} for ${uploadFilePath}`);
-              } else {
-                console.log(`[upload/complete] Normalize kicked off for ${uploadFilePath}; awaiting callback`);
-              }
-            })
-            .catch((err) => {
-              console.error('[upload/complete] Normalize kickoff error:', err);
-            });
-        }
-      } else {
-        console.warn(`[upload/complete] Normalize skipped: RESTREAM_WORKER_URL=${restreamWorkerUrl ? 'set' : 'missing'}, CRON_SECRET=${cronSecret ? 'set' : 'missing'}`);
+      try {
+        await db.collection('normalize-queue').add({
+          status: 'pending',
+          r2Key: uploadFilePath,
+          archiveId,            // routes the callback to update this archive
+          queuedAt: Date.now(),
+          attempts: 0,
+          source: 'upload',     // distinguishes from live-recording entries
+        });
+        console.log(`[upload/complete] Enqueued normalize for ${uploadFilePath} (archive ${archiveId})`);
+        // Drain cron picks this up at the next quiet window. Listeners hear
+        // the raw upload until then.
+      } catch (err) {
+        console.error(`[upload/complete] Failed to enqueue normalize for ${uploadFilePath}:`, err);
+        // Non-fatal — listener still gets the raw upload; admin can re-trigger.
       }
     }
 
