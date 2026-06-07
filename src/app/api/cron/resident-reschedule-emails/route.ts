@@ -43,6 +43,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Preview mode: one-shot render of the template to a given address, skipping
+  // all eligibility/dedup logic and the lastResidentNudgeAt stamp.
+  //   GET /api/cron/resident-reschedule-emails?preview=1&to=cap@channel-app.com
+  const url = request.nextUrl;
+  if (url.searchParams.get('preview') === '1') {
+    const to = url.searchParams.get('to');
+    if (!to) {
+      return NextResponse.json({ error: 'Missing required ?to=<email>' }, { status: 400 });
+    }
+    const djName = url.searchParams.get('name') || 'Cap';
+    const ok = await sendResidentRescheduleEmail({ to, djName });
+    return NextResponse.json({ preview: true, sent: ok, to, djName });
+  }
+
   const db = getAdminDb();
   if (!db) {
     return NextResponse.json({ error: 'Database not available' }, { status: 500 });
