@@ -4,6 +4,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import type { TechHealthResponse } from '@/app/api/admin/tech-health/route';
 
+function diskClass(pct: number): string {
+  if (pct >= 85) return 'text-red-400';
+  if (pct >= 70) return 'text-yellow-400';
+  return 'text-green-400';
+}
+
 function fmtAgo(ms: number | null | undefined): string {
   if (!ms) return '—';
   const s = Math.floor((Date.now() - ms) / 1000);
@@ -123,6 +129,13 @@ export function TechHealthTab() {
                   <div className="text-xs text-gray-500 font-mono">{w.url}</div>
                   {w.reachable && (
                     <>
+                      {w.disk && (
+                        <Row label="Disk" value={
+                          <span className={diskClass(w.disk.pct)}>
+                            {w.disk.usedGb.toFixed(1)} / {w.disk.totalGb.toFixed(1)} GB ({w.disk.pct}%)
+                          </span>
+                        } />
+                      )}
                       {w.lastJob && (
                         <Row label="Last job" value={
                           w.lastJob.at === null ? (
@@ -204,24 +217,39 @@ export function TechHealthTab() {
             </section>
           )}
 
-          {/* R2 storage */}
-          {data.r2Stats && (
-            <section>
-              <h3 className="text-sm uppercase tracking-wide text-gray-400 mb-2">R2 storage</h3>
-              <div className="bg-[#1e1e1e] border border-white/10 p-4 space-y-2 text-sm">
-                <Row label="Total objects" value={data.r2Stats.totalObjects.toLocaleString()} />
-                <Row label="Referenced (in use)" value={`${data.r2Stats.referenced.count} · ${(data.r2Stats.referenced.bytes / 1024 / 1024 / 1024).toFixed(1)} GB`} />
-                <Row label="Orphans" value={
-                  <span className={data.r2Stats.orphan.bytes > 50 * 1024 * 1024 * 1024 ? 'text-yellow-400' : ''}>
-                    {data.r2Stats.orphan.count} · {(data.r2Stats.orphan.bytes / 1024 / 1024 / 1024).toFixed(1)} GB
-                  </span>
-                } />
-                <div className="text-xs text-gray-500 pt-1">
-                  Snapshot from daily audit · {fmtAgo(data.r2Stats.generatedAt)}
+          {/* R2 storage. Unlike disk, R2 has no hard ceiling — pay-as-you-go.
+              So we show usage in GB and surface "% orphan" as the reclaimable
+              chunk, since that's the only thing actionable from here. */}
+          {data.r2Stats && (() => {
+            const totalBytes = data.r2Stats.referenced.bytes + data.r2Stats.orphan.bytes + data.r2Stats.hls.bytes + data.r2Stats.test.bytes;
+            const totalGb = totalBytes / 1024 / 1024 / 1024;
+            const refGb = data.r2Stats.referenced.bytes / 1024 / 1024 / 1024;
+            const orphanGb = data.r2Stats.orphan.bytes / 1024 / 1024 / 1024;
+            const orphanPct = totalBytes > 0 ? Math.round((data.r2Stats.orphan.bytes / totalBytes) * 100) : 0;
+            const monthlyCostUsd = (totalGb * 0.015).toFixed(2);
+            return (
+              <section>
+                <h3 className="text-sm uppercase tracking-wide text-gray-400 mb-2">R2 storage</h3>
+                <div className="bg-[#1e1e1e] border border-white/10 p-4 space-y-2 text-sm">
+                  <Row label="Total used" value={
+                    <span>{totalGb.toFixed(1)} GB · {data.r2Stats.totalObjects.toLocaleString()} objects</span>
+                  } />
+                  <Row label="Active recordings" value={
+                    <span>{refGb.toFixed(1)} GB · {data.r2Stats.referenced.count} files</span>
+                  } />
+                  <Row label="Orphans (reclaimable)" value={
+                    <span className={orphanPct >= 50 ? 'text-yellow-400' : 'text-gray-300'}>
+                      {orphanGb.toFixed(1)} GB · {data.r2Stats.orphan.count} files ({orphanPct}%)
+                    </span>
+                  } />
+                  <Row label="Est. monthly cost" value={<span className="text-gray-300">~${monthlyCostUsd}</span>} />
+                  <div className="text-xs text-gray-500 pt-1">
+                    Snapshot from daily audit · {fmtAgo(data.r2Stats.generatedAt)} · R2 has no hard quota
+                  </div>
                 </div>
-              </div>
-            </section>
-          )}
+              </section>
+            );
+          })()}
 
           <div className="text-xs text-gray-500 pt-2">
             Read-only snapshot. Use the Refresh button for an up-to-date view.

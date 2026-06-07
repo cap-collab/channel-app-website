@@ -14,7 +14,7 @@
 // broadcasts use restream-worker; resource isolation is the safety net.
 
 import express from 'express';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { readFileSync, unlinkSync, mkdirSync, statSync, rmdirSync, renameSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -339,14 +339,32 @@ app.post('/cleanup-report', authenticate, (req, res) => {
 });
 
 // GET /health — admin Tech Health probe. Returns the worker's last-known
-// state for the three things the dashboard surfaces:
-//   - healthy: the process is responding (true if you get a 200 at all)
-//   - lastJob: ok flag, timestamp, error if any
-//   - lastCleanup: ok flag, timestamp, error if any
+// state plus current disk usage. df / inside the container reports the
+// host overlay-fs numbers since Docker's overlay is backed by the host.
 // No auth — read-only, no sensitive data.
+function probeDisk() {
+  try {
+    const out = execSync('df -k /', { encoding: 'utf8' }).split('\n');
+    if (out.length < 2) return null;
+    const parts = out[1].trim().split(/\s+/);
+    if (parts.length < 5) return null;
+    const totalKb = Number(parts[1]);
+    const usedKb = Number(parts[2]);
+    if (!Number.isFinite(totalKb) || !Number.isFinite(usedKb) || totalKb <= 0) return null;
+    return {
+      totalGb: Number((totalKb / 1024 / 1024).toFixed(2)),
+      usedGb: Number((usedKb / 1024 / 1024).toFixed(2)),
+      pct: Math.round((usedKb / totalKb) * 100),
+    };
+  } catch {
+    return null;
+  }
+}
+
 app.get('/health', (req, res) => {
   res.json({
     healthy: true,
+    disk: probeDisk(),
     lastJob: {
       at: health.lastJobAt || null,
       ok: health.lastJobOk,

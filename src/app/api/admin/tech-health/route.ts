@@ -32,6 +32,7 @@ export interface WorkerHealth {
   name: string;
   url: string;
   reachable: boolean;
+  disk?: { totalGb: number; usedGb: number; pct: number } | null;
   lastJob?: { at: number | null; ok: boolean | null; kind?: string | null; error?: string | null };
   lastCleanup?: { at: number | null; ok: boolean | null; error?: string | null };
   error?: string;
@@ -91,6 +92,7 @@ async function probeWorker(name: string, url: string): Promise<WorkerHealth> {
       name,
       url,
       reachable: true,
+      disk: body.disk ?? null,
       lastJob: body.lastJob,
       lastCleanup: body.lastCleanup,
     };
