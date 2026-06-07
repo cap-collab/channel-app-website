@@ -52,11 +52,6 @@ function buildEmailHtml(name: string): string {
           <td align="center" style="padding: 40px 20px;" bgcolor="#ffffff">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
               <tr>
-                <td align="center" style="padding-bottom: 32px;" bgcolor="#ffffff">
-                  <a href="${APP_URL}" style="text-decoration: none;"><img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" /></a>
-                </td>
-              </tr>
-              <tr>
                 <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Hi ${name},</p>
                   <p style="margin: 0 0 16px; color: #1a1a1a;">Channel is taking shape, last week was another strong step forward.</p>
@@ -75,6 +70,11 @@ function buildEmailHtml(name: string): string {
                   <p style="margin: 0 0 16px; color: #1a1a1a;">As always, if you have feedback or ideas, I'm all ears.</p>
                   <p style="margin: 0 0 4px; color: #1a1a1a;">Thanks again,</p>
                   <p style="margin: 0; color: #1a1a1a;">Cap</p>
+                </td>
+              </tr>
+              <tr>
+                <td align="center" style="padding-top: 32px;" bgcolor="#ffffff">
+                  <a href="${APP_URL}" style="text-decoration: none;"><img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" /></a>
                 </td>
               </tr>
               <tr>

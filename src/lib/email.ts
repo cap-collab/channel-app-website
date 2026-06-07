@@ -91,13 +91,13 @@ function wrapEmailContentWithUnsubscribeUrl(content: string, footerText: string,
           <td align="center" style="padding: 40px 20px;" bgcolor="#ffffff">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
               <tr>
-                <td align="center" style="padding-bottom: 32px;" bgcolor="#ffffff">
-                  <a href="https://channel-app.com" style="text-decoration: none;"><img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" /></a>
+                <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
+                  ${content}
                 </td>
               </tr>
               <tr>
-                <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
-                  ${content}
+                <td align="center" style="padding-top: 32px;" bgcolor="#ffffff">
+                  <a href="https://channel-app.com" style="text-decoration: none;"><img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" /></a>
                 </td>
               </tr>
               <tr>
@@ -177,15 +177,15 @@ function _wrapEmailContent(
         <tr>
           <td align="center" style="padding: 40px 20px;" bgcolor="#ffffff">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
-              <tr>
-                <td align="center" style="padding-bottom: 32px;" bgcolor="#ffffff">
-                  <a href="https://channel-app.com" style="text-decoration: none;"><img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" /></a>
-                </td>
-              </tr>
               ${aboveBlock}
               <tr>
                 <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
                   ${content}
+                </td>
+              </tr>
+              <tr>
+                <td align="center" style="padding-top: 32px;" bgcolor="#ffffff">
+                  <a href="https://channel-app.com" style="text-decoration: none;"><img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" /></a>
                 </td>
               </tr>
               <tr>
@@ -1088,18 +1088,12 @@ export async function sendResidentRescheduleEmail({
           <p style="margin: 0 0 20px; font-size: 14px; color: #666;">
             It's been a few weeks since your last show.
           </p>
-          <p style="margin: 0 0 20px; font-size: 14px; color: #666;">
+          <p style="margin: 0 0 4px; font-size: 14px; color: #666;">
             Whenever you're ready, you can schedule your next broadcast or upload a pre-recorded show here:
           </p>
-          <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px;">
-            <tr>
-              <td style="background: #1a1a1a; border-radius: 0;">
-                <a href="${studioUrl}" style="display: inline-block; padding: 12px 24px; font-size: 14px; font-weight: 700; color: #ffffff; text-decoration: none;">
-                  channel-app.com/studio
-                </a>
-              </td>
-            </tr>
-          </table>
+          <p style="margin: 0 0 24px; font-size: 14px;">
+            <a href="${studioUrl}" style="color: #1a1a1a; text-decoration: underline;">channel-app.com/studio</a>
+          </p>
           <p style="margin: 0; font-size: 14px; color: #666;">
             Looking forward to hearing what you've been working on.
           </p>

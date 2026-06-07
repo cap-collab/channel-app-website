@@ -87,13 +87,13 @@ function wrapEmailContent(content: string): string {
           <td align="center" style="padding: 40px 20px;" bgcolor="#ffffff">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
               <tr>
-                <td align="center" style="padding-bottom: 32px;" bgcolor="#ffffff">
-                  <img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" />
+                <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
+                  ${content}
                 </td>
               </tr>
               <tr>
-                <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
-                  ${content}
+                <td align="center" style="padding-top: 32px;" bgcolor="#ffffff">
+                  <img src="${LOGO_URL}" alt="Channel" width="120" style="width: 120px; height: auto;" />
                 </td>
               </tr>
               <tr>
