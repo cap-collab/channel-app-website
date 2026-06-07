@@ -78,7 +78,7 @@ function buildEmailHtml(name: string): string {
                 </td>
               </tr>
               <tr>
-                <td align="center" style="padding-top: 32px; border-top: 1px solid #e5e5e5;" bgcolor="#ffffff">
+                <td align="center" style="padding-top: 32px;" bgcolor="#ffffff">
                   <p style="margin: 0 0 12px; font-size: 13px; color: #999;">
                     You're receiving this as a DJ on Channel Radio.
                   </p>
