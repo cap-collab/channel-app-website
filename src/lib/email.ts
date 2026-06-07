@@ -1163,7 +1163,7 @@ export async function sendBroadcast2HourReminderEmail({
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Check your audio levels before going live and during your show. If the signal gets too hot, it can cause clipping and glitches in the recording.</td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Check your audio levels before going live and during your show. <strong>If the signal gets too hot, it WILL cause clipping and glitches in the recording.</strong></td>
             </tr>
             <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Select Stereo stream optimization if you're sending a stereo signal from your interface.</td>
