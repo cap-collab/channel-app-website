@@ -200,7 +200,7 @@ export function buildEmailHtml(
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background-color: #ffffff;">
         <tr>
           <td align="center" style="padding: 40px 6px;" bgcolor="#ffffff">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 700px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 820px;">
               <tr>
                 <td bgcolor="#ffffff" style="font-size: 13px; line-height: 1.55; color: #1a1a1a;">
                   ${body}
