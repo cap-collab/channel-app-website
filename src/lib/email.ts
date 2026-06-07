@@ -1060,6 +1060,78 @@ export async function sendBroadcast1WeekReminderEmail({
   }
 }
 
+// Nudge a monthly-resident DJ who hasn't played recently and has nothing on
+// the calendar to book their next show. Personal, from Cap. Single CTA to the
+// studio scheduling page. Footer is the DJ-insiders category so the existing
+// one-click unsubscribe applies.
+export async function sendResidentRescheduleEmail({
+  to,
+  djName,
+}: {
+  to: string;
+  djName: string;
+}) {
+  if (!resend) {
+    console.warn("Email service not configured - skipping email");
+    return false;
+  }
+
+  const studioUrl = "https://channel-app.com/studio";
+
+  const content = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
+      <tr>
+        <td style="padding: 32px;">
+          <p style="margin: 0 0 16px; font-size: 14px; color: #666;">
+            Hi ${djName},
+          </p>
+          <p style="margin: 0 0 20px; font-size: 14px; color: #666;">
+            It's been a few weeks since your last show.
+          </p>
+          <p style="margin: 0 0 20px; font-size: 14px; color: #666;">
+            Whenever you're ready, you can schedule your next broadcast or upload a pre-recorded show here:
+          </p>
+          <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px;">
+            <tr>
+              <td style="background: #1a1a1a; border-radius: 0;">
+                <a href="${studioUrl}" style="display: inline-block; padding: 12px 24px; font-size: 14px; font-weight: 700; color: #ffffff; text-decoration: none;">
+                  channel-app.com/studio
+                </a>
+              </td>
+            </tr>
+          </table>
+          <p style="margin: 0; font-size: 14px; color: #666;">
+            Looking forward to hearing what you've been working on.
+          </p>
+          <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
+            Cap
+          </p>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL_DJ,
+      to,
+      subject: `Ready for your next show?`,
+      html: wrapEmailContent(content, "You're receiving this as a resident on Channel."),
+      headers: getUnsubscribeHeaders("dj"),
+    });
+
+    if (error) {
+      console.error("Error sending resident reschedule email:", error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error sending resident reschedule email:", error);
+    return false;
+  }
+}
+
 export async function sendBroadcast2HourReminderEmail({
   to,
   djName,

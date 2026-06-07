@@ -47,6 +47,10 @@
     {
       "path": "/api/cron/audit-r2-stats",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/resident-reschedule-emails",
+      "schedule": "0 18 * * 3"
     }
   ]
 }
