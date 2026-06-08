@@ -52,48 +52,41 @@ interface CustomLink {
 interface ResidentReferral {
   username: string;
   displayName: string;
-  photoUrl: string | null;
+  photoUrl: string;
 }
 
 // Logged-out "Don't have a code?" section: heading + body copy + a grid of
 // monthly residents. Each card reuses the /scene card shape (16:9 image with the
 // name overlaid bottom-left) and links to the resident's profile. 2-up on mobile,
-// 4-up on desktop. Renders nothing until residents have loaded.
+// 4-up on desktop. Renders nothing until residents have loaded. The API only
+// returns residents with a photo, so there's no name-fallback tile.
 function ResidentReferralSection({ residents }: { residents: ResidentReferral[] }) {
   if (residents.length === 0) return null;
   return (
-    <div className="max-w-3xl mx-auto mt-10 text-center">
+    <div className="mt-12 text-center">
       <p className="text-white font-medium mb-1">Don&apos;t have a code?</p>
-      <p className="text-gray-400 text-sm mb-6">
+      <p className="text-gray-400 text-sm mb-8">
         New hosts join through referrals from artists already broadcasting on Channel.
       </p>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
         {residents.map((r) => (
           <Link
             key={r.username}
             href={`/dj/${r.username}`}
             className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10 group"
           >
-            {r.photoUrl ? (
-              <Image
-                src={r.photoUrl}
-                alt={r.displayName}
-                fill
-                className="object-cover"
-                unoptimized
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-stone-800 to-amber-900">
-                <h2 className="text-xl font-black uppercase tracking-tight leading-none text-white text-center px-2 line-clamp-2">
-                  {r.displayName}
-                </h2>
-              </div>
-            )}
+            <Image
+              src={r.photoUrl}
+              alt={r.displayName}
+              fill
+              className="object-cover"
+              unoptimized
+            />
             {/* Gradient scrims + bottom-left name — matches the /scene card overlay. */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
             <div className="absolute bottom-2 left-2 right-2 text-left">
-              <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+              <span className="text-xs md:text-sm font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
                 {r.displayName}
               </span>
             </div>
@@ -2112,11 +2105,11 @@ export function StudioProfileClient() {
     return (
       <div className="min-h-screen bg-black">
         <Header currentPage="studio" position="sticky" />
-        <main className="max-w-xl mx-auto p-4">
+        <main className="max-w-4xl mx-auto p-4">
           <div className="text-center py-12">
             <h1 className="text-2xl font-semibold text-white mb-2">Studio</h1>
             <p className="text-gray-400 mb-8">
-              Get your artist profile on Channel
+              Host a show on Channel
             </p>
 
             <div className="max-w-sm mx-auto space-y-4">
@@ -2239,11 +2232,11 @@ export function StudioProfileClient() {
     return (
       <div className="min-h-screen bg-black">
         <Header currentPage="studio" position="sticky" />
-        <main className="max-w-xl mx-auto p-4">
+        <main className="max-w-4xl mx-auto p-4">
           <div className="text-center py-12">
             <h1 className="text-2xl font-semibold text-white mb-2">Studio</h1>
             <p className="text-gray-400 mb-8">
-              Get your artist profile on Channel
+              Host a show on Channel
             </p>
 
             <div className="max-w-sm mx-auto space-y-4">

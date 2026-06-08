@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 interface MonthlyResident {
   username: string;
   displayName: string;
-  photoUrl: string | null;
+  photoUrl: string;
 }
 
 // Monthly residents = DJ-role users with djProfile.residency.cadence === 'monthly'.
@@ -31,10 +31,14 @@ export async function GET() {
       const username = data.chatUsername;
       if (!username || typeof username !== 'string') return;
 
+      // Skip residents without a profile picture — the referral grid is photo-only.
+      const photoUrl = data.djProfile?.photoUrl;
+      if (!photoUrl || typeof photoUrl !== 'string') return;
+
       residents.push({
         username,
         displayName: data.chatUsername || data.displayName || username,
-        photoUrl: data.djProfile?.photoUrl ?? null,
+        photoUrl,
       });
     });
 
