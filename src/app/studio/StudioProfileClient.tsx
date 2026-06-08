@@ -49,6 +49,61 @@ interface CustomLink {
   url: string;
 }
 
+interface ResidentReferral {
+  username: string;
+  displayName: string;
+  photoUrl: string | null;
+}
+
+// Logged-out "Don't have a code?" section: heading + body copy + a grid of
+// monthly residents. Each card reuses the /scene card shape (16:9 image with the
+// name overlaid bottom-left) and links to the resident's profile. 2-up on mobile,
+// 4-up on desktop. Renders nothing until residents have loaded.
+function ResidentReferralSection({ residents }: { residents: ResidentReferral[] }) {
+  if (residents.length === 0) return null;
+  return (
+    <div className="max-w-3xl mx-auto mt-10 text-center">
+      <p className="text-white font-medium mb-1">Don&apos;t have a code?</p>
+      <p className="text-gray-400 text-sm mb-6">
+        New hosts join through referrals from artists already broadcasting on Channel.
+      </p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {residents.map((r) => (
+          <Link
+            key={r.username}
+            href={`/dj/${r.username}`}
+            className="block relative w-full aspect-[16/9] overflow-hidden border border-white/10 group"
+          >
+            {r.photoUrl ? (
+              <Image
+                src={r.photoUrl}
+                alt={r.displayName}
+                fill
+                className="object-cover"
+                unoptimized
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-stone-800 to-amber-900">
+                <h2 className="text-xl font-black uppercase tracking-tight leading-none text-white text-center px-2 line-clamp-2">
+                  {r.displayName}
+                </h2>
+              </div>
+            )}
+            {/* Gradient scrims + bottom-left name — matches the /scene card overlay. */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
+            <div className="absolute bottom-2 left-2 right-2 text-left">
+              <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+                {r.displayName}
+              </span>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface DJEvent {
   id?: string; // undefined = new event, string = existing event
   name: string;
@@ -127,6 +182,9 @@ export function StudioProfileClient() {
   const [codeError, setCodeError] = useState("");
   const [codeValidated, setCodeValidated] = useState(false);
 
+  // Monthly residents shown on the logged-out "don't have a code?" referral grid.
+  const [monthlyResidents, setMonthlyResidents] = useState<ResidentReferral[]>([]);
+
   // Track when inline sign-in flow completes (role assignment done)
   const [signInFlowComplete, setSignInFlowComplete] = useState(false);
   // Keep showing inline auth UI until sign-in flow is fully done
@@ -161,6 +219,24 @@ export function StudioProfileClient() {
         .finally(() => setCodeValidating(false));
     }
   }, [searchParams]);
+
+  // Fetch monthly residents for the logged-out referral grid. Only relevant
+  // before the user becomes a DJ; once they have a profile this view is gone.
+  useEffect(() => {
+    if (isDJ(role)) return;
+    let cancelled = false;
+    fetch("/api/residents/monthly")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && Array.isArray(data?.residents)) {
+          setMonthlyResidents(data.residents);
+        }
+      })
+      .catch(() => {
+        /* non-critical — grid just stays hidden */
+      });
+    return () => { cancelled = true; };
+  }, [role]);
 
   // Clear the flag once role is confirmed
   useEffect(() => {
@@ -2080,14 +2156,9 @@ export function StudioProfileClient() {
                   </button>
                 </div>
               )}
-
-              <Link
-                href="/studio/join"
-                className="block w-full border border-gray-700 text-white px-6 py-3 rounded-lg font-medium hover:border-gray-500 transition-colors"
-              >
-                Apply to host a live show
-              </Link>
             </div>
+
+            <ResidentReferralSection residents={monthlyResidents} />
           </div>
         </main>
       </div>
@@ -2212,14 +2283,9 @@ export function StudioProfileClient() {
                   </button>
                 </div>
               )}
-
-              <Link
-                href="/studio/join"
-                className="block w-full border border-gray-700 text-white px-6 py-3 rounded-lg font-medium hover:border-gray-500 transition-colors text-center"
-              >
-                Apply to host a live show
-              </Link>
             </div>
+
+            <ResidentReferralSection residents={monthlyResidents} />
           </div>
         </main>
       </div>
