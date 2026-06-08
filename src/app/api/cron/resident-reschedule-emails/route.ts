@@ -57,6 +57,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ preview: true, sent: ok, to, djName });
   }
 
+  // Dry-run mode: run the full eligibility logic and return who WOULD be
+  // emailed, without sending anything or stamping lastResidentNudgeAt.
+  //   GET /api/cron/resident-reschedule-emails?dryRun=1
+  const dryRun = url.searchParams.get('dryRun') === '1';
+
   const db = getAdminDb();
   if (!db) {
     return NextResponse.json({ error: 'Database not available' }, { status: 500 });
@@ -184,19 +189,28 @@ export async function GET(request: NextRequest) {
   let sent = 0;
   let skippedRenudge = 0;
   const sentTo: string[] = [];
+  // Dry-run visibility: who would receive it, and a one-line reason per
+  // skipped resident so the roster is auditable.
+  const wouldSend: Array<{ email: string; firstName: string }> = [];
+  const skipped: Array<{ email: string; reason: string }> = [];
 
   for (const r of residents) {
-    if (r.hasUpcoming) continue; // already booked within 60 days
-    if (r.playedRecently) continue; // played a slot in the last 3 weeks
-    if (r.uploadedRecently) continue; // uploaded a recording in the last 3 weeks
+    if (r.hasUpcoming) { skipped.push({ email: r.email, reason: 'has upcoming show (next 60d)' }); continue; }
+    if (r.playedRecently) { skipped.push({ email: r.email, reason: 'played a slot in last 3 weeks' }); continue; }
+    if (r.uploadedRecently) { skipped.push({ email: r.email, reason: 'uploaded a recording in last 3 weeks' }); continue; }
 
     // 30-day re-nudge guard.
     const data = byUserIdData.get(r.userId);
     const lastNudge = toMillis(data?.lastResidentNudgeAt);
     if (lastNudge !== null && now - lastNudge < RENUDGE_INTERVAL_MS) {
       skippedRenudge++;
+      skipped.push({ email: r.email, reason: 'nudged within last 30 days' });
       continue;
     }
+
+    wouldSend.push({ email: r.email, firstName: r.firstName });
+
+    if (dryRun) continue; // list only — no send, no stamp
 
     const ok = await sendResidentRescheduleEmail({
       to: r.email,
@@ -211,6 +225,16 @@ export async function GET(request: NextRequest) {
       sent++;
       sentTo.push(r.email);
     }
+  }
+
+  if (dryRun) {
+    return NextResponse.json({
+      dryRun: true,
+      residents: residents.length,
+      wouldSendCount: wouldSend.length,
+      wouldSend,
+      skipped,
+    });
   }
 
   return NextResponse.json({
