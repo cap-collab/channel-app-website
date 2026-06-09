@@ -997,7 +997,7 @@ export function StudioProfileClient() {
     }
     setDeletingRecording(recordingId);
     try {
-      const { doc: firestoreDoc, deleteDoc, getDoc } = await import('firebase/firestore');
+      const { doc: firestoreDoc, deleteDoc, getDoc, updateDoc } = await import('firebase/firestore');
       const rec = recordings.find(r => r.id === recordingId);
 
       if (rec?.source === 'session') {
@@ -1014,6 +1014,33 @@ export function StudioProfileClient() {
           await deleteDoc(sessionRef).catch(() => {}); // ignore if already deleted
         }
         await deleteDoc(archiveRef);
+      }
+
+      // Refund this recording's duration to the monthly upload quota. Uploads
+      // (and live recordings) charge usedSeconds when they complete, but the
+      // delete paths never credited it back — so a DJ who deleted and tried to
+      // re-upload would be stuck with a phantom "0 minutes remaining". Only
+      // refund when the recording was charged in the CURRENT quota month
+      // (matching monthKey), and clamp at 0 so we can never over-refund.
+      const refundSeconds = rec?.duration || 0;
+      if (refundSeconds > 0) {
+        try {
+          const userRef = firestoreDoc(db, 'users', user.uid);
+          const userSnap = await getDoc(userRef);
+          const quota = userSnap.data()?.recordingQuota;
+          if (quota?.monthKey) {
+            const recMonth = new Date(rec?.createdAt || 0).toISOString().slice(0, 7);
+            if (recMonth === quota.monthKey) {
+              await updateDoc(userRef, {
+                'recordingQuota.usedSeconds': Math.max(0, (quota.usedSeconds || 0) - refundSeconds),
+              });
+            }
+          }
+        } catch (refundErr) {
+          // Non-fatal: the recording is already deleted; quota will self-correct
+          // next month. Log so we can spot it if refunds start failing.
+          console.error('Quota refund on delete failed:', refundErr);
+        }
       }
     } catch (error) {
       console.error('Error deleting recording:', error);
