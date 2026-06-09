@@ -31,7 +31,6 @@ export const GENRE_ALIASES: Record<string, string[]> = {
   'funk': ['funky'],
   'soul': ['neo soul', 'neo-soul', 'r&b', 'rnb'],
   'electronic': ['electronica'],
-  'house': ['deep house', 'tech house'],
   'techno': ['tech'],
   'jungle': ['junglist'],
   'reggae': ['roots', 'dancehall'],
@@ -69,8 +68,9 @@ function resolveGenre(input: string): string | null {
  * Genre parsing: commas are the only separator, so multi-word genres like
  * "Hip Hop", "Drum and Bass", or "Tech House" stay intact (spaces never split).
  * Each comma-delimited part is resolved to its canonical name when recognized.
+ * Subgenres like "Tech House" are kept verbatim (not collapsed to "House").
  * "Drum and Bass, Techno" => ["Drum and Bass", "Techno"]
- * "tech house, dnb" => ["House", "Drum and Bass"]
+ * "Tech House, dnb" => ["Tech House", "Drum and Bass"]
  */
 export function parseGenresInput(input: string): string[] {
   if (!input.trim()) return [];
