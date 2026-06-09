@@ -3884,6 +3884,24 @@ export function StudioProfileClient() {
               </label>
             </div>
 
+            {/* Why is Upload disabled? Surface the exact blocker so a greyed-out
+                button is never a mystery to the DJ (or to us when they email).
+                Mirrors the button's disabled conditions below, same order. */}
+            {!uploading && (() => {
+              const reason =
+                !uploadFile ? 'Choose an audio file to upload.' :
+                detectingDuration ? 'Reading the audio file…' :
+                uploadDuration === null ? 'Couldn’t read this file’s length — try re-exporting it as an MP3 or M4A.' :
+                !uploadShowName.trim() ? 'Add a recording name.' :
+                !uploadTermsConfirmed ? 'Check the box to agree to the Artist Terms.' :
+                (uploadQuotaRemaining !== null && uploadDuration > uploadQuotaRemaining)
+                  ? `This file is ${Math.ceil(uploadDuration / 60)} min but you have ${Math.floor(uploadQuotaRemaining / 60)} min left this month.` :
+                null;
+              return reason ? (
+                <p className="text-amber-400/90 text-xs mb-3">{reason}</p>
+              ) : null;
+            })()}
+
             {/* Actions */}
             <div className="flex gap-3">
               <button
