@@ -3709,8 +3709,10 @@ export function StudioProfileClient() {
       />
 
       {/* Upload Pre-Recording Modal */}
+      {/* z-[9000] so it sits above the sticky Header/GlobalBroadcastBar (z-[100]),
+          otherwise the player overlaps the top of the modal (title + name field). */}
       {showUploadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9000] flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/70"
