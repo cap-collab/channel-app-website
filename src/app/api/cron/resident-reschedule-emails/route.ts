@@ -10,7 +10,7 @@ import { normalizeUsername } from '@/lib/dj-matching';
 export const maxDuration = 120;
 
 // Eligibility windows.
-const RECENT_WINDOW_MS = 28 * 24 * 60 * 60 * 1000; // played OR uploaded in last 4 weeks
+const RECENT_WINDOW_MS = 31 * 24 * 60 * 60 * 1000; // played OR uploaded in last 31 days
 const UPCOMING_WINDOW_MS = 60 * 24 * 60 * 60 * 1000; // nothing booked in next 60 days
 // Don't re-nudge the same DJ more than once every 30 days.
 const RENUDGE_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -34,8 +34,8 @@ interface Resident {
   firstName: string;
   usernames: Set<string>; // normalized usernames this resident may appear under
   hasUpcoming: boolean; // a non-cancelled slot in (now, now + 60d]
-  playedRecently: boolean; // a slot that ended within the last 4 weeks
-  uploadedRecently: boolean; // an archive recording uploaded within the last 4 weeks
+  playedRecently: boolean; // a slot that ended within the last 31 days
+  uploadedRecently: boolean; // an archive recording uploaded within the last 31 days
 }
 
 export async function GET(request: NextRequest) {
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
   // ── 2. Single sweep of broadcast-slots ───────────────────────────────
   // Each slot may name a DJ at the slot level (djUserId / djUsername) and/or
   // inside djSlots[] for multi-DJ venue shows. Per resident we flag whether
-  // they have an upcoming slot (next 60d) or played one recently (last 4 weeks).
+  // they have an upcoming slot (next 60d) or played one recently (last 31 days).
   const markSlot = (r: Resident, startMs: number, endMs: number | null) => {
     if (startMs > now && startMs <= upcomingCutoff) r.hasUpcoming = true;
     // Count a show as "played" once it has ended.
@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
   }
 
   // ── 3. Sweep archives for recent uploads ─────────────────────────────
-  // A recording uploaded in the last 4 weeks counts as recent activity even
+  // A recording uploaded in the last 31 days counts as recent activity even
   // if the DJ never did a live slot. createdAt is the upload moment — but it's
   // stored inconsistently across creation paths (millis number from uploads,
   // Firestore Timestamp from live-recorded/published shows), so we can't use a
@@ -196,8 +196,8 @@ export async function GET(request: NextRequest) {
 
   for (const r of residents) {
     if (r.hasUpcoming) { skipped.push({ email: r.email, reason: 'has upcoming show (next 60d)' }); continue; }
-    if (r.playedRecently) { skipped.push({ email: r.email, reason: 'played a slot in last 4 weeks' }); continue; }
-    if (r.uploadedRecently) { skipped.push({ email: r.email, reason: 'uploaded a recording in last 4 weeks' }); continue; }
+    if (r.playedRecently) { skipped.push({ email: r.email, reason: 'played a slot in last 31 days' }); continue; }
+    if (r.uploadedRecently) { skipped.push({ email: r.email, reason: 'uploaded a recording in last 31 days' }); continue; }
 
     // 30-day re-nudge guard.
     const data = byUserIdData.get(r.userId);
