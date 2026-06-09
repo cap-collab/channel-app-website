@@ -449,7 +449,7 @@ export function StudioJoinClient() {
                   className="w-full px-4 py-3 bg-[#1a1a1a] border border-gray-800 rounded text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors"
                 />
                 <p className="text-sm text-gray-600 mt-1">
-                  Separate genres with commas or spaces
+                  Separate genres with commas
                 </p>
               </div>
 

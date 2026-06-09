@@ -37,21 +37,6 @@ export const GENRE_ALIASES: Record<string, string[]> = {
   'reggae': ['roots', 'dancehall'],
 };
 
-// Multi-word genres that should NOT be split on spaces
-const MULTI_WORD_GENRES = new Set(
-  SUPPORTED_GENRES
-    .filter((g) => g.includes(' '))
-    .map((g) => g.toLowerCase())
-);
-// Also add common multi-word aliases
-for (const aliases of Object.values(GENRE_ALIASES)) {
-  for (const alias of aliases) {
-    if (alias.includes(' ') || alias.includes('-') || alias.includes('&') || alias.includes("'")) {
-      MULTI_WORD_GENRES.add(alias.toLowerCase());
-    }
-  }
-}
-
 // Strip quotes, special characters, and extra whitespace for genre comparison
 function normalizeGenre(s: string): string {
   return s.toLowerCase().replace(/["""''`]/g, '').replace(/[^\w\s&]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -81,77 +66,26 @@ function resolveGenre(input: string): string | null {
 }
 
 /**
- * Smart genre parsing: handles comma-separated, space-separated, or mixed input.
- * Recognizes multi-word genres like "Drum and Bass", "Hip Hop", "Dance Music" etc.
- * "techno house" => ["Techno", "House"]
+ * Genre parsing: commas are the only separator, so multi-word genres like
+ * "Hip Hop", "Drum and Bass", or "Tech House" stay intact (spaces never split).
+ * Each comma-delimited part is resolved to its canonical name when recognized.
  * "Drum and Bass, Techno" => ["Drum and Bass", "Techno"]
- * "techno, house ambient" => ["Techno", "House", "Ambient"]
+ * "tech house, dnb" => ["House", "Drum and Bass"]
  */
 export function parseGenresInput(input: string): string[] {
   if (!input.trim()) return [];
 
-  // If input contains commas, split by commas first
-  const parts = input.includes(',')
-    ? input.split(',').map((s) => s.trim()).filter(Boolean)
-    : [input.trim()];
+  const parts = input.split(',').map((s) => s.trim()).filter(Boolean);
 
   const result: string[] = [];
-
   for (const part of parts) {
-    // Try the whole part as a single genre first
-    const norm = normalizeGenre(part);
-    if (MULTI_WORD_GENRES.has(norm) || SUPPORTED_GENRES.some((g) => normalizeGenre(g) === norm)) {
-      const resolved = resolveGenre(part);
-      if (resolved) result.push(resolved);
-      continue;
-    }
-
-    // Check alias match for the whole part
-    let aliasMatch = false;
-    for (const [canonical, aliases] of Object.entries(GENRE_ALIASES)) {
-      if (aliases.some((a) => normalizeGenre(a) === norm)) {
-        const match = SUPPORTED_GENRES.find((g) => g.toLowerCase() === canonical);
-        if (match) {
-          result.push(match);
-          aliasMatch = true;
-          break;
-        }
-      }
-    }
-    if (aliasMatch) continue;
-
-    // Try to extract multi-word genres from the part, then split remainder by spaces
-    let remaining = part.toLowerCase().trim();
-    const extracted: string[] = [];
-
-    // Sort multi-word genres by length (longest first) to match greedily
-    const sortedMultiWord = Array.from(MULTI_WORD_GENRES).sort((a, b) => b.length - a.length);
-    for (const mw of sortedMultiWord) {
-      const idx = remaining.indexOf(mw);
-      if (idx !== -1) {
-        extracted.push(mw);
-        remaining = remaining.slice(0, idx) + ' ' + remaining.slice(idx + mw.length);
-      }
-    }
-
-    // Split the remainder by spaces
-    const words = remaining.split(/\s+/).filter(Boolean);
-    for (const word of words) {
-      const resolved = resolveGenre(word);
-      if (resolved) extracted.push(resolved);
-    }
-
-    // Resolve extracted multi-word genres
-    for (const genre of extracted) {
-      const resolved = resolveGenre(genre);
-      if (resolved && !result.includes(resolved)) {
-        result.push(resolved);
-      }
+    const resolved = resolveGenre(part);
+    if (resolved && !result.includes(resolved)) {
+      result.push(resolved);
     }
   }
 
-  // Deduplicate while preserving order
-  return Array.from(new Set(result));
+  return result;
 }
 
 /**
