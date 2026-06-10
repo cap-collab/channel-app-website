@@ -794,17 +794,10 @@ export async function GET(request: NextRequest) {
         (userData.goLiveMutes as string[] | undefined) || [],
       );
 
-      // DJ users get a stricter matcher: Channel Radio only, and only via
-      // favorite / watchlist / crew. No engagement tier, no general
-      // listener-side bridge, no broad audience-list expansion. Keeps the
-      // DJ inbox quiet — but with one narrow exception: when the live DJ
-      // explicitly names THIS recipient in their audienceDjUids (i.e. "I
-      // lend my audience to you"), the recipient is the entire point of
-      // the audience link and should still be notified.
-      const userRole = (userData.role as string | undefined) || "user";
-      const isDjUser = userRole === "dj" || userRole === "broadcaster";
-      const recipientUsernameNorm = (userData.chatUsernameNormalized as string | undefined) || undefined;
-
+      // Go-live emails use one unified matcher for every recipient — DJs and
+      // listeners alike (product decision 2026-06-10). There used to be a
+      // stricter "DJ inbox quiet" path; it silently dropped DJ-role fans, so
+      // it was removed. See matchShow below.
       const emailNotificationsData = userData.emailNotifications as Record<string, unknown> | undefined;
 
       // Run the existing 4-tier matcher against a single show. Returns
@@ -822,146 +815,82 @@ export async function GET(request: NextRequest) {
         let affiliationBridgeDj: string | undefined;
         let engagementReason: "engaged" | undefined;
 
-        if (isDjUser) {
-          if (show.stationId !== "broadcast") return null;
+        // Channel Radio only. Go-live emails never fire for external-station
+        // shows (nts, subtle, dublab, rinse, sutro, …), for ANY recipient or
+        // match tier — product decision 2026-06-10. This replaces the older
+        // "external is opt-in via favorites" nuance; it's now a hard gate.
+        if (show.stationId !== "broadcast") return null;
 
-          for (const fav of showFavorites) {
-            const favTerm = ((fav.data.term as string) || "").toLowerCase();
-            const favStation = (fav.data.stationId as string) || "";
-            const favShowName = ((fav.data.showName as string) || "").toLowerCase();
+        // Unified matcher — every recipient (listener OR DJ) goes through the
+        // same tiers: favorite → watchlist → direct engagement → affiliation/
+        // audience bridge. The go-live email used to split into a stricter
+        // "DJ inbox quiet" branch that skipped the engagement tier and the
+        // borrowed-audience engagement bridge, which silently dropped DJ-role
+        // recipients who were genuine fans of a live or borrowed DJ. Product
+        // decision (2026-06-10): same email for everyone. Opt-outs
+        // (engagementGoLive / affiliatedGoLive / goLiveMutes) still apply.
+        for (const fav of showFavorites) {
+          const favTerm = ((fav.data.term as string) || "").toLowerCase();
+          const favStation = (fav.data.stationId as string) || "";
+          const favShowName = ((fav.data.showName as string) || "").toLowerCase();
+          if (
+            (favStation === show.stationId || !favStation) &&
+            (favTerm === show.name.toLowerCase() || favShowName === show.name.toLowerCase())
+          ) {
+            matched = true;
+            break;
+          }
+        }
+
+        if (!matched) {
+          for (const term of searchTerms) {
             if (
-              (favStation === show.stationId || !favStation) &&
-              (favTerm === show.name.toLowerCase() || favShowName === show.name.toLowerCase())
+              wordBoundaryMatch(show.name, term) ||
+              (show.dj && wordBoundaryMatch(show.dj, term)) ||
+              (show.collectiveOwnerUsernames && show.collectiveOwnerUsernames.some(u => wordBoundaryMatch(u, term)))
             ) {
               matched = true;
               break;
             }
           }
+        }
 
-          if (!matched) {
-            for (const term of searchTerms) {
-              if (
-                wordBoundaryMatch(show.name, term) ||
-                (show.dj && wordBoundaryMatch(show.dj, term)) ||
-                (show.collectiveOwnerUsernames && show.collectiveOwnerUsernames.some(u => wordBoundaryMatch(u, term)))
-              ) {
-                matched = true;
-                break;
-              }
+        if (!matched && show.stationId === "broadcast") {
+          const engaged = engagedByShowId.get(show.showId);
+          if (engaged?.has(userId)) {
+            const optOut = emailNotificationsData?.engagementGoLive === false;
+            if (!optOut) {
+              matched = true;
+              engagementReason = "engaged";
             }
           }
+        }
 
-          if (!matched) {
-            const engaged = engagedByShowId.get(show.showId);
-            if (engaged?.has(userId)) {
-              const optOut = emailNotificationsData?.engagementGoLive === false;
-              if (!optOut) {
-                matched = true;
-                engagementReason = "engaged";
-              }
-            }
-          }
-
-          if (!matched) {
-            const affOptOut = emailNotificationsData?.affiliatedGoLive === false;
-            if (!affOptOut) {
-              const affiliatedRecipients = affiliatedRecipientsByShowId.get(show.showId);
-              if (affiliatedRecipients?.has(userId)) {
-                matched = true;
-                matchedViaAffiliation = true;
-              } else if (show.stationId === "broadcast") {
-                const related = relatedUsernamesByShowId.get(show.showId);
-                // (a) Named-audience exception: the live DJ lends their
-                // audience to THIS recipient by name (recipient's own username
-                // is in the live DJ's related set).
-                if (recipientUsernameNorm && related?.has(recipientUsernameNorm)) {
-                  matched = true;
-                  matchedViaAffiliation = true;
-                  affiliationBridgeDj = recipientUsernameNorm;
-                } else if (related) {
-                  // (b) Borrowed-audience engagement bridge — same check the
-                  // listener branch runs. A DJ who is themselves a FAN of a
-                  // borrowed/crew source (hearted/streamed Znc, and Jane
-                  // borrows Znc's audience) should still get the go-live.
-                  // Without this, DJ-role fans of the borrowed source were
-                  // silently dropped while listener fans got the email.
-                  const engagedByR = engagedByRelatedDjByShowId.get(show.showId);
-                  for (const r of Array.from(related)) {
-                    if (engagedByR?.get(r)?.has(userId)) {
-                      matched = true;
-                      matchedViaAffiliation = true;
-                      affiliationBridgeDj = r;
+        if (!matched) {
+          const affOptOut = emailNotificationsData?.affiliatedGoLive === false;
+          if (!affOptOut) {
+            const affiliatedRecipients = affiliatedRecipientsByShowId.get(show.showId);
+            if (affiliatedRecipients?.has(userId)) {
+              matched = true;
+              matchedViaAffiliation = true;
+            } else if (show.stationId === "broadcast") {
+              const related = relatedUsernamesByShowId.get(show.showId);
+              const engagedByR = engagedByRelatedDjByShowId.get(show.showId);
+              if (related) {
+                for (const r of Array.from(related)) {
+                  let bridged = false;
+                  for (const term of searchTerms) {
+                    if (wordBoundaryMatch(r, term)) {
+                      bridged = true;
                       break;
                     }
                   }
-                }
-              }
-            }
-          }
-        } else {
-          for (const fav of showFavorites) {
-            const favTerm = ((fav.data.term as string) || "").toLowerCase();
-            const favStation = (fav.data.stationId as string) || "";
-            const favShowName = ((fav.data.showName as string) || "").toLowerCase();
-            if (
-              (favStation === show.stationId || !favStation) &&
-              (favTerm === show.name.toLowerCase() || favShowName === show.name.toLowerCase())
-            ) {
-              matched = true;
-              break;
-            }
-          }
-
-          if (!matched) {
-            for (const term of searchTerms) {
-              if (
-                wordBoundaryMatch(show.name, term) ||
-                (show.dj && wordBoundaryMatch(show.dj, term)) ||
-                (show.collectiveOwnerUsernames && show.collectiveOwnerUsernames.some(u => wordBoundaryMatch(u, term)))
-              ) {
-                matched = true;
-                break;
-              }
-            }
-          }
-
-          if (!matched && show.stationId === "broadcast") {
-            const engaged = engagedByShowId.get(show.showId);
-            if (engaged?.has(userId)) {
-              const optOut = emailNotificationsData?.engagementGoLive === false;
-              if (!optOut) {
-                matched = true;
-                engagementReason = "engaged";
-              }
-            }
-          }
-
-          if (!matched) {
-            const affOptOut = emailNotificationsData?.affiliatedGoLive === false;
-            if (!affOptOut) {
-              const affiliatedRecipients = affiliatedRecipientsByShowId.get(show.showId);
-              if (affiliatedRecipients?.has(userId)) {
-                matched = true;
-                matchedViaAffiliation = true;
-              } else if (show.stationId === "broadcast") {
-                const related = relatedUsernamesByShowId.get(show.showId);
-                const engagedByR = engagedByRelatedDjByShowId.get(show.showId);
-                if (related) {
-                  for (const r of Array.from(related)) {
-                    let bridged = false;
-                    for (const term of searchTerms) {
-                      if (wordBoundaryMatch(r, term)) {
-                        bridged = true;
-                        break;
-                      }
-                    }
-                    if (!bridged && engagedByR?.get(r)?.has(userId)) bridged = true;
-                    if (bridged) {
-                      matched = true;
-                      matchedViaAffiliation = true;
-                      affiliationBridgeDj = r;
-                      break;
-                    }
+                  if (!bridged && engagedByR?.get(r)?.has(userId)) bridged = true;
+                  if (bridged) {
+                    matched = true;
+                    matchedViaAffiliation = true;
+                    affiliationBridgeDj = r;
+                    break;
                   }
                 }
               }
