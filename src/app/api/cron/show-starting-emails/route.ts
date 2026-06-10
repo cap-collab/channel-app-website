@@ -869,19 +869,31 @@ export async function GET(request: NextRequest) {
               if (affiliatedRecipients?.has(userId)) {
                 matched = true;
                 matchedViaAffiliation = true;
-              } else if (
-                show.stationId === "broadcast" &&
-                recipientUsernameNorm
-              ) {
-                // Narrow audience-bridge exception for DJ recipients: only
-                // fire when the live DJ's audienceDjUids resolves to THIS
-                // recipient's own username (the live DJ lends their audience
-                // to them by name). Generic audience expansion stays off.
+              } else if (show.stationId === "broadcast") {
                 const related = relatedUsernamesByShowId.get(show.showId);
-                if (related?.has(recipientUsernameNorm)) {
+                // (a) Named-audience exception: the live DJ lends their
+                // audience to THIS recipient by name (recipient's own username
+                // is in the live DJ's related set).
+                if (recipientUsernameNorm && related?.has(recipientUsernameNorm)) {
                   matched = true;
                   matchedViaAffiliation = true;
                   affiliationBridgeDj = recipientUsernameNorm;
+                } else if (related) {
+                  // (b) Borrowed-audience engagement bridge — same check the
+                  // listener branch runs. A DJ who is themselves a FAN of a
+                  // borrowed/crew source (hearted/streamed Znc, and Jane
+                  // borrows Znc's audience) should still get the go-live.
+                  // Without this, DJ-role fans of the borrowed source were
+                  // silently dropped while listener fans got the email.
+                  const engagedByR = engagedByRelatedDjByShowId.get(show.showId);
+                  for (const r of Array.from(related)) {
+                    if (engagedByR?.get(r)?.has(userId)) {
+                      matched = true;
+                      matchedViaAffiliation = true;
+                      affiliationBridgeDj = r;
+                      break;
+                    }
+                  }
                 }
               }
             }
