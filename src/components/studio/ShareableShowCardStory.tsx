@@ -85,37 +85,25 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number,
 }
 
 // Wrap genre tokens onto up to maxLines lines, keeping each genre whole and
-// joining with " · ". When genres don't all fit, the last line ends with " · …"
-// (never compressed — the ellipsis line is trimmed to stay within maxWidth).
-function wrapGenres(ctx: CanvasRenderingContext2D, genres: string[], maxWidth: number, maxLines: number): string[] {
+// joining with " · ". Never compressed. Genres that don't fit are cropped
+// straight (dropped) — no ellipsis. `fit` is false when any genre was dropped.
+function wrapGenres(ctx: CanvasRenderingContext2D, genres: string[], maxWidth: number, maxLines: number): { lines: string[]; fit: boolean } {
   const sep = ' · ';
   const lines: string[] = [];
   let current = '';
-  let truncated = false;
-  for (const g of genres) {
-    const test = current ? `${current}${sep}${g}` : g;
+  let i = 0;
+  for (; i < genres.length; i++) {
+    const test = current ? `${current}${sep}${genres[i]}` : genres[i];
     if (ctx.measureText(test).width > maxWidth && current) {
       lines.push(current);
-      if (lines.length >= maxLines) {
-        truncated = true;
-        break;
-      }
-      current = g;
+      if (lines.length >= maxLines) { current = ''; break; }
+      current = genres[i];
     } else {
       current = test;
     }
   }
-  if (!truncated && current && lines.length < maxLines) lines.push(current);
-
-  if (truncated) {
-    // Trim whole genres off the last line until it + " · …" fits.
-    let last = lines[lines.length - 1];
-    while (last.includes(sep) && ctx.measureText(last + sep + '…').width > maxWidth) {
-      last = last.slice(0, last.lastIndexOf(sep));
-    }
-    lines[lines.length - 1] = last + sep + '…';
-  }
-  return lines;
+  if (current && lines.length < maxLines) { lines.push(current); i = genres.length; }
+  return { lines, fit: i >= genres.length };
 }
 
 function drawCanvas(
@@ -274,16 +262,13 @@ function drawCanvas(
   const djNameWidth = ctx.measureText(djNameText).width;
 
   // Genres start on the name's line; overflow wraps onto a second line above.
-  // Never compressed \u2014 tokens are measured and split to fit the available width.
-  let inlineGenres = '';   // " - GENRE \u00B7 GENRE" that fits after the name
-  let overflowGenres = ''; // remaining genres, on a line above the name
-  if (genres && genres.length > 0) {
-    const upperGenres = genres.map(g => g.toUpperCase());
-    ctx.font = `500 ${djFontSize}px ${F}`;
+  // Never compressed. Lay out at a given genre font size, returning whether
+  // every genre fit. Genres that don't fit are cropped straight (no ellipsis).
+  const sep = ' \u00B7 ';
+  const lead = ' - ';
+  const layoutGenres = (upperGenres: string[], genreFont: number) => {
+    ctx.font = `500 ${genreFont}px ${F}`;
     ctx.letterSpacing = '0.15em';
-
-    const sep = ' \u00B7 ';
-    const lead = ' - ';
     const firstLineRoom = maxWidth - djNameWidth - ctx.measureText(lead).width;
 
     // Greedily fit genres after the name; the rest spill to the line above.
@@ -294,20 +279,33 @@ function drawCanvas(
       if (ctx.measureText(candidate).width > firstLineRoom && first.length > 0) break;
       first.push(upperGenres[i]);
     }
-    if (first.length > 0) inlineGenres = lead + first.join(sep);
+    const inline = first.length > 0 ? lead + first.join(sep) : '';
 
     const rest = upperGenres.slice(i);
-    if (rest.length > 0) {
-      // Remaining genres on one line above the name; ellipsis if still too wide.
-      overflowGenres = wrapGenres(ctx, rest, maxWidth, 1)[0] || '';
+    const wrapped = rest.length > 0 ? wrapGenres(ctx, rest, maxWidth, 1) : { lines: [], fit: true };
+    return { inline, overflow: wrapped.lines[0] || '', fit: wrapped.fit };
+  };
+
+  let inlineGenres = '';   // " - GENRE \u00B7 GENRE" that fits after the name
+  let overflowGenres = ''; // remaining genres, on a line above the name
+  let genreFontSize = Math.round(12 * S);
+  if (genres && genres.length > 0) {
+    const upperGenres = genres.map(g => g.toUpperCase());
+    let laid = layoutGenres(upperGenres, genreFontSize);
+    // If genres got cropped, shrink the genre font 15% and retry to fit more.
+    if (!laid.fit) {
+      genreFontSize = Math.round(genreFontSize * 0.85);
+      laid = layoutGenres(upperGenres, genreFontSize);
     }
+    inlineGenres = laid.inline;
+    overflowGenres = laid.overflow;
   }
 
   // Overflow genres sit on their own line ABOVE the name; draw first (bottom-up).
-  const genreLineH = Math.round(djFontSize * 1.35);
+  const genreLineH = Math.round(genreFontSize * 1.35);
   if (overflowGenres) {
     ctx.fillStyle = '#d4d4d8';
-    ctx.font = `500 ${djFontSize}px ${F}`;
+    ctx.font = `500 ${genreFontSize}px ${F}`;
     ctx.letterSpacing = '0.15em';
     ctx.fillText(overflowGenres, pad, cursorY);
     cursorY -= genreLineH;
@@ -320,7 +318,7 @@ function drawCanvas(
   ctx.fillText(djNameText, pad, cursorY);
   if (inlineGenres) {
     ctx.fillStyle = '#d4d4d8';
-    ctx.font = `500 ${djFontSize}px ${F}`;
+    ctx.font = `500 ${genreFontSize}px ${F}`;
     ctx.letterSpacing = '0.15em';
     ctx.fillText(inlineGenres, pad + djNameWidth, cursorY);
   }
