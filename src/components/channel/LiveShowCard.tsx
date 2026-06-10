@@ -65,12 +65,11 @@ export function LiveShowCard({
           {station.id === 'broadcast' ? (
             <>
               <Image
-                src="/logo-white-on-black-square.svg"
+                src="/logo-white-on-black-square.png"
                 alt=""
                 width={12}
                 height={12}
                 className="w-3 h-3 inline-block"
-                unoptimized
               />
               Channel
             </>
