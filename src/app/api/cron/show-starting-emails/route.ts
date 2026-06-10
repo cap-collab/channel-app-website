@@ -159,6 +159,10 @@ export async function GET(request: NextRequest) {
   const simulateLiveId = params.get("simulateLive") || undefined;
   const traceTo = params.get("traceTo")?.toLowerCase() || undefined;
   const traceLimit = Number(params.get("traceLimit")) || 50;
+  // ?previewTo=<email> (dry-run only): actually SEND the real email — real
+  // primary + real bundle — to this one recipient, while still stamping
+  // nothing. Lets an admin see the exact email a given user would receive.
+  const previewTo = params.get("previewTo")?.toLowerCase() || undefined;
 
   if (!isRestApiConfigured()) {
     return NextResponse.json(
@@ -1036,6 +1040,28 @@ export async function GET(request: NextRequest) {
               bundleTrace,
             });
           }
+        }
+        // Preview: send the real email to one recipient, but still stamp
+        // nothing (so it doesn't suppress their real email later).
+        if (previewTo && userEmail.toLowerCase() === previewTo) {
+          await sendShowStartingEmail({
+            to: userEmail,
+            recipientUserId: userId,
+            showName: primary.name,
+            djName: primary.dj,
+            djUsername: primary.djUsername,
+            djPhotoUrl: primary.djPhotoUrl,
+            djHasEmail: primary.djHasEmail,
+            stationName: primary.stationName,
+            stationId: primary.stationId,
+            streamingUrl: primary.streamingUrl,
+            isAffiliated: primaryMatch.matchedViaAffiliation,
+            affiliationBridgeDj: primaryMatch.affiliationBridgeDj,
+            engagementReason: primaryMatch.engagementReason,
+            laterToday: laterToday.length > 0 ? laterToday : undefined,
+            userTimezone: userTz,
+          });
+          console.log(`[show-starting][dryRun] Preview email sent to ${userEmail} (no stamp)`);
         }
         emailsSent++; // count as "would-send" for the summary
         continue;
