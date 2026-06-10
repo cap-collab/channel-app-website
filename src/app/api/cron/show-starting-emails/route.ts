@@ -123,6 +123,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // ── Dry-run / simulate-live mode (admin pre-flight) ────────────────────
+  // ?dryRun=1 runs the full matcher + bundle logic but sends NOTHING and
+  //   stamps NOTHING — it returns a per-recipient trace instead. Safe to run
+  //   in prod against the live subscriber base.
+  // ?simulateLive=<showId> promotes an upcoming-today show into the live set
+  //   so you can pre-flight a DJ's go-live (and crew bundling) before they
+  //   actually air. <showId> is the show's showId, e.g. broadcast-<slotId>.
+  // ?traceTo=<email> limits the returned trace to one recipient to cut noise.
+  // ?traceLimit=<n> caps how many recipient traces come back (default 50).
+  const params = request.nextUrl.searchParams;
+  const dryRun = params.get("dryRun") === "1";
+  const simulateLiveId = params.get("simulateLive") || undefined;
+  const traceTo = params.get("traceTo")?.toLowerCase() || undefined;
+  const traceLimit = Number(params.get("traceLimit")) || 50;
+
   if (!isRestApiConfigured()) {
     return NextResponse.json(
       { error: "Firebase REST API not configured" },
@@ -352,8 +367,32 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Simulate-live: promote a named upcoming show into the live set so an
+    // admin can pre-flight a not-yet-aired DJ's go-live email (including crew
+    // bundling) without waiting for the real window. Only meaningful with
+    // dryRun — guard against accidental real sends.
+    if (simulateLiveId) {
+      if (!dryRun) {
+        return NextResponse.json(
+          { error: "simulateLive requires dryRun=1 (refusing to send a simulated go-live for real)" },
+          { status: 400 },
+        );
+      }
+      const idx = upcomingTodayShows.findIndex((s) => s.showId === simulateLiveId);
+      if (idx === -1) {
+        return NextResponse.json({
+          error: `simulateLive show not found in upcoming-today set: ${simulateLiveId}`,
+          hint: "Pass the show's showId (e.g. broadcast-<slotId>). It must start within the next 36h and not be a restream.",
+          availableUpcoming: upcomingTodayShows.map((s) => ({ showId: s.showId, name: s.name, djUsername: s.djUsername, startTime: s.startTime })),
+        }, { status: 404 });
+      }
+      const [promoted] = upcomingTodayShows.splice(idx, 1);
+      liveShows.push(promoted);
+      console.log(`[show-starting][dryRun] Simulating live: ${promoted.djUsername || promoted.name} (${promoted.showId})`);
+    }
+
     if (liveShows.length === 0) {
-      return NextResponse.json({ liveShows: 0, emailsSent: 0 });
+      return NextResponse.json({ liveShows: 0, emailsSent: 0, dryRun });
     }
 
     console.log(
@@ -692,6 +731,16 @@ export async function GET(request: NextRequest) {
     // Track per-slot send counts so we can stamp Channel Radio slot docs at
     // the end. Keyed by broadcast-slot doc id (parsed from showId).
     const perSlotCount = new Map<string, number>();
+    // Dry-run trace: one entry per recipient who WOULD be emailed. Populated
+    // only when dryRun is set; returned in the JSON response.
+    type DryRunEntry = {
+      email: string;
+      userId: string;
+      primary: string;
+      bundled: string[];
+      bundleTrace: string[];
+    };
+    const dryRunTrace: DryRunEntry[] = [];
 
     for (const userDoc of usersWithNotifications) {
       const userId = userDoc.id;
@@ -1007,6 +1056,23 @@ export async function GET(request: NextRequest) {
         startTime: b.startTime,
       }));
 
+      // ── Dry-run: record what WOULD be sent, then skip send + stamp ──────
+      if (dryRun) {
+        if (!traceTo || userEmail.toLowerCase() === traceTo) {
+          if (dryRunTrace.length < traceLimit) {
+            dryRunTrace.push({
+              email: userEmail,
+              userId,
+              primary: `${primary.djUsername || primary.name} (${primary.showId})`,
+              bundled: laterToday.map((b) => `${b.djUsername || b.showName} @ ${b.startTime}`),
+              bundleTrace,
+            });
+          }
+        }
+        emailsSent++; // count as "would-send" for the summary
+        continue;
+      }
+
       // ── Send ──────────────────────────────────────────────────────────
       const success = await sendShowStartingEmail({
         to: userEmail,
@@ -1059,6 +1125,21 @@ export async function GET(request: NextRequest) {
     // blocks the cron response. Reads the prior count from the in-memory
     // broadcastSlots fetched earlier so we accumulate across runs without
     // an extra Firestore round-trip.
+    // Dry-run never touches Firestore — return the trace and bail before any
+    // slot-doc stamping.
+    if (dryRun) {
+      return NextResponse.json({
+        dryRun: true,
+        simulateLive: simulateLiveId ?? null,
+        liveShows: liveShows.length,
+        usersChecked: usersWithNotifications.length,
+        wouldSend: emailsSent,
+        skipped,
+        traceCount: dryRunTrace.length,
+        trace: dryRunTrace,
+      });
+    }
+
     const runAt = now.toISOString();
     const priorCountBySlotId = new Map<string, number>();
     for (const slot of broadcastSlots) {
