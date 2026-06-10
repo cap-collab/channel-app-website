@@ -2,6 +2,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Collection-group read access for the go-live cron. CG queries
+    // (from allDescendants) are evaluated against /{path=**}/<collection>/{id}
+    // rules — the nested match blocks under /users/{userId} do NOT apply to
+    // them, so without these the cron's loveHistory/streamHistory CG queries
+    // 403 and every engagement-based recipient is silently dropped.
+    match /{path=**}/loveHistory/{djId} {
+      allow read: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
+    }
+    match /{path=**}/streamHistory/{archiveId} {
+      allow read: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
+    }
+
     // Helper function to check if user is a broadcaster or admin
     function isBroadcaster() {
       return request.auth != null &&
