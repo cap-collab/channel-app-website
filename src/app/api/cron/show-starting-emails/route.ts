@@ -921,6 +921,31 @@ export async function GET(request: NextRequest) {
 
       if (!primary || !primaryMatch) continue;
 
+      // Normalized username of the DJ whose live show this recipient matched.
+      // Used by the bundle pass to propagate a primary match across the crew:
+      // if this DJ appears in an upcoming show's related-crew set, that show is
+      // a crew sibling of the primary and should bundle for this recipient even
+      // without an independent engagement edge on the sibling DJ (see below).
+      const primaryDjUsernameNorm = primary.djUsername
+        ? normalizeForLookup(primary.djUsername)
+        : undefined;
+
+      // For a listener recipient, decide whether an upcoming crew show should
+      // bundle purely because it shares a crew with the primary they matched.
+      // Mirrors the DJ branch, which already propagates via the affiliated-
+      // recipients UID set. The listener branch of matchShow only bridges on
+      // per-crew-member engagement/watchlist, so brand-new crew DJs (no love/
+      // stream history yet) never bundle — this closes that gap. Gated to the
+      // same affiliatedGoLive opt-out and broadcast station as that branch.
+      const bundlesViaCrewPropagation = (show: LiveShow): boolean => {
+        if (isDjUser) return false; // DJ branch already propagates via UID set
+        if (!primaryDjUsernameNorm) return false;
+        if (show.stationId !== "broadcast") return false;
+        if (emailNotificationsData?.affiliatedGoLive === false) return false;
+        const related = relatedUsernamesByShowId.get(show.showId);
+        return !!related?.has(primaryDjUsernameNorm);
+      };
+
       // ── Bundle pass: scan upcoming-today shows for additional matches ─
       // Same matcher, same gates. Filtered to the user's local end-of-day
       // and deduped against shows we've already emailed this user about.
@@ -947,12 +972,17 @@ export async function GET(request: NextRequest) {
         if (show.showId === primary.showId) { reject("is-primary"); continue; }
         if (lastShowStartingEmailAt[show.showId]) { reject("already-stamped"); continue; }
         if (failsUniversalGates(show)) { reject("gates"); continue; }
+        let bundleVia = "match";
         if (!matchShow(show)) {
-          const affSize = affiliatedRecipientsByShowId.get(show.showId)?.size ?? -1;
-          reject(`no-match(affSetSize=${affSize})`);
-          continue;
+          if (bundlesViaCrewPropagation(show)) {
+            bundleVia = "crew-prop";
+          } else {
+            const affSize = affiliatedRecipientsByShowId.get(show.showId)?.size ?? -1;
+            reject(`no-match(affSetSize=${affSize})`);
+            continue;
+          }
         }
-        bundleTrace.push(`${show.djUsername || show.name}:MATCHED`);
+        bundleTrace.push(`${show.djUsername || show.name}:MATCHED(${bundleVia})`);
         bundled.push({
           showId: show.showId,
           showName: show.name,
