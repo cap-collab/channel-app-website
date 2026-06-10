@@ -64,11 +64,18 @@ service cloud.firestore {
       // Stream history (written by admin SDK, read-only for owner)
       match /streamHistory/{archiveId} {
         allow read: if request.auth != null && request.auth.uid == userId;
+        // Cron job: go-live emails match recipients by engagement (streamed
+        // the live/related DJ). Without this, collection-group queries 403 and
+        // every engagement-based recipient is silently dropped.
+        allow read: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
       }
 
       // Love history (written and read by owner)
       match /loveHistory/{djId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Cron job: go-live emails match recipients by engagement (hearted the
+        // live/related DJ). Same 403 problem as streamHistory above.
+        allow read: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
       }
     }
 
