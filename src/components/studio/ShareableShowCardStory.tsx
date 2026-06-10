@@ -273,36 +273,47 @@ function drawCanvas(
   const djNameText = (djName || '').toUpperCase();
   const djNameWidth = ctx.measureText(djNameText).width;
 
-  // Decide how genres lay out without ever compressing the text.
-  let inlineGenres: string | null = null; // genres that fit after the name
-  let genreLines: string[] = [];           // genres wrapped onto their own line(s)
+  // Genres start on the name's line; overflow wraps onto a second line above.
+  // Never compressed \u2014 tokens are measured and split to fit the available width.
+  let inlineGenres = '';   // " - GENRE \u00B7 GENRE" that fits after the name
+  let overflowGenres = ''; // remaining genres, on a line above the name
   if (genres && genres.length > 0) {
     const upperGenres = genres.map(g => g.toUpperCase());
     ctx.font = `500 ${djFontSize}px ${F}`;
     ctx.letterSpacing = '0.15em';
 
-    const inlineStr = ' - ' + upperGenres.join(' \u00B7 ');
-    if (djNameWidth + ctx.measureText(inlineStr).width <= maxWidth) {
-      // Everything fits on one line: name + genres inline.
-      inlineGenres = inlineStr;
-    } else {
-      // Too many genres for one line — wrap onto a second line (below the name),
-      // pushing everything above up by a line. Bio stays as-is.
-      genreLines = wrapGenres(ctx, upperGenres, maxWidth, 2);
+    const sep = ' \u00B7 ';
+    const lead = ' - ';
+    const firstLineRoom = maxWidth - djNameWidth - ctx.measureText(lead).width;
+
+    // Greedily fit genres after the name; the rest spill to the line above.
+    const first: string[] = [];
+    let i = 0;
+    for (; i < upperGenres.length; i++) {
+      const candidate = [...first, upperGenres[i]].join(sep);
+      if (ctx.measureText(candidate).width > firstLineRoom && first.length > 0) break;
+      first.push(upperGenres[i]);
+    }
+    if (first.length > 0) inlineGenres = lead + first.join(sep);
+
+    const rest = upperGenres.slice(i);
+    if (rest.length > 0) {
+      // Remaining genres on one line above the name; ellipsis if still too wide.
+      overflowGenres = wrapGenres(ctx, rest, maxWidth, 1)[0] || '';
     }
   }
 
-  // Genres go BELOW the name when wrapped \u2014 draw them first (bottom-up).
+  // Overflow genres sit on their own line ABOVE the name; draw first (bottom-up).
   const genreLineH = Math.round(djFontSize * 1.35);
-  ctx.fillStyle = '#d4d4d8';
-  ctx.font = `500 ${djFontSize}px ${F}`;
-  ctx.letterSpacing = '0.15em';
-  for (let i = genreLines.length - 1; i >= 0; i--) {
-    ctx.fillText(genreLines[i], pad, cursorY);
+  if (overflowGenres) {
+    ctx.fillStyle = '#d4d4d8';
+    ctx.font = `500 ${djFontSize}px ${F}`;
+    ctx.letterSpacing = '0.15em';
+    ctx.fillText(overflowGenres, pad, cursorY);
     cursorY -= genreLineH;
   }
 
-  // DJ name above the wrapped genres (or with genres inline after it).
+  // DJ name + the genres that fit, on the bottom line.
   ctx.fillStyle = '#ffffff';
   ctx.font = `900 ${djFontSize}px ${F}`;
   ctx.letterSpacing = '0.05em';
