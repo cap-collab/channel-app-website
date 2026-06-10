@@ -995,15 +995,26 @@ export async function GET(request: NextRequest) {
         ? normalizeForLookup(primary.djUsername)
         : undefined;
 
-      // For a listener recipient, decide whether an upcoming crew show should
-      // bundle purely because it shares a crew with the primary they matched.
-      // Mirrors the DJ branch, which already propagates via the affiliated-
-      // recipients UID set. The listener branch of matchShow only bridges on
-      // per-crew-member engagement/watchlist, so brand-new crew DJs (no love/
-      // stream history yet) never bundle — this closes that gap. Gated to the
-      // same affiliatedGoLive opt-out and broadcast station as that branch.
+      // Crew propagation: if this recipient matched the PRIMARY live DJ, every
+      // upcoming show in the primary's crew bundles for them — regardless of
+      // HOW they reached the primary (favorite / watchlist / engagement /
+      // affiliation / audience-borrow). The product rule is "everyone who gets
+      // the go-live gets the crew shows airing right after," so we follow the
+      // primary, not the recipient's match path.
+      //
+      // "show X is in the primary's crew" == X's related-crew set contains the
+      // primary DJ's username. That set is the affiliation/audience graph for
+      // X's own DJ, so a crew sibling (e.g. Luke/Ninka affiliated to Jane) has
+      // the primary (Jane) in its related set. This catches the cases the
+      // per-crew-member engagement bridge missed: brand-new crew DJs with no
+      // love/stream history, AND recipients (incl. DJ recipients like an
+      // audience-source DJ) who matched the primary via a non-crew edge.
+      //
+      // Applies to listeners AND DJ recipients — the earlier listener-only
+      // restriction wrongly assumed DJ recipients were always covered by the
+      // affiliated-recipients UID set, which only contains the crew itself and
+      // misses an audience-source DJ who matched the primary via the borrow.
       const bundlesViaCrewPropagation = (show: LiveShow): boolean => {
-        if (isDjUser) return false; // DJ branch already propagates via UID set
         if (!primaryDjUsernameNorm) return false;
         if (show.stationId !== "broadcast") return false;
         if (emailNotificationsData?.affiliatedGoLive === false) return false;
