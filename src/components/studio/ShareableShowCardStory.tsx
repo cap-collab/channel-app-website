@@ -84,6 +84,40 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number,
   return lines;
 }
 
+// Wrap genre tokens onto up to maxLines lines, keeping each genre whole and
+// joining with " · ". When genres don't all fit, the last line ends with " · …"
+// (never compressed — the ellipsis line is trimmed to stay within maxWidth).
+function wrapGenres(ctx: CanvasRenderingContext2D, genres: string[], maxWidth: number, maxLines: number): string[] {
+  const sep = ' · ';
+  const lines: string[] = [];
+  let current = '';
+  let truncated = false;
+  for (const g of genres) {
+    const test = current ? `${current}${sep}${g}` : g;
+    if (ctx.measureText(test).width > maxWidth && current) {
+      lines.push(current);
+      if (lines.length >= maxLines) {
+        truncated = true;
+        break;
+      }
+      current = g;
+    } else {
+      current = test;
+    }
+  }
+  if (!truncated && current && lines.length < maxLines) lines.push(current);
+
+  if (truncated) {
+    // Trim whole genres off the last line until it + " · …" fits.
+    let last = lines[lines.length - 1];
+    while (last.includes(sep) && ctx.measureText(last + sep + '…').width > maxWidth) {
+      last = last.slice(0, last.lastIndexOf(sep));
+    }
+    lines[lines.length - 1] = last + sep + '…';
+  }
+  return lines;
+}
+
 function drawCanvas(
   ctx: CanvasRenderingContext2D,
   props: ShareableShowCardStoryProps,
@@ -231,21 +265,53 @@ function drawCanvas(
 
   // DJ Name + Genres
   const djFontSize = Math.round(12 * S);
+  const maxWidth = CANVAS_W - pad * 2;
   ctx.textBaseline = 'bottom';
 
-  ctx.fillStyle = '#ffffff';
   ctx.font = `900 ${djFontSize}px ${F}`;
   ctx.letterSpacing = '0.05em';
   const djNameText = (djName || '').toUpperCase();
-  ctx.fillText(djNameText, pad, cursorY);
+  const djNameWidth = ctx.measureText(djNameText).width;
 
+  // Decide how genres lay out without ever compressing the text.
+  let inlineGenres: string | null = null; // genres that fit after the name
+  let genreLines: string[] = [];           // genres wrapped onto their own line(s)
   if (genres && genres.length > 0) {
-    const djNameWidth = ctx.measureText(djNameText).width;
-    const genreStr = ' - ' + genres.map(g => g.toUpperCase()).join(' \u00B7 ');
+    const upperGenres = genres.map(g => g.toUpperCase());
+    ctx.font = `500 ${djFontSize}px ${F}`;
+    ctx.letterSpacing = '0.15em';
+
+    const inlineStr = ' - ' + upperGenres.join(' \u00B7 ');
+    if (djNameWidth + ctx.measureText(inlineStr).width <= maxWidth) {
+      // Everything fits on one line: name + genres inline.
+      inlineGenres = inlineStr;
+    } else {
+      // Too many genres for one line — wrap onto a second line (below the name),
+      // pushing everything above up by a line. Bio stays as-is.
+      genreLines = wrapGenres(ctx, upperGenres, maxWidth, 2);
+    }
+  }
+
+  // Genres go BELOW the name when wrapped \u2014 draw them first (bottom-up).
+  const genreLineH = Math.round(djFontSize * 1.35);
+  ctx.fillStyle = '#d4d4d8';
+  ctx.font = `500 ${djFontSize}px ${F}`;
+  ctx.letterSpacing = '0.15em';
+  for (let i = genreLines.length - 1; i >= 0; i--) {
+    ctx.fillText(genreLines[i], pad, cursorY);
+    cursorY -= genreLineH;
+  }
+
+  // DJ name above the wrapped genres (or with genres inline after it).
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `900 ${djFontSize}px ${F}`;
+  ctx.letterSpacing = '0.05em';
+  ctx.fillText(djNameText, pad, cursorY);
+  if (inlineGenres) {
     ctx.fillStyle = '#d4d4d8';
     ctx.font = `500 ${djFontSize}px ${F}`;
     ctx.letterSpacing = '0.15em';
-    ctx.fillText(genreStr, pad + djNameWidth, cursorY, CANVAS_W - pad * 2 - djNameWidth);
+    ctx.fillText(inlineGenres, pad + djNameWidth, cursorY);
   }
   ctx.letterSpacing = '0';
 }
