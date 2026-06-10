@@ -86,6 +86,28 @@ function normalizeForLookup(str: string): string {
   return str.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+// Resolve a Firestore startTime field to epoch ms across every shape it can
+// arrive in. The cron reads slots via the REST helper (firebase-rest.ts),
+// which deserializes `timestampValue` to a PLAIN Date — a Date has no
+// .toMillis()/.toDate(), so the previous extraction silently yielded
+// undefined and every scheduled slot was dropped from the bundle (the Znc
+// crew-bundling bug). Handle Date, Firestore Timestamp, and ISO string.
+function slotStartMs(value: unknown): number | undefined {
+  if (value instanceof Date) {
+    const ms = value.getTime();
+    return Number.isFinite(ms) ? ms : undefined;
+  }
+  const ts = value as { toMillis?: () => number; toDate?: () => Date } | undefined;
+  if (typeof ts?.toMillis === "function") return ts.toMillis();
+  const fromToDate = ts?.toDate?.()?.getTime();
+  if (typeof fromToDate === "number") return fromToDate;
+  if (typeof value === "string") {
+    const ms = Date.parse(value);
+    return Number.isFinite(ms) ? ms : undefined;
+  }
+  return undefined;
+}
+
 // YYYY-MM-DD in the given timezone. Mirrors the helper in
 // broadcast-emails/route.ts so the daily cap rolls over on the user's
 // local midnight, not UTC's.
@@ -268,10 +290,7 @@ export async function GET(request: NextRequest) {
       if (data.djUsername === "channelbroadcast") return;
       const slug = data.djUsername as string | undefined;
       const collectiveInfo = slug ? collectiveOwnerInfoBySlug.get(slug) : undefined;
-      const startTime = data.startTime as { toMillis?: () => number; toDate?: () => Date } | undefined;
-      const startMs = typeof startTime?.toMillis === "function"
-        ? startTime.toMillis()
-        : startTime?.toDate?.()?.getTime();
+      const startMs = slotStartMs(data.startTime);
       target.push({
         name: data.showName as string,
         dj: data.djName as string | undefined,
@@ -295,10 +314,7 @@ export async function GET(request: NextRequest) {
       pushBroadcastSlot(slot, liveShows);
     }
     for (const slot of scheduledBroadcastSlots) {
-      const startTime = slot.data.startTime as { toMillis?: () => number; toDate?: () => Date } | undefined;
-      const startMs = typeof startTime?.toMillis === "function"
-        ? startTime.toMillis()
-        : startTime?.toDate?.()?.getTime();
+      const startMs = slotStartMs(slot.data.startTime);
       if (typeof startMs !== "number") continue;
       if (startMs <= windowEnd.getTime()) continue;
       if (startMs > bundleHorizon.getTime()) continue;
