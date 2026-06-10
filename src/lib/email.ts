@@ -345,6 +345,31 @@ export async function sendShowStartingEmail({
     ? buildLaterTodaySection(laterToday, userTimezone || "America/Los_Angeles")
     : "";
 
+  // Subject line. Single show → "{DJ} is live on channel". When there's a
+  // bundle ("also later today"), list the whole crew with plural phrasing:
+  // "Jane Margarette, Ninka & Luke Mele are live on channel". Name
+  // resolution mirrors the bundled-row body (djName → djUsername → showName).
+  // Cap the listed names then "+N more" so the subject stays readable.
+  const primarySubjectName = (djUsername || djName) ? djDisplayName : displayName;
+  const stationSuffix = isChannelRadio ? "channel" : stationName;
+  let subject: string;
+  if (laterToday && laterToday.length > 0) {
+    const bundleNames = laterToday.map((r) => r.djName || r.djUsername || r.showName);
+    const allNames = [primarySubjectName, ...bundleNames];
+    const shown = allNames.slice(0, 4);
+    const extra = allNames.length - shown.length;
+    let nameList: string;
+    if (shown.length === 2) {
+      nameList = `${shown[0]} & ${shown[1]}`;
+    } else {
+      nameList = `${shown.slice(0, -1).join(", ")} & ${shown[shown.length - 1]}`;
+    }
+    if (extra > 0) nameList += ` +${extra} more`;
+    subject = `${nameList} are live on ${stationSuffix}`;
+  } else {
+    subject = `${primarySubjectName} is live on ${stationSuffix}`;
+  }
+
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
       <tr>
@@ -393,7 +418,7 @@ export async function sendShowStartingEmail({
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
-      subject: `${djUsername || djName ? djDisplayName : displayName} is live on ${isChannelRadio ? "channel" : stationName}`,
+      subject,
       html: wrapEmailContent(content, footerText, muteOverride, aboveContentHtml),
       headers: muteUrl
         ? {
