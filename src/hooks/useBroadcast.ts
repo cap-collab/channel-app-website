@@ -7,6 +7,25 @@ import { usePublisherStats } from './usePublisherStats';
 
 const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
 
+/**
+ * True when the room's local participant has a LIVE, UNMUTED audio publication —
+ * i.e. audio is actually flowing right now. This is the correct recovery signal
+ * after a glitch: the source MediaStreamTrack that fired `ended` is terminal and
+ * never revives, but LiveKit re-publishes a fresh track when the device/connection
+ * recovers (the Jane/Bilaliwood 2026-06 pattern). Judging by the room publication
+ * — not the dead source track — is what tells us the blip self-healed.
+ */
+export function isRoomAudioHealthy(room: Room | null): boolean {
+  if (!room) return false;
+  const pubs = room.localParticipant?.audioTrackPublications;
+  if (!pubs || pubs.size === 0) return false;
+  return Array.from(pubs.values()).some(pub => {
+    if (pub.isMuted) return false;
+    const mst = pub.track?.mediaStreamTrack;
+    return !!mst && mst.readyState === 'live';
+  });
+}
+
 async function fetchWithTimeout(input: RequestInfo, init: RequestInit & { timeoutMs: number }) {
   const { timeoutMs, ...rest } = init;
   const controller = new AbortController();
@@ -69,7 +88,9 @@ export function useBroadcast(
   // and splits the recording — see Jane/Bilaliwood 2026-06). Cleared if audio
   // recovers, on a successful republish, or on unmount.
   const trackRecoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const TRACK_RECOVERY_GRACE_MS = 3000;
+  // Matches the broadcast-teardown grace in BroadcastClient so the restart prompt
+  // and the actual end-of-broadcast happen at the same moment, not 2s apart.
+  const TRACK_RECOVERY_GRACE_MS = 5000;
 
   // Use refs to ensure callbacks always have latest values
   // Initialize refs AND update them synchronously on each render
@@ -318,24 +339,24 @@ export function useBroadcast(
         trackRecoveryTimerRef.current = null;
       }
 
-      // Surface "restart" only AFTER the grace window, and only if the audio is
-      // still dead. A transient blip recovers within a second or two; the
-      // underlying MediaStreamTrack flips back to readyState 'live' (or a fresh
-      // track gets published, which clears the timer above). The egress keeps
-      // recording throughout — we don't want the DJ restarting over a hiccup.
+      // Surface "restart" only AFTER the grace window, and only if the ROOM's
+      // audio is still dead. Important: a glitch fires `ended` on the source
+      // MediaStreamTrack, which is TERMINAL — that object never returns to
+      // 'live'. Recovery (as seen on Jane/Bilaliwood 2026-06) is LiveKit
+      // re-publishing a fresh track after the blip. So we judge recovery by the
+      // ROOM publication, not the dead source track: if the local participant
+      // has a live, unmuted audio publication at the deadline, audio is flowing
+      // again and we stay silent. The egress records throughout.
       const scheduleRecoveryCheck = (reason: string, message: string) => {
         if (trackRecoveryTimerRef.current) return; // a check is already pending
         console.warn(`📡 ⚠️ ${reason} — waiting ${TRACK_RECOVERY_GRACE_MS}ms to see if it recovers before prompting restart`);
         trackRecoveryTimerRef.current = setTimeout(() => {
           trackRecoveryTimerRef.current = null;
-          // Recovered? The source track is back to 'live' (or a new track was
-          // published and this stale one is no longer current). Stay silent.
-          const stillDead = audioTrack.readyState === 'ended';
-          if (!stillDead) {
-            console.log('📡 ✅ Audio track recovered within grace window — no restart needed');
+          if (isRoomAudioHealthy(roomRef.current)) {
+            console.log('📡 ✅ Room audio recovered within grace window — no restart needed');
             return;
           }
-          console.error(`📡 ❌ Audio still dead after ${TRACK_RECOVERY_GRACE_MS}ms — prompting restart`);
+          console.error(`📡 ❌ Room audio still dead after ${TRACK_RECOVERY_GRACE_MS}ms — prompting restart`);
           setState(prev => prev.isPublishing ? { ...prev, isPublishing: false, error: message } : prev);
         }, TRACK_RECOVERY_GRACE_MS);
       };
