@@ -995,6 +995,11 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
         const pastSlotsMap = new Map<string, { showName: string; startTime: number; endTime: number; showImageUrl?: string }>();
         const djEmail = djProfile.email?.toLowerCase() || "";
 
+        // Kick off the archives (recordings) fetch FIRST so recordings render
+        // ASAP — don't gate it behind the two broadcast-slot queries below.
+        // The slot reconciliation that needs both runs after Promise.all.
+        const archivesPromise = fetch("/api/archives");
+
         // Query 1: Past slots with root-level djEmail (remote broadcasts)
         // Excludes recording-type slots — those appear via archives only
         const remoteQ = query(
@@ -1002,7 +1007,20 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           where("endTime", "<", Timestamp.fromDate(new Date())),
           where("djEmail", "==", djEmail)
         );
-        const remoteSnapshot = await getDocs(remoteQ);
+
+        // Query 2: Past venue slots (have djSlots array) - filter client-side
+        const venueQ = query(
+          slotsRef,
+          where("endTime", "<", Timestamp.fromDate(new Date())),
+          where("broadcastType", "==", "venue")
+        );
+
+        // Run both slot queries in parallel with the in-flight archives fetch.
+        const [remoteSnapshot, venueSnapshot] = await Promise.all([
+          getDocs(remoteQ),
+          getDocs(venueQ),
+        ]);
+
         remoteSnapshot.forEach((doc) => {
           const data = doc.data();
           // Skip recording-type slots — they appear via archives, not as broadcast shows
@@ -1017,13 +1035,6 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           });
         });
 
-        // Query 2: Past venue slots (have djSlots array) - filter client-side
-        const venueQ = query(
-          slotsRef,
-          where("endTime", "<", Timestamp.fromDate(new Date())),
-          where("broadcastType", "==", "venue")
-        );
-        const venueSnapshot = await getDocs(venueQ);
         venueSnapshot.forEach((doc) => {
           const data = doc.data();
           if (data.djSlots && Array.isArray(data.djSlots)) {
@@ -1042,8 +1053,8 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           }
         });
 
-        // Fetch archives and find which slots have recordings
-        const res = await fetch("/api/archives");
+        // Find which slots have recordings (archives fetch was started above)
+        const res = await archivesPromise;
         if (res.ok) {
           const data = await res.json();
           const archives: Archive[] = data.archives || [];
