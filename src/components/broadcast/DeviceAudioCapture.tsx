@@ -12,8 +12,23 @@ interface DeviceAudioCaptureProps {
 export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCaptureProps) {
   const [devices, setDevices] = useState<AudioDevice[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+  // Track the selected device's human-readable label too. Browsers can reassign
+  // a device's `deviceId` when it briefly drops and re-enumerates (a USB
+  // interface hiccup, a sample-rate change). When that happens the stored
+  // deviceId stops resolving and naive code silently falls back to the first
+  // device — i.e. the laptop mic instead of the DJ's interface (seen with the
+  // bilaliwood show 2026-06). Keeping the label lets us re-find the SAME
+  // physical device under its new id.
+  const [selectedLabel, setSelectedLabel] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isCapturing, setIsCapturing] = useState(false);
+
+  // Remember the selection by both id and label, so re-capture can pin the same
+  // physical device even if its deviceId changed.
+  const selectDevice = (id: string, label: string) => {
+    setSelectedDeviceId(id);
+    setSelectedLabel(label);
+  };
 
   // Load available audio devices
   useEffect(() => {
@@ -56,8 +71,25 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
         console.log('All devices:', allDevices);
 
         setDevices(audioInputs);
-        if (audioInputs.length > 0 && !selectedDeviceId) {
-          setSelectedDeviceId(audioInputs[0].deviceId);
+        if (audioInputs.length > 0) {
+          if (!selectedDeviceId) {
+            // First load — default to the first device.
+            selectDevice(audioInputs[0].deviceId, audioInputs[0].label);
+          } else if (!audioInputs.some(d => d.deviceId === selectedDeviceId)) {
+            // The selected deviceId no longer exists (device dropped + re-enumerated,
+            // likely with a new id). Re-pin the SAME physical device by label rather
+            // than silently sliding to audioInputs[0] (the laptop mic).
+            const sameByLabel = selectedLabel
+              ? audioInputs.find(d => d.label === selectedLabel)
+              : undefined;
+            if (sameByLabel) {
+              console.log('🎙 Re-pinned audio device by label after id change:', sameByLabel.label);
+              selectDevice(sameByLabel.deviceId, sameByLabel.label);
+            }
+            // If we can't find it, leave the selection as-is. The picker will show
+            // the stale value and capture will surface an explicit error — we do
+            // NOT auto-switch to a different device behind the DJ's back.
+          }
         }
       } catch {
         onError('Failed to load audio devices');
@@ -75,7 +107,7 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
     return () => {
       navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
     };
-  }, [onError, selectedDeviceId]);
+  }, [onError, selectedDeviceId, selectedLabel]);
 
   const captureDeviceAudio = async () => {
     if (!selectedDeviceId) {
@@ -85,18 +117,40 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
 
     setIsCapturing(true);
 
+    const audioConstraints = (deviceId: string): MediaTrackConstraints => ({
+      deviceId: { exact: deviceId },
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      sampleRate: { ideal: 48000 },
+      channelCount: { min: 1, ideal: 2 },
+    });
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          deviceId: { exact: selectedDeviceId },
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          sampleRate: { ideal: 48000 },
-          channelCount: { min: 1, ideal: 2 },
-        },
-        video: false,
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints(selectedDeviceId),
+          video: false,
+        });
+      } catch (err) {
+        // The exact deviceId no longer resolves (device re-enumerated with a new
+        // id mid-session). Re-find the SAME device by label and retry once,
+        // rather than letting the caller fall back to a default device.
+        if (err instanceof Error && err.name === 'OverconstrainedError' && selectedLabel) {
+          const fresh = await navigator.mediaDevices.enumerateDevices();
+          const sameByLabel = fresh.find(d => d.kind === 'audioinput' && d.label === selectedLabel);
+          if (!sameByLabel) throw err; // can't find it — surface the original error
+          console.log('🎙 Exact deviceId stale; recapturing same device by label:', selectedLabel);
+          selectDevice(sameByLabel.deviceId, sameByLabel.label);
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: audioConstraints(sameByLabel.deviceId),
+            video: false,
+          });
+        } else {
+          throw err;
+        }
+      }
 
       // Log what we actually got back — when a DJ reports "no audio," this
       // single line tells us whether the requested device was honored, the
@@ -170,7 +224,10 @@ export function DeviceAudioCapture({ onStream, onError, onBack }: DeviceAudioCap
                 </label>
                 <select
                   value={selectedDeviceId}
-                  onChange={(e) => setSelectedDeviceId(e.target.value)}
+                  onChange={(e) => {
+                    const dev = devices.find(d => d.deviceId === e.target.value);
+                    selectDevice(e.target.value, dev?.label ?? '');
+                  }}
                   className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-gray-500"
                 >
                   {devices.map((device) => (
