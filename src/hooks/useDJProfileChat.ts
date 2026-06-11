@@ -162,17 +162,31 @@ export function useDJProfileChat({
     );
     };
 
-    // Ensure Firebase auth for Firestore security rules (sign in anonymously if needed).
+    // The broadcast rooms are public-read (see firestore.rules), so we can
+    // subscribe even when logged out / before anonymous auth resolves. Per-DJ
+    // rooms still require auth, so we attempt anonymous sign-in for them, but
+    // we never block the public feed (and its message count) on that succeeding
+    // — anonymous auth can be slow or disabled, and the read works without it.
+    const isPublicRoom =
+      chatUsernameNormalized === 'channelbroadcast' || chatUsernameNormalized === 'broadcast';
+
     // Wait for authStateReady() first so we don't replace a real user session with anonymous.
     auth.authStateReady().then(() => {
       if (cancelled) return;
-      if (!auth.currentUser) {
+      if (auth.currentUser) {
+        subscribe();
+      } else if (isPublicRoom) {
+        // Public room: subscribe immediately; fire anonymous auth in the
+        // background so subsequent writes succeed, but don't gate the read on it.
+        subscribe();
+        signInAnonymously(auth).catch((err) =>
+          console.error('Anonymous auth failed (public chat read still works):', err)
+        );
+      } else {
         signInAnonymously(auth).then(() => subscribe()).catch((err) => {
           console.error('Anonymous auth failed for chat subscription:', err);
           setError('Failed to connect to chat');
         });
-      } else {
-        subscribe();
       }
     });
 

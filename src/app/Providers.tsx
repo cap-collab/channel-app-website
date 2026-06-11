@@ -11,9 +11,14 @@ import { ArchiveRadioProvider } from "@/contexts/ArchiveRadioContext";
 import { FilterProvider } from "@/contexts/FilterContext";
 import { HeartNudgeProvider } from "@/contexts/HeartNudgeContext";
 import { initPostHog } from "@/lib/posthog";
+import { useChunkErrorReload } from "@/hooks/useChunkErrorReload";
 
 export function Providers({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+
+  // Recover from stale-deploy ChunkLoadErrors with a one-time reload. Runs on
+  // every page (including the render-mix early-return below).
+  useChunkErrorReload();
   // The /internal/render-mix page is loaded by a headless browser (the YouTube
   // render worker) and inside an admin preview iframe. It must NOT open
   // LiveKit / Firebase RTDB / auth subscriptions — those would create load on
