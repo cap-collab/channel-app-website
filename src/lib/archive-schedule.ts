@@ -541,9 +541,22 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   // like a real interlude during assembly. The finalise pass replaces each
   // placeholder with a real pool pick in left-to-right order.
   const PLACEHOLDER_URL = '__placeholder__';
+  // The anchor interlude (the hand-back played immediately AFTER the live block
+  // ends) is always the "toilet therapist" interlude per Cap. It gets its own
+  // placeholder sentinel so the finalise pass can pin it instead of round-
+  // robining, and so it's excluded from the round-robin pool to avoid landing
+  // adjacent to itself.
+  const ANCHOR_PLACEHOLDER_URL = '__anchor_placeholder__';
+  const TOILET_THERAPIST_ID = 'mGUjchuXuFAtTa4dmAls';
   const interludePlaceholder = (): ScheduleItem => ({
     kind: 'interstitial',
     recordingUrl: PLACEHOLDER_URL,
+    durationSec: 0,
+    startOffsetSec: 0,
+  });
+  const anchorInterludePlaceholder = (): ScheduleItem => ({
+    kind: 'interstitial',
+    recordingUrl: ANCHOR_PLACEHOLDER_URL,
     durationSec: 0,
     startOffsetSec: 0,
   });
@@ -610,7 +623,9 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   const usingInterludes = interstitialPool.length > 0;
   if (usingInterludes) assembled.push(interludePlaceholder());
   for (const it of preAnchorItems) assembled.push(it);
-  if (anchor && usingInterludes) assembled.push(interludePlaceholder());
+  // The interlude landing on the anchor (between the live block ending and the
+  // first post-block archive) is pinned to toilet-therapist in the finalise pass.
+  if (anchor && usingInterludes) assembled.push(anchorInterludePlaceholder());
   if (anchorArchive) assembled.push(anchorArchive);
   if (postAnchorIds) {
     // Short mode with explicit tail — drop unused catalog items.
@@ -642,19 +657,37 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   // unless the pool length itself is 1.
   let interstitialCount = 0;
   if (usingInterludes) {
+    const toiletTherapist = interstitialPool.find((ix) => ix.id === TOILET_THERAPIST_ID) ?? null;
+    // Round-robin pool for the generic placeholders. When toilet-therapist is
+    // being pinned to the anchor slot, exclude it from the round-robin so it
+    // can't appear adjacent to its pinned placement (unless it's the only
+    // interlude in the pool, in which case there's nothing else to rotate).
+    const rrPool = toiletTherapist && shuffledInterludes.length > 1
+      ? shuffledInterludes.filter((ix) => ix.id !== TOILET_THERAPIST_ID)
+      : shuffledInterludes;
+    const fillFrom = (ix: Interstitial): ScheduleItem => ({
+      kind: 'interstitial',
+      interstitialId: ix.id,
+      recordingUrl: ix.url,
+      durationSec: ix.durationSec,
+      startOffsetSec: 0,
+      title: ix.label,
+    });
     let cursor = 0;
     for (let i = 0; i < items.length; i++) {
+      if (items[i].recordingUrl === ANCHOR_PLACEHOLDER_URL) {
+        // Pin the anchor interlude to toilet-therapist; fall back to the normal
+        // round-robin pick if it's missing from the pool for some reason.
+        const ix = toiletTherapist ?? rrPool[cursor % rrPool.length];
+        if (!toiletTherapist) cursor++;
+        items[i] = fillFrom(ix);
+        interstitialCount++;
+        continue;
+      }
       if (items[i].recordingUrl !== PLACEHOLDER_URL) continue;
-      const ix = shuffledInterludes[cursor % shuffledInterludes.length];
+      const ix = rrPool[cursor % rrPool.length];
       cursor++;
-      items[i] = {
-        kind: 'interstitial',
-        interstitialId: ix.id,
-        recordingUrl: ix.url,
-        durationSec: ix.durationSec,
-        startOffsetSec: 0,
-        title: ix.label,
-      };
+      items[i] = fillFrom(ix);
       interstitialCount++;
     }
   }
