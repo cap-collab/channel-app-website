@@ -415,8 +415,16 @@ async function run48hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
 async function run2hReminders(db: FirebaseFirestore.Firestore, now: number): Promise<PhaseResult> {
   const result: PhaseResult = { sent: 0, skipped: 0, errors: [] };
 
-  // Window: 1-3h from now (wide enough for 2h cron cycle)
-  const windowStart = Timestamp.fromMillis(now + 1 * 60 * 60 * 1000);
+  // Window: now → 3h from now. The lower bound is `now` (not now+1h) so a show
+  // is still caught if a prior scheduled run was dropped. Vercel cron ticks are
+  // best-effort and occasionally skipped with no retry (confirmed: the 00:00
+  // UTC tick on 2026-06-11 never fired, so Jane + Ninka were missed). With the
+  // old +1h floor, a show in a dropped tick's window fell into a permanent
+  // blackout — by the next tick it was under 1h out, i.e. below the floor
+  // forever. Anchoring at `now` lets the next tick recover it. Safe against
+  // double-sends: the per-slot dedup below keys on the slot's start-day, so a
+  // slot that matches several consecutive runs is still emailed at most once.
+  const windowStart = Timestamp.fromMillis(now);
   const windowEnd = Timestamp.fromMillis(now + 3 * 60 * 60 * 1000);
 
   const snapshot = await db
