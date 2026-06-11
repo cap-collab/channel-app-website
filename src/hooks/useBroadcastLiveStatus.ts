@@ -3,6 +3,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { getFirestore, collection, query, where, limit, onSnapshot, Timestamp, getDocs } from 'firebase/firestore';
 import { getApps, initializeApp } from 'firebase/app';
+import { normalizeUsername } from '@/lib/dj-matching';
+
+// The admin account (cap@channel-app.com, chatUsername "channelbroadcast") uses
+// real go-live to test broadcasting + recording without showing up on the public
+// site. Any live slot resolving to this DJ is treated as "not live" everywhere
+// downstream of useBroadcastStreamContext (homepage hero, chat, global bar) — the
+// broadcast itself (LiveKit/egress/recording) runs normally so it's still testable.
+// This can only ever hide THIS account; it never affects a real DJ's show.
+const HIDDEN_TEST_DJ = normalizeUsername('channelbroadcast');
+
+function isHiddenTestDj(...candidates: Array<string | null | undefined>): boolean {
+  return candidates.some(c => typeof c === 'string' && c.length > 0 && normalizeUsername(c) === HIDDEN_TEST_DJ);
+}
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -125,6 +138,15 @@ export function useBroadcastLiveStatus(): UseBroadcastLiveStatusReturn {
 
           const doc = snapshot.docs[0];
           const data = doc.data();
+
+          // Admin test broadcast — keep it off the public site (recording still runs).
+          if (isHiddenTestDj(data.liveDjUsername, data.liveDjChatUsername, data.djUsername, data.djName)) {
+            setIsLive(false);
+            setShowName(null);
+            setDjName(null);
+            return;
+          }
+
           setIsLive(true);
           setShowName(data.showName || 'Live Broadcast');
           // Resolve current DJ name from djSlots or top-level fields
