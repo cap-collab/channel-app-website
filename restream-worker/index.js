@@ -752,6 +752,20 @@ app.post('/normalize', authenticate, async (req, res) => {
   const MIN_LEADING_SILENCE_SEC = 1;
   const LEADING_PROBE_SEC = 20;
 
+  // Hard-cut fade-out policy:
+  //   A normalized show that ends ABRUPTLY (the last fraction of a second is
+  //   still near body level — a cliff, not a taper) gets a FADE_OUT_SEC fade
+  //   applied so it doesn't slam to silence. A show that already tapers down
+  //   (DJ faded their own outro) is left alone. Detection: compare the mean
+  //   volume of the final FADE_PROBE_TAIL_SEC against a body reference window;
+  //   only treat as a hard cut when the end is within HARD_CUT_DELTA_DB of the
+  //   body level (i.e. NOT already declining). Conservative by design — when
+  //   in doubt we skip, to avoid double-fading an already-faded outro.
+  const FADE_OUT_SEC = 5;
+  const FADE_PROBE_TAIL_SEC = 0.4;  // measure the very end
+  const FADE_BODY_REF_SEC = 1.0;    // body reference window, ending 2s before EOF
+  const HARD_CUT_DELTA_DB = 6;      // end within this many dB of body => hard cut
+
   try {
     // --- 1. Download ---
     const resp = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: r2Key }));
@@ -909,6 +923,42 @@ app.post('/normalize', authenticate, async (req, res) => {
       console.log(`[normalize] Trailing silence: ${trailingSilenceLengthSec.toFixed(1)}s starting at ${trailingSilenceStartSec.toFixed(1)}s`);
     }
 
+    // --- 6c. Hard-cut detection (does the show end abruptly?) ---
+    // Measured on the FINAL audible content: if trailing silence will be
+    // trimmed, the real end is trailingSilenceStartSec; otherwise it's outDur.
+    // A hard cut = the last FADE_PROBE_TAIL_SEC sits within HARD_CUT_DELTA_DB
+    // of the body reference (it's still loud right up to the edge). An already-
+    // tapering outro reads much quieter at the end and is left alone.
+    let needsFade = false;
+    try {
+      const realEnd = trailingSilenceStartSec !== null ? trailingSilenceStartSec : outDur;
+      if (realEnd > FADE_BODY_REF_SEC + 2) {
+        const tailStart = (realEnd - FADE_PROBE_TAIL_SEC).toFixed(3);
+        const bodyStart = (realEnd - 2 - FADE_BODY_REF_SEC).toFixed(3);
+        const parseMean = (out) => {
+          const m = out.match(/mean_volume:\s*(-?\d+\.?\d*)\s*dB/);
+          return m ? parseFloat(m[1]) : null;
+        };
+        const tailOut = execSync(
+          `ffmpeg -hide_banner -nostats -ss ${tailStart} -t ${FADE_PROBE_TAIL_SEC} -i ${tmpOut} -af "volumedetect" -f null - 2>&1`,
+          { encoding: 'utf-8' }
+        );
+        const bodyOut = execSync(
+          `ffmpeg -hide_banner -nostats -ss ${bodyStart} -t ${FADE_BODY_REF_SEC} -i ${tmpOut} -af "volumedetect" -f null - 2>&1`,
+          { encoding: 'utf-8' }
+        );
+        const tailDb = parseMean(tailOut);
+        const bodyDb = parseMean(bodyOut);
+        if (tailDb !== null && bodyDb !== null) {
+          // end is within HARD_CUT_DELTA_DB of body (not already declining)
+          needsFade = (tailDb - bodyDb) >= -HARD_CUT_DELTA_DB;
+          console.log(`[normalize] End-taper check: tail=${tailDb.toFixed(1)}dB body=${bodyDb.toFixed(1)}dB delta=${(tailDb - bodyDb).toFixed(1)}dB -> ${needsFade ? 'HARD CUT (will fade)' : 'already tapering (skip)'}`);
+        }
+      }
+    } catch (fadeErr) {
+      console.error(`[normalize] Hard-cut detection failed; no fade applied:`, fadeErr?.message || fadeErr);
+    }
+
     // --- 7. Upload v2 (normalized, untrimmed) ---
     const v2Suffix = `-normalized-v2.${format}`;
     const v2Key = format === 'mp3'
@@ -925,25 +975,50 @@ app.post('/normalize', authenticate, async (req, res) => {
     const v2Url = publicBase ? `${publicBase}/${v2Key}` : null;
     console.log(`[normalize] Uploaded v2: ${v2Key}`);
 
-    // --- 8. If leading and/or trailing silence: stream-copy a single trimmed
-    // sibling and upload. Wrapped in its own try/catch so a trim failure
-    // doesn't lose the v2 upload that already succeeded — caller still gets
-    // the v2 URL.
+    // --- 8. Produce the active sibling (-normalized-v2-trimmed) when we need
+    // to trim leading/trailing silence AND/OR apply a hard-cut fade-out.
+    // When only trimming, this is a single stream-copy (no re-encode). When a
+    // fade is needed, the same pass re-encodes with afade folded in (a fade
+    // can't be done with -c copy). Wrapped in its own try/catch so a failure
+    // here doesn't lose the v2 upload that already succeeded — caller still
+    // gets the v2 URL.
     let trimmedKey = null;
     let trimmedUrl = null;
     let trimmedDurationSec = null;
     const hasLeading = leadingSilenceEndSec !== null;
     const hasTrailing = trailingSilenceStartSec !== null;
-    if (hasLeading || hasTrailing) {
+    if (hasLeading || hasTrailing || needsFade) {
       try {
         const ssArg = hasLeading ? `-ss ${leadingSilenceEndSec.toFixed(3)} ` : '';
         const toArg = hasTrailing
           ? `-to ${Math.max(0, trailingSilenceStartSec - SAFETY_TAIL_SEC).toFixed(3)} `
           : '';
         const movflags = format === 'mp4' ? '-movflags +faststart' : '';
-        execSync(
-          `ffmpeg -hide_banner -nostats -y ${ssArg}-i ${tmpOut} ${toArg}-c copy -avoid_negative_ts make_zero ${movflags} ${tmpTrimmed} 2>&1`
-        );
+
+        if (needsFade) {
+          // Re-encode with a fade-out over the final FADE_OUT_SEC. Fade start is
+          // relative to the OUTPUT (post-trim) timeline: output length is the
+          // real end (trailing-trim point, kept +SAFETY_TAIL) minus any leading
+          // trim. Clamp so the fade never starts before 0 on short files.
+          const trimEnd = hasTrailing
+            ? Math.max(0, trailingSilenceStartSec - SAFETY_TAIL_SEC)
+            : outDur;
+          const leadCut = hasLeading ? leadingSilenceEndSec : 0;
+          const outLen = Math.max(0, trimEnd - leadCut);
+          const fadeStart = Math.max(0, outLen - FADE_OUT_SEC).toFixed(3);
+          const fadeDur = Math.min(FADE_OUT_SEC, outLen).toFixed(3);
+          const encodeArgsFade = format === 'mp3'
+            ? '-c:a libmp3lame -b:a 192k'
+            : '-c:a aac -b:a 192k -movflags +faststart';
+          execSync(
+            `ffmpeg -hide_banner -nostats -y ${ssArg}-i ${tmpOut} ${toArg}-vn -af "afade=t=out:st=${fadeStart}:d=${fadeDur}" ${encodeArgsFade} ${tmpTrimmed} 2>&1`
+          );
+        } else {
+          execSync(
+            `ffmpeg -hide_banner -nostats -y ${ssArg}-i ${tmpOut} ${toArg}-c copy -avoid_negative_ts make_zero ${movflags} ${tmpTrimmed} 2>&1`
+          );
+        }
+
         const trimProbe = execSync(
           `ffprobe -v error -show_entries format=duration -of csv=p=0 ${tmpTrimmed}`,
           { encoding: 'utf-8' }
@@ -961,12 +1036,12 @@ app.post('/normalize', authenticate, async (req, res) => {
           CacheControl: 'public, max-age=31536000, immutable',
         }));
         trimmedUrl = publicBase ? `${publicBase}/${trimmedKey}` : null;
-        const kinds = [hasLeading && 'leading', hasTrailing && 'trailing'].filter(Boolean).join('+');
+        const kinds = [hasLeading && 'leading-trim', hasTrailing && 'trailing-trim', needsFade && 'fade-out'].filter(Boolean).join('+');
         console.log(`[normalize] Uploaded v2-trimmed (${kinds}): ${trimmedKey} (${trimmedDurationSec.toFixed(1)}s)`);
       } catch (trimErr) {
         // Non-fatal: v2 (untrimmed) is already uploaded and will be the
-        // active URL. Silence stays in the file. Log + continue.
-        console.error(`[normalize] Trim step failed; keeping untrimmed v2:`, trimErr?.message || trimErr);
+        // active URL. Silence/hard-cut stays in the file. Log + continue.
+        console.error(`[normalize] Trim/fade step failed; keeping untrimmed v2:`, trimErr?.message || trimErr);
         trimmedKey = null;
         trimmedUrl = null;
         trimmedDurationSec = null;
@@ -990,6 +1065,8 @@ app.post('/normalize', authenticate, async (req, res) => {
         outputI, outputTP, outputLRA,
         leadingSilenceEndSec, leadingSilenceLengthSec,
         trailingSilenceStartSec, trailingSilenceLengthSec,
+        fadeOutApplied: needsFade,
+        fadeOutSec: needsFade ? FADE_OUT_SEC : null,
       },
     });
   } catch (err) {
