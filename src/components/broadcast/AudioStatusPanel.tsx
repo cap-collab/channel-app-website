@@ -125,31 +125,46 @@ export function AudioStatusPanel({
     isLive && slotStartTime && slotEndTime && slotEndTime > slotStartTime
       ? Math.min(100, Math.max(0, ((nowMs - slotStartTime) / (slotEndTime - slotStartTime)) * 100))
       : 0;
-  const slotRemainingMin =
-    isLive && slotEndTime
-      ? Math.max(0, Math.ceil((slotEndTime - nowMs) / 60000))
-      : null;
+  const slotRemainingMs = isLive && slotEndTime ? Math.max(0, slotEndTime - nowMs) : null;
+  const slotRemainingMin = slotRemainingMs != null ? Math.ceil(slotRemainingMs / 60000) : null;
+  const slotRemainingSec = slotRemainingMs != null ? Math.ceil(slotRemainingMs / 1000) : null;
+  // Final-minute mode: swap the "min remaining" label for a large seconds countdown
+  // so the DJ knows to taper down their audio.
+  const inFinalMinute =
+    slotRemainingMs != null && slotRemainingMs > 0 && slotRemainingMs <= 60000;
 
   return (
     <div className="bg-[#252525] rounded-xl p-4">
       {/* Slot progress bar (live broadcasts only — recordings have no fixed window) */}
       {isLive && !isRecordingMode && slotStartTime && slotEndTime && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-1.5">
-            <h3 className="text-white text-sm font-medium truncate">
-              {showName || 'Your show'}
-            </h3>
-            <span className="text-xs text-gray-400 tabular-nums flex-shrink-0 ml-2">
-              {slotRemainingMin} min remaining
-            </span>
+        inFinalMinute ? (
+          /* Final minute: large seconds countdown so the DJ knows to taper audio */
+          <div className="mb-4 rounded-lg bg-white/5 border border-white/15 px-4 py-3 text-center">
+            <div className="text-7xl font-bold text-white tabular-nums leading-none animate-pulse">
+              {slotRemainingSec}
+            </div>
+            <div className="mt-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              seconds left — taper down audio
+            </div>
           </div>
-          <div className="h-2 bg-gray-800 rounded overflow-hidden">
-            <div
-              className="h-full bg-white transition-all duration-1000"
-              style={{ width: `${slotProgressPct}%` }}
-            />
+        ) : (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 className="text-white text-sm font-medium truncate">
+                {showName || 'Your show'}
+              </h3>
+              <span className="text-xs text-gray-400 tabular-nums flex-shrink-0 ml-2">
+                {slotRemainingMin} min remaining
+              </span>
+            </div>
+            <div className="h-2 bg-gray-800 rounded overflow-hidden">
+              <div
+                className="h-full bg-white transition-all duration-1000"
+                style={{ width: `${slotProgressPct}%` }}
+              />
+            </div>
           </div>
-        </div>
+        )
       )}
 
       <h3 className="text-gray-400 text-sm font-medium mb-3">Audio System</h3>
