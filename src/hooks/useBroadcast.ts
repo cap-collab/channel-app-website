@@ -91,6 +91,13 @@ export function useBroadcast(
   // Matches the broadcast-teardown grace in BroadcastClient so the restart prompt
   // and the actual end-of-broadcast happen at the same moment, not 2s apart.
   const TRACK_RECOVERY_GRACE_MS = 5000;
+  // The live audio publication + the deviceId/channel constraints used to capture
+  // it, so an audio glitch can be self-healed: re-capture the SAME device and
+  // replaceTrack() it into the existing publication (no egress restart → the
+  // recording stays one continuous file). Set on publish, used during recovery.
+  const audioPublicationRef = useRef<import('livekit-client').LocalTrackPublication | null>(null);
+  const captureConstraintsRef = useRef<MediaTrackConstraints | null>(null);
+  const recoveringRef = useRef(false);
 
   // Use refs to ensure callbacks always have latest values
   // Initialize refs AND update them synchronously on each render
@@ -332,6 +339,18 @@ export function useBroadcast(
       ]);
 
       audioTrackRef.current = audioTrack as unknown as LocalTrack;
+      audioPublicationRef.current = publication;
+      // Remember exactly which device + channel layout we captured, so recovery
+      // re-grabs the SAME input rather than the OS default.
+      const s = audioTrack.getSettings();
+      captureConstraintsRef.current = {
+        ...(s.deviceId ? { deviceId: { exact: s.deviceId } } : {}),
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        sampleRate: { ideal: 48000 },
+        channelCount: { min: 1, ideal: 2 },
+      };
 
       // A new publish supersedes any pending recovery countdown.
       if (trackRecoveryTimerRef.current) {
@@ -339,26 +358,65 @@ export function useBroadcast(
         trackRecoveryTimerRef.current = null;
       }
 
-      // Surface "restart" only AFTER the grace window, and only if the ROOM's
-      // audio is still dead. Important: a glitch fires `ended` on the source
-      // MediaStreamTrack, which is TERMINAL — that object never returns to
-      // 'live'. Recovery (as seen on Jane/Bilaliwood 2026-06) is LiveKit
-      // re-publishing a fresh track after the blip. So we judge recovery by the
-      // ROOM publication, not the dead source track: if the local participant
-      // has a live, unmuted audio publication at the deadline, audio is flowing
-      // again and we stay silent. The egress records throughout.
-      const scheduleRecoveryCheck = (reason: string, message: string) => {
-        if (trackRecoveryTimerRef.current) return; // a check is already pending
-        console.warn(`📡 ⚠️ ${reason} — waiting ${TRACK_RECOVERY_GRACE_MS}ms to see if it recovers before prompting restart`);
-        trackRecoveryTimerRef.current = setTimeout(() => {
-          trackRecoveryTimerRef.current = null;
-          if (isRoomAudioHealthy(roomRef.current)) {
-            console.log('📡 ✅ Room audio recovered within grace window — no restart needed');
-            return;
+      // ACTIVE self-heal on an audio glitch. A glitch fires `ended` on the source
+      // MediaStreamTrack, which is TERMINAL — it never revives, and because the
+      // track is user-provided LiveKit won't re-acquire it on its own (so audio
+      // would stay dead even though the egress keeps running — confirmed in
+      // testing 2026-06-11). So we actively re-capture the SAME device and
+      // replaceTrack() it into the EXISTING publication: no egress restart, the
+      // recording stays one continuous file, levels come back. We retry across
+      // the grace window (a USB device can take a couple seconds to re-enumerate),
+      // and only prompt for a manual restart if every attempt fails.
+      const attemptRecovery = async (reason: string, message: string) => {
+        if (recoveringRef.current) return; // already recovering
+        if (!isLiveRef.current) return;    // not live — nothing to heal
+        recoveringRef.current = true;
+        console.warn(`📡 ⚠️ ${reason} — attempting to re-acquire the device and replace the live track`);
+        const deadline = Date.now() + TRACK_RECOVERY_GRACE_MS;
+        try {
+          while (Date.now() < deadline) {
+            // Already healthy (e.g. LiveKit recovered, or a prior attempt took)?
+            if (isRoomAudioHealthy(roomRef.current)) {
+              console.log('📡 ✅ Room audio healthy — recovery complete');
+              return;
+            }
+            const pub = audioPublicationRef.current;
+            const constraints = captureConstraintsRef.current;
+            if (pub && constraints) {
+              try {
+                const fresh = await navigator.mediaDevices.getUserMedia({ audio: constraints, video: false });
+                const newTrack = fresh.getAudioTracks()[0];
+                const localTrack = pub.track as unknown as { replaceTrack?: (t: MediaStreamTrack) => Promise<unknown> } | undefined;
+                if (newTrack && newTrack.readyState === 'live' && localTrack?.replaceTrack) {
+                  await localTrack.replaceTrack(newTrack);
+                  audioTrackRef.current = pub.track as unknown as LocalTrack;
+                  // Re-arm the ended listener on the NEW source track.
+                  newTrack.addEventListener('ended', () => {
+                    void attemptRecovery('Source audio track ended again', message);
+                  });
+                  console.log('📡 ✅ Re-acquired device and replaced the live track — recording continuous');
+                  setState(prev => prev.isPublishing ? prev : { ...prev, isPublishing: true });
+                  return;
+                }
+                // got a stream but not live — drop it and retry
+                fresh.getTracks().forEach(t => t.stop());
+              } catch (e) {
+                console.warn('📡 recovery getUserMedia/replaceTrack attempt failed, retrying…', (e as Error)?.name || e);
+              }
+            }
+            await new Promise(r => setTimeout(r, 1000)); // wait before next attempt
           }
-          console.error(`📡 ❌ Room audio still dead after ${TRACK_RECOVERY_GRACE_MS}ms — prompting restart`);
-          setState(prev => prev.isPublishing ? { ...prev, isPublishing: false, error: message } : prev);
-        }, TRACK_RECOVERY_GRACE_MS);
+          // Every attempt failed within the window — the device is genuinely gone
+          // (not a glitch). Signal a hard audio failure: BroadcastClient ends the
+          // broadcast and drops the DJ back to the audio-input picker, where this
+          // error is shown so they can reconnect their device and go live again.
+          if (!isRoomAudioHealthy(roomRef.current)) {
+            console.error(`📡 ❌ Could not re-acquire audio within ${TRACK_RECOVERY_GRACE_MS}ms — ending broadcast, DJ must re-select input`);
+            setState(prev => ({ ...prev, isPublishing: false, audioRecoveryFailed: true, error: message }));
+          }
+        } finally {
+          recoveringRef.current = false;
+        }
       };
 
       // Monitor published track health — detect when audio silently dies
@@ -369,13 +427,13 @@ export function useBroadcast(
           console.warn('📡 ⚠️ Published audio track was muted (transient — not prompting)');
         });
         publishedTrack.on(TrackEvent.Ended, () => {
-          scheduleRecoveryCheck('Published audio track ended', 'Audio track ended — click GO LIVE to restart');
+          void attemptRecovery('Published audio track ended', 'Your audio device stopped responding. Reconnect it, re-select your audio input, and start your broadcast again.');
         });
       }
 
       // Also monitor the underlying MediaStreamTrack for 'ended' (device disconnect, browser stop)
       audioTrack.addEventListener('ended', () => {
-        scheduleRecoveryCheck('Source audio track ended (device disconnected or browser stopped sharing)', 'Audio source disconnected — click GO LIVE to restart');
+        void attemptRecovery('Source audio track ended (device disconnected or browser stopped sharing)', 'Your audio device stopped responding. Reconnect it, re-select your audio input, and start your broadcast again.');
       });
 
       setState(prev => ({ ...prev, isPublishing: true }));
@@ -482,6 +540,8 @@ export function useBroadcast(
 
   // Go live - connect, publish, and start egress
   const goLive = useCallback(async (stream: MediaStream) => {
+    // Fresh go-live — clear any prior audio-recovery failure + its error banner.
+    setState(prev => (prev.audioRecoveryFailed || prev.error) ? { ...prev, audioRecoveryFailed: false, error: null } : prev);
     // Use ref to avoid recreating this callback when isConnected changes mid-flow
     if (!isConnectedRef.current) {
       const connected = await connect();
@@ -742,6 +802,8 @@ export function useBroadcast(
         clearTimeout(trackRecoveryTimerRef.current);
         trackRecoveryTimerRef.current = null;
       }
+      // Stop any in-flight audio re-acquire loop.
+      recoveringRef.current = false;
     };
   }, []);
 
