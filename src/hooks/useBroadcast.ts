@@ -61,15 +61,6 @@ export function useBroadcast(
   const roomRef = useRef<Room | null>(null);
   const audioTrackRef = useRef<LocalTrack | null>(null);
   const queuePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Debounce timer for transient audio-track failures. A brief glitch (device
-  // hiccup, sample-rate renegotiation, OS audio interruption) fires the track's
-  // `ended`/`mute` event even though the recording egress keeps running. We wait
-  // TRACK_RECOVERY_GRACE_MS before surfacing "restart" so a momentary blip
-  // doesn't prompt the DJ to restart (a restart re-joins as a duplicate identity
-  // and splits the recording — see Jane/Bilaliwood 2026-06). Cleared if audio
-  // recovers, on a successful republish, or on unmount.
-  const trackRecoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const TRACK_RECOVERY_GRACE_MS = 3000;
 
   // Use refs to ensure callbacks always have latest values
   // Initialize refs AND update them synchronously on each render
@@ -312,49 +303,22 @@ export function useBroadcast(
 
       audioTrackRef.current = audioTrack as unknown as LocalTrack;
 
-      // A new publish supersedes any pending recovery countdown.
-      if (trackRecoveryTimerRef.current) {
-        clearTimeout(trackRecoveryTimerRef.current);
-        trackRecoveryTimerRef.current = null;
-      }
-
-      // Surface "restart" only AFTER the grace window, and only if the audio is
-      // still dead. A transient blip recovers within a second or two; the
-      // underlying MediaStreamTrack flips back to readyState 'live' (or a fresh
-      // track gets published, which clears the timer above). The egress keeps
-      // recording throughout — we don't want the DJ restarting over a hiccup.
-      const scheduleRecoveryCheck = (reason: string, message: string) => {
-        if (trackRecoveryTimerRef.current) return; // a check is already pending
-        console.warn(`📡 ⚠️ ${reason} — waiting ${TRACK_RECOVERY_GRACE_MS}ms to see if it recovers before prompting restart`);
-        trackRecoveryTimerRef.current = setTimeout(() => {
-          trackRecoveryTimerRef.current = null;
-          // Recovered? The source track is back to 'live' (or a new track was
-          // published and this stale one is no longer current). Stay silent.
-          const stillDead = audioTrack.readyState === 'ended';
-          if (!stillDead) {
-            console.log('📡 ✅ Audio track recovered within grace window — no restart needed');
-            return;
-          }
-          console.error(`📡 ❌ Audio still dead after ${TRACK_RECOVERY_GRACE_MS}ms — prompting restart`);
-          setState(prev => prev.isPublishing ? { ...prev, isPublishing: false, error: message } : prev);
-        }, TRACK_RECOVERY_GRACE_MS);
-      };
-
       // Monitor published track health — detect when audio silently dies
       const publishedTrack = publication?.track;
       if (publishedTrack) {
         publishedTrack.on(TrackEvent.Muted, () => {
-          // Mute/unmute churn is routine and recovers on its own — never prompt.
-          console.warn('📡 ⚠️ Published audio track was muted (transient — not prompting)');
+          console.warn('📡 ⚠️ Published audio track was muted unexpectedly');
         });
         publishedTrack.on(TrackEvent.Ended, () => {
-          scheduleRecoveryCheck('Published audio track ended', 'Audio track ended — click GO LIVE to restart');
+          console.error('📡 ❌ Published audio track ended unexpectedly');
+          setState(prev => prev.isPublishing ? { ...prev, isPublishing: false, error: 'Audio track ended — click GO LIVE to restart' } : prev);
         });
       }
 
       // Also monitor the underlying MediaStreamTrack for 'ended' (device disconnect, browser stop)
       audioTrack.addEventListener('ended', () => {
-        scheduleRecoveryCheck('Source audio track ended (device disconnected or browser stopped sharing)', 'Audio source disconnected — click GO LIVE to restart');
+        console.error('📡 ❌ Source audio track ended (device disconnected or browser stopped sharing)');
+        setState(prev => prev.isPublishing ? { ...prev, isPublishing: false, error: 'Audio source disconnected — click GO LIVE to restart' } : prev);
       });
 
       setState(prev => ({ ...prev, isPublishing: true }));
@@ -716,10 +680,6 @@ export function useBroadcast(
       if (queuePollRef.current) {
         clearInterval(queuePollRef.current);
         queuePollRef.current = null;
-      }
-      if (trackRecoveryTimerRef.current) {
-        clearTimeout(trackRecoveryTimerRef.current);
-        trackRecoveryTimerRef.current = null;
       }
     };
   }, []);
