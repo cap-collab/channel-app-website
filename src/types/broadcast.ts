@@ -242,7 +242,6 @@ export interface BroadcastState {
   roomFreeAt?: number | null;   // When the current DJ's slot ends (Unix ms)
   isQueued?: boolean;           // DJ is pre-connected and waiting for room to clear
   isGoingLive?: boolean;        // Go-live sequence is running (unmute → egress → Firestore)
-  audioRecoveryFailed?: boolean; // Audio glitch couldn't be auto-recovered; DJ must re-select input + go live again
 }
 
 // RTMP ingress info
