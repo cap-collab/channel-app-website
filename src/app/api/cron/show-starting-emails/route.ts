@@ -290,7 +290,13 @@ export async function GET(request: NextRequest) {
       target: LiveShow[],
     ): void => {
       const data = slot.data;
-      if (data.broadcastType === "restream") return;
+      // Restreams ARE included here. Unlike the follower-blast cron
+      // (broadcast-emails), this pipeline only emails engaged/opted-in
+      // recipients (favorites, watchlist, love/stream history, crew
+      // affiliation) — so a restream going live (as the primary card) or
+      // airing later today (bundled into the crew) is a wanted signal, not
+      // spam. The "no follower emails for restreams" rule still governs the
+      // broadcast-emails blast.
       if (data.djUsername === "channelbroadcast") return;
       const slug = data.djUsername as string | undefined;
       const collectiveInfo = slug ? collectiveOwnerInfoBySlug.get(slug) : undefined;
