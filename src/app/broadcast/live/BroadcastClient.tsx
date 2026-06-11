@@ -503,32 +503,6 @@ export function BroadcastClient() {
     return () => track.removeEventListener('ended', onTrackEnded);
   }, [audioStream, broadcast.isLive]);
 
-  // When useBroadcast self-heals a glitch (re-acquire + replaceTrack), it hands
-  // us the recovered MediaStream. Point the page's audioStream at it so the DJ
-  // console level meters (which read audioStream) track live audio again instead
-  // of the dead source track. Stop the old stream's tracks first.
-  useEffect(() => {
-    broadcast.setOnAudioRecovered((stream: MediaStream) => {
-      setAudioStream(prev => {
-        if (prev && prev !== stream) prev.getTracks().forEach(t => t.stop());
-        return stream;
-      });
-    });
-    return () => broadcast.setOnAudioRecovered(null);
-  }, [broadcast]);
-
-  // Hard audio failure: the glitch self-heal (re-acquire + replaceTrack in
-  // useBroadcast) couldn't bring audio back, so the device is genuinely gone.
-  // End the broadcast and drop the DJ back to broadcast-method selection.
-  // broadcast.error carries the instruction (reconnect + re-select input).
-  // Re-selecting a device and clicking Go Live republishes the track cleanly.
-  // (Glitches self-heal before this — this only fires on a real device loss.)
-  useEffect(() => {
-    if (!broadcast.audioRecoveryFailed) return;
-    console.error('Audio could not be recovered — ending broadcast; DJ must re-select audio input');
-    handleEndBroadcast();
-  }, [broadcast.audioRecoveryFailed, handleEndBroadcast]);
-
   // DJ onboarding handler
   const handleProfileComplete = useCallback((username: string) => {
     setDjUsername(username);

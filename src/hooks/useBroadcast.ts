@@ -98,13 +98,6 @@ export function useBroadcast(
   const audioPublicationRef = useRef<import('livekit-client').LocalTrackPublication | null>(null);
   const captureConstraintsRef = useRef<MediaTrackConstraints | null>(null);
   const recoveringRef = useRef(false);
-  // Callback the page registers so we can hand it the recovered MediaStream after
-  // a self-heal — the DJ console's level meters read the page's audioStream, which
-  // otherwise still points at the dead source track (meter stays flat).
-  const onAudioRecoveredRef = useRef<((stream: MediaStream) => void) | null>(null);
-  const setOnAudioRecovered = useCallback((cb: ((stream: MediaStream) => void) | null) => {
-    onAudioRecoveredRef.current = cb;
-  }, []);
 
   // Use refs to ensure callbacks always have latest values
   // Initialize refs AND update them synchronously on each render
@@ -403,10 +396,6 @@ export function useBroadcast(
                   });
                   console.log('📡 ✅ Re-acquired device and replaced the live track — recording continuous');
                   setState(prev => prev.isPublishing ? prev : { ...prev, isPublishing: true });
-                  // Hand the recovered stream to the page so the DJ console level
-                  // meters track live audio again (they read the page's audioStream,
-                  // which still pointed at the dead source track).
-                  onAudioRecoveredRef.current?.(fresh);
                   return;
                 }
                 // got a stream but not live — drop it and retry
@@ -877,6 +866,5 @@ export function useBroadcast(
     checkRoomStatus,
     queueGoLive,
     cancelQueue,
-    setOnAudioRecovered,
   };
 }
