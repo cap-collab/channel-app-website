@@ -466,18 +466,7 @@ export function BroadcastClient() {
     return () => clearTimeout(timer);
   }, [broadcast.isLive, slot, handleEndBroadcast]);
 
-  // Detect when the audio source track ends.
-  //
-  // While LIVE we deliberately do NOT end the broadcast here. The source track
-  // fires `ended` for transient audio glitches (device blip, USB hiccup, OS
-  // audio interruption) just as it does for a real loss — and auto-ending on
-  // that glitch is exactly what split Jane's and Bilaliwood's recordings
-  // (2026-06): the recording/egress kept running fine, but the app tore it down
-  // and forced a restart. The recording and live stream end ONLY when the DJ
-  // explicitly clicks End Broadcast or closes the window (handled separately by
-  // the beforeunload handler). The DJ already sees the dip on the live audio
-  // meters in the console, so we don't push a notice — we just never stop the
-  // broadcast for them.
+  // Detect when audio track ends (e.g. user clicks browser's "stop sharing" button)
   useEffect(() => {
     if (!audioStream) return;
 
@@ -485,14 +474,12 @@ export function BroadcastClient() {
     if (!track) return;
 
     const onTrackEnded = () => {
-      console.log('Audio track ended (glitch, stop-sharing, or device disconnect)');
+      console.log('Audio track ended (user stopped sharing or device disconnected)');
       if (broadcast.isLive) {
-        // Live: do NOT end the broadcast — keep the recording/egress running.
-        // The DJ ends it explicitly (End Broadcast button) or by closing the
-        // window. A glitch must never tear it down.
-        console.warn('Audio track ended while live — keeping broadcast/recording running (DJ ends it explicitly)');
+        // End the broadcast and update Firebase
+        handleEndBroadcast();
       } else {
-        // Not live yet — clear the stream so the UI returns to device selection.
+        // Not live yet - clear stream so UI returns to audio capture selector
         audioStream.getTracks().forEach(t => t.stop());
         setAudioStream(null);
         setAudioSourceLabel(null);
@@ -501,7 +488,7 @@ export function BroadcastClient() {
 
     track.addEventListener('ended', onTrackEnded);
     return () => track.removeEventListener('ended', onTrackEnded);
-  }, [audioStream, broadcast.isLive]);
+  }, [audioStream, broadcast.isLive, handleEndBroadcast]);
 
   // DJ onboarding handler
   const handleProfileComplete = useCallback((username: string) => {
