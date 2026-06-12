@@ -778,13 +778,23 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   };
 }
 
-// Per-archive staleness rank in [0, 1]: 1 = least-recently-played (or never
-// played in the lookback) = most preferred, 0 = most-recently-played. Computed
-// from each archive's lastPlayedMs relative to the oldest play in the catalog,
-// so the scale auto-adapts to however much history exists. When no archive has
-// a lastPlayedMs (e.g. brand-new catalog / tests), everyone is maximally stale
-// and the staleness term contributes nothing — falls back to pure window-fit.
-function stalenessRanks(catalog: EligibleArchive[], nowMs: number): number[] {
+// Per-archive "repeat cost" used by the subset search to minimize how many
+// recently-played shows it reuses. The catalog is too small to fill a day from
+// only-fresh shows, so the search MUST reuse some — this picks WHICH ones.
+//
+//   cost = 0            → fresh (no lastPlayedMs, i.e. didn't play in the
+//                         lookback). Free to include; we want all of these.
+//   cost ∈ (eps, 1]     → a repeat. More-recently-played = higher cost, so when
+//                         the search is forced to reuse, it reaches for the
+//                         least-recently-played repeat first.
+//
+// Summed across a subset (not averaged) so the search minimizes the TOTAL
+// number/recency of repeats, which is what drives day-over-day variety. A
+// subset of 18 fresh shows has cost 0; one that swaps in a show played an hour
+// ago costs ~1 more than one that swaps in a show played 23h ago.
+function repeatCosts(catalog: EligibleArchive[], nowMs: number): number[] {
+  // Normalize recency over the lookback window the caller stamped from
+  // (24h in practice). most-recent play → cost 1, oldest tracked play → ~eps.
   let oldest = nowMs;
   let anyPlayed = false;
   for (const a of catalog) {
@@ -793,30 +803,28 @@ function stalenessRanks(catalog: EligibleArchive[], nowMs: number): number[] {
       if (a.lastPlayedMs < oldest) oldest = a.lastPlayedMs;
     }
   }
-  if (!anyPlayed) return catalog.map(() => 1);
+  if (!anyPlayed) return catalog.map(() => 0);
   const span = Math.max(1, nowMs - oldest);
   return catalog.map((a) => {
-    // Never played in the lookback → maximally stale (rank 1).
-    if (typeof a.lastPlayedMs !== 'number') return 1;
-    // age 0 (just played) → 0; age == span (oldest) → 1.
-    return Math.min(1, Math.max(0, (nowMs - a.lastPlayedMs) / span));
+    if (typeof a.lastPlayedMs !== 'number') return 0; // fresh → free
+    const age = Math.min(span, Math.max(0, nowMs - a.lastPlayedMs));
+    // age 0 (just played) → 1; age == span (oldest tracked) → ~0 (but keep a
+    // small floor so any repeat still costs more than a fresh show).
+    return 1 - (age / span) * 0.99;
   });
 }
 
-// Blend window-fit distance with subset staleness into a single score (lower =
+// Blend window-fit with the subset's total repeat cost into one score (lower =
 // better). `dist` is |startOrEnd - midpoint| in ms; `halfWindowMs` normalizes
-// it to ~[0,1] across the landing window. `staleSum`/`count` give the subset's
-// average staleness (1 = least-recently-played). We subtract a weighted average
-// staleness so that, among comparable fits, the loop prefers the shows that
-// haven't aired in the longest time — rotating the whole catalog over weeks.
-// STALE_WEIGHT << 1 keeps window-fit dominant; staleness is a tiebreak, not an
-// override (a far-out-of-window fit can never win on staleness alone because
-// out-of-window subsets are rejected before scoring).
-function scoreFit(dist: number, halfWindowMs: number, staleSum: number, count: number): number {
+// it across the landing window. `repeatSum` is the summed repeatCosts of the
+// chosen shows. REPEAT_WEIGHT is large so avoiding a recent repeat dominates
+// landing a few minutes tighter — but window-fit is still a HARD gate (out-of-
+// window subsets are rejected before scoring), so the 1-4am landing is never
+// abandoned, only its sub-window precision is traded for fewer repeats.
+function scoreFit(dist: number, halfWindowMs: number, repeatSum: number): number {
   const fit = halfWindowMs > 0 ? dist / halfWindowMs : 0;
-  const avgStale = count > 0 ? staleSum / count : 0;
-  const STALE_WEIGHT = 0.5;
-  return fit - STALE_WEIGHT * avgStale;
+  const REPEAT_WEIGHT = 3;
+  return fit + REPEAT_WEIGHT * repeatSum;
 }
 
 // Find a subset of the catalog (and the exact startTime) such that, when the
@@ -852,28 +860,27 @@ export function findStartTimeAndSubset(
   const rightIdx = Array.from({ length: n - halfSize }, (_, i) => halfSize + i);
 
   const midpointMs = (windowStartMs + windowEndMs) / 2;
-  // Per-archive staleness rank (higher = played longer ago = more preferred).
-  // Built from lastPlayedMs relative to the most-recent play in the catalog;
-  // never-played archives get the max staleness. Summed per subset so the
-  // tiebreak can favour least-recently-played shows. See pickStaleness/scoreFit.
-  const staleness = stalenessRanks(catalog.slice(0, n), windowEndMs);
+  // Per-archive repeat cost (0 = fresh, →1 = recently played). Summed per
+  // subset so the search reuses as few — and as least-recently-played — shows
+  // as the window-fit allows. See repeatCosts/scoreFit.
+  const repeat = repeatCosts(catalog.slice(0, n), windowEndMs);
 
-  type Entry = { sum: number; count: number; mask: number; stale: number };
+  type Entry = { sum: number; count: number; mask: number; rep: number };
   const enumerate = (idxs: number[]): Entry[] => {
     const out: Entry[] = new Array(1 << idxs.length);
     const total = 1 << idxs.length;
     for (let mask = 0; mask < total; mask++) {
       let sum = 0;
       let count = 0;
-      let stale = 0;
+      let rep = 0;
       for (let bit = 0; bit < idxs.length; bit++) {
         if (mask & (1 << bit)) {
           sum += catalog[idxs[bit]].durationSec;
-          stale += staleness[idxs[bit]];
+          rep += repeat[idxs[bit]];
           count++;
         }
       }
-      out[mask] = { sum, count, mask, stale };
+      out[mask] = { sum, count, mask, rep };
     }
     return out;
   };
@@ -931,12 +938,10 @@ export function findStartTimeAndSubset(
         const totalSec = l.sum + r.sum + actualGap + startInterludeAdj - actualCrossfade;
         const startMs = anchorEndTimeMs - totalSec * 1000;
         if (startMs < windowStartMs || startMs > windowEndMs) continue;
-        // Combined score: how well the loop lands in the window (hard
-        // constraint already passed) blended with how stale the chosen shows
-        // are. Window-fit dominates; staleness only differentiates among fits
-        // that land comparably well, so the 1-4am landing is never sacrificed
-        // for variety — we just stop always picking the same tightest fit.
-        const dist = scoreFit(Math.abs(startMs - midpointMs), midpointMs - windowStartMs, l.stale + r.stale, actualCount);
+        // Combined score: window-fit (hard gate already passed) plus repeat
+        // cost, so among fits that land in the 1-4am window we pick the one
+        // that reuses the fewest / least-recently-played shows.
+        const dist = scoreFit(Math.abs(startMs - midpointMs), midpointMs - windowStartMs, l.rep + r.rep);
         if (dist < bestDist) {
           bestDist = dist;
           bestL = l.mask;
@@ -985,25 +990,25 @@ export function findEndSubset(
   const rightIdx = Array.from({ length: n - halfSize }, (_, i) => halfSize + i);
 
   const midpointMs = (windowStartMs + windowEndMs) / 2;
-  // Per-archive staleness rank — see findStartTimeAndSubset for rationale.
-  const staleness = stalenessRanks(catalog.slice(0, n), windowEndMs);
+  // Per-archive repeat cost — see findStartTimeAndSubset for rationale.
+  const repeat = repeatCosts(catalog.slice(0, n), windowEndMs);
 
-  type Entry = { sum: number; count: number; mask: number; stale: number };
+  type Entry = { sum: number; count: number; mask: number; rep: number };
   const enumerate = (idxs: number[]): Entry[] => {
     const out: Entry[] = new Array(1 << idxs.length);
     const total = 1 << idxs.length;
     for (let mask = 0; mask < total; mask++) {
       let sum = 0;
       let count = 0;
-      let stale = 0;
+      let rep = 0;
       for (let bit = 0; bit < idxs.length; bit++) {
         if (mask & (1 << bit)) {
           sum += catalog[idxs[bit]].durationSec;
-          stale += staleness[idxs[bit]];
+          rep += repeat[idxs[bit]];
           count++;
         }
       }
-      out[mask] = { sum, count, mask, stale };
+      out[mask] = { sum, count, mask, rep };
     }
     return out;
   };
@@ -1049,8 +1054,8 @@ export function findEndSubset(
         const totalSec = l.sum + r.sum + actualGap - actualCrossfade;
         const endMs = prefixEndTimeMs + totalSec * 1000;
         if (endMs < windowStartMs || endMs > windowEndMs) continue;
-        // Window-fit blended with staleness — see findStartTimeAndSubset.
-        const dist = scoreFit(Math.abs(endMs - midpointMs), midpointMs - windowStartMs, l.stale + r.stale, actualCount);
+        // Window-fit blended with repeat cost — see findStartTimeAndSubset.
+        const dist = scoreFit(Math.abs(endMs - midpointMs), midpointMs - windowStartMs, l.rep + r.rep);
         if (dist < bestDist) {
           bestDist = dist;
           bestL = l.mask;
