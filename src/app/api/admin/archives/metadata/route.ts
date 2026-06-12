@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { isTempo } from '@/lib/tempo';
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -55,6 +56,10 @@ export async function PATCH(request: NextRequest) {
       } else if (Array.isArray(body.sceneIdsOverride)) {
         updates.sceneIdsOverride = body.sceneIdsOverride.filter((v: unknown) => typeof v === 'string');
       }
+    }
+    // Recording tempo (admin-set). Any unrecognized value (incl. null/'') clears the tag.
+    if (body.tempo !== undefined) {
+      updates.tempo = isTempo(body.tempo) ? body.tempo : null;
     }
 
     // DJ-level updates (genres, location, name, username, photoUrl)

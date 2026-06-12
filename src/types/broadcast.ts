@@ -320,6 +320,12 @@ export interface ArchiveDJ {
 // profiles, scenes, social render picker) never see them.
 export type ArchivePriority = 'high' | 'medium' | 'low' | 'hidden';
 
+// Tempo of a recording. Unlike scene (derived from the DJ), tempo is a property
+// of the individual recording — the same DJ can play downtempo one night and
+// fast the next — so it's set per-archive. Admin-set for now; null/undefined =
+// untagged. Display labels + ordered list live in src/lib/tempo.ts.
+export type Tempo = 'downtempo' | 'midtempo' | 'fast' | 'very_fast';
+
 // Archive stored in Firestore
 export interface Archive {
   id: string;                    // Firestore doc ID (auto-generated)
@@ -341,6 +347,7 @@ export interface Archive {
   publishedAt?: number;          // When recording was published (Unix ms)
   priority?: ArchivePriority;    // Admin-only: high, medium, or low (default medium)
   sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
+  tempo?: Tempo | null;          // Admin-set recording tempo; null/undefined = untagged
   // Venue attribution (admin-set on /broadcast/admin → Archives). Surfaces
   // recordings on /venue/[slug] alongside events, and links the
   // "Recording from <venue>" header on DJ profile cards. Denormalized

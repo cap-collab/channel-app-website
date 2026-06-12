@@ -319,6 +319,7 @@ export async function GET(request: Request) {
         publishedAt: data.publishedAt,
         priority: data.priority || 'medium',
         sceneIdsOverride: data.sceneIdsOverride ?? null,
+        tempo: data.tempo ?? null,
         venueId: data.venueId ?? null,
         venueName: data.venueName ?? null,
         venueSlug: data.venueSlug ?? null,

@@ -9,6 +9,7 @@ import { uploadArchiveImage, validatePhoto } from '@/lib/photo-upload';
 import { ShareableArchiveCard } from './ShareableArchiveCard';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
 import { ScenePillEditor } from './ScenePillEditor';
+import { TEMPOS } from '@/lib/tempo';
 import type { SceneSerialized } from '@/types/scenes';
 
 interface VenueOption {
@@ -788,6 +789,20 @@ function ArchiveCard({
                   onReset={onResetSceneOverride}
                   size="xs"
                 />
+              </div>
+              {/* Tempo — admin-only, per-recording. '' clears the tag. */}
+              <div className="mb-1.5">
+                <label className="text-[10px] uppercase tracking-wide text-gray-500 mr-2">Tempo</label>
+                <select
+                  value={archive.tempo ?? ''}
+                  onChange={(e) => onUpdate(archive.id, { tempo: e.target.value || null })}
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200"
+                >
+                  <option value="">—</option>
+                  {TEMPOS.map((t) => (
+                    <option key={t.id} value={t.id}>{t.label}</option>
+                  ))}
+                </select>
               </div>
               <div className="flex items-center gap-4 text-xs text-gray-500">
                 <span>{formatDuration(archive.duration || 0)}</span>
