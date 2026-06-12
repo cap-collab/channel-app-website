@@ -6,7 +6,7 @@ import type { Tempo } from '@/types/broadcast';
 export const TEMPOS: ReadonlyArray<{ id: Tempo; label: string }> = [
   { id: 'downtempo', label: 'Downtempo' },
   { id: 'midtempo', label: 'Midtempo' },
-  { id: 'fast', label: 'Fast' },
+  { id: 'fast', label: 'Uptempo' },
   { id: 'very_fast', label: 'Very Fast' },
 ] as const;
 

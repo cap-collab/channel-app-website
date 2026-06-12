@@ -14,15 +14,14 @@ import { useHeartNudge } from '@/contexts/HeartNudgeContext';
 import { useDJProfileInfo } from '@/hooks/useDJProfileInfo';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useFilterContext } from '@/contexts/FilterContext';
-import { matchesGenre as matchesGenreLib } from '@/lib/genres';
-import { matchesCity } from '@/lib/city-detection';
 import { findActiveDjSlot } from '@/lib/broadcast-utils';
 import { DJImageOverlay, ScrollingShowName, ScrollingDJName } from './LiveBroadcastHero';
 import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
 import { DancingBars } from './DancingBars';
 import { AuthModal } from '@/components/AuthModal';
-import { ArchiveSerialized } from '@/types/broadcast';
+import { ArchiveSerialized, type Tempo } from '@/types/broadcast';
+import { TEMPOS, tempoLabel } from '@/lib/tempo';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 
 function formatTime(seconds: number): string {
@@ -30,6 +29,15 @@ function formatTime(seconds: number): string {
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
+
+// Known scene chips for the filter row, used as an instant fallback before
+// useScenesData()'s async fetch resolves — spiral + star are a fixed set, so
+// the glyphs paint on page load instead of popping in. Grid is intentionally
+// excluded (hidden from the filter row). Kept in sync with seed-scenes.ts.
+const STATIC_SCENE_CHIPS: ReadonlyArray<{ id: string; name: string }> = [
+  { id: 'spiral', name: 'Spiral' },
+  { id: 'star', name: 'Star' },
+];
 
 // Tiny string→int hash. Used to pick a stable-but-rotating slide-1 archive
 // keyed off the radio's current archive id, so slide 1 changes naturally as
@@ -266,6 +274,30 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       }
     },
     [homepage, effectiveSelectedSceneIds, scenes, handleSceneIdsChange]
+  );
+
+  // Tempo filter (Past-shows grid). Same local-only, non-persisted model as the
+  // homepage scene chips: null = "all tempos" (every chip active); the user can
+  // uncheck individual tempos. Tempo lives on the archive doc (admin-set).
+  const [selectedTempos, setSelectedTempos] = useState<Tempo[] | null>(null);
+  const tempoFilter = useMemo(() => {
+    if (selectedTempos === null) return new Set<Tempo>(TEMPOS.map((t) => t.id));
+    return new Set<Tempo>(selectedTempos);
+  }, [selectedTempos]);
+  const toggleTempoFilter = useCallback(
+    (tempo: Tempo) => {
+      // null (untouched) and [] (all off) both mean "show everything", so the
+      // first click deselects one chip from the full set — matching scene chips.
+      const current =
+        selectedTempos === null || selectedTempos.length === 0
+          ? TEMPOS.map((t) => t.id)
+          : selectedTempos;
+      const next = current.includes(tempo)
+        ? current.filter((id) => id !== tempo)
+        : [...current, tempo];
+      setSelectedTempos(next);
+    },
+    [selectedTempos]
   );
 
   // Track player bar visibility — GlobalBroadcastBar shows when this scrolls out of view
@@ -1597,13 +1629,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           sceneIds: resolveArchiveScenes(a, djSceneMap),
         }));
 
-        // Scene chips: only show scenes that at least one past show belongs to.
-        const activeSceneIdSet = new Set<string>();
-        for (const { sceneIds } of archivesWithScenes) {
-          for (const id of sceneIds) activeSceneIdSet.add(id);
-        }
-        // Grid is hidden for now — don't surface it in the filter chip row.
-        const availableScenes = scenes.filter((s) => activeSceneIdSet.has(s.id) && s.id !== 'grid');
+        // Scene chips: spiral + star are a fixed, known set, so render them from
+        // a static fallback that paints instantly on page load — same as the
+        // ALL TEMPOS button. useScenesData() fetches scene docs asynchronously;
+        // once it resolves we use the live list (for names/order), but we never
+        // wait on it to show the glyphs. Grid is hidden for now.
+        const loadedScenes = scenes.filter((s) => s.id !== 'grid');
+        const availableScenes = loadedScenes.length > 0 ? loadedScenes : STATIC_SCENE_CHIPS;
 
         // Treat "all available scenes selected" (or nothing selected at all) the same
         // as no filter — so the default state (all chips on) shows everything with the
@@ -1616,16 +1648,33 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           availableScenes.length > 0 && availableScenes.every((s) => !sceneFilter.has(s.id));
         const filteringActive = !allSelected && !noneSelected;
 
-        const filteredArchives = filteringActive
+        const sceneFiltered = filteringActive
           ? archivesWithScenes.filter(({ sceneIds }) =>
               sceneIds.some((id) => sceneFilter.has(id))
             )
           : archivesWithScenes;
 
-        // Move hero first to position 3 (only when not actively filtering, so the
+        // Tempo filter: the four tempos are a fixed, known set, so always offer
+        // all of them. This lets the ALL TEMPOS button paint immediately on load
+        // (alongside the scene glyphs) instead of waiting for archives to arrive
+        // and resolve their tags.
+        const availableTempos = TEMPOS;
+        // Same "all selected == no filter" convention as scenes.
+        const allTemposSelected =
+          availableTempos.length > 0 && availableTempos.every((t) => tempoFilter.has(t.id));
+        const noTempoSelected =
+          availableTempos.length > 0 && availableTempos.every((t) => !tempoFilter.has(t.id));
+        const tempoFilteringActive = !allTemposSelected && !noTempoSelected;
+        // When narrowing to specific tempos, only matching (tagged) archives show.
+        const filteredArchives = tempoFilteringActive
+          ? sceneFiltered.filter(({ archive }) => archive.tempo && tempoFilter.has(archive.tempo))
+          : sceneFiltered;
+
+        // Move hero first to position 3 (only when neither filter is active, so the
         // curated order is preserved).
+        const anyFilteringActive = filteringActive || tempoFilteringActive;
         const heroItem = heroFirstId ? filteredArchives.find((x) => x.archive.id === heroFirstId) : null;
-        const ordered = heroItem && !filteringActive
+        const ordered = heroItem && !anyFilteringActive
           ? (() => {
               const rest = filteredArchives.filter((x) => x.archive.id !== heroFirstId);
               return [...rest.slice(0, 2), heroItem, ...rest.slice(2)];
@@ -1637,8 +1686,8 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             <div className="mb-4">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-2xl md:text-3xl font-semibold">Archives</h2>
-                {availableScenes.length > 0 && (
-                  <div className="flex items-center gap-1 md:gap-2 shrink-0">
+                {(availableScenes.length > 0 || availableTempos.length > 0) && (
+                  <div className="flex flex-wrap items-center justify-end gap-1 md:gap-2 shrink-0">
                     {availableScenes.map((s) => {
                       // Empty selection means "show everything" (same behavior as all
                       // selected), so render all chips active in both cases.
@@ -1659,6 +1708,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                         </button>
                       );
                     })}
+                    {availableTempos.length > 0 && (
+                      <TempoFilterDropdown
+                        tempos={availableTempos}
+                        tempoFilter={tempoFilter}
+                        noneSelected={noTempoSelected}
+                        onToggle={toggleTempoFilter}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -1829,6 +1886,83 @@ function HeroSlide({
   );
 }
 
+// "ALL TEMPOS" filter: one button that opens a checklist popover. Unchecking a
+// tempo narrows the Archives grid. All checked (the default) == no filter.
+function TempoFilterDropdown({
+  tempos,
+  tempoFilter,
+  noneSelected,
+  onToggle,
+}: {
+  tempos: ReadonlyArray<{ id: Tempo; label: string }>;
+  tempoFilter: Set<Tempo>;
+  noneSelected: boolean;
+  onToggle: (tempo: Tempo) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !e.composedPath().includes(ref.current)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  // A tempo counts as "on" when its chip is checked (or nothing is selected,
+  // which we treat as "all on"). The button reads ALL TEMPOS when everything's
+  // on, otherwise the count of selected tempos.
+  const isOn = (id: Tempo) => noneSelected || tempoFilter.has(id);
+  const selectedCount = tempos.filter((t) => isOn(t.id)).length;
+  const allOn = selectedCount === tempos.length;
+  const buttonLabel = allOn ? 'ALL TEMPOS' : `${selectedCount} TEMPO${selectedCount === 1 ? '' : 'S'}`;
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="h-[27px] px-2.5 flex items-center gap-1.5 text-[14.3px] font-mono uppercase tracking-tighter whitespace-nowrap bg-white text-black transition-colors"
+      >
+        {buttonLabel}
+        <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          className="absolute right-0 mt-1 z-50 min-w-[160px] bg-black border border-white/15 shadow-xl"
+        >
+          {tempos.map((t) => {
+            const checked = isOn(t.id);
+            return (
+              <button
+                key={t.id}
+                onClick={() => onToggle(t.id)}
+                role="option"
+                aria-selected={checked}
+                className={`w-full text-left px-3 py-2 text-[14.3px] font-mono uppercase tracking-tighter flex items-center justify-between transition-colors ${
+                  checked ? 'text-white' : 'text-white/40 hover:text-white/70'
+                }`}
+              >
+                {t.label}
+                {checked && (
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ArchiveGridCard({
   archive,
   isActive,
@@ -1853,18 +1987,14 @@ export function ArchiveGridCard({
   const profileInfo = useDJProfileInfo(primaryUsername);
   // Archive-stored data takes priority over profile lookup
   const genres = (primaryDj?.genres?.length ? primaryDj.genres : profileInfo.genres) || [];
-  const djLocation = primaryDj?.location || profileInfo.location;
   const genreText = genres.length > 0 ? genres.map((g) => g.toUpperCase()).join(' · ') : null;
   const displayImage = archive.showImageUrl || primaryDj?.photoUrl;
 
-  // Match label: genre — location
-  const { selectedCity, selectedGenres } = useFilterContext();
-  const matchingGenres = selectedGenres.filter(g => genres.some(dg => matchesGenreLib([dg], g)));
-  const genreLabel = matchingGenres.length > 0 ? matchingGenres.map(g => g.toUpperCase()).join(' + ') : '';
-  const cityMatch = selectedCity && selectedCity !== 'Anywhere' && djLocation ? matchesCity(djLocation, selectedCity) : false;
-  const cityLabel = cityMatch ? selectedCity!.toUpperCase() : '';
-  const parts = [genreLabel, cityLabel].filter(Boolean);
-  const matchLabel = parts.length > 0 ? parts.join(' · ') : undefined;
+  // Label above the card: the archive's tempo (admin-set) followed by the scene
+  // glyph. Replaces the old matched genre/location line. tempoText is undefined
+  // when the archive is untagged; glyphSlug is the first non-grid scene.
+  const tempoText = tempoLabel(archive.tempo) ?? undefined;
+  const glyphSlug = sceneChips?.find((c) => c.slug !== 'grid')?.slug;
 
   // Share button — copies the primary DJ/collective profile URL to the clipboard
   // AND opens the native share sheet (when available). Both happen unconditionally
@@ -1904,11 +2034,11 @@ export function ArchiveGridCard({
 
   return (
     <div className="w-full group flex flex-col h-full">
-      {/* Match label — always reserve space for alignment */}
-      <div className="flex items-center mb-1 h-4 px-0.5">
-        {matchLabel && (
-          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">{matchLabel}</span>
-        )}
+      {/* Tempo + scene glyph label — always reserve space for alignment */}
+      <div className="flex items-center gap-1 mb-1 h-5 px-0.5 text-zinc-500 text-[14.3px] font-mono uppercase tracking-tighter">
+        {tempoText && <span>{tempoText}</span>}
+        {tempoText && glyphSlug && <span aria-hidden>·</span>}
+        {glyphSlug && <SceneGlyph slug={glyphSlug} className="!w-3.5 !h-3.5" />}
       </div>
       {/* Image with hero-style overlays */}
       <button onClick={onPlay} className="w-full text-left relative aspect-[16/9] overflow-hidden border border-white/10">
