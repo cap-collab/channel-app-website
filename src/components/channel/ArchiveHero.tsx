@@ -1052,25 +1052,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                               <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
                               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
                               <DancingBars />
-                              <div className="absolute top-2 left-2 right-9 drop-shadow-lg">
-                                <span className="text-[17px] font-bold text-white uppercase tracking-wide block truncate">{showName}</span>
+                              {/* Show name — top left. 17px, wraps to at most 2
+                                  lines when needed. No glyph overlay on live. */}
+                              <div className="absolute top-2 left-2 right-2 drop-shadow-lg">
+                                <span className="text-[17px] font-bold text-white uppercase tracking-wide line-clamp-2 block">{showName}</span>
                               </div>
-                              {/* Scene glyph — top right (mirrors HeroSlide). */}
-                              {(() => {
-                                const u = liveDjProfileUsername?.toLowerCase().replace(/\s+/g, '');
-                                const slugs = u ? (djSceneMap.byUsername.get(u) || []) : [];
-                                const visible = slugs.filter((s) => s !== 'grid');
-                                if (visible.length === 0) return null;
-                                return (
-                                  <div className="absolute top-2 right-2 flex items-center gap-1.5 drop-shadow-lg text-white">
-                                    {visible.map((slug) => (
-                                      <span key={slug} className="text-lg leading-none inline-flex items-center">
-                                        <SceneGlyph slug={slug} />
-                                      </span>
-                                    ))}
-                                  </div>
-                                );
-                              })()}
                               <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
                             </>
                           ) : (
@@ -1819,6 +1805,9 @@ function HeroSlide({
   const djDescription = djProfile.bio;
   const [imgError, setImgError] = useState(false);
   const hasPhoto = photoUrl && !imgError;
+  // Top-right frosted tag: first non-grid scene glyph + tempo name.
+  const heroGlyphSlug = sceneSlugs?.find((s) => s !== 'grid');
+  const heroTempoText = tempoLabel(archive.tempo) ?? undefined;
 
   return (
     <button
@@ -1839,25 +1828,18 @@ function HeroSlide({
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
           {isLiveOrRadio && <DancingBars />}
-          {/* Show name — top left. Larger + reserved glyph padding for
-              live/radio; original small style for archive playback. */}
-          {isLiveOrRadio ? (
-            <div className="absolute top-2 left-2 right-9 drop-shadow-lg">
-              <span className="text-[17px] font-bold text-white uppercase tracking-wide block truncate">{archive.showName}</span>
-            </div>
-          ) : (
-            <div className="absolute top-2 left-2 drop-shadow-lg">
-              <span className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</span>
-            </div>
-          )}
-          {/* Scene glyph — top right */}
-          {sceneSlugs && sceneSlugs.some((s) => s !== 'grid') && (
-            <div className="absolute top-2 right-2 flex items-center gap-1.5 drop-shadow-lg text-white">
-              {sceneSlugs.filter((s) => s !== 'grid').map((slug) => (
-                <span key={slug} className="text-lg leading-none inline-flex items-center">
-                  <SceneGlyph slug={slug} />
-                </span>
-              ))}
+          {/* Show name — top left. Uniform 17px across hero slides; wraps to at
+              most 2 lines when needed and reserves right padding so it clears
+              the top-right frosted tempo badge. */}
+          <div className={`absolute top-2 left-2 drop-shadow-lg ${heroGlyphSlug ? 'right-28' : 'right-2'}`}>
+            <span className="text-[17px] font-bold text-white uppercase tracking-wide line-clamp-2 block">{archive.showName}</span>
+          </div>
+          {/* Top right: frosted-glass mood + tempo tag (same as the grid cards).
+              Glyph + tempo name; glyph-only when the archive is untagged. */}
+          {heroGlyphSlug && (
+            <div className="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 text-[10px] font-mono uppercase tracking-wide leading-none text-white bg-black/15 backdrop-blur-xl border border-white/10">
+              <SceneGlyph slug={heroGlyphSlug} className="!w-3 !h-3 shrink-0" />
+              {heroTempoText && <span className="pt-px">{heroTempoText}</span>}
             </div>
           )}
           {/* Center play disc — archive playback only, restoring old
@@ -2000,52 +1982,19 @@ export function ArchiveGridCard({
   // when the archive is untagged; glyphSlug is the first non-grid scene.
   const tempoText = tempoLabel(archive.tempo) ?? undefined;
   const glyphSlug = sceneChips?.find((c) => c.slug !== 'grid')?.slug;
+  // True when something occupies the image's top-right corner (live badge or the
+  // tempo tag) — used to reserve right padding on the show-name so it wraps clear.
+  const hasTopRightBadge = isLiveCard || !!glyphSlug;
 
-  // Share button — copies the primary DJ/collective profile URL to the clipboard
-  // AND opens the native share sheet (when available). Both happen unconditionally
-  // so users always get the "Copied" feedback even if they dismiss the share sheet.
-  const [shareCopied, setShareCopied] = useState(false);
-  const handleShare = useCallback(async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const slug = primaryUsername
-      ? primaryUsername.replace(/\s+/g, '').toLowerCase()
-      : null;
-    if (!slug) return;
-    const url = `${window.location.origin}/dj/${slug}`;
-
-    // 1. Copy first so the visual "Copied" feedback shows immediately, regardless
-    //    of whether the share sheet opens or the user cancels it.
-    try {
-      await navigator.clipboard.writeText(url);
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-
-    // 2. Then open the native share sheet if the browser supports it.
-    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-      try {
-        await navigator.share({ url });
-      } catch (err) {
-        // AbortError = user dismissed the share sheet; not an error.
-        if ((err as DOMException)?.name !== 'AbortError') {
-          console.error('Share failed:', err);
-        }
-      }
-    }
-  }, [primaryUsername]);
+  const profileSlug = primaryUsername
+    ? primaryUsername.replace(/\s+/g, '').toLowerCase()
+    : null;
 
   return (
     <div className="w-full group flex flex-col h-full">
-      {/* Tempo + scene glyph label — always reserve space for alignment */}
-      <div className="flex items-center gap-1 mb-1 h-5 px-0.5 text-zinc-500 text-[14.3px] font-mono uppercase tracking-tighter">
-        {tempoText && <span>{tempoText}</span>}
-        {tempoText && glyphSlug && <span aria-hidden>·</span>}
-        {glyphSlug && <SceneGlyph slug={glyphSlug} className="!w-3.5 !h-3.5" />}
-      </div>
-      {/* Image with hero-style overlays */}
+      {/* Image with hero-style overlays. The profile button is a sibling overlay
+          (not nested in the play <button>) so the anchor stays valid HTML. */}
+      <div className="relative">
       <button onClick={onPlay} className="w-full text-left relative aspect-[16/9] overflow-hidden border border-white/10">
         {displayImage ? (
           <>
@@ -2067,9 +2016,11 @@ export function ArchiveGridCard({
           </div>
         )}
 
-        {/* Top left: Show name */}
-        <div className="absolute top-1 left-1 right-1 md:top-1.5 md:left-1.5 md:right-1.5 drop-shadow-lg">
-          <span className="text-sm font-bold text-white uppercase tracking-wide whitespace-nowrap overflow-hidden block">{archive.showName}</span>
+        {/* Top left: Show name. Wraps to at most 2 lines; right padding reserves
+            space for the top-right badge (live or tempo tag) so the title clears
+            it instead of running underneath — matters most on narrow mobile cards. */}
+        <div className={`absolute top-2.5 left-2.5 right-2.5 drop-shadow-lg ${hasTopRightBadge ? 'pr-24' : ''}`}>
+          <span className="text-sm font-bold text-white uppercase tracking-wide line-clamp-2 block">{archive.showName}</span>
         </div>
 
         {/* Top right: Live badge + BPM (only on live cards) */}
@@ -2085,25 +2036,23 @@ export function ArchiveGridCard({
           </div>
         )}
 
-        {/* Top right: scene glyphs (only on non-live cards). Grid is hidden for now. */}
-        {!isLiveCard && sceneChips && sceneChips.some((s) => s.slug !== 'grid') && (
-          <div className="absolute top-1 right-1 md:top-1.5 md:right-1.5 flex items-center gap-1.5 drop-shadow-lg text-white">
-            {sceneChips.filter((s) => s.slug !== 'grid').map((s) => (
-              <span
-                key={s.slug}
-                title={s.name}
-                className="text-lg leading-none inline-flex items-center"
-              >
-                <SceneGlyph slug={s.slug} />
-              </span>
-            ))}
+        {/* Top right: frosted-glass mood + tempo tag (non-live cards). Shows the
+            scene glyph + tempo name; glyph-only when the archive is untagged.
+            High-transparency glass: heavy backdrop blur keeps the white text
+            readable over busy images; subtle white border catches the light. */}
+        {!isLiveCard && glyphSlug && (
+          <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2 py-1 text-[10px] font-mono uppercase tracking-wide leading-none text-white bg-black/15 backdrop-blur-xl border border-white/10">
+            <SceneGlyph slug={glyphSlug} className="!w-3 !h-3 shrink-0" />
+            {tempoText && <span className="pt-px">{tempoText}</span>}
           </div>
         )}
 
-        {/* Bottom: DJ name, genre below */}
+        {/* Bottom: DJ name, genre below. Full width — the genre/name run UNDER
+            the frosted-glass profile button (which overlays on top with its blur)
+            rather than truncating early to avoid it. Matters on narrow mobile cards. */}
         {displayImage && (
-          <div className="absolute bottom-1 left-1 right-1 md:bottom-1.5 md:left-1.5 md:right-1.5 drop-shadow-lg">
-            <div className="text-xs font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
+          <div className="absolute bottom-2.5 left-2.5 right-2.5 drop-shadow-lg">
+            <div className="text-sm font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
               {djNames}
             </div>
             {genreText && (
@@ -2139,33 +2088,20 @@ export function ArchiveGridCard({
         </div>
       </button>
 
-      {/* Action buttons */}
-      <div className="flex gap-2 mt-2">
-        <button
-          onClick={handleShare}
-          disabled={!primaryUsername}
-          className={`flex-1 py-2 px-2 rounded text-xs md:text-sm font-semibold transition-colors flex items-center justify-center gap-1 ${
-            shareCopied
-              ? 'bg-green-500/20 text-green-400'
-              : 'bg-white hover:bg-gray-100 text-gray-900'
-          } disabled:opacity-50`}
-          title="Share"
+      {/* Bottom right: square frosted-glass profile button (overlays the image,
+          sibling of the play button so the anchor is valid + clickable).
+          Same high-transparency glass as the tempo tag: square (no radius),
+          subtle white border, pure-white centered person icon. */}
+      {profileSlug && (
+        <Link
+          href={`/dj/${profileSlug}`}
+          aria-label="View DJ profile"
+          title="View DJ profile"
+          className="absolute bottom-[13px] right-2.5 w-9 h-9 flex items-center justify-center text-white bg-black/15 backdrop-blur-xl border border-white/10 hover:bg-black/30 transition-colors"
         >
-          {shareCopied ? (
-            <><svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> Copied</>
-          ) : (
-            <><svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 6l-4-4-4 4M12 2v13" /></svg> Share</>
-          )}
-        </button>
-        {primaryUsername && (
-          <Link
-            href={`/dj/${primaryUsername}`}
-            className="flex-1 py-2 px-2 rounded text-xs md:text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20 text-white flex items-center justify-center gap-1"
-          >
-            <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-            Profile
-          </Link>
-        )}
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+        </Link>
+      )}
       </div>
     </div>
   );

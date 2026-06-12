@@ -237,9 +237,10 @@ export function DJImageOverlay({
   const [needsScroll, setNeedsScroll] = useState(false);
   const [loopDistance, setLoopDistance] = useState(0);
 
-  // Measure whether description overflows 2 lines. The seamless-loop distance is the
-  // first copy's height plus the gap before the duplicate, so when the animation ends
-  // the duplicate sits exactly where the original started — no visual jump.
+  // Measure whether description overflows 2 lines. The seamless-loop distance is
+  // exactly the first copy's height (no gap), so when the animation ends the
+  // duplicate sits precisely where the original started — no visual jump and no
+  // blank line between the end and the repeat.
   useEffect(() => {
     const desc = descriptionRef.current;
     const container = containerRef.current;
@@ -247,8 +248,7 @@ export function DJImageOverlay({
     const overflow = desc.scrollHeight > container.clientHeight;
     setNeedsScroll(overflow);
     if (overflow) {
-      const lineHeightPx = parseFloat(getComputedStyle(desc).lineHeight);
-      setLoopDistance(desc.scrollHeight + lineHeightPx);
+      setLoopDistance(desc.scrollHeight);
     }
   }, [djDescription]);
 
@@ -257,11 +257,12 @@ export function DJImageOverlay({
 
   return (
     <div className="absolute bottom-2 left-2 right-2 drop-shadow-lg">
-      {/* DJ Name — genre inline when description exists, below when not */}
-      <div className="text-xs font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
+      {/* DJ Name — genre inline when description exists, below when not.
+          17px to match the hero show name. */}
+      <div className="text-[17px] font-black uppercase tracking-wider text-white whitespace-nowrap overflow-hidden">
         {djName}
         {genreText && djDescription && (
-          <span className="font-medium tracking-[0.15em] text-zinc-300"> - {genreText}</span>
+          <span className="text-[10px] font-medium tracking-[0.15em] text-zinc-300"> - {genreText}</span>
         )}
       </div>
       {genreText && !djDescription && (
@@ -294,7 +295,6 @@ export function DJImageOverlay({
               <div
                 className="text-[11px] leading-[1.3em] text-zinc-300 font-light"
                 aria-hidden="true"
-                style={{ paddingTop: '1.3em' }}
               >
                 {djDescription}
               </div>
