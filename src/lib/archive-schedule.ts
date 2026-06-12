@@ -86,6 +86,12 @@ export interface EligibleArchive {
   djs: { name: string; username?: string; photoUrl?: string }[];
   artworkUrl?: string;
   sceneSlugs?: string[];
+  // Wall-clock ms of this archive's most-recent prior play across recent loops
+  // (long lookback, e.g. 14 days). Undefined = never played in the lookback =
+  // maximally stale = most preferred. Used by the subset search to break ties
+  // among duration-fits in favour of least-recently-played shows, so the whole
+  // catalog rotates evenly over weeks instead of recurring every couple days.
+  lastPlayedMs?: number;
 }
 
 export interface BuildQueueOptions {
@@ -772,6 +778,47 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   };
 }
 
+// Per-archive staleness rank in [0, 1]: 1 = least-recently-played (or never
+// played in the lookback) = most preferred, 0 = most-recently-played. Computed
+// from each archive's lastPlayedMs relative to the oldest play in the catalog,
+// so the scale auto-adapts to however much history exists. When no archive has
+// a lastPlayedMs (e.g. brand-new catalog / tests), everyone is maximally stale
+// and the staleness term contributes nothing — falls back to pure window-fit.
+function stalenessRanks(catalog: EligibleArchive[], nowMs: number): number[] {
+  let oldest = nowMs;
+  let anyPlayed = false;
+  for (const a of catalog) {
+    if (typeof a.lastPlayedMs === 'number') {
+      anyPlayed = true;
+      if (a.lastPlayedMs < oldest) oldest = a.lastPlayedMs;
+    }
+  }
+  if (!anyPlayed) return catalog.map(() => 1);
+  const span = Math.max(1, nowMs - oldest);
+  return catalog.map((a) => {
+    // Never played in the lookback → maximally stale (rank 1).
+    if (typeof a.lastPlayedMs !== 'number') return 1;
+    // age 0 (just played) → 0; age == span (oldest) → 1.
+    return Math.min(1, Math.max(0, (nowMs - a.lastPlayedMs) / span));
+  });
+}
+
+// Blend window-fit distance with subset staleness into a single score (lower =
+// better). `dist` is |startOrEnd - midpoint| in ms; `halfWindowMs` normalizes
+// it to ~[0,1] across the landing window. `staleSum`/`count` give the subset's
+// average staleness (1 = least-recently-played). We subtract a weighted average
+// staleness so that, among comparable fits, the loop prefers the shows that
+// haven't aired in the longest time — rotating the whole catalog over weeks.
+// STALE_WEIGHT << 1 keeps window-fit dominant; staleness is a tiebreak, not an
+// override (a far-out-of-window fit can never win on staleness alone because
+// out-of-window subsets are rejected before scoring).
+function scoreFit(dist: number, halfWindowMs: number, staleSum: number, count: number): number {
+  const fit = halfWindowMs > 0 ? dist / halfWindowMs : 0;
+  const avgStale = count > 0 ? staleSum / count : 0;
+  const STALE_WEIGHT = 0.5;
+  return fit - STALE_WEIGHT * avgStale;
+}
+
 // Find a subset of the catalog (and the exact startTime) such that, when the
 // loop plays those archives back-to-back with one interlude interleaved
 // between each pair, the NEXT item after the subset (an interlude) starts
@@ -805,21 +852,28 @@ export function findStartTimeAndSubset(
   const rightIdx = Array.from({ length: n - halfSize }, (_, i) => halfSize + i);
 
   const midpointMs = (windowStartMs + windowEndMs) / 2;
+  // Per-archive staleness rank (higher = played longer ago = more preferred).
+  // Built from lastPlayedMs relative to the most-recent play in the catalog;
+  // never-played archives get the max staleness. Summed per subset so the
+  // tiebreak can favour least-recently-played shows. See pickStaleness/scoreFit.
+  const staleness = stalenessRanks(catalog.slice(0, n), windowEndMs);
 
-  type Entry = { sum: number; count: number; mask: number };
+  type Entry = { sum: number; count: number; mask: number; stale: number };
   const enumerate = (idxs: number[]): Entry[] => {
     const out: Entry[] = new Array(1 << idxs.length);
     const total = 1 << idxs.length;
     for (let mask = 0; mask < total; mask++) {
       let sum = 0;
       let count = 0;
+      let stale = 0;
       for (let bit = 0; bit < idxs.length; bit++) {
         if (mask & (1 << bit)) {
           sum += catalog[idxs[bit]].durationSec;
+          stale += staleness[idxs[bit]];
           count++;
         }
       }
-      out[mask] = { sum, count, mask };
+      out[mask] = { sum, count, mask, stale };
     }
     return out;
   };
@@ -877,7 +931,12 @@ export function findStartTimeAndSubset(
         const totalSec = l.sum + r.sum + actualGap + startInterludeAdj - actualCrossfade;
         const startMs = anchorEndTimeMs - totalSec * 1000;
         if (startMs < windowStartMs || startMs > windowEndMs) continue;
-        const dist = Math.abs(startMs - midpointMs);
+        // Combined score: how well the loop lands in the window (hard
+        // constraint already passed) blended with how stale the chosen shows
+        // are. Window-fit dominates; staleness only differentiates among fits
+        // that land comparably well, so the 1-4am landing is never sacrificed
+        // for variety — we just stop always picking the same tightest fit.
+        const dist = scoreFit(Math.abs(startMs - midpointMs), midpointMs - windowStartMs, l.stale + r.stale, actualCount);
         if (dist < bestDist) {
           bestDist = dist;
           bestL = l.mask;
@@ -926,21 +985,25 @@ export function findEndSubset(
   const rightIdx = Array.from({ length: n - halfSize }, (_, i) => halfSize + i);
 
   const midpointMs = (windowStartMs + windowEndMs) / 2;
+  // Per-archive staleness rank — see findStartTimeAndSubset for rationale.
+  const staleness = stalenessRanks(catalog.slice(0, n), windowEndMs);
 
-  type Entry = { sum: number; count: number; mask: number };
+  type Entry = { sum: number; count: number; mask: number; stale: number };
   const enumerate = (idxs: number[]): Entry[] => {
     const out: Entry[] = new Array(1 << idxs.length);
     const total = 1 << idxs.length;
     for (let mask = 0; mask < total; mask++) {
       let sum = 0;
       let count = 0;
+      let stale = 0;
       for (let bit = 0; bit < idxs.length; bit++) {
         if (mask & (1 << bit)) {
           sum += catalog[idxs[bit]].durationSec;
+          stale += staleness[idxs[bit]];
           count++;
         }
       }
-      out[mask] = { sum, count, mask };
+      out[mask] = { sum, count, mask, stale };
     }
     return out;
   };
@@ -986,7 +1049,8 @@ export function findEndSubset(
         const totalSec = l.sum + r.sum + actualGap - actualCrossfade;
         const endMs = prefixEndTimeMs + totalSec * 1000;
         if (endMs < windowStartMs || endMs > windowEndMs) continue;
-        const dist = Math.abs(endMs - midpointMs);
+        // Window-fit blended with staleness — see findStartTimeAndSubset.
+        const dist = scoreFit(Math.abs(endMs - midpointMs), midpointMs - windowStartMs, l.stale + r.stale, actualCount);
         if (dist < bestDist) {
           bestDist = dist;
           bestL = l.mask;

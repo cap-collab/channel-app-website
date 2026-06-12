@@ -435,6 +435,16 @@ async function resolveLoopPlan(
   // Diversity: prefer archives that did NOT play in the last 24h.
   const recentPlays = await loadRecentPlays(db, nowMs);
   const freshArchives = archives.filter((a) => !recentPlays.has(a.id));
+  // Stamp last-played time onto each archive so the subset search prefers the
+  // least-recently-played shows. With a small catalog the fresh pool often
+  // can't fill a full day on its own, so the search falls back to the full
+  // pool — and THIS is where the bias earns its keep: among shows that aired
+  // in the last 24h, it reaches for the ones that played earliest first,
+  // instead of always re-picking the same tightest-fitting set.
+  for (const a of archives) {
+    const rp = recentPlays.get(a.id);
+    a.lastPlayedMs = rp ? rp.lastPlayedMs : undefined;
+  }
 
   // Helpers to build the search catalogs (excluding curated + any pre-picked).
   const buildCatalog = (pool: EligibleArchive[], usedIds: Set<string>) =>
@@ -612,6 +622,11 @@ interface RecentPlay {
   // UTC seconds-of-day of the START of this archive's most-recent prior play.
   // 0–86399. Used modulo 86400 to compute time-of-day offsets.
   todStartSec: number;
+  // Wall-clock ms of that same most-recent prior play. Used by the subset
+  // search's least-recently-played bias: with a small catalog a 24h lookback
+  // is all the signal that matters — anything that played in the last day is
+  // "recent", everything else is fully stale.
+  lastPlayedMs: number;
 }
 
 async function loadRecentPlays(
@@ -640,7 +655,7 @@ async function loadRecentPlays(
         const todStartSec = Math.floor((itemStartMs % 86_400_000) / 1000);
         // Keep the most-recent play (loop docs are scanned newest-first).
         if (!out.has(it.archiveId)) {
-          out.set(it.archiveId, { todStartSec });
+          out.set(it.archiveId, { todStartSec, lastPlayedMs: itemStartMs });
         }
       }
     }
