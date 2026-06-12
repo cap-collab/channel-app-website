@@ -1916,7 +1916,7 @@ function TempoFilterDropdown({
   const isOn = (id: Tempo) => noneSelected || tempoFilter.has(id);
   const selectedCount = tempos.filter((t) => isOn(t.id)).length;
   const allOn = selectedCount === tempos.length;
-  const buttonLabel = allOn ? 'ALL TEMPOS' : `${selectedCount} TEMPO${selectedCount === 1 ? '' : 'S'}`;
+  const buttonLabel = allOn ? 'TEMPO' : `${selectedCount} TEMPO${selectedCount === 1 ? '' : 'S'}`;
 
   return (
     <div ref={ref} className="relative shrink-0">
