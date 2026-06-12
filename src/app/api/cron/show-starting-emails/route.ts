@@ -187,9 +187,16 @@ export async function GET(request: NextRequest) {
 
     const metadata: Metadata = await metadataResponse.json();
 
-    // 2. Find shows starting within ±5 minutes of now (same window as Cloud Function)
+    // 2. Find shows that just started. A show counts as a fresh go-live
+    // trigger only if it started within the last 30 minutes (small +5 min
+    // future skew so a show starting right at the :01 tick isn't missed).
+    // The cron runs hourly, so this floor means a long show (e.g. 2h) is
+    // only emailed about on its FIRST tick — on later ticks it's "already
+    // live" (>30 min in) and falls out of the live set, so users who only
+    // just started streaming/liking the DJ mid-show don't get a late email.
     const now = new Date();
-    const windowStart = new Date(now.getTime() - 5 * 60 * 1000);
+    const LIVE_START_LOOKBACK_MS = 30 * 60 * 1000;
+    const windowStart = new Date(now.getTime() - LIVE_START_LOOKBACK_MS);
     const windowEnd = new Date(now.getTime() + 5 * 60 * 1000);
     const liveShows: LiveShow[] = [];
     // "Later today" bundling: capture every show starting after the live
@@ -321,6 +328,12 @@ export async function GET(request: NextRequest) {
     };
 
     for (const slot of broadcastSlots) {
+      // status === 'live' stays true for the whole show, so a long slot would
+      // otherwise re-trigger go-live emails every hourly tick for anyone newly
+      // engaged mid-show. Gate on start age: only treat a slot as a fresh
+      // go-live if it started within the last 30 min (same floor as metadata).
+      const startMs = slotStartMs(slot.data.startTime);
+      if (typeof startMs === "number" && startMs < windowStart.getTime()) continue;
       pushBroadcastSlot(slot, liveShows);
     }
     for (const slot of scheduledBroadcastSlots) {
