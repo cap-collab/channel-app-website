@@ -25,13 +25,13 @@ interface CardActionsProps {
 }
 
 // Editorial frosted-glass action chip:
-//   - 6x6 (24px) — ~15% smaller than the previous 7x7 (28px), reads as a
-//     subtle utility rather than a primary CTA.
+//   - ~28px (15% larger than the prior 24px chip), reads as a subtle utility
+//     rather than a primary CTA.
 //   - Semi-transparent white fill with backdrop blur so the artwork colors
 //     show through. Thin white border, square corners, white icon.
-const iconClass = 'w-3 h-3 pointer-events-none';
+const iconClass = 'w-[14px] h-[14px] pointer-events-none';
 const buttonBase =
-  'inline-flex items-center justify-center w-6 h-6 bg-white/10 hover:bg-white/20 text-white border border-white/30 backdrop-blur-md transition-colors disabled:opacity-50';
+  'inline-flex items-center justify-center w-7 h-7 bg-white/10 hover:bg-white/20 text-white border border-white/30 backdrop-blur-md transition-colors disabled:opacity-50';
 const overlayPos = 'absolute bottom-2 right-2 z-10';
 
 export function CardActions({
@@ -100,7 +100,7 @@ export function CardActions({
         title="Add to watchlist"
       >
         {isAddingWatchlist ? (
-          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <div className="w-[14px] h-[14px] border-2 border-white border-t-transparent rounded-full animate-spin" />
         ) : (
           <svg
             className={iconClass}

@@ -27,6 +27,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useLoveHistory } from '@/hooks/useLoveHistory';
 import { useLockedInHistory } from '@/hooks/useLockedInHistory';
 import { useGoLiveMutes } from '@/hooks/useGoLiveMutes';
+import { useCollectivePhotos } from '@/hooks/useCollectivePhotos';
 import { matchesCity, SUPPORTED_CITIES } from '@/lib/city-detection';
 import { GENRE_ALIASES, SUPPORTED_GENRES, matchesGenre as matchesGenreLib } from '@/lib/genres';
 
@@ -64,6 +65,11 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
   const { loveHistory } = useLoveHistory();
   const { lockedInDjs } = useLockedInHistory();
   const { isMuted: isGoLiveMuted, mute: muteGoLiveDj } = useGoLiveMutes();
+  // /scene self-heal: collectives followed before the follow path captured
+  // their photo have a favorite doc with no djPhotoUrl. Resolve the photo from
+  // the collectives collection at read time (by name/slug) so their card shows
+  // the collective picture. Only loaded in sceneMode.
+  const collectivePhotos = useCollectivePhotos(!!sceneMode);
   const { shows: scheduleShows, irlShows: scheduleIrlShows, curatorRecs: scheduleCuratorRecs, djProfiles: scheduleDjProfiles, loading: scheduleLoading, activate: activateSchedule } = useScheduleLazy();
 
   // Activate schedule fetch.
@@ -526,11 +532,17 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       const term = (f.term as string) || '';
       const djName = (f as { djName?: string }).djName;
       const djUsername = (f as { djUsername?: string }).djUsername;
-      const djPhotoUrl = (f as { djPhotoUrl?: string }).djPhotoUrl;
       const username = djUsername || term;
       if (!username) continue;
       const lower = username.toLowerCase();
       const displayName = djName || term;
+      // Fall back to the collectives map when the saved photo is missing (older
+      // collective follows). Match on name/username/term — any may be the slug.
+      const djPhotoUrl =
+        (f as { djPhotoUrl?: string }).djPhotoUrl ||
+        collectivePhotos.get(djName) ||
+        collectivePhotos.get(djUsername) ||
+        collectivePhotos.get(term);
       const lowerDisplay = displayName.toLowerCase();
       if (s0DjNames.has(lower) || s0DjNames.has(lowerDisplay)) continue;
       if (followedProfileUsernames.has(lower) || followedProfileUsernames.has(lowerDisplay)) continue;
@@ -821,7 +833,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       genreOnlineCards: newS3,
       recommendedByCards: newS4,
     };
-  }, [sectionsActive, allShows, irlShows, curatorRecs, djProfiles, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited, favorites, user, loveHistory, lockedInDjs, isGoLiveMuted, dismissedShows]);
+  }, [sectionsActive, allShows, irlShows, curatorRecs, djProfiles, selectedCity, selectedGenres, stationsMap, matchesAnyGenre, getMatchingGenres, genreLabelFor, isShowLive, isValidShow, followedDJNames, isInWatchlist, isShowFavorited, favorites, user, loveHistory, lockedInDjs, isGoLiveMuted, dismissedShows, collectivePhotos]);
 
   // SUGGESTED items for /scene: related DJs (affiliation crew + Audience)
   // of every DJ already in the user's watchlist, plus an empty-state fallback

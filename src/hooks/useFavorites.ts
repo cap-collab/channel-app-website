@@ -440,36 +440,70 @@ export function useFavorites() {
         let resolvedDjEmail = djEmail;
 
         try {
+          // Collectives are followed with a synthetic uid of `collective-<docId>`
+          // (see DJPublicProfileClient). They live in the `collectives` collection,
+          // not `users`/`pending-dj-profiles`, so resolve their photo directly by id
+          // — otherwise the /scene card has no picture.
+          if (djUserId && djUserId.startsWith("collective-")) {
+            const collectiveId = djUserId.slice("collective-".length);
+            const cSnap = await getDoc(doc(db, "collectives", collectiveId));
+            if (cSnap.exists()) {
+              const cData = cSnap.data();
+              djUsername = cData.name || cData.slug || term;
+              djPhotoUrl = cData.photo || null;
+              console.log(`[addToWatchlist] Found collective: ${djUsername}, photo: ${djPhotoUrl ? 'yes' : 'no'}`);
+            }
+          }
+
           // Check pending-dj-profiles first (has public read access)
-          const pendingRef = collection(db, "pending-dj-profiles");
-          const pendingQ = query(
-            pendingRef,
-            where("chatUsernameNormalized", "==", normalizedSearchTerm)
-          );
-          const pendingSnapshot = await getDocs(pendingQ);
-
-          if (!pendingSnapshot.empty) {
-            const data = pendingSnapshot.docs[0].data();
-            djUsername = data.chatUsername || null;
-            djPhotoUrl = data.djProfile?.photoUrl || null;
-            console.log(`[addToWatchlist] Found DJ in pending-dj-profiles: ${djUsername}, photo: ${djPhotoUrl ? 'yes' : 'no'}`);
-          } else {
-            // Fall back to users collection
-            const usersRef = collection(db, "users");
-            const usersQ = query(
-              usersRef,
-              where("chatUsernameNormalized", "==", normalizedSearchTerm),
-              where("role", "in", ["dj", "broadcaster", "admin"])
+          if (!djPhotoUrl) {
+            const pendingRef = collection(db, "pending-dj-profiles");
+            const pendingQ = query(
+              pendingRef,
+              where("chatUsernameNormalized", "==", normalizedSearchTerm)
             );
-            const usersSnapshot = await getDocs(usersQ);
+            const pendingSnapshot = await getDocs(pendingQ);
 
-            if (!usersSnapshot.empty) {
-              const data = usersSnapshot.docs[0].data();
+            if (!pendingSnapshot.empty) {
+              const data = pendingSnapshot.docs[0].data();
               djUsername = data.chatUsername || null;
               djPhotoUrl = data.djProfile?.photoUrl || null;
-              resolvedDjUserId = resolvedDjUserId || usersSnapshot.docs[0].id;
-              resolvedDjEmail = resolvedDjEmail || (data.email as string | undefined);
-              console.log(`[addToWatchlist] Found DJ in users: ${djUsername}, photo: ${djPhotoUrl ? 'yes' : 'no'}`);
+              console.log(`[addToWatchlist] Found DJ in pending-dj-profiles: ${djUsername}, photo: ${djPhotoUrl ? 'yes' : 'no'}`);
+            } else {
+              // Fall back to users collection
+              const usersRef = collection(db, "users");
+              const usersQ = query(
+                usersRef,
+                where("chatUsernameNormalized", "==", normalizedSearchTerm),
+                where("role", "in", ["dj", "broadcaster", "admin"])
+              );
+              const usersSnapshot = await getDocs(usersQ);
+
+              if (!usersSnapshot.empty) {
+                const data = usersSnapshot.docs[0].data();
+                djUsername = data.chatUsername || null;
+                djPhotoUrl = data.djProfile?.photoUrl || null;
+                resolvedDjUserId = resolvedDjUserId || usersSnapshot.docs[0].id;
+                resolvedDjEmail = resolvedDjEmail || (data.email as string | undefined);
+                console.log(`[addToWatchlist] Found DJ in users: ${djUsername}, photo: ${djPhotoUrl ? 'yes' : 'no'}`);
+              } else {
+                // Last resort: a collective followed via search (no uid passed).
+                // Match by slug or name against the collectives collection.
+                const collectivesRef = collection(db, "collectives");
+                const bySlug = await getDocs(
+                  query(collectivesRef, where("slug", "==", normalizedSearchTerm))
+                );
+                const cDoc = !bySlug.empty
+                  ? bySlug.docs[0]
+                  : (await getDocs(query(collectivesRef, where("name", "==", term)))).docs[0];
+                if (cDoc) {
+                  const cData = cDoc.data();
+                  djUsername = cData.name || cData.slug || null;
+                  djPhotoUrl = cData.photo || null;
+                  resolvedDjUserId = resolvedDjUserId || `collective-${cDoc.id}`;
+                  console.log(`[addToWatchlist] Found collective via search: ${djUsername}, photo: ${djPhotoUrl ? 'yes' : 'no'}`);
+                }
+              }
             }
           }
         } catch (lookupError) {
