@@ -1911,12 +1911,17 @@ function TempoFilterDropdown({
   }, [open]);
 
   // A tempo counts as "on" when its chip is checked (or nothing is selected,
-  // which we treat as "all on"). The button reads ALL TEMPOS when everything's
-  // on, otherwise the count of selected tempos.
+  // which we treat as "all on"). The button reads TEMPO when everything's on,
+  // the single tempo's name when exactly one is selected, otherwise the count.
   const isOn = (id: Tempo) => noneSelected || tempoFilter.has(id);
-  const selectedCount = tempos.filter((t) => isOn(t.id)).length;
+  const selectedTempos = tempos.filter((t) => isOn(t.id));
+  const selectedCount = selectedTempos.length;
   const allOn = selectedCount === tempos.length;
-  const buttonLabel = allOn ? 'TEMPO' : `${selectedCount} TEMPO${selectedCount === 1 ? '' : 'S'}`;
+  const buttonLabel = allOn
+    ? 'TEMPO'
+    : selectedCount === 1
+      ? selectedTempos[0].label
+      : `${selectedCount} TEMPOS`;
 
   return (
     <div ref={ref} className="relative shrink-0">

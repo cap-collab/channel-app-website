@@ -51,6 +51,8 @@ export function BroadcastClient() {
 
   // Multi-DJ show: track current DJ slot to detect DJ changes (use ref to avoid re-render loops)
   const currentDjSlotIdRef = useRef<string | null>(null);
+  // Re-entry guard for audio glitch recovery (overlapping track-ended events).
+  const recoveringAudioRef = useRef(false);
 
   // Fetch DJ profile data from the slot's linked DJ (user or pending)
   // This pre-populates tip button link and thank you message
@@ -466,18 +468,121 @@ export function BroadcastClient() {
     return () => clearTimeout(timer);
   }, [broadcast.isLive, slot, handleEndBroadcast]);
 
-  // Detect when audio track ends (e.g. user clicks browser's "stop sharing" button)
+  // Detect when audio track ends (glitch, device disconnect, or "stop sharing").
+  //
+  // While LIVE on a DEVICE input, attempt to auto-recover: a glitch (USB hiccup,
+  // sample-rate renegotiation, OS audio interruption) fires `ended` even though
+  // the egress is still running. We re-acquire the SAME device and re-publish so
+  // the broadcast keeps going — accepting that the recording splits into a 2nd
+  // file (the egress is track-pinned and can't follow a swap; manual-stitch
+  // later). If we can't get the SAME device back with audio actually flowing,
+  // we fall back to ending the broadcast and dropping the DJ to audio-input
+  // selection with an error, so they reconnect + re-select + go live again.
+  // (system/RTMP inputs and the pre-live case keep the original behavior.)
   useEffect(() => {
     if (!audioStream) return;
 
     const track = audioStream.getAudioTracks()[0];
     if (!track) return;
 
+    // Capture the device identity NOW (the track dies before we read it later).
+    const origDeviceId = track.getSettings().deviceId;
+    const origLabel = track.label || audioSourceLabel || '';
+
+    const recoverAudio = async () => {
+      if (recoveringAudioRef.current) return;
+      recoveringAudioRef.current = true;
+      const failAndPrompt = async () => {
+        console.error('Audio recovery failed — ending broadcast; DJ must re-select audio input');
+        await handleEndBroadcast();
+        // Set the error AFTER ending so it isn't cleared by the teardown, and
+        // renders on the audio-input selection screen.
+        broadcast.setError('We lost your audio device and could not reconnect it automatically. Re-select your audio input and start your broadcast again.');
+      };
+      try {
+        console.warn('Audio track ended while live — attempting to re-acquire the same device');
+        // Re-acquire loop: up to ~6s. Device may take a moment to re-enumerate,
+        // and its deviceId can change (OverconstrainedError) — fall back to label.
+        const deadline = Date.now() + 6000;
+        let newStream: MediaStream | null = null;
+        while (Date.now() < deadline && !newStream) {
+          try {
+            let targetId = origDeviceId;
+            try {
+              newStream = await navigator.mediaDevices.getUserMedia({
+                audio: { deviceId: targetId ? { exact: targetId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, sampleRate: { ideal: 48000 }, channelCount: { min: 1, ideal: 2 } },
+                video: false,
+              });
+            } catch (e) {
+              // deviceId went stale — re-find the SAME device by label.
+              if (e instanceof Error && e.name === 'OverconstrainedError' && origLabel) {
+                const devs = await navigator.mediaDevices.enumerateDevices();
+                const sameByLabel = devs.find(d => d.kind === 'audioinput' && d.label === origLabel);
+                if (sameByLabel) {
+                  targetId = sameByLabel.deviceId;
+                  newStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { deviceId: { exact: targetId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, sampleRate: { ideal: 48000 }, channelCount: { min: 1, ideal: 2 } },
+                    video: false,
+                  });
+                } else {
+                  throw e;
+                }
+              } else {
+                throw e;
+              }
+            }
+          } catch (e) {
+            console.warn('Re-acquire attempt failed, retrying…', (e as Error)?.name || e);
+            await new Promise(r => setTimeout(r, 1000));
+          }
+        }
+
+        if (!newStream) { await failAndPrompt(); return; }
+
+        // CONFIRM same device (strict). If we somehow grabbed a different input
+        // (e.g. browser defaulted to the laptop mic), reject and prompt.
+        const newTrack = newStream.getAudioTracks()[0];
+        const newSettings = newTrack?.getSettings() ?? {};
+        const sameDevice =
+          (!!origDeviceId && newSettings.deviceId === origDeviceId) ||
+          (!!origLabel && newTrack?.label === origLabel);
+        if (!newTrack || newTrack.readyState !== 'live' || !sameDevice) {
+          console.error('Re-acquired a different/dead device — not accepting', { origLabel, got: newTrack?.label });
+          newStream.getTracks().forEach(t => t.stop());
+          await failAndPrompt(); return;
+        }
+
+        // Republish cleanly: drop the dead publication first (publishAudio does
+        // NOT unpublish), then go live again. goLive reuses the HLS egress
+        // (seamless for listeners) and starts a NEW recording egress on the
+        // fresh track = the accepted 2nd file.
+        await broadcast.unpublishAudio();
+        setAudioStream(newStream);
+        setAudioSourceLabel(newTrack.label || origLabel || null);
+        const ok = await broadcast.goLive(newStream);
+
+        // CONFIRM recovery: go-live succeeded AND audio is actually flowing AND
+        // a new recording egress exists.
+        if (ok && broadcast.isAudioHealthy()) {
+          console.log('Audio recovered — same device re-acquired, broadcast continuing (recording split into a new file)');
+          return;
+        }
+        console.error('Re-publish did not confirm healthy audio', { ok, healthy: broadcast.isAudioHealthy() });
+        await failAndPrompt(); return;
+      } finally {
+        recoveringAudioRef.current = false;
+      }
+    };
+
     const onTrackEnded = () => {
-      console.log('Audio track ended (user stopped sharing or device disconnected)');
+      console.log('Audio track ended (glitch, device disconnect, or stop-sharing)');
       if (broadcast.isLive) {
-        // End the broadcast and update Firebase
-        handleEndBroadcast();
+        if (broadcast.inputMethod === 'device') {
+          void recoverAudio();
+        } else {
+          // system/RTMP — keep original behavior (end the broadcast).
+          handleEndBroadcast();
+        }
       } else {
         // Not live yet - clear stream so UI returns to audio capture selector
         audioStream.getTracks().forEach(t => t.stop());
@@ -488,7 +593,7 @@ export function BroadcastClient() {
 
     track.addEventListener('ended', onTrackEnded);
     return () => track.removeEventListener('ended', onTrackEnded);
-  }, [audioStream, broadcast.isLive, handleEndBroadcast]);
+  }, [audioStream, broadcast, audioSourceLabel, handleEndBroadcast]);
 
   // DJ onboarding handler
   const handleProfileComplete = useCallback((username: string) => {

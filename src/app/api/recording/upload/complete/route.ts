@@ -110,7 +110,15 @@ export async function POST(request: NextRequest) {
     const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL;
     const cronSecret = process.env.CRON_SECRET;
     const isMp4 = /\.mp4$/i.test(uploadFilePath);
-    const isMp3 = /\.mp3$/i.test(uploadFilePath);
+    // Only mp3/mp4 get auto-normalized. The upload route accepts more
+    // (wav/aac/m4a/flac/ogg/webm — see ALLOWED_AUDIO_TYPES in ../upload/route.ts),
+    // but the restream-worker /normalize endpoint hard-rejects anything that
+    // isn't .mp3/.mp4 (restream-worker/index.js: "Unsupported format for
+    // normalize"). Enqueuing a wav here would just fail 5× and land in the queue
+    // as a dead `failed` entry. Until the worker learns to transcode lossless
+    // inputs → AAC .m4a, those formats are normalized manually (a TAJ .wav
+    // shipped un-normalized on 2026-06-12 and was fixed by a one-off).
+    const isNormalizable = /\.(mp3|mp4)$/i.test(uploadFilePath);
 
     if (isMp4) {
       if (restreamWorkerUrl && cronSecret) {
@@ -149,7 +157,7 @@ export async function POST(request: NextRequest) {
     // The drain cron sees this entry on its next tick (within an hour) and
     // POSTs to the worker with an async callback. The callback at
     // /api/recording/normalize-queue-callback handles the archive doc swap.
-    if (isMp3 || isMp4) {
+    if (isNormalizable) {
       try {
         await db.collection('normalize-queue').add({
           status: 'pending',

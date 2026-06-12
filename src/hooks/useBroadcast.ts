@@ -7,6 +7,23 @@ import { usePublisherStats } from './usePublisherStats';
 
 const r2PublicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
 
+/**
+ * True when the room's local participant has a LIVE, UNMUTED audio publication —
+ * i.e. audio is actually flowing right now. Used to confirm a glitch self-heal
+ * succeeded: the dead source MediaStreamTrack is terminal, so we judge recovery
+ * by the room publication, not the old track.
+ */
+export function isRoomAudioHealthy(room: Room | null): boolean {
+  if (!room) return false;
+  const pubs = room.localParticipant?.audioTrackPublications;
+  if (!pubs || pubs.size === 0) return false;
+  return Array.from(pubs.values()).some(pub => {
+    if (pub.isMuted) return false;
+    const mst = pub.track?.mediaStreamTrack;
+    return !!mst && mst.readyState === 'live';
+  });
+}
+
 async function fetchWithTimeout(input: RequestInfo, init: RequestInit & { timeoutMs: number }) {
   const { timeoutMs, ...rest } = init;
   const controller = new AbortController();
@@ -689,6 +706,17 @@ export function useBroadcast(
     setState(prev => ({ ...prev, error: null, roomOccupied: false, roomFreeAt: null }));
   }, []);
 
+  // Surface a user-facing error message (e.g. when audio recovery fails and the
+  // page drops the DJ back to audio-input selection).
+  const setError = useCallback((message: string) => {
+    setState(prev => ({ ...prev, error: message }));
+  }, []);
+
+  // Is room audio actually flowing right now? Used by the broadcast page to
+  // confirm a glitch self-heal (re-capture + re-publish) actually brought audio
+  // back before declaring recovery a success.
+  const isAudioHealthy = useCallback(() => isRoomAudioHealthy(roomRef.current), []);
+
   // Handle browser close/tab close
   // For recordings: stop the egress completely (end the recording)
   // For live broadcasts: mark as paused (DJ may reconnect)
@@ -743,5 +771,8 @@ export function useBroadcast(
     checkRoomStatus,
     queueGoLive,
     cancelQueue,
+    unpublishAudio,
+    isAudioHealthy,
+    setError,
   };
 }

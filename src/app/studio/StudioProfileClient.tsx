@@ -3766,6 +3766,7 @@ export function StudioProfileClient() {
             {/* File picker */}
             <div className="mb-4">
               <label className="text-gray-400 text-sm mb-1 block">Audio file</label>
+              <p className="text-gray-500 text-xs mb-1.5">MP3 or MP4 formats preferred</p>
               <input
                 type="file"
                 accept="audio/*,.mp3,.wav,.aac,.m4a,.flac,.ogg,.mp4,.webm"
