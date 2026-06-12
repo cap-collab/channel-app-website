@@ -6,7 +6,7 @@ import { generatePresignedUploadUrl, getR2PublicUrl } from '@/lib/r2-upload';
 // Default recording quota: 122 minutes per month
 const DEFAULT_MAX_SECONDS = 122 * 60; // 7320 seconds
 
-const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
+const MAX_FILE_SIZE = 800 * 1024 * 1024; // 800MB
 
 const ALLOWED_AUDIO_TYPES = [
   'audio/mpeg',
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     if (!fileSize || fileSize > MAX_FILE_SIZE) {
       return NextResponse.json({
-        error: 'File is too large. Maximum size is 500MB.',
+        error: 'File is too large. Maximum size is 800MB.',
       }, { status: 400 });
     }
 

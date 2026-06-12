@@ -442,8 +442,8 @@ export function StudioProfileClient() {
     setUploadDuration(null);
 
     // Validate file size
-    if (file.size > 500 * 1024 * 1024) {
-      setUploadError('File is too large. Maximum size is 500MB.');
+    if (file.size > 800 * 1024 * 1024) {
+      setUploadError('File is too large. Maximum size is 800MB.');
       return;
     }
 
