@@ -4,9 +4,9 @@ import type { Tempo } from '@/types/broadcast';
 // tempo selector (and any future consumer) reads from here so options stay in
 // sync with the `Tempo` type. Order is slowest → fastest.
 export const TEMPOS: ReadonlyArray<{ id: Tempo; label: string }> = [
+  { id: 'very_slow', label: 'Very Slow' },
   { id: 'downtempo', label: 'Downtempo' },
-  { id: 'midtempo', label: 'Midtempo' },
-  { id: 'fast', label: 'Uptempo' },
+  { id: 'uptempo', label: 'Uptempo' },
   { id: 'very_fast', label: 'Very Fast' },
 ] as const;
 

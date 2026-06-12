@@ -324,7 +324,7 @@ export type ArchivePriority = 'high' | 'medium' | 'low' | 'hidden';
 // of the individual recording — the same DJ can play downtempo one night and
 // fast the next — so it's set per-archive. Admin-set for now; null/undefined =
 // untagged. Display labels + ordered list live in src/lib/tempo.ts.
-export type Tempo = 'downtempo' | 'midtempo' | 'fast' | 'very_fast';
+export type Tempo = 'very_slow' | 'downtempo' | 'uptempo' | 'very_fast';
 
 // Archive stored in Firestore
 export interface Archive {
