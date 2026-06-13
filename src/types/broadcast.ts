@@ -409,12 +409,14 @@ export interface ArchiveRadioLoop {
   generatedBy: 'cron' | 'admin';
   locked: boolean;
   catalogStats: {
-    highCount: number;           // # high archives included (each contributes 2 items)
-    mediumCount: number;         // # medium archives (each contributes 1 item)
-    interstitialCount: number;   // # interstitials interleaved between archives
-    alignedAnchorCount?: number; // # live-block boundaries the loop aligned to within tolerance
-    missedAnchorCount?: number;  // # anchors the cron found but couldn't align (warning)
-    totalItems: number;          // = highCount * 2 + mediumCount + interstitialCount + anchor items
+    highCount: number;                // # high archives PLACED in the loop
+    mediumCount: number;              // # medium archives PLACED in the loop
+    placedHighDurationSec?: number;   // total raw duration of placed highs (for the ~2:1 by-time check)
+    placedMediumDurationSec?: number; // total raw duration of placed mediums
+    interstitialCount: number;        // # interstitials interleaved between archives
+    alignedAnchorCount?: number;      // # live-block boundaries the loop aligned to within tolerance
+    missedAnchorCount?: number;       // # anchors the cron found but couldn't align (warning)
+    totalItems: number;               // total ScheduleItems in the loop
   };
   items: ScheduleItem[];
 }

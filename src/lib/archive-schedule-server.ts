@@ -5,14 +5,13 @@ import {
   buildQueue,
   computeLiveBlocks,
   EligibleArchive,
-  findEndSubset,
-  findStartTimeAndSubset,
   INTERSTITIALS_COLLECTION,
   LiveBlockBoundary,
   LOOP_COLLECTION,
   loopDocId,
   offsetUtcId,
   SCHEDULE_COLLECTION,
+  shuffle,
   tallyRecentPlays,
   utcDayStartMs,
 } from '@/lib/archive-schedule';
@@ -342,12 +341,11 @@ interface LoopPlan {
   anchor: LiveBlockBoundary | null;
   preAnchorArchiveIds: string[] | null;
   // Explicit ordered list of archives that play AFTER the anchor archive (or
-  // make up the whole loop when there's no anchor). Sized so the loop ends in
-  // [3am, 4am] PT the morning after start.
+  // make up the whole loop when there's no anchor). Sized so the loop ends near
+  // [3am, 4am] PT N days after start (loop length flexes with the catalog).
   postAnchorArchiveIds: string[] | null;
-  // All loops are short mode: every archive 1×, explicit subsets, ends in the
-  // target end window. The mode field is kept for buildLoop's API but is
-  // always 'short' in production.
+  // All loops are short mode: every archive 1×, explicit ordered lists.
+  // The mode field is kept for buildLoop's API but is always 'short'.
   mode: 'short';
   // Unused. Kept on the type for buildLoop's API compatibility.
   maxDurationSec: number | null;
@@ -355,25 +353,127 @@ interface LoopPlan {
   // Used as a final clamp after the anchor two-pass shift in generateLoop so
   // the new doc never overlaps the previous loop.
   earliestStartMs: number;
-  reason: 'override' | 'first-loop' | 'short-mode-two-sided' | 'short-mode-anchor-only' | 'short-mode-no-anchor';
+  reason: 'override' | 'first-loop' | 'anchor' | 'no-anchor';
 }
 
-// Decide the loop's startTimeMs (and optionally a pre-anchor archive subset)
-// for loop N. The 1am PT cron's algorithm:
-//   1. If there's an upcoming live-block end ("anchor") in the next 28h, try
-//      to land the cron-run-day's dead-zone window (1-3am PT) on that anchor:
-//      search for an archive subset whose total duration places the
-//      post-subset interlude EXACTLY on the anchor. If a subset's computed
-//      startTime falls in [1am PT, 3am PT] of the cron-run day, use it.
-//      The 3am upper bound (not 4am) gives prev — which is capped at 25h
-//      when a next anchor exists, and itself starts in [1am, 3am] PT — a
-//      guaranteed natural end in [2am, 4am+ε] PT, so N's start always lands
-//      before prev's end and there's no silence gap between loops.
-//   2. If no subset fits the window, fall back to startTimeMs = anchor.end
-//      (Model B: anchor interlude at loop offset 0; loop transition happens
-//      whenever live ends rather than in dead zone).
-//   3. If no anchor in the next 28h, behave as today (back-to-back from
-//      prevNaturalEnd, no alignment).
+// ── Loop pool + windowing constants ──
+const CROSSFADE_SEC = 5;
+// Start window: 1-2am PT. End window: 3-4am PT. Both are wall-clock targets the
+// loop snaps to; loop length flexes (in whole days) to land start in one and end
+// in the other. Expressed as UTC hours-of-day (PDT = UTC-7; ±1h in PST months).
+const START_WINDOW_UTC_H = [8, 9] as const;  // 1am, 2am PT
+const END_WINDOW_UTC_H = [10, 11] as const;  // 3am, 4am PT
+// Medium pool fraction: include the least-recently-played HALF of mediums so
+// every medium airs over ~2 loops. The one tuning knob. With high ≈ medium
+// total catalog duration, half the mediums ≈ half the high duration → the loop
+// lands ~2/3 high / ~1/3 medium by time.
+const MEDIUM_POOL_FRACTION = 0.5;
+
+// Build the loop's pool: ALL highs + the least-recently-played half of mediums,
+// fully shuffled together (priority order is intentionally random). The curated
+// anchor archive (if any) is removed so it plays only in its pinned post-anchor
+// slot. Mediums rotate — the stale half plays this loop, the rest next loop.
+function selectPool(
+  archives: EligibleArchive[],
+  curatedId: string | null,
+  rng: () => number,
+): EligibleArchive[] {
+  const pool = archives.filter((a) => a.id !== curatedId);
+  const highs = pool.filter((a) => a.priority === 'high');
+  // Least-recently-played first; undefined lastPlayedMs = never played = stalest.
+  const mediumsByStaleness = pool
+    .filter((a) => a.priority === 'medium')
+    .sort((a, b) => (a.lastPlayedMs ?? 0) - (b.lastPlayedMs ?? 0));
+  const half = Math.ceil(mediumsByStaleness.length * MEDIUM_POOL_FRACTION);
+  const mediums = mediumsByStaleness.slice(0, half);
+  // Shuffle highs and chosen mediums together — no priority spacing.
+  return shuffle([...highs, ...mediums], rng);
+}
+
+// Effective wall-clock span of one archive in the loop = its duration minus the
+// crossfade overlap into the next item, plus one interlude (also crossfaded).
+function effectiveSpanMs(durationSec: number, avgInterludeSec: number): number {
+  return (durationSec - CROSSFADE_SEC + avgInterludeSec - CROSSFADE_SEC) * 1000;
+}
+
+// Lay the WHOLE shuffled pool on the timeline from `segmentStartMs` (loops run
+// as long as the catalog allows — ~2-3 days), then TRUNCATE the tail so the loop
+// ends in the 3-4am PT window nearest the pool's natural end — regardless of
+// priority. Whole archives only (an archive that would push past the boundary is
+// dropped), so the loop ends just inside the dead zone. Dropped archives rotate
+// into the next loop. With a tiny pool that can't reach the first boundary, the
+// whole pool is kept.
+function truncateAtEndWindow(
+  pool: EligibleArchive[],
+  segmentStartMs: number,
+  avgInterludeSec: number,
+): EligibleArchive[] {
+  // Natural end if the whole pool played.
+  const naturalEndMs = pool.reduce(
+    (end, a) => end + effectiveSpanMs(a.durationSec, avgInterludeSec),
+    segmentStartMs,
+  );
+  // Truncation can only SHORTEN, so target the LAST 3-4am PT window at-or-before
+  // the natural end: the loop runs as long as possible while still ending in the
+  // dead zone. The tail past that boundary is dropped (rotates into next loop).
+  const boundaryMs = prevWindowMidMs(naturalEndMs, END_WINDOW_UTC_H[0]);
+  const kept: EligibleArchive[] = [];
+  let running = segmentStartMs;
+  for (const a of pool) {
+    const next = running + effectiveSpanMs(a.durationSec, avgInterludeSec);
+    if (next > boundaryMs) break; // this archive would push past the boundary — stop
+    kept.push(a);
+    running = next;
+  }
+  // Tiny-pool safety: if the natural end is before the first boundary (pool too
+  // short to reach any 3-4am window), keep the whole pool.
+  return kept.length > 0 ? kept : pool;
+}
+
+// The [hourLo, hourLo+1) UTC window midpoint NEAREST `targetMs` (any direction).
+// Used for the loop START — the 1-2am PT window closest to the previous loop's
+// natural end, for gapless chaining.
+function nearestWindowMidMs(targetMs: number, hourLo: number): number {
+  const day = new Date(targetMs);
+  day.setUTCHours(0, 0, 0, 0);
+  let best = day.getTime() + (hourLo + 0.5) * 3600 * 1000;
+  let bestDist = Math.abs(best - targetMs);
+  for (let d = -1; d <= 1; d++) {
+    const mid = day.getTime() + d * 86_400_000 + (hourLo + 0.5) * 3600 * 1000;
+    const dist = Math.abs(mid - targetMs);
+    if (dist < bestDist) { bestDist = dist; best = mid; }
+  }
+  return best;
+}
+
+// The LAST [hourLo, hourLo+1) UTC window midpoint at-or-before `beforeMs`. Used
+// for the end boundary: truncation can only shorten, so we round DOWN to the
+// previous 3-4am PT window. Returns -Infinity if none exists at-or-before
+// (caller's tiny-pool safety keeps the whole pool in that case).
+function prevWindowMidMs(beforeMs: number, hourLo: number): number {
+  const day = new Date(beforeMs);
+  day.setUTCHours(0, 0, 0, 0);
+  for (let d = 1; d >= -6; d--) {
+    const mid = day.getTime() + d * 86_400_000 + (hourLo + 0.5) * 3600 * 1000;
+    if (mid <= beforeMs) return mid;
+  }
+  return Number.NEGATIVE_INFINITY;
+}
+
+// Decide loop N's startTimeMs + the ordered archive lists ("pour it in").
+// Simple, catalog-driven, nothing hardcoded except the medium-pool fraction:
+//   1. Build the pool: ALL highs + the least-recently-played half of mediums,
+//      fully shuffled (selectPool). The curated anchor archive is removed so it
+//      plays only in its pinned post-anchor slot.
+//   2. Loop starts in the 1-2am PT window. Pour the WHOLE pool (loops run as long
+//      as the catalog allows, ~2-3 days), then TRUNCATE the tail so the loop ends
+//      at the last 3-4am PT window before the pool's natural end. Dropped tail
+//      archives rotate into the next loop.
+//   3. If a live block ("anchor") is coming up, split the pour at the block end:
+//      pre-anchor archives fill start→block-end, the rest are post-anchor
+//      (truncated to end 3-4am PT). generateLoop keeps the EXACT
+//      backwards-from-anchor startTimeMs calc so the hand-back interlude +
+//      curated archive land precisely on the live-block end.
 async function resolveLoopPlan(
   args: GenerateLoopArgs,
   archives: EligibleArchive[],
@@ -388,10 +488,10 @@ async function resolveLoopPlan(
   }
   const db = getAdminDb();
   if (!db) throw new Error('database not configured');
+  const rng = Math.random;
 
-  // Previous loop's natural end is the back-to-back fallback startTime.
-  // Loop N must never start before loop N-1 has finished — otherwise the new
-  // doc overlaps the currently-playing one and listeners get yanked mid-loop.
+  // Previous loop's natural end. Loop N must never start before loop N-1 ends —
+  // otherwise the new doc overlaps the currently-playing one mid-loop.
   const prev = await db.collection(LOOP_COLLECTION).doc(loopDocId(args.loopNumber - 1)).get();
   let prevNaturalEnd = nowMs;
   if (prev.exists) {
@@ -400,202 +500,98 @@ async function resolveLoopPlan(
     const totalDurationSec = Number(data.totalDurationSec ?? 0);
     prevNaturalEnd = prevStart + totalDurationSec * 1000;
   }
-  // Earliest moment loop N is allowed to start. Used to filter anchors and to
-  // clamp the resolved startTimeMs so we never overlap loop N-1.
   const earliestStartMs = Math.max(nowMs, prevNaturalEnd);
 
-  // Look for the first anchor that lands AFTER loop N-1 ends within 28h.
-  // Anchors before earliestStartMs belong to the previous loop. The anchor is
-  // OPTIONAL — when none exists, the loop is anchor-free with the curated
-  // archive slot disabled, but start/end windows still target 1-3am / 3-4am.
-  const anchorHorizonMs = earliestStartMs + 28 * 3600 * 1000;
-  const anchors = await loadAnchors(db, earliestStartMs);
-  const firstAnchor = anchors.find((a) => a.endTimeMs > earliestStartMs && a.endTimeMs <= anchorHorizonMs);
+  // Loop start: the 1-2am PT window nearest prevNaturalEnd (gapless chaining —
+  // the previous long loop ends ~3-4am PT, so the next loop's 1-2am start lands
+  // just before that, with the higher loop number winning on the listener side).
+  const startTimeMs = nearestWindowMidMs(prevNaturalEnd, START_WINDOW_UTC_H[0]);
 
-  // Start window: 1-3am PT of the day prev's natural end lands on.
-  // (Approximated as UTC-7; see DST caveat noted in the plan file.)
-  const prevEndDay = new Date(prevNaturalEnd);
-  prevEndDay.setUTCHours(0, 0, 0, 0);
-  const dayStartUtcMs = prevEndDay.getTime();
-  const windowStartMs = dayStartUtcMs + 8 * 3600 * 1000;   // 08:00 UTC = 1am PT
-  const windowEndMs = dayStartUtcMs + 10 * 3600 * 1000;    // 10:00 UTC = 3am PT
-
-  // End window: 3-4am PT the morning AFTER loop start. ~24-27h loop length.
-  const endDayStartUtcMs = dayStartUtcMs + 24 * 3600 * 1000;
-  const endWindowStartMs = endDayStartUtcMs + 10 * 3600 * 1000;  // 10:00 UTC = 3am PT
-  const endWindowEndMs = endDayStartUtcMs + 11 * 3600 * 1000;    // 11:00 UTC = 4am PT
+  // Anchor: the first upcoming live block whose end falls after the loop starts
+  // and within the loop's reachable span (~3 days). Optional.
+  const anchorHorizonMs = startTimeMs + 72 * 3600 * 1000;
+  const anchors = await loadAnchors(db, startTimeMs);
+  const firstAnchor = anchors.find((a) => a.endTimeMs > startTimeMs && a.endTimeMs <= anchorHorizonMs) ?? null;
+  const curatedId = firstAnchor?.curatedArchiveId ?? null;
 
   const avgInterludeSec = interstitials.length === 0
     ? 0
     : interstitials.reduce((s, i) => s + i.durationSec, 0) / interstitials.length;
 
-  const curatedId = firstAnchor?.curatedArchiveId ?? null;
-  const CROSSFADE_SEC = 5;
-
-  // Diversity: prefer archives that did NOT play in the last 24h.
+  // Recency: stamp lastPlayedMs so the medium pick reaches for the half that
+  // played least recently (rotates mediums over ~2 loops).
   const recentPlays = await loadRecentPlays(db, nowMs);
-  const freshArchives = archives.filter((a) => !recentPlays.has(a.id));
-  // Stamp last-played time onto each archive so the subset search prefers the
-  // least-recently-played shows. With a small catalog the fresh pool often
-  // can't fill a full day on its own, so the search falls back to the full
-  // pool — and THIS is where the bias earns its keep: among shows that aired
-  // in the last 24h, it reaches for the ones that played earliest first,
-  // instead of always re-picking the same tightest-fitting set.
   for (const a of archives) {
-    const rp = recentPlays.get(a.id);
-    a.lastPlayedMs = rp ? rp.lastPlayedMs : undefined;
+    a.lastPlayedMs = recentPlays.get(a.id)?.lastPlayedMs;
   }
 
-  // Helpers to build the search catalogs (excluding curated + any pre-picked).
-  const buildCatalog = (pool: EligibleArchive[], usedIds: Set<string>) =>
-    pool.filter((a) => a.id !== curatedId && !usedIds.has(a.id));
+  // Build the pool: all highs + stale half of mediums, curated removed, shuffled.
+  const pool = selectPool(archives, curatedId, rng);
 
-  // ── Anchor-free case: no firstAnchor → pick ONE end-anchored subset.
-  // Loop layout: [startInterlude, A1, int, A2, int, ..., An]. The start
-  // interlude (avg duration) ends at startMs + (avgInt - crossfade); the first
-  // archive's audible start is there.
+  // Apply time-of-day diversity reorder to a segment (keeps repeats from landing
+  // at the same wall-clock time-of-day two loops running).
+  const diversify = (seg: EligibleArchive[], segStartMs: number): string[] =>
+    reorderForTimeOfDayDiversity(seg, recentPlays, segStartMs, avgInterludeSec).map((a) => a.id);
+
+  // ── No anchor: pour the whole pool from 1-2am PT, truncate so it ends at the
+  // last 3-4am PT window before the pool's natural end. ──
   if (!firstAnchor) {
-    const empty = new Set<string>();
-    const prefixEndMs = earliestStartMs + (avgInterludeSec - CROSSFADE_SEC) * 1000;
-    let result = findEndSubset(
-      buildCatalog(freshArchives, empty),
-      avgInterludeSec,
-      prefixEndMs,
-      endWindowStartMs,
-      endWindowEndMs,
-    );
-    if (!result) {
-      result = findEndSubset(
-        buildCatalog(archives, empty),
-        avgInterludeSec,
-        prefixEndMs,
-        endWindowStartMs,
-        endWindowEndMs,
-      );
-    }
-    const byId = new Map(archives.map((a) => [a.id, a] as const));
-    const resolveSubset = (ids: string[] | undefined): EligibleArchive[] => {
-      if (!ids) return [];
-      const out: EligibleArchive[] = [];
-      for (const id of ids) { const a = byId.get(id); if (a) out.push(a); }
-      return out;
-    };
-    const reorderedPostIds = result
-      ? reorderForTimeOfDayDiversity(
-          resolveSubset(result.archiveIds),
-          recentPlays,
-          prefixEndMs,
-          avgInterludeSec,
-        ).map((a) => a.id)
-      : null;
+    const kept = truncateAtEndWindow(pool, startTimeMs, avgInterludeSec);
     return {
-      startTimeMs: earliestStartMs,
+      startTimeMs,
       anchor: null,
       preAnchorArchiveIds: null,
-      postAnchorArchiveIds: reorderedPostIds,
+      postAnchorArchiveIds: diversify(kept, startTimeMs),
       mode: 'short',
       maxDurationSec: null,
       earliestStartMs,
-      reason: 'short-mode-no-anchor',
+      reason: 'no-anchor',
     };
   }
 
-  // Curated archive duration (for post-anchor start calc).
+  // ── Anchor: pour the pool from the start; archives that fit before the live
+  // block's end are pre-anchor, the rest are post-anchor. The post-anchor tail
+  // is then truncated to end at the last 3-4am PT window before its natural end.
+  // Priority order stays random; both sides get a natural ~2:1 high/medium mix
+  // from the shuffle.
+  const blockEndMs = firstAnchor.endTimeMs;
+
+  // Curated archive duration (plays right after the block, before post-anchor).
   let curatedDurSec = 0;
   if (curatedId) {
     const curated = archives.find((a) => a.id === curatedId);
     if (curated) curatedDurSec = curated.durationSec;
   }
-  const postBlockStartMs = firstAnchor.endTimeMs + (curatedDurSec - CROSSFADE_SEC) * 1000;
+  const postBlockStartMs = blockEndMs + (curatedDurSec - CROSSFADE_SEC) * 1000;
 
-  // ── Pre-anchor: fresh-first, then full pool fallback ──
-  const empty = new Set<string>();
-  let preResultShort = findStartTimeAndSubset(
-    buildCatalog(freshArchives, empty),
-    avgInterludeSec,
-    firstAnchor.endTimeMs,
-    windowStartMs,
-    windowEndMs,
-  );
-  if (!preResultShort) {
-    preResultShort = findStartTimeAndSubset(
-      buildCatalog(archives, empty),
-      avgInterludeSec,
-      firstAnchor.endTimeMs,
-      windowStartMs,
-      windowEndMs,
-    );
+  // Split the shuffled pool at the live-block end: fill up to the block, rest
+  // go after. Whole archives only (one that would straddle the block goes after).
+  const preItems: EligibleArchive[] = [];
+  const postPool: EligibleArchive[] = [];
+  let running = startTimeMs;
+  let blockReached = false;
+  for (const a of pool) {
+    const span = effectiveSpanMs(a.durationSec, avgInterludeSec);
+    if (!blockReached && running + span <= blockEndMs) {
+      preItems.push(a);
+      running += span;
+    } else {
+      blockReached = true;
+      postPool.push(a);
+    }
   }
+  // Truncate the post-anchor tail at the first 3-4am PT boundary it crosses.
+  const postItems = truncateAtEndWindow(postPool, postBlockStartMs, avgInterludeSec);
 
-  // ── Post-anchor: fresh-first, then full pool fallback. Excludes curated
-  // AND any archive already picked for pre-anchor. ──
-  const preIds = new Set(preResultShort?.archiveIds ?? []);
-  let postResult = findEndSubset(
-    buildCatalog(freshArchives, preIds),
-    avgInterludeSec,
-    postBlockStartMs,
-    endWindowStartMs,
-    endWindowEndMs,
-  );
-  if (!postResult) {
-    postResult = findEndSubset(
-      buildCatalog(archives, preIds),
-      avgInterludeSec,
-      postBlockStartMs,
-      endWindowStartMs,
-      endWindowEndMs,
-    );
-  }
-
-  // Reorder both subsets so any repeats from yesterday land at a wall-clock
-  // time-of-day with the largest available offset from yesterday's slot.
-  const byId = new Map(archives.map((a) => [a.id, a] as const));
-  const resolveSubset = (ids: string[] | undefined): EligibleArchive[] => {
-    if (!ids) return [];
-    const out: EligibleArchive[] = [];
-    for (const id of ids) { const a = byId.get(id); if (a) out.push(a); }
-    return out;
-  };
-  const reorderedPreIds = preResultShort
-    ? reorderForTimeOfDayDiversity(
-        resolveSubset(preResultShort.archiveIds),
-        recentPlays,
-        preResultShort.startTimeMs + avgInterludeSec * 1000,  // skip the start interlude
-        avgInterludeSec,
-      ).map((a) => a.id)
-    : null;
-  const reorderedPostIds = postResult
-    ? reorderForTimeOfDayDiversity(
-        resolveSubset(postResult.archiveIds),
-        recentPlays,
-        postBlockStartMs,
-        avgInterludeSec,
-      ).map((a) => a.id)
-    : null;
-
-  if (preResultShort) {
-    return {
-      startTimeMs: preResultShort.startTimeMs,
-      anchor: firstAnchor,
-      preAnchorArchiveIds: reorderedPreIds,
-      postAnchorArchiveIds: reorderedPostIds,
-      mode: 'short',
-      maxDurationSec: null,
-      earliestStartMs,
-      reason: 'short-mode-two-sided',
-    };
-  }
-  // Pre-anchor search failed (anchor lands outside 1-3am PT window). Anchor
-  // wall-clock alignment wins: start at anchor.endTimeMs, interlude at offset 0.
   return {
-    startTimeMs: firstAnchor.endTimeMs,
+    startTimeMs,
     anchor: firstAnchor,
-    preAnchorArchiveIds: null,
-    postAnchorArchiveIds: reorderedPostIds,
+    preAnchorArchiveIds: preItems.length > 0 ? diversify(preItems, startTimeMs) : null,
+    postAnchorArchiveIds: postItems.length > 0 ? diversify(postItems, postBlockStartMs) : null,
     mode: 'short',
     maxDurationSec: null,
     earliestStartMs,
-    reason: 'short-mode-anchor-only',
+    reason: 'anchor',
   };
 }
 
@@ -614,18 +610,16 @@ export async function maxLoopNumber(): Promise<number> {
   return Number(data.loopNumber ?? 0);
 }
 
-// Per-archive recency info: when (UTC seconds-of-day) it last played in the
-// 24h window before `nowMs`. Used by short-mode reorder to land yesterday's
-// repeats at a wall-clock offset of ~8h from yesterday's slot, so a listener
-// tuning in at a given time-of-day doesn't hear the same show two days running.
+// Per-archive recency info: when (UTC seconds-of-day) and wall-clock ms it last
+// played across recent loops. Drives two things: the medium pool pick (stalest
+// half first) and the time-of-day reorder that lands a repeat ~8h off its prior
+// slot so a listener at a given time-of-day doesn't hear the same show twice.
 interface RecentPlay {
   // UTC seconds-of-day of the START of this archive's most-recent prior play.
   // 0–86399. Used modulo 86400 to compute time-of-day offsets.
   todStartSec: number;
-  // Wall-clock ms of that same most-recent prior play. Used by the subset
-  // search's least-recently-played bias: with a small catalog a 24h lookback
-  // is all the signal that matters — anything that played in the last day is
-  // "recent", everything else is fully stale.
+  // Wall-clock ms of that same most-recent prior play. Used to order mediums
+  // stalest-first when picking the half that goes into this loop.
   lastPlayedMs: number;
 }
 
@@ -633,7 +627,11 @@ async function loadRecentPlays(
   db: FirebaseFirestore.Firestore,
   nowMs: number,
 ): Promise<Map<string, RecentPlay>> {
-  const windowStartMs = nowMs - 24 * 3600 * 1000;
+  // Loops now run multiple days, so a fixed 24h window would miss the previous
+  // loop entirely. Look back far enough to capture the last couple of loops
+  // (~4 days), which is what drives the "least-recently-played half of mediums"
+  // rotation and the time-of-day diversity reorder.
+  const windowStartMs = nowMs - 4 * 24 * 3600 * 1000;
   const out = new Map<string, RecentPlay>();
   const snap = await db
     .collection(LOOP_COLLECTION)
@@ -925,6 +923,8 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
     catalogStats: {
       highCount: result.highCount,
       mediumCount: result.mediumCount,
+      placedHighDurationSec: result.placedHighDurationSec,
+      placedMediumDurationSec: result.placedMediumDurationSec,
       interstitialCount: result.interstitialCount,
       alignedAnchorCount: result.alignedAnchorCount,
       missedAnchorCount: result.missedAnchorCount,

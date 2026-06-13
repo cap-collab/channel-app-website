@@ -28,7 +28,7 @@ interface LoopDoc {
   generatedAtMs?: number;
   generatedBy?: 'cron' | 'admin';
   locked?: boolean;
-  catalogStats?: { highCount: number; mediumCount: number; interstitialCount?: number; totalItems: number } | null;
+  catalogStats?: { highCount: number; mediumCount: number; placedHighDurationSec?: number; placedMediumDurationSec?: number; interstitialCount?: number; totalItems: number } | null;
   items?: Array<UIItem>;
 }
 
@@ -37,7 +37,7 @@ interface LoopSummary {
   loopNumber: number;
   startTimeMs: number;
   totalDurationSec: number;
-  catalogStats?: { highCount: number; mediumCount: number; interstitialCount?: number; totalItems: number } | null;
+  catalogStats?: { highCount: number; mediumCount: number; placedHighDurationSec?: number; placedMediumDurationSec?: number; interstitialCount?: number; totalItems: number } | null;
   locked: boolean;
 }
 
@@ -415,8 +415,12 @@ export function ArchiveRadioTab() {
           const isPlaying = l.startTimeMs <= now && now < l.startTimeMs + l.totalDurationSec * 1000;
           const isSelected = selectedLoopNumber === l.loopNumber;
           const stats = l.catalogStats;
+          // Show placed high:medium by TIME so the ~2:1 target is verifiable.
+          const ratioByTime = stats && stats.placedMediumDurationSec
+            ? ` · ${(stats.placedHighDurationSec! / stats.placedMediumDurationSec).toFixed(1)}:1`
+            : '';
           const summary = stats
-            ? `${stats.highCount}H · ${stats.mediumCount}M${stats.interstitialCount ? ` · ${stats.interstitialCount}I` : ''}`
+            ? `${stats.highCount}H · ${stats.mediumCount}M${stats.interstitialCount ? ` · ${stats.interstitialCount}I` : ''}${ratioByTime}`
             : '—';
           return (
             <button

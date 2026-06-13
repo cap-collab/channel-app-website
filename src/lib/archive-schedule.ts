@@ -86,11 +86,10 @@ export interface EligibleArchive {
   djs: { name: string; username?: string; photoUrl?: string }[];
   artworkUrl?: string;
   sceneSlugs?: string[];
-  // Wall-clock ms of this archive's most-recent prior play across recent loops
-  // (long lookback, e.g. 14 days). Undefined = never played in the lookback =
-  // maximally stale = most preferred. Used by the subset search to break ties
-  // among duration-fits in favour of least-recently-played shows, so the whole
-  // catalog rotates evenly over weeks instead of recurring every couple days.
+  // Wall-clock ms of this archive's most-recent prior play across recent loops.
+  // Undefined = never played in the lookback = maximally stale = most preferred.
+  // Used to order mediums stalest-first when picking which half goes into a loop,
+  // so mediums rotate over ~2 loops instead of repeating.
   lastPlayedMs?: number;
 }
 
@@ -310,10 +309,8 @@ export interface BuildLoopOptions {
   archives: EligibleArchive[];
   interstitials?: Interstitial[];   // empty/undefined = no interludes inserted
   rng?: () => number;
-  // 'long' (default): highs play 2× ~half-loop apart, mediums 1×.
-  // 'short': every archive plays 1×, no repeats. Pool is highs ∪ mediums.
-  // Short mode is used when the next cron run will need to start a fresh loop
-  // soon (a 2nd anchor exists), so doubling highs here would waste the slot.
+  // Deprecated/ignored. Every archive now plays once regardless. Kept on the
+  // type so existing callers (generateLoop) compile; remove on a later cleanup.
   mode?: 'long' | 'short';
   // Single anchor (≤1 per loop by cron contract). When provided, an interlude
   // + curated/random archive land at the anchor moment. If preAnchorArchiveIds
@@ -342,8 +339,10 @@ export interface BuildLoopOptions {
 export interface BuildLoopResult {
   items: ScheduleItem[];
   totalDurationSec: number;
-  highCount: number;
-  mediumCount: number;
+  highCount: number;                // # high-priority archives PLACED in the loop
+  mediumCount: number;              // # medium-priority archives PLACED in the loop
+  placedHighDurationSec: number;    // total raw duration of placed highs
+  placedMediumDurationSec: number;  // total raw duration of placed mediums
   interstitialCount: number;        // # interstitials inserted between archives
   alignedAnchorCount: number;       // 1 when first-anchor alignment was applied
   missedAnchorCount: number;        // always 0 with the simplified model
@@ -351,7 +350,7 @@ export interface BuildLoopResult {
 }
 
 // Fisher-Yates shuffle using the supplied rng; returns a new array.
-function shuffle<T>(arr: T[], rng: () => number): T[] {
+export function shuffle<T>(arr: T[], rng: () => number): T[] {
   const out = arr.slice();
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
@@ -421,27 +420,20 @@ function spaceSameDj(items: ScheduleItem[], maxPasses = 2): ScheduleItem[] {
   return out;
 }
 
-// Build a single catalog loop. Each medium archive contributes one
-// ScheduleItem; each high archive contributes two, with the second play placed
-// roughly half-loop after the first. Same-DJ adjacency is reduced by a
-// post-pass swap. Items are written back-to-back; total duration = sum of all
-// included archive durations (high archives counted twice).
+// Build a single catalog loop. Every archive plays once. The cron decides which
+// archives go in (the pool) and their pre/post-anchor ordering via
+// preAnchorArchiveIds / postAnchorArchiveIds; this function lays them into a
+// timeline with interludes between archives and (when an anchor is present)
+// pins the hand-back interlude + curated archive to the anchor slot. Same-DJ
+// adjacency is reduced by a post-pass swap. Items are written back-to-back with
+// a crossfade overlap between each.
 export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   const rng = opts.rng ?? Math.random;
   const warnings: string[] = [];
-  const mode = opts.mode ?? 'long';
-  const highs = opts.archives.filter((a) => a.priority === 'high');
-  const mediums = opts.archives.filter((a) => a.priority === 'medium');
-  const highCount = highs.length;
-  const mediumCount = mediums.length;
-  // Long mode: each high plays twice. Short mode: every archive plays once.
-  const totalEntries = mode === 'short'
-    ? highCount + mediumCount
-    : highCount * 2 + mediumCount;
 
-  if (totalEntries === 0) {
+  if (opts.archives.length === 0) {
     warnings.push('no eligible archives');
-    return { items: [], totalDurationSec: 0, highCount: 0, mediumCount: 0, interstitialCount: 0, alignedAnchorCount: 0, missedAnchorCount: 0, warnings };
+    return { items: [], totalDurationSec: 0, highCount: 0, mediumCount: 0, placedHighDurationSec: 0, placedMediumDurationSec: 0, interstitialCount: 0, alignedAnchorCount: 0, missedAnchorCount: 0, warnings };
   }
 
   const archiveToItem = (a: EligibleArchive, startOffsetSec: number): ScheduleItem => ({
@@ -456,77 +448,13 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     sceneSlugs: a.sceneSlugs,
   });
 
-  // Sequence step 1: shuffle mediums into a base sequence with empty slots
-  // reserved for high plays. We work in entry-space first (no durations yet),
-  // then compute startOffsetSec at the end.
-  const shuffledHighs = shuffle(highs, rng);
-  const shuffledMediums = shuffle(mediums, rng);
+  // Base pool: every archive once, fully shuffled (priority order is
+  // intentionally random — no high/medium spacing). The pre/post-anchor ID
+  // lists below pull their picks out of this pool in their specified order; any
+  // archive not referenced is dropped.
+  let items: ScheduleItem[] = shuffle(opts.archives, rng).map((a) => archiveToItem(a, 0));
 
-  // Build the sequence as an array of EligibleArchive references. Strategy:
-  // 1. Allocate `totalEntries` slots. For each high i, target firstPos = round(i * spacing)
-  //    and secondPos = firstPos + floor(totalEntries / 2), where
-  //    spacing = totalEntries / (highCount * 2). This evenly distributes the
-  //    2*highCount high entries through the loop while keeping each high's
-  //    two plays roughly half-loop apart.
-  // 2. Fill remaining slots with shuffled mediums in order.
-  // 3. Run a same-DJ adjacency pass.
-  const sequence: (EligibleArchive | null)[] = new Array(totalEntries).fill(null);
-
-  // Random phase shift: highs are placed at deterministic slot offsets
-  // (floor(i * spacing)), which means the high/medium rhythm is structurally
-  // identical across runs — only the identity at each slot rotates. Adding a
-  // per-run phase shift rotates the whole pattern so successive regenerations
-  // produce audibly different slot rhythms, not just shuffled archive identities.
-  const phaseShift = Math.floor(rng() * totalEntries);
-  if (highCount > 0 && mode === 'long') {
-    const spacing = totalEntries / (highCount * 2);
-    const halfShift = Math.floor(totalEntries / 2);
-    for (let i = 0; i < highCount; i++) {
-      const high = shuffledHighs[i];
-      let firstPos = (Math.floor(i * spacing) + phaseShift) % totalEntries;
-      let secondPos = (firstPos + halfShift) % totalEntries;
-      // Resolve collisions: if a slot is already taken, walk forward to the
-      // next free slot. This can happen when totalEntries is small and the
-      // computed positions collide.
-      while (sequence[firstPos] !== null) {
-        firstPos = (firstPos + 1) % totalEntries;
-      }
-      sequence[firstPos] = high;
-      while (sequence[secondPos] !== null) {
-        secondPos = (secondPos + 1) % totalEntries;
-      }
-      sequence[secondPos] = high;
-    }
-  } else if (highCount > 0) {
-    // Short mode: each high plays once. Drop them anywhere; the pre/post-anchor
-    // subset pick (decided by the cron) controls actual ordering. We just need
-    // them present in the pool.
-    for (let i = 0; i < highCount; i++) {
-      let pos = (Math.floor(i * (totalEntries / highCount)) + phaseShift) % totalEntries;
-      while (sequence[pos] !== null) {
-        pos = (pos + 1) % totalEntries;
-      }
-      sequence[pos] = shuffledHighs[i];
-    }
-  }
-
-  // Fill remaining slots with mediums in shuffled order.
-  let mediumIdx = 0;
-  for (let i = 0; i < totalEntries; i++) {
-    if (sequence[i] !== null) continue;
-    if (mediumIdx >= shuffledMediums.length) {
-      warnings.push(`ran out of mediums at slot ${i}`);
-      break;
-    }
-    sequence[i] = shuffledMediums[mediumIdx++];
-  }
-
-  // Convert to ScheduleItem[] (offsets recomputed after the spacing pass).
-  let items: ScheduleItem[] = sequence
-    .filter((a): a is EligibleArchive => a !== null)
-    .map((a) => archiveToItem(a, 0));
-
-  // Same-DJ adjacency pass.
+  // Same-DJ adjacency pass (no same DJ back-to-back).
   items = spaceSameDj(items);
 
   // Interlude picker: round-robin through ONE shuffled order. Every interlude
@@ -624,7 +552,8 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   // Assemble with placeholder interludes. Order:
   //   [startInterlude(placeholder), preAnchorItems,
   //    anchorInterlude(placeholder), anchorArchive,
-  //    postAnchorItems (short-mode) OR rest-of-catalog (long-mode)].
+  //    postAnchorItems (when the cron passed an explicit tail) OR
+  //    rest-of-pool (fallback)].
   const assembled: ScheduleItem[] = [];
   const usingInterludes = interstitialPool.length > 0;
   if (usingInterludes) assembled.push(interludePlaceholder());
@@ -766,316 +695,38 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     totalDurationSec += items[i].durationSec - (isLast ? 0 : CROSSFADE_SEC);
   }
 
+  // Count what actually got PLACED (not the input catalog), so callers can
+  // verify the high/medium mix of the real loop. Includes the curated anchor
+  // archive. Durations are raw (pre-crossfade) per priority.
+  const priorityById = new Map(opts.archives.map((a) => [a.id, a.priority] as const));
+  let placedHighCount = 0;
+  let placedMediumCount = 0;
+  let placedHighDurationSec = 0;
+  let placedMediumDurationSec = 0;
+  for (const it of items) {
+    if (it.kind !== 'archive' || !it.archiveId) continue;
+    const p = priorityById.get(it.archiveId);
+    if (p === 'high') {
+      placedHighCount++;
+      placedHighDurationSec += it.durationSec;
+    } else if (p === 'medium') {
+      placedMediumCount++;
+      placedMediumDurationSec += it.durationSec;
+    }
+  }
+
   return {
     items,
     totalDurationSec,
-    highCount,
-    mediumCount,
+    highCount: placedHighCount,
+    mediumCount: placedMediumCount,
+    placedHighDurationSec,
+    placedMediumDurationSec,
     interstitialCount,
     alignedAnchorCount,
     missedAnchorCount: 0,
     warnings,
   };
-}
-
-// Per-archive "repeat cost" used by the subset search to minimize how many
-// recently-played shows it reuses. The catalog is too small to fill a day from
-// only-fresh shows, so the search MUST reuse some — this picks WHICH ones.
-//
-//   cost = 0            → fresh (no lastPlayedMs, i.e. didn't play in the
-//                         lookback). Free to include; we want all of these.
-//   cost ∈ (eps, 1]     → a repeat. More-recently-played = higher cost, so when
-//                         the search is forced to reuse, it reaches for the
-//                         least-recently-played repeat first.
-//
-// Summed across a subset (not averaged) so the search minimizes the TOTAL
-// number/recency of repeats, which is what drives day-over-day variety. A
-// subset of 18 fresh shows has cost 0; one that swaps in a show played an hour
-// ago costs ~1 more than one that swaps in a show played 23h ago.
-function repeatCosts(catalog: EligibleArchive[], nowMs: number): number[] {
-  // Normalize recency over the lookback window the caller stamped from
-  // (24h in practice). most-recent play → cost 1, oldest tracked play → ~eps.
-  let oldest = nowMs;
-  let anyPlayed = false;
-  for (const a of catalog) {
-    if (typeof a.lastPlayedMs === 'number') {
-      anyPlayed = true;
-      if (a.lastPlayedMs < oldest) oldest = a.lastPlayedMs;
-    }
-  }
-  if (!anyPlayed) return catalog.map(() => 0);
-  const span = Math.max(1, nowMs - oldest);
-  return catalog.map((a) => {
-    if (typeof a.lastPlayedMs !== 'number') return 0; // fresh → free
-    const age = Math.min(span, Math.max(0, nowMs - a.lastPlayedMs));
-    // age 0 (just played) → 1; age == span (oldest tracked) → ~0 (but keep a
-    // small floor so any repeat still costs more than a fresh show).
-    return 1 - (age / span) * 0.99;
-  });
-}
-
-// Blend window-fit with the subset's total repeat cost into one score (lower =
-// better). `dist` is |startOrEnd - midpoint| in ms; `halfWindowMs` normalizes
-// it across the landing window. `repeatSum` is the summed repeatCosts of the
-// chosen shows. REPEAT_WEIGHT is large so avoiding a recent repeat dominates
-// landing a few minutes tighter — but window-fit is still a HARD gate (out-of-
-// window subsets are rejected before scoring), so the 1-4am landing is never
-// abandoned, only its sub-window precision is traded for fewer repeats.
-function scoreFit(dist: number, halfWindowMs: number, repeatSum: number): number {
-  const fit = halfWindowMs > 0 ? dist / halfWindowMs : 0;
-  const REPEAT_WEIGHT = 3;
-  return fit + REPEAT_WEIGHT * repeatSum;
-}
-
-// Find a subset of the catalog (and the exact startTime) such that, when the
-// loop plays those archives back-to-back with one interlude interleaved
-// between each pair, the NEXT item after the subset (an interlude) starts
-// exactly at `anchorEndTimeMs`.
-//
-// For each candidate subset S, the cumulative duration up to the post-subset
-// interlude is:
-//   total = sum(durationSec for s in S) + (|S| - 1) * avgInterludeSec
-//   startTime = anchorEndTimeMs - total * 1000
-//
-// A subset is accepted when its computed startTime falls in
-// [windowStartMs, windowEndMs]. Among accepted subsets, the one with startTime
-// closest to the window midpoint is returned.
-//
-// Algorithm: meet-in-the-middle subset enumeration. Catalog is capped at
-// MAX_N entries; each half enumerates 2^h subsets. Since the startTime
-// formula is *linear in the subset's total duration*, we can enumerate both
-// halves independently and combine in O(2^(N/2)) per call.
-export function findStartTimeAndSubset(
-  catalog: EligibleArchive[],
-  avgInterludeSec: number,
-  anchorEndTimeMs: number,
-  windowStartMs: number,
-  windowEndMs: number,
-): { startTimeMs: number; archiveIds: string[] } | null {
-  if (catalog.length === 0) return null;
-  const MAX_N = 36;            // cap subset search; 2^18 each half
-  const n = Math.min(catalog.length, MAX_N);
-  const halfSize = Math.ceil(n / 2);
-  const leftIdx = Array.from({ length: halfSize }, (_, i) => i);
-  const rightIdx = Array.from({ length: n - halfSize }, (_, i) => halfSize + i);
-
-  const midpointMs = (windowStartMs + windowEndMs) / 2;
-  // Per-archive repeat cost (0 = fresh, →1 = recently played). Summed per
-  // subset so the search reuses as few — and as least-recently-played — shows
-  // as the window-fit allows. See repeatCosts/scoreFit.
-  const repeat = repeatCosts(catalog.slice(0, n), windowEndMs);
-
-  type Entry = { sum: number; count: number; mask: number; rep: number };
-  const enumerate = (idxs: number[]): Entry[] => {
-    const out: Entry[] = new Array(1 << idxs.length);
-    const total = 1 << idxs.length;
-    for (let mask = 0; mask < total; mask++) {
-      let sum = 0;
-      let count = 0;
-      let rep = 0;
-      for (let bit = 0; bit < idxs.length; bit++) {
-        if (mask & (1 << bit)) {
-          sum += catalog[idxs[bit]].durationSec;
-          rep += repeat[idxs[bit]];
-          count++;
-        }
-      }
-      out[mask] = { sum, count, mask, rep };
-    }
-    return out;
-  };
-
-  const LS = enumerate(leftIdx);
-  const RS = enumerate(rightIdx);
-
-  // For each combined subset (L, R), compute total = L.sum + R.sum +
-  // (L.count + R.count - 1) * avgInterlude. Check if the implied startTime
-  // is in window. Track the best (closest to midpoint).
-  let bestDist = Number.POSITIVE_INFINITY;
-  let bestL = -1;
-  let bestR = -1;
-  let bestStart = 0;
-  // To prune: for each L, the target R.sum range is determined by the
-  // window constraint, but for simplicity we just iterate all pairs.
-  // ~262k × 262k = 68B is too slow at MAX_N=36. Cap MAX_N lower or sort R by
-  // sum and binary search.
-  // For the actual catalog size (~36), each half is 2^18 ≈ 262k. Iterating
-  // L × R is 68 billion — too slow. Use sorted-R binary search instead.
-  RS.sort((a, b) => a.sum - b.sum);
-  const rSums = RS.map((e) => e.sum);
-
-  // Listener-side crossfade: each transition compresses the schedule by
-  // CROSSFADE_SEC. Every loop starts with an interlude (position 0), then N
-  // pre-anchor archives interleaved with N-1 interludes, then the anchor
-  // interlude. The anchor interlude's startOffsetSec is:
-  //   dur(start_int) + sum(arc) + (N-1) * avg_int - CROSSFADE_SEC * 2N
-  // (2N is the count of transitions before the anchor interlude.)
-  const CROSSFADE_SEC = 5;
-  for (const l of LS) {
-    for (let rCount = 0; rCount <= rightIdx.length; rCount++) {
-      const combinedCount = l.count + rCount; // N = archive count
-      if (combinedCount < 1) continue;
-      const gapAdj = Math.max(0, combinedCount - 1) * avgInterludeSec;
-      const crossfadeAdj = 2 * combinedCount * CROSSFADE_SEC;
-      // Approximate the start-interlude duration as avg (we don't know which
-      // of the pool will be picked at position 0). The two-pass shift in
-      // generateLoop corrects the residual.
-      const startInterludeAdj = avgInterludeSec;
-      const idealRSum = (anchorEndTimeMs - midpointMs) / 1000 - l.sum - gapAdj - startInterludeAdj + crossfadeAdj;
-      let lo = 0;
-      let hi = rSums.length - 1;
-      while (lo < hi) {
-        const mid = (lo + hi) >> 1;
-        if (rSums[mid] < idealRSum) lo = mid + 1;
-        else hi = mid;
-      }
-      for (let k = Math.max(0, lo - 4); k <= Math.min(rSums.length - 1, lo + 4); k++) {
-        const r = RS[k];
-        if (r.count !== rCount) continue;
-        const actualCount = l.count + r.count;
-        const actualGap = Math.max(0, actualCount - 1) * avgInterludeSec;
-        const actualCrossfade = 2 * actualCount * CROSSFADE_SEC;
-        const totalSec = l.sum + r.sum + actualGap + startInterludeAdj - actualCrossfade;
-        const startMs = anchorEndTimeMs - totalSec * 1000;
-        if (startMs < windowStartMs || startMs > windowEndMs) continue;
-        // Combined score: window-fit (hard gate already passed) plus repeat
-        // cost, so among fits that land in the 1-4am window we pick the one
-        // that reuses the fewest / least-recently-played shows.
-        const dist = scoreFit(Math.abs(startMs - midpointMs), midpointMs - windowStartMs, l.rep + r.rep);
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestL = l.mask;
-          bestR = r.mask;
-          bestStart = startMs;
-        }
-      }
-    }
-  }
-
-  if (bestL < 0) return null;
-
-  const archiveIds: string[] = [];
-  for (let bit = 0; bit < leftIdx.length; bit++) {
-    if (bestL & (1 << bit)) archiveIds.push(catalog[leftIdx[bit]].id);
-  }
-  for (let bit = 0; bit < rightIdx.length; bit++) {
-    if (bestR & (1 << bit)) archiveIds.push(catalog[rightIdx[bit]].id);
-  }
-  return { startTimeMs: bestStart, archiveIds };
-}
-
-// Find a subset of the catalog such that, played sequentially after an existing
-// known prefix, the loop's endTimeMs lands in [windowStartMs, windowEndMs].
-//
-// `prefixEndTimeMs` = the wall-clock moment the post-anchor block starts
-// (e.g. anchor.endTimeMs + curatedArchiveDur - crossfade, in ms).
-// `avgInterludeSec` accounts for one interlude between every pair of post-anchor
-// archives (= subset.length - 1 interludes).
-//
-// Caller responsibility: prefix the catalog with archives already used in the
-// pre-anchor block + the curated anchor archive, so we only pick from the
-// remaining pool.
-export function findEndSubset(
-  catalog: EligibleArchive[],
-  avgInterludeSec: number,
-  prefixEndTimeMs: number,
-  windowStartMs: number,
-  windowEndMs: number,
-): { endTimeMs: number; archiveIds: string[] } | null {
-  if (catalog.length === 0) return null;
-  const MAX_N = 36;
-  const n = Math.min(catalog.length, MAX_N);
-  const halfSize = Math.ceil(n / 2);
-  const leftIdx = Array.from({ length: halfSize }, (_, i) => i);
-  const rightIdx = Array.from({ length: n - halfSize }, (_, i) => halfSize + i);
-
-  const midpointMs = (windowStartMs + windowEndMs) / 2;
-  // Per-archive repeat cost — see findStartTimeAndSubset for rationale.
-  const repeat = repeatCosts(catalog.slice(0, n), windowEndMs);
-
-  type Entry = { sum: number; count: number; mask: number; rep: number };
-  const enumerate = (idxs: number[]): Entry[] => {
-    const out: Entry[] = new Array(1 << idxs.length);
-    const total = 1 << idxs.length;
-    for (let mask = 0; mask < total; mask++) {
-      let sum = 0;
-      let count = 0;
-      let rep = 0;
-      for (let bit = 0; bit < idxs.length; bit++) {
-        if (mask & (1 << bit)) {
-          sum += catalog[idxs[bit]].durationSec;
-          rep += repeat[idxs[bit]];
-          count++;
-        }
-      }
-      out[mask] = { sum, count, mask, rep };
-    }
-    return out;
-  };
-
-  const LS = enumerate(leftIdx);
-  const RS = enumerate(rightIdx);
-  RS.sort((a, b) => a.sum - b.sum);
-  const rSums = RS.map((e) => e.sum);
-
-  // Listener-side crossfade: each transition compresses the schedule.
-  // Post-anchor block has N archives with (N-1) interludes between them.
-  // Crossfade count between prefix → first post-anchor archive is already in
-  // the prefix-side calc (caller subtracts it from prefixEndTimeMs). Inside
-  // the post-anchor block, transitions = (2N - 1) for N archives with
-  // (N-1) interleaved interludes.
-  const CROSSFADE_SEC = 5;
-  let bestDist = Number.POSITIVE_INFINITY;
-  let bestL = -1;
-  let bestR = -1;
-  let bestEnd = 0;
-  for (const l of LS) {
-    for (let rCount = 0; rCount <= rightIdx.length; rCount++) {
-      const combinedCount = l.count + rCount;
-      if (combinedCount < 1) continue;
-      const interludeCount = Math.max(0, combinedCount - 1);
-      const gapAdj = interludeCount * avgInterludeSec;
-      const crossfadeAdj = (2 * combinedCount - 1) * CROSSFADE_SEC;
-      const idealRSum = (midpointMs - prefixEndTimeMs) / 1000 - l.sum - gapAdj + crossfadeAdj;
-      let lo = 0;
-      let hi = rSums.length - 1;
-      while (lo < hi) {
-        const mid = (lo + hi) >> 1;
-        if (rSums[mid] < idealRSum) lo = mid + 1;
-        else hi = mid;
-      }
-      for (let k = Math.max(0, lo - 4); k <= Math.min(rSums.length - 1, lo + 4); k++) {
-        const r = RS[k];
-        if (r.count !== rCount) continue;
-        const actualCount = l.count + r.count;
-        const actualInterludeCount = Math.max(0, actualCount - 1);
-        const actualGap = actualInterludeCount * avgInterludeSec;
-        const actualCrossfade = (2 * actualCount - 1) * CROSSFADE_SEC;
-        const totalSec = l.sum + r.sum + actualGap - actualCrossfade;
-        const endMs = prefixEndTimeMs + totalSec * 1000;
-        if (endMs < windowStartMs || endMs > windowEndMs) continue;
-        // Window-fit blended with repeat cost — see findStartTimeAndSubset.
-        const dist = scoreFit(Math.abs(endMs - midpointMs), midpointMs - windowStartMs, l.rep + r.rep);
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestL = l.mask;
-          bestR = r.mask;
-          bestEnd = endMs;
-        }
-      }
-    }
-  }
-
-  if (bestL < 0) return null;
-
-  const archiveIds: string[] = [];
-  for (let bit = 0; bit < leftIdx.length; bit++) {
-    if (bestL & (1 << bit)) archiveIds.push(catalog[leftIdx[bit]].id);
-  }
-  for (let bit = 0; bit < rightIdx.length; bit++) {
-    if (bestR & (1 << bit)) archiveIds.push(catalog[rightIdx[bit]].id);
-  }
-  return { endTimeMs: bestEnd, archiveIds };
 }
 
 // Find the item playing at `nowMs` inside a loop. Returns null when nowMs is
