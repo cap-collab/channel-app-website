@@ -11,7 +11,7 @@ import { HeaderTuner } from "@/components/HeaderTuner";
 import { GlobalBroadcastBar } from "@/components/GlobalBroadcastBar";
 import { FloatingChat } from "@/components/channel/FloatingChat";
 
-type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "my-shows" | "streaming-guide" | "stripe-setup" | "studio" | "archives" | "explore";
+type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "streaming-guide" | "stripe-setup" | "studio" | "archives" | "explore";
 
 interface HeaderProps {
   currentPage?: CurrentPage;

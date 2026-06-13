@@ -12,7 +12,6 @@ export default function robots(): MetadataRoute.Robots {
           '/api/',
           '/internal/',
           '/broadcast/',
-          '/my-shows',
           '/settings',
           '/emailSignIn',
           '/unsubscribe',

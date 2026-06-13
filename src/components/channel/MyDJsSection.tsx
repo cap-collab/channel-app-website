@@ -431,7 +431,7 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
         {timelineItems.map((item) => (
           <Link
             key={item.eventId}
-            href={item.username ? `/dj/${item.username}` : '/my-shows'}
+            href={item.username ? `/dj/${item.username}` : '/'}
             className="flex-shrink-0 flex flex-col items-center gap-2 group"
           >
             {/* Avatar with glowing ring for live/IRL */}

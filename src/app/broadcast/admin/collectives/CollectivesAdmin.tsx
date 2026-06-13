@@ -8,7 +8,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
-import { BroadcastHeader } from '@/components/BroadcastHeader';
+import { Header } from '@/components/Header';
 import { normalizeUrl } from '@/lib/url';
 import { uploadCollectivePhoto, deleteCollectivePhoto, validatePhoto } from '@/lib/photo-upload';
 import { Collective, CollectiveRef, CollectiveVenueRef, Event, EventRef, EventDJRef, Venue, CustomLink } from '@/types/events';
@@ -497,7 +497,7 @@ export function CollectivesAdmin() {
   if (authLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
-        <BroadcastHeader />
+        <Header currentPage="broadcast-admin" position="sticky" />
         <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 60px)' }}>
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
         </div>
@@ -508,7 +508,7 @@ export function CollectivesAdmin() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
-        <BroadcastHeader />
+        <Header currentPage="broadcast-admin" position="sticky" />
         <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 60px)' }}>
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
         </div>
@@ -519,7 +519,7 @@ export function CollectivesAdmin() {
   if (!hasBroadcasterAccess) {
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
-        <BroadcastHeader />
+        <Header currentPage="broadcast-admin" position="sticky" />
         <div className="flex items-center justify-center p-8" style={{ minHeight: 'calc(100vh - 60px)' }}>
           <div className="bg-[#252525] rounded-xl p-8 max-w-md text-center">
             <h1 className="text-xl font-bold text-white mb-2">Access Denied</h1>
@@ -535,7 +535,7 @@ export function CollectivesAdmin() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <BroadcastHeader />
+      <Header currentPage="broadcast-admin" position="sticky" />
       <div className="p-4 md:p-8">
         <div className="max-w-3xl mx-auto">
           {/* Back link */}

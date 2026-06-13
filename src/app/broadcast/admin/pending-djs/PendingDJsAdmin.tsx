@@ -10,7 +10,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
-import { BroadcastHeader } from '@/components/BroadcastHeader';
+import { Header } from '@/components/Header';
 import { normalizeUrl } from '@/lib/url';
 import { uploadPendingDJPhoto, deletePendingDJPhoto, uploadEventPhoto, deleteEventPhoto, validatePhoto } from '@/lib/photo-upload';
 
@@ -955,7 +955,7 @@ Cap`;
   if (authLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
-        <BroadcastHeader />
+        <Header currentPage="broadcast-admin" position="sticky" />
         <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 60px)' }}>
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
         </div>
@@ -967,7 +967,7 @@ Cap`;
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
-        <BroadcastHeader />
+        <Header currentPage="broadcast-admin" position="sticky" />
         <div className="flex items-center justify-center" style={{ minHeight: 'calc(100vh - 60px)' }}>
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
         </div>
@@ -979,7 +979,7 @@ Cap`;
   if (!hasBroadcasterAccess) {
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
-        <BroadcastHeader />
+        <Header currentPage="broadcast-admin" position="sticky" />
         <div className="flex items-center justify-center p-8" style={{ minHeight: 'calc(100vh - 60px)' }}>
           <div className="bg-[#252525] rounded-xl p-8 max-w-md text-center">
             <div className="w-16 h-16 bg-red-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1002,7 +1002,7 @@ Cap`;
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <BroadcastHeader />
+      <Header currentPage="broadcast-admin" position="sticky" />
       <div className="p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
           {/* Back link */}

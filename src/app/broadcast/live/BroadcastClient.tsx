@@ -16,7 +16,7 @@ import { AudioInputMethod, RedChannelChoice } from '@/types/broadcast';
 import { ChannelContentClass } from '@/lib/audio-analysis';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { BroadcastHeader } from '@/components/BroadcastHeader';
+import { Header } from '@/components/Header';
 import { QueuedWaitingScreen } from '@/components/broadcast/QueuedWaitingScreen';
 
 type OnboardingStep = 'profile' | 'audio';
@@ -856,7 +856,7 @@ export function BroadcastClient() {
   if (onboardingStep === 'profile') {
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
-        <BroadcastHeader />
+        <Header currentPage="studio" position="sticky" />
         <div className="flex items-center justify-center p-8 min-h-[calc(100vh-60px)]">
         <DJProfileSetup
           defaultUsername={getDefaultDjName()}
@@ -928,7 +928,7 @@ export function BroadcastClient() {
 
   return (
     <div className="min-h-screen bg-[#1a1a1a] text-white">
-      <BroadcastHeader />
+      <Header currentPage="studio" position="sticky" />
       <div className="p-8">
       <div className="max-w-lg mx-auto">
         {/* Header */}

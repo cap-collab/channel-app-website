@@ -14,7 +14,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { AuthModal } from '@/components/AuthModal';
 import { AudioInputMethod, RedChannelChoice } from '@/types/broadcast';
 import { ChannelContentClass } from '@/lib/audio-analysis';
-import { BroadcastHeader } from '@/components/BroadcastHeader';
+import { Header } from '@/components/Header';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -391,7 +391,7 @@ export function RecordClient() {
   if (setupStep === 'quota') {
     return (
       <>
-        <BroadcastHeader stationName="Record Your Set" />
+        <Header currentPage="studio" position="sticky" />
         <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-8">
           <div className="bg-[#252525] rounded-xl p-8 max-w-md w-full">
             <h1 className="text-2xl font-bold text-white mb-2">Record Your Set</h1>
@@ -457,7 +457,7 @@ export function RecordClient() {
   if (setupStep === 'profile') {
     return (
       <div className="min-h-screen bg-[#1a1a1a]">
-        <BroadcastHeader stationName="Record Your Set" />
+        <Header currentPage="studio" position="sticky" />
         <div className="flex items-center justify-center p-8 min-h-[calc(100vh-60px)]">
           <div className="max-w-md w-full">
             {/* Show name input */}
@@ -509,7 +509,7 @@ export function RecordClient() {
   if (setupStep === 'audio') {
     return (
       <div className="min-h-screen bg-[#1a1a1a] text-white">
-        <BroadcastHeader stationName="Record Your Set" />
+        <Header currentPage="studio" position="sticky" />
         <div className="p-8">
           <div className="max-w-lg mx-auto">
             {/* Header */}
