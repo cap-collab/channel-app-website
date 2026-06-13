@@ -1605,9 +1605,19 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         // the new layout, slide 1 of the carousel is whatever we featured —
         // pin that one to position 3 of the past-shows grid for continuity.
         const heroFirstId = secondHeroArchive?.id ?? heroArchives[0]?.id;
+        // Rank by priority tier first (high above medium), recency as the
+        // tiebreaker within a tier — matching the grid order ChannelClient
+        // computes. 'low'/'hidden' are filtered out upstream but are ranked
+        // anyway so the order stays sane if any slip through.
+        const priorityRank = (p?: string) =>
+          p === 'high' ? 0 : p === 'medium' ? 1 : p === 'low' ? 2 : 3;
         const prefiltered = archives
           .slice()
-          .sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0));
+          .sort((a, b) => {
+            const rank = priorityRank(a.priority) - priorityRank(b.priority);
+            if (rank !== 0) return rank;
+            return (b.recordedAt || 0) - (a.recordedAt || 0);
+          });
 
         // Compute effective scenes per archive once and attach as a tuple list.
         const archivesWithScenes = prefiltered.map((a) => ({
