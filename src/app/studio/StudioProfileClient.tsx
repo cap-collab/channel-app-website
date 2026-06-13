@@ -3752,8 +3752,8 @@ export function StudioProfileClient() {
             onClick={!uploading ? closeUploadModal : undefined}
           />
 
-          {/* Modal */}
-          <div className="relative bg-[#1e1e1e] rounded-xl w-full max-w-md p-6 border border-gray-800">
+          {/* Modal — capped height + scroll so the Upload button is never cut off */}
+          <div className="relative bg-[#1e1e1e] rounded-xl w-full max-w-md p-6 border border-gray-800 max-h-[90vh] overflow-y-auto">
             <h2 className="text-white text-lg font-semibold mb-4">Upload a pre-recording</h2>
 
             {/* Show name input */}
@@ -3769,26 +3769,22 @@ export function StudioProfileClient() {
               />
             </div>
 
-            {/* Tempo / category picker */}
+            {/* Tempo / category picker (optional) */}
             <div className="mb-4">
-              <label className="text-gray-400 text-sm mb-1 block">Tempo</label>
-              <div className="grid grid-cols-2 gap-2">
+              <label className="text-gray-400 text-sm mb-1 block">
+                Tempo <span className="text-gray-600">(optional)</span>
+              </label>
+              <select
+                value={uploadTempo}
+                onChange={(e) => setUploadTempo((e.target.value as Tempo) || '')}
+                disabled={uploading}
+                className="w-full bg-[#252525] text-white rounded px-3 py-2 text-sm border border-gray-700 focus:border-gray-500 focus:outline-none disabled:opacity-50"
+              >
+                <option value="">Select a tempo…</option>
                 {TEMPOS.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setUploadTempo(uploadTempo === t.id ? '' : t.id)}
-                    disabled={uploading}
-                    className={`rounded px-3 py-2 text-sm border transition-colors disabled:opacity-50 ${
-                      uploadTempo === t.id
-                        ? 'bg-white text-black border-white'
-                        : 'bg-[#252525] text-gray-300 border-gray-700 hover:border-gray-500'
-                    }`}
-                  >
-                    {t.label}
-                  </button>
+                  <option key={t.id} value={t.id}>{t.label}</option>
                 ))}
-              </div>
+              </select>
             </div>
 
             {/* File picker */}
