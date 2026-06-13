@@ -233,17 +233,24 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
     return matching.map((g) => g.toUpperCase()).join(' + ');
   }, [getMatchingGenres]);
 
-  // Sort archives chronologically (most recent first). With a genre filter
-  // active, matching archives float to the top, ordered by match count then
-  // recency; unmatched fall to the bottom in recency order.
+  // Sort archives by priority tier first (high above medium), then by recency
+  // within a tier. With a genre filter active, matching archives still float to
+  // the top, but priority breaks ties ahead of recency.
   const { archives, featuredArchive } = useMemo(() => {
     const sourceArchives = rawArchives;
     if (sourceArchives.length === 0) return { archives: sourceArchives, featuredArchive: rawFeaturedArchive };
 
+    // Lower rank = shown higher. 'low'/'hidden' are already filtered out before
+    // they reach here, but rank them anyway so the order stays sane if they do.
+    const priorityRank = (p?: string) =>
+      p === 'high' ? 0 : p === 'medium' ? 1 : p === 'low' ? 2 : 3;
+
     if (selectedGenres.length === 0) {
-      const sorted = [...sourceArchives].sort(
-        (a, b) => (b.recordedAt || 0) - (a.recordedAt || 0)
-      );
+      const sorted = [...sourceArchives].sort((a, b) => {
+        const rank = priorityRank(a.priority) - priorityRank(b.priority);
+        if (rank !== 0) return rank;
+        return (b.recordedAt || 0) - (a.recordedAt || 0);
+      });
       return { archives: sorted, featuredArchive: sorted[0] };
     }
 
@@ -263,6 +270,8 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       const bMatched = b.genreScore > 0 ? 0 : 1;
       if (aMatched !== bMatched) return aMatched - bMatched;
       if (a.genreScore !== b.genreScore) return b.genreScore - a.genreScore;
+      const rank = priorityRank(a.archive.priority) - priorityRank(b.archive.priority);
+      if (rank !== 0) return rank;
       return (b.archive.recordedAt || 0) - (a.archive.recordedAt || 0);
     });
 
