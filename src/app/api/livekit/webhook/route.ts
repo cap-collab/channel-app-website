@@ -424,11 +424,6 @@ export async function POST(request: NextRequest) {
                 archiveDoc.showImageUrl = slotData.showImageUrl;
               }
 
-              // Carry the DJ-entered show vibe from the slot.
-              if (typeof slotData?.showVibe === 'string' && slotData.showVibe.trim()) {
-                archiveDoc.showVibe = slotData.showVibe;
-              }
-
               // Carry the resolved Opus RED decision from the slot, if recorded.
               if (typeof slotData?.redMode === 'string') {
                 archiveDoc.redMode = slotData.redMode;

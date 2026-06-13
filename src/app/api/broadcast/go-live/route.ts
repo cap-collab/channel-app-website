@@ -562,49 +562,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Post the show vibe as a pinned chat message — once per slot. Best-effort:
-    // never fails go-live.
-    try {
-      const vibe = typeof slot.showVibe === 'string' ? slot.showVibe.trim() : '';
-      if (vibe && !slot.vibeMessagePosted) {
-        const liveUsername = typeof updateData.liveDjUsername === 'string'
-          ? updateData.liveDjUsername
-          : undefined;
-        const vibeDjName = liveUsername || slot.djName || djUsername || 'DJ';
-        const djRoom = (liveUsername || djUsername || slot.djUsername || slot.djName || '')
-          .replace(/[\s-]+/g, '')
-          .toLowerCase();
-        const messageData = {
-          username: vibeDjName,
-          message: vibe,
-          timestamp: FieldValue.serverTimestamp(),
-          isDJ: true,
-          messageType: 'vibe',
-          djSlotId: doc.id,
-        };
-        // Post to the DJ room (if resolvable) and to the global broadcast feed.
-        // Store the message doc IDs so an edit can update them in place.
-        const postedIds: Record<string, unknown> = { vibeMessagePosted: true };
-        if (djRoom && djRoom !== 'channelbroadcast') {
-          const djMsg = await db.collection('chats').doc(djRoom).collection('messages').add({
-            ...messageData,
-            stationId: djRoom,
-          });
-          postedIds.vibeMessageRoom = djRoom;
-          postedIds.vibeMessageId = djMsg.id;
-        }
-        const bcMsg = await db.collection('chats').doc('channelbroadcast').collection('messages').add({
-          ...messageData,
-          stationId: 'channelbroadcast',
-        });
-        postedIds.vibeMessageBroadcastId = bcMsg.id;
-        await doc.ref.update(postedIds);
-        console.log('[go-live] ✅ Posted show vibe message');
-      }
-    } catch (vibeError) {
-      console.error('[go-live] Failed to post vibe message (non-fatal):', vibeError);
-    }
-
     return NextResponse.json({
       success: true,
       slotId: doc.id,

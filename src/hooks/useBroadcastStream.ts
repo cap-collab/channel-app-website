@@ -235,7 +235,6 @@ export function useBroadcastStream(
             liveDjGenres: data.liveDjGenres,
             liveDjDescription: data.liveDjDescription,
             showImageUrl: data.showImageUrl,
-            showVibe: data.showVibe,
             // Restream fields
             archiveId: data.archiveId,
             archiveRecordingUrl: data.archiveRecordingUrl,

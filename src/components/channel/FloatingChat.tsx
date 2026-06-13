@@ -11,7 +11,6 @@ import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 import { computeDJChatRoom } from '@/lib/broadcast-utils';
 import { HeroChatMessage } from './LiveBroadcastHero';
-import { VibeBanner } from './VibeBanner';
 import { AuthModal } from '@/components/AuthModal';
 
 export function FloatingChat() {
@@ -138,12 +137,8 @@ export function FloatingChat() {
   })();
   const messageCount = messages.filter(m => m.timestamp >= dailyResetCutoff).length;
 
-  // The show-vibe message is pinned at the top, not shown in the scrolling
-  // feed. Only pin it while a show is live AND the message belongs to the
-  // currently-live slot — otherwise a stale vibe from a past slot lingers.
-  const vibeMessage = (isLive && currentShow?.id
-    ? messages.find(m => m.messageType === 'vibe' && m.djSlotId === currentShow.id)
-    : null) || null;
+  // Legacy show-vibe messages (feature removed) are filtered out of the feed
+  // so any that remain in Firestore from past broadcasts don't surface.
   const feedMessages = messages.filter(m => m.messageType !== 'vibe');
 
   // Auto-scroll chat
@@ -254,13 +249,6 @@ export function FloatingChat() {
               </svg>
             </button>
           </div>
-
-          {/* Pinned show vibe — the vibe message posted at go-live */}
-          {vibeMessage && (
-            <div className="flex-shrink-0">
-              <VibeBanner vibe={vibeMessage.message} djName={vibeMessage.username} />
-            </div>
-          )}
 
           {/* Content */}
           {profileLoading ? (

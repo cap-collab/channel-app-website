@@ -11,7 +11,6 @@ import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { BroadcastSchedule } from './BroadcastSchedule';
 import { FloatingHearts } from './FloatingHearts';
-import { VibeBanner } from './VibeBanner';
 import { TipButton } from './TipButton';
 import { AuthModal } from '@/components/AuthModal';
 import { ChatMessageSerialized } from '@/types/broadcast';
@@ -409,12 +408,8 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
     isArchivePlayback: false,
   });
 
-  // The show-vibe message is pinned at the top, not shown in the scrolling
-  // feed. Only pin it while a show is live AND the message belongs to the
-  // currently-live slot — otherwise a stale vibe from a past slot lingers.
-  const vibeMessage = (isLive && currentShow?.id
-    ? messages.find(m => m.messageType === 'vibe' && m.djSlotId === currentShow.id)
-    : null) || null;
+  // Legacy show-vibe messages (feature removed) are filtered out of the feed
+  // so any that remain in Firestore from past broadcasts don't surface.
   const feedMessages = messages.filter(m => m.messageType !== 'vibe');
 
   const { shows: scheduleShows, loading: scheduleLoading, selectedDate, setSelectedDate } = useBroadcastSchedule({
@@ -843,12 +838,6 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
         {/* Tab Content */}
         {activeTab === 'chat' ? (
           <div className={`flex flex-col ${hasRecentMessages ? 'h-[45dvh] lg:h-[38dvh]' : 'h-[29dvh] lg:h-[23dvh]'}`}>
-            {/* Pinned show vibe — the vibe message posted at go-live */}
-            {vibeMessage && (
-              <div className="flex-shrink-0">
-                <VibeBanner vibe={vibeMessage.message} djName={vibeMessage.username} />
-              </div>
-            )}
             {/* Auth states */}
             {!isAuthenticated ? (
               <div className="flex-1 flex items-center justify-center p-6">

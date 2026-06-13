@@ -6,7 +6,6 @@ import { ChatMessageSerialized } from '@/types/broadcast';
 import { AuthModal } from '@/components/AuthModal';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
 import { TipButton } from '@/components/channel/TipButton';
-import { VibeBanner } from '@/components/channel/VibeBanner';
 
 
 interface DJProfileChatPanelProps {
@@ -321,12 +320,8 @@ export function DJProfileChatPanel({
     onLoveCountChange?.(loveCount);
   }, [loveCount, onLoveCountChange]);
 
-  // The show-vibe message is pinned at the top, not shown in the scrolling
-  // feed. Only pin the vibe for this panel's own broadcast slot — otherwise a
-  // stale vibe from a past slot lingers.
-  const vibeMessage = (broadcastSlotId
-    ? messages.find(m => m.messageType === 'vibe' && m.djSlotId === broadcastSlotId)
-    : null) || null;
+  // Legacy show-vibe messages (feature removed) are filtered out of the feed
+  // so any that remain in Firestore from past broadcasts don't surface.
   const feedMessages = messages.filter(m => m.messageType !== 'vibe');
 
   const [inputValue, setInputValue] = useState('');
@@ -401,13 +396,6 @@ export function DJProfileChatPanel({
 
   return (
     <div className="flex flex-col h-full max-h-[60vh]">
-      {/* Pinned show vibe — the vibe message posted at go-live */}
-      {vibeMessage && (
-        <div className="flex-shrink-0">
-          <VibeBanner vibe={vibeMessage.message} djName={vibeMessage.username} />
-        </div>
-      )}
-
       {/* Error display */}
       {error && (
         <div className="bg-red-900/50 text-red-200 px-4 py-2 text-sm flex-shrink-0">

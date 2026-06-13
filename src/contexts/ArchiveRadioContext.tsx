@@ -271,26 +271,6 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     }
   }, [radio.currentItem?.archiveId]);
 
-  // When the radio rolls to a new archive that has a show vibe, post it to the
-  // channelbroadcast chat. Fire-and-forget — the endpoint dedups across the
-  // many listener browsers via a deterministic message doc ID.
-  const vibePostedForRef = useRef<string | null>(null);
-  useEffect(() => {
-    const id = radio.currentItem?.archiveId;
-    const vibe = currentArchive?.showVibe?.trim();
-    if (!id || !vibe || currentArchive?.id !== id) return;
-    if (vibePostedForRef.current === id) return;
-    vibePostedForRef.current = id;
-    fetch('/api/archive-radio/post-vibe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        archiveId: id,
-        vibe,
-        djName: currentArchive?.djs?.[0]?.name ?? null,
-      }),
-    }).catch(() => {});
-  }, [radio.currentItem?.archiveId, currentArchive]);
   useEffect(() => {
     if (!radio.isPlaying) return;
     const interval = setInterval(() => {
