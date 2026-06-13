@@ -32,6 +32,11 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'firebasestorage.googleapis.com',
       },
+      // R2-backed media CDN (archive covers, recordings, interludes)
+      {
+        protocol: 'https',
+        hostname: 'media.channel-app.com',
+      },
       {
         protocol: 'https',
         hostname: '*.firebasestorage.app',
