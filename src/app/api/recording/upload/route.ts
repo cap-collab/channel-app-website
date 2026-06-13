@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { STATION_ID } from '@/types/broadcast';
 import { generatePresignedUploadUrl, getR2PublicUrl } from '@/lib/r2-upload';
+import { isTempo } from '@/lib/tempo';
 
 // Default recording quota: 122 minutes per month
 const DEFAULT_MAX_SECONDS = 122 * 60; // 7320 seconds
@@ -55,7 +56,10 @@ function getCurrentMonthKey(): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, showName, duration, fileType, fileSize } = await request.json();
+    const { userId, showName, duration, fileType, fileSize, tempo } = await request.json();
+
+    // Tempo is optional, but if provided it must be one of the known values.
+    const tempoValue = isTempo(tempo) ? tempo : null;
 
     // Validate inputs
     if (!userId) {
@@ -196,7 +200,11 @@ export async function POST(request: NextRequest) {
       isPublic: true,
       sourceType: 'recording',
       publishedAt: timestamp,
-      priority: 'low',
+      // Pre-recorded uploads are hidden from public surfaces by default; an
+      // admin can promote them later from the Archives tab.
+      priority: 'hidden',
+      // Artist-selected tempo/category (null if they skipped it)
+      tempo: tempoValue,
       // Upload tracking fields
       uploadStatus: 'uploading',
       uploadFilePath: r2Key,

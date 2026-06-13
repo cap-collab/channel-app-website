@@ -15,6 +15,8 @@ import { normalizeUrl } from "@/lib/url";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEventPhoto, uploadShowImage, deleteShowImage, uploadArchiveImage } from "@/lib/photo-upload";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { getStationById } from "@/lib/stations";
+import { TEMPOS } from "@/lib/tempo";
+import type { Tempo } from "@/types/broadcast";
 import { parseGenresInput, extractInstagramHandle } from "@/lib/genres";
 import { ShareableShowCardStory } from "@/components/studio/ShareableShowCardStory";
 import { Checkbox } from "@/components/Checkbox";
@@ -388,6 +390,7 @@ export function StudioProfileClient() {
   const [detectingDuration, setDetectingDuration] = useState(false);
   const [uploadQuotaRemaining, setUploadQuotaRemaining] = useState<number | null>(null);
   const [uploadTermsConfirmed, setUploadTermsConfirmed] = useState(false);
+  const [uploadTempo, setUploadTempo] = useState<Tempo | ''>('');
   const [uploadImageFile, setUploadImageFile] = useState<File | null>(null);
   const [uploadImagePreview, setUploadImagePreview] = useState<string | null>(null);
   const [uploadImageError, setUploadImageError] = useState<string | null>(null);
@@ -500,6 +503,7 @@ export function StudioProfileClient() {
           duration: uploadDuration,
           fileType: uploadFile.type,
           fileSize: uploadFile.size,
+          tempo: uploadTempo || null,
         }),
       });
 
@@ -590,6 +594,7 @@ export function StudioProfileClient() {
       setUploadProgress(0);
       setUploadError('');
       setUploadTermsConfirmed(false);
+      setUploadTempo('');
       clearUploadImage();
       // Recording will appear automatically via onSnapshot listener
 
@@ -598,7 +603,7 @@ export function StudioProfileClient() {
     } finally {
       setUploading(false);
     }
-  }, [user, uploadFile, uploadDuration, uploadShowName, uploadImageFile, clearUploadImage]);
+  }, [user, uploadFile, uploadDuration, uploadShowName, uploadTempo, uploadImageFile, clearUploadImage]);
 
   // Close upload modal and reset state
   const closeUploadModal = useCallback(() => {
@@ -614,6 +619,7 @@ export function StudioProfileClient() {
     setUploadError('');
     setUploading(false);
     setUploadTermsConfirmed(false);
+    setUploadTempo('');
     clearUploadImage();
   }, [uploading, clearUploadImage]);
 
@@ -3761,6 +3767,28 @@ export function StudioProfileClient() {
                 disabled={uploading}
                 className="w-full bg-[#252525] text-white rounded px-3 py-2 text-sm border border-gray-700 focus:border-gray-500 focus:outline-none disabled:opacity-50"
               />
+            </div>
+
+            {/* Tempo / category picker */}
+            <div className="mb-4">
+              <label className="text-gray-400 text-sm mb-1 block">Tempo</label>
+              <div className="grid grid-cols-2 gap-2">
+                {TEMPOS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setUploadTempo(uploadTempo === t.id ? '' : t.id)}
+                    disabled={uploading}
+                    className={`rounded px-3 py-2 text-sm border transition-colors disabled:opacity-50 ${
+                      uploadTempo === t.id
+                        ? 'bg-white text-black border-white'
+                        : 'bg-[#252525] text-gray-300 border-gray-700 hover:border-gray-500'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* File picker */}
