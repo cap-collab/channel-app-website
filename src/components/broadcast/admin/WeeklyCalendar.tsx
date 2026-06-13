@@ -385,8 +385,10 @@ export function WeeklyCalendar({
         className={`absolute left-1 right-1 ${borderRadius} cursor-pointer overflow-visible transition-all hover:brightness-110 ${getSlotColors()}`}
         style={{ top: `${top}px`, height: `${height}px`, pointerEvents: isResizing ? 'none' : 'auto' }}
       >
-        {/* Top resize handle */}
-        {isFirstSegment && !isPast && onUpdateSlot && (
+        {/* Top resize handle — not for restreams: their duration is fixed by the
+            audio, and resizing snaps to the 30-min grid, which would corrupt the
+            second-accurate start/end. Edit times in the slot modal instead. */}
+        {isFirstSegment && !isPast && !isRestream && onUpdateSlot && (
           <div
             className="absolute -top-1 left-0 right-0 h-3 cursor-ns-resize group z-10"
             onMouseDown={(e) => handleResizeStart(e, slot, 'top')}
@@ -449,8 +451,8 @@ export function WeeklyCalendar({
           )}
         </div>
 
-        {/* Bottom resize handle */}
-        {isLastSegment && !isPast && onUpdateSlot && (
+        {/* Bottom resize handle — disabled for restreams (see top handle note). */}
+        {isLastSegment && !isPast && !isRestream && onUpdateSlot && (
           <div
             className="absolute -bottom-1 left-0 right-0 h-3 cursor-ns-resize group z-10"
             onMouseDown={(e) => handleResizeStart(e, slot, 'bottom')}

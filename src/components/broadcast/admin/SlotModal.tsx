@@ -32,6 +32,9 @@ interface SlotModalProps {
   onDelete?: (slotId: string) => Promise<void>;
   initialStartTime?: Date;
   initialEndTime?: Date;
+  // Full schedule, used by the restream "end right before next slot" toggle to
+  // find the next scheduled slot and back-fit this restream's start.
+  allSlots?: BroadcastSlotSerialized[];
 }
 
 // Individual DJ profile for B3B (with UI state)
@@ -122,6 +125,27 @@ function timestampToDate(ts: number): string {
 function timestampToTime(ts: number): string {
   const d = new Date(ts);
   return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+}
+
+// Human-readable duration: "1h13m" / "47m" / "2h05m".
+function formatDuration(totalSeconds: number): string {
+  const mins = Math.round(totalSeconds / 60);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}m`;
+  return `${h}h${m.toString().padStart(2, '0')}m`;
+}
+
+// Second-accurate clock label, e.g. "9:14:07pm" — shown for restream slots so
+// the admin can see (and trust) that the slot ends to the second, not the
+// 30-min grid the dropdowns are limited to.
+function formatExactClock(ts: number): string {
+  return new Date(ts).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  }).toLowerCase().replace(/\s/g, '');
 }
 
 // Adjust DJ slots to fit within show boundaries (works with full date+time)
@@ -259,6 +283,7 @@ export function SlotModal({
   onDelete,
   initialStartTime,
   initialEndTime,
+  allSlots,
 }: SlotModalProps) {
   const [showName, setShowName] = useState('');
   const [djName, setDjName] = useState('');
@@ -288,6 +313,28 @@ export function SlotModal({
   const [archiveSearchQuery, setArchiveSearchQuery] = useState('');
   const [archiveDateFilter, setArchiveDateFilter] = useState('');
   const [selectedArchive, setSelectedArchive] = useState<Archive | null>(null);
+  // Exact-millisecond restream times. The HH:mm form fields snap to a 30-min
+  // grid and can't express second precision, so for restreams we carry the
+  // true start/end here and let them win at save time. After-live: only the
+  // end is exact (= chosen start + archive duration); start stays null and
+  // comes from the form. Before-live (fitBeforeNext): both are exact, computed
+  // backward from the next slot's start.
+  const [restreamExactEndMs, setRestreamExactEndMs] = useState<number | null>(null);
+  const [restreamExactStartMs, setRestreamExactStartMs] = useState<number | null>(null);
+  // "End right before next slot" toggle — back-fits the start so the audio
+  // ends exactly when the next scheduled slot begins.
+  const [fitBeforeNext, setFitBeforeNext] = useState(false);
+  // The admin's chosen start at the moment they toggled fit-before-next on.
+  // The next-slot search keys off this stable anchor, not the live start field
+  // (which back-fitting overwrites). Null in forward mode.
+  const [fitAnchorMs, setFitAnchorMs] = useState<number | null>(null);
+  // While editing an existing restream we seed restreamExact* from the saved
+  // slot. The timing effect must not clobber those with form-derived values on
+  // hydration (the form start is snapped to the 30-min grid and would corrupt a
+  // second-accurate before-live slot). This holds the archiveId we hydrated; the
+  // effect skips its first recompute for that archive until the admin actually
+  // edits the start, the archive, or the toggle.
+  const hydratedRestreamArchiveIdRef = useRef<string | null>(null);
   // Curated post-live archive (radio-loop alignment). Optional.
   const [postLiveArchive, setPostLiveArchive] = useState<Archive | null>(null);
   const [postLivePickerOpen, setPostLivePickerOpen] = useState(false);
@@ -574,24 +621,136 @@ export function SlotModal({
     return matchesSearch && matchesDate;
   });
 
-  // Handle archive selection — auto-set end time based on duration
+  // Handle archive selection — sets the archive metadata. The exact start/end
+  // and the display HH:mm fields are computed by the effect below (keyed on
+  // start/archive/fitBeforeNext), so picking an archive, changing the start, or
+  // toggling "fit before next" all flow through one place.
   const handleSelectArchive = (archive: Archive) => {
+    // A user-driven archive pick exits hydration so the timing effect recomputes.
+    hydratedRestreamArchiveIdRef.current = null;
     setSelectedArchive(archive);
     setShowName(archive.showName);
     setDjName(archive.djs[0]?.name || '');
     setShowImageUrl(archive.showImageUrl);
-    // Auto-set end time based on archive duration
-    if (startDate && startTime) {
-      const startTs = new Date(`${startDate}T${startTime}`).getTime();
-      const endTs = startTs + archive.duration * 1000;
-      const endDt = new Date(endTs);
-      setEndDate(`${endDt.getFullYear()}-${(endDt.getMonth() + 1).toString().padStart(2, '0')}-${endDt.getDate().toString().padStart(2, '0')}`);
-      setEndTime(snapToHalfHour(`${endDt.getHours().toString().padStart(2, '0')}:${endDt.getMinutes().toString().padStart(2, '0')}`));
-    }
+    // A fresh archive pick defaults to forward-from-start mode; the admin opts
+    // into back-fitting via the toggle.
+    setFitBeforeNext(false);
+    setFitAnchorMs(null);
   };
+
+  // Toggle "end right before next slot". Capture the current start as the
+  // search anchor when turning on so the next-slot lookup stays stable while
+  // we move the start backward.
+  const handleToggleFitBeforeNext = (on: boolean) => {
+    hydratedRestreamArchiveIdRef.current = null;
+    if (on) {
+      const anchor = startDate && startTime ? new Date(`${startDate}T${startTime}`).getTime() : Date.now();
+      setFitAnchorMs(anchor);
+    } else {
+      setFitAnchorMs(null);
+    }
+    setFitBeforeNext(on);
+  };
+
+  // Start-field edits (date or time) also exit hydration and recompute the end.
+  const handleRestreamStartChange = (setter: (v: string) => void, value: string) => {
+    hydratedRestreamArchiveIdRef.current = null;
+    setter(value);
+  };
+
+  // Find the earliest scheduled/live slot that starts strictly after `afterMs`,
+  // excluding the slot currently being edited. Any broadcastType counts — the
+  // restream butts up against whatever comes next on the schedule.
+  const findNextSlot = (afterMs: number): BroadcastSlotSerialized | null => {
+    if (!allSlots || allSlots.length === 0) return null;
+    let best: BroadcastSlotSerialized | null = null;
+    for (const s of allSlots) {
+      if (slot && s.id === slot.id) continue;
+      if (s.status !== 'scheduled' && s.status !== 'live') continue;
+      if (s.startTime <= afterMs) continue;
+      if (!best || s.startTime < best.startTime) best = s;
+    }
+    return best;
+  };
+
+  // The next slot to fit before. Computed from `fitAnchorMs` — the admin's
+  // chosen start captured when the toggle turns on — NOT from the live
+  // startDate/startTime, which back-fitting overwrites (using the form value
+  // would let the search drift to an earlier slot after we move the start).
+  // In forward mode, fitAnchorMs is null and we search from the current start.
+  const formStartMs = startDate && startTime ? new Date(`${startDate}T${startTime}`).getTime() : null;
+  const nextSearchFromMs = fitBeforeNext ? fitAnchorMs : formStartMs;
+  const nextSlot = nextSearchFromMs != null ? findNextSlot(nextSearchFromMs) : null;
+
+  // Keep the exact restream times (and the display HH:mm fields) in sync with
+  // the chosen start, selected archive, and the fit-before-next toggle. This is
+  // the single source of truth for restream timing; handleSave reads the
+  // restreamExact* state, the form fields are display-only for restreams.
+  useEffect(() => {
+    if (modalTab !== 'archives' || !selectedArchive || !startDate || !startTime) return;
+    // Hydrating an existing restream: keep the seeded second-accurate values
+    // (the form start is grid-snapped and would corrupt them). Cleared the
+    // moment the admin edits the start, swaps the archive, or flips the toggle.
+    if (hydratedRestreamArchiveIdRef.current === selectedArchive.id) return;
+    const durationMs = selectedArchive.duration * 1000;
+
+    if (fitBeforeNext && nextSlot) {
+      // Back-fit: audio ends exactly when the next slot starts.
+      const endMs = nextSlot.startTime;
+      const startMs = endMs - durationMs;
+      setRestreamExactStartMs(startMs);
+      setRestreamExactEndMs(endMs);
+      setStartDate(timestampToDate(startMs));
+      setStartTime(snapToHalfHour(timestampToTime(startMs)));
+      setEndDate(timestampToDate(endMs));
+      setEndTime(snapToHalfHour(timestampToTime(endMs)));
+    } else {
+      // Forward: end = chosen start + exact duration. Start comes from the form.
+      const startMs = new Date(`${startDate}T${startTime}`).getTime();
+      const endMs = startMs + durationMs;
+      setRestreamExactStartMs(null);
+      setRestreamExactEndMs(endMs);
+      setEndDate(timestampToDate(endMs));
+      setEndTime(snapToHalfHour(timestampToTime(endMs)));
+    }
+    // nextSlot.startTime is the only object-derived dep; the rest are primitives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalTab, selectedArchive, startDate, startTime, fitBeforeNext, nextSlot?.startTime]);
+
+  // Non-blocking warning for back-fit: the archive may be too long to fit
+  // before the next slot — it would start in the past, or overlap the slot
+  // immediately before it. We warn but still allow saving (admin's call).
+  const fitWarning: string | null = (() => {
+    if (!fitBeforeNext || !nextSlot || !selectedArchive || restreamExactStartMs == null) return null;
+    const startMs = restreamExactStartMs;
+    if (startMs < Date.now()) {
+      return `This ${formatDuration(selectedArchive.duration)} archive would have to start at ${formatExactClock(startMs)} to end when "${nextSlot.showName}" begins — that's in the past.`;
+    }
+    // Latest end of any slot that finishes at/before the next slot's start
+    // (i.e. could sit immediately before this restream).
+    let prevEndMs = 0;
+    let prevName = '';
+    for (const s of allSlots ?? []) {
+      if (slot && s.id === slot.id) continue;
+      if (s.id === nextSlot.id) continue;
+      if (s.status !== 'scheduled' && s.status !== 'live') continue;
+      if (s.endTime <= nextSlot.startTime && s.endTime > prevEndMs) {
+        prevEndMs = s.endTime;
+        prevName = s.showName;
+      }
+    }
+    if (prevEndMs > startMs) {
+      return `This ${formatDuration(selectedArchive.duration)} archive would start at ${formatExactClock(startMs)}, overlapping "${prevName}" (ends ${formatExactClock(prevEndMs)}).`;
+    }
+    return null;
+  })();
 
   // Check if this is an overnight show
   const isOvernight = startDate && endDate && endDate > startDate;
+
+  // A restream slot with an archive chosen — drives the exact-time read-only
+  // fields and the "end right before next slot" toggle.
+  const isRestreamSelected = modalTab === 'archives' && !!selectedArchive;
 
   // Helper to format date as YYYY-MM-DD in local timezone
   const formatLocalDate = (date: Date): string => {
@@ -608,6 +767,13 @@ export function SlotModal({
       setArchiveSearchQuery('');
       setArchiveDateFilter('');
       setSelectedArchive(null);
+      // Reset restream exact-time state; the edit branch below re-seeds it for
+      // an existing restream.
+      setRestreamExactStartMs(null);
+      setRestreamExactEndMs(null);
+      setFitBeforeNext(false);
+      setFitAnchorMs(null);
+      hydratedRestreamArchiveIdRef.current = null;
 
       if (slot) {
         // Default to archives tab when editing a restream
@@ -627,6 +793,21 @@ export function SlotModal({
         setStartTime(snapToHalfHour(start.toTimeString().slice(0, 5)));
         setEndTime(snapToHalfHour(end.toTimeString().slice(0, 5)));
         setBroadcastType(slot.broadcastType || 'remote');
+        // Restream: seed the second-accurate start/end from the saved slot so a
+        // no-change re-save is a no-op (the snapped HH:mm fields above are
+        // display-only). hydratedRestreamArchiveIdRef guards the timing effect
+        // from overwriting these once the archive auto-selects.
+        if (isRestream) {
+          setRestreamExactStartMs(slot.startTime);
+          setRestreamExactEndMs(slot.endTime);
+          hydratedRestreamArchiveIdRef.current = slot.archiveId ?? null;
+        } else {
+          setRestreamExactStartMs(null);
+          setRestreamExactEndMs(null);
+          hydratedRestreamArchiveIdRef.current = null;
+        }
+        setFitBeforeNext(false);
+        setFitAnchorMs(null);
 
         // Convert DJ slots to local format with dates and profile fields
         if (slot.djSlots && slot.djSlots.length > 0) {
@@ -807,6 +988,14 @@ export function SlotModal({
       const startDateTime = new Date(`${startDate}T${startTime}`).getTime();
       const endDateTime = new Date(`${endDate}T${endTime}`).getTime();
 
+      // Restreams carry second-accurate start/end that the 30-min HH:mm fields
+      // can't express, so the exact values win. After-live: only the end is
+      // exact (start comes from the form). Before-live (fitBeforeNext): both
+      // are exact, back-fitted from the next slot's start.
+      const isRestream = modalTab === 'archives' && !!selectedArchive;
+      const finalStartMs = isRestream && restreamExactStartMs != null ? restreamExactStartMs : startDateTime;
+      const finalEndMs = isRestream && restreamExactEndMs != null ? restreamExactEndMs : endDateTime;
+
       // For venue broadcasts with DJ slots, ensure full coverage before saving
       let slotsToSave = djSlots;
       if (broadcastType === 'venue' && djSlots.length > 0) {
@@ -858,8 +1047,8 @@ export function SlotModal({
         djName: modalTab === 'archives' ? (selectedArchive?.djs[0]?.name || djName || undefined) : (broadcastType === 'remote' ? (djName || undefined) : undefined),
         djEmail: modalTab === 'archives' ? (selectedArchive?.djs[0]?.email || undefined) : (djEmail || undefined),
         djSlots: convertedDjSlots,
-        startTime: startDateTime,
-        endTime: endDateTime,
+        startTime: finalStartMs,
+        endTime: finalEndMs,
         broadcastType: modalTab === 'archives' ? 'restream' : broadcastType,
         showImageUrl,
         // Empty string clears any previous curation; non-empty sets it. The
@@ -1430,47 +1619,98 @@ Cap`;
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => handleRestreamStartChange(setStartDate, e.target.value)}
                   className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
                 />
               </div>
               <div>
                 <label className="block text-sm text-gray-400 mb-1">End Date *</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate}
-                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
-                />
+                {isRestreamSelected ? (
+                  // Determined by start + exact duration — read-only for restreams.
+                  <div className="w-full bg-black/60 text-gray-300 border border-gray-800 rounded-lg px-3 py-2">
+                    {endDate ? new Date(`${endDate}T00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—'}
+                  </div>
+                ) : (
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    min={startDate}
+                    className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+                  />
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Start Time *</label>
-                <select
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
-                >
-                  {TIME_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+                {isRestreamSelected && fitBeforeNext ? (
+                  // Back-fitted from the next slot — read-only, second-accurate.
+                  <div className="w-full bg-black/60 text-gray-300 border border-gray-800 rounded-lg px-3 py-2">
+                    {restreamExactStartMs != null ? formatExactClock(restreamExactStartMs) : '—'}
+                  </div>
+                ) : (
+                  <select
+                    value={startTime}
+                    onChange={(e) => handleRestreamStartChange(setStartTime, e.target.value)}
+                    className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+                  >
+                    {TIME_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div>
                 <label className="block text-sm text-gray-400 mb-1">End Time *</label>
-                <select
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
-                >
-                  {TIME_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+                {isRestreamSelected ? (
+                  // Restream end is fully determined by start + exact archive
+                  // duration (or = the next slot's start when back-fitting), so
+                  // it's read-only and shown to the second.
+                  <div className="w-full bg-black/60 text-gray-300 border border-gray-800 rounded-lg px-3 py-2">
+                    {restreamExactEndMs != null ? formatExactClock(restreamExactEndMs) : '—'}
+                  </div>
+                ) : (
+                  <select
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full bg-black text-white border border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-500"
+                  >
+                    {TIME_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
+
+            {/* Restream: end-right-before-next-slot toggle */}
+            {isRestreamSelected && (
+              <div className="bg-black/50 border border-gray-700 rounded-lg p-3 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={fitBeforeNext}
+                    disabled={!nextSlot}
+                    onChange={(e) => handleToggleFitBeforeNext(e.target.checked)}
+                    className="accent-accent w-4 h-4"
+                  />
+                  <span className="text-sm text-gray-200">End right before next slot</span>
+                </label>
+                {nextSlot ? (
+                  <p className="text-gray-400 text-xs">
+                    {fitBeforeNext
+                      ? `Starts ${restreamExactStartMs != null ? formatExactClock(restreamExactStartMs) : ''} so the audio ends right as "${nextSlot.showName}" begins (${formatExactClock(nextSlot.startTime)}).`
+                      : `Next slot: "${nextSlot.showName}" at ${formatExactClock(nextSlot.startTime)}. Turn on to back-fit the start.`}
+                  </p>
+                ) : (
+                  <p className="text-gray-500 text-xs">No upcoming slot to fit before.</p>
+                )}
+                {fitWarning && (
+                  <p className="text-amber-400 text-xs">{fitWarning}</p>
+                )}
+              </div>
+            )}
 
             {/* Overnight indicator */}
             {isOvernight && (

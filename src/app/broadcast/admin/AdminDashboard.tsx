@@ -502,6 +502,7 @@ export function AdminDashboard() {
         onDelete={handleDeleteSlot}
         initialStartTime={newSlotTimes?.start}
         initialEndTime={newSlotTimes?.end}
+        allSlots={slots}
       />
     </div>
   );
