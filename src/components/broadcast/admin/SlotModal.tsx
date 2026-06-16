@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { BroadcastSlotSerialized, BroadcastType, DJSlot, DJProfileInfo, Recording, Archive, ArchiveDJ } from '@/types/broadcast';
 import { uploadShowImage, validatePhoto } from '@/lib/photo-upload';
+import { priorityIsHigh } from '@/lib/archive-priority';
 
 type SlotModalTab = 'new-show' | 'archives';
 
@@ -2111,7 +2112,7 @@ Cap`;
                 />
                 <div className="max-h-56 overflow-y-auto">
                   {archives
-                    .filter((a) => a.priority === 'high' && a.duration >= 1800)
+                    .filter((a) => priorityIsHigh(a.priority) && a.duration >= 1800)
                     .filter((a) => {
                       if (!postLiveSearchQuery) return true;
                       const q = postLiveSearchQuery.toLowerCase();
