@@ -6,6 +6,7 @@ import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestor
 import { db } from '@/lib/firebase';
 import { ArchiveSerialized } from '@/types/broadcast';
 import { LOOP_COLLECTION } from '@/lib/archive-schedule';
+import { priorityIsLoopEligible } from '@/lib/archive-priority';
 
 // A single editable item in the loop. Mirrors ScheduleItem but only the fields
 // the admin UI needs to show/save.
@@ -100,7 +101,7 @@ function ArchivePicker({ archives, onPick, onClose }: ArchivePickerProps) {
             className="w-full bg-black/60 border border-white/15 px-3 py-2 text-white placeholder-zinc-500"
           />
           <p className="text-xs text-zinc-500 mt-2">
-            {filtered.length} of {archives.length} archives · high + medium priority only
+            {filtered.length} of {archives.length} archives · featured + high + medium priority only
           </p>
         </div>
         <div className="overflow-y-auto flex-1">
@@ -212,8 +213,8 @@ export function ArchiveRadioTab() {
         const all: ArchiveSerialized[] = data.archives ?? [];
         const eligible = all.filter((a) => {
           if (!a.recordingUrl || !(a.duration && a.duration >= 30 * 60)) return false;
-          const p = a.priority || 'medium';
-          return p === 'high' || p === 'medium';
+          // Featured + high + medium are loop-eligible (featured behaves as high).
+          return priorityIsLoopEligible(a.priority);
         });
         setArchives(eligible);
       })

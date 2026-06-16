@@ -30,6 +30,7 @@ import { useGoLiveMutes } from '@/hooks/useGoLiveMutes';
 import { useCollectivePhotos } from '@/hooks/useCollectivePhotos';
 import { matchesCity, SUPPORTED_CITIES } from '@/lib/city-detection';
 import { GENRE_ALIASES, SUPPORTED_GENRES, matchesGenre as matchesGenreLib } from '@/lib/genres';
+import { priorityRank } from '@/lib/archive-priority';
 
 type MatchedItem =
   | { type: 'irl'; data: IRLShowData; matchLabel: string | undefined }
@@ -233,17 +234,12 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
     return matching.map((g) => g.toUpperCase()).join(' + ');
   }, [getMatchingGenres]);
 
-  // Sort archives by priority tier first (high above medium), then by recency
-  // within a tier. With a genre filter active, matching archives still float to
-  // the top, but priority breaks ties ahead of recency.
+  // Sort archives by priority tier first (featured above high above medium),
+  // then by recency within a tier. With a genre filter active, matching archives
+  // still float to the top, but priority breaks ties ahead of recency.
   const { archives, featuredArchive } = useMemo(() => {
     const sourceArchives = rawArchives;
     if (sourceArchives.length === 0) return { archives: sourceArchives, featuredArchive: rawFeaturedArchive };
-
-    // Lower rank = shown higher. 'low'/'hidden' are already filtered out before
-    // they reach here, but rank them anyway so the order stays sane if they do.
-    const priorityRank = (p?: string) =>
-      p === 'high' ? 0 : p === 'medium' ? 1 : p === 'low' ? 2 : 3;
 
     if (selectedGenres.length === 0) {
       const sorted = [...sourceArchives].sort((a, b) => {

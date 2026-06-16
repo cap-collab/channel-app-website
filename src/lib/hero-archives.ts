@@ -97,16 +97,17 @@ async function resolveCurrentRadioArchiveId(
   }
 }
 
-// Server-side fetch for the hero carousel. Returns the high-priority archives
-// the page seeds with, plus pre-resolved spiral / star picks so those slides
-// can render on first paint instead of waiting for client-side scene data.
+// Server-side fetch for the hero carousel. Returns the featured + high-priority
+// archives the page seeds with, plus pre-resolved spiral / star picks so those
+// slides can render on first paint instead of waiting for client-side scene data.
 export async function getHeroArchives(): Promise<HeroSeed> {
   const db = getAdminDb();
   if (!db) return { archives: [], preferredHero: { spiral: null, star: null }, currentRadioArchiveId: null };
 
   try {
     const [archivesSnap, usersSnap, currentRadioArchiveId] = await Promise.all([
-      db.collection('archives').where('priority', '==', 'high').get(),
+      // 'featured' is treated like 'high' for the hero seed pool.
+      db.collection('archives').where('priority', 'in', ['featured', 'high']).get(),
       db.collection('users').where('role', 'in', ['dj', 'broadcaster', 'admin']).get(),
       resolveCurrentRadioArchiveId(db),
     ]);
@@ -185,8 +186,8 @@ export async function getHeroArchives(): Promise<HeroSeed> {
     // Make sure the currently-playing radio archive is in the seed list, so
     // slide 0 can render its image on first paint. The loop builder accepts
     // medium-priority archives too, so the radio item may not be in `archives`
-    // (which is filtered to high-priority + 45-min+ duration). Fetch the doc
-    // directly when missing.
+    // (which is filtered to featured/high-priority + 45-min+ duration). Fetch the
+    // doc directly when missing.
     let resolvedRadioId = currentRadioArchiveId;
     if (currentRadioArchiveId && !seedList.some((a) => a.id === currentRadioArchiveId)) {
       try {

@@ -22,6 +22,7 @@ import { DancingBars } from './DancingBars';
 import { AuthModal } from '@/components/AuthModal';
 import { ArchiveSerialized, type Tempo } from '@/types/broadcast';
 import { TEMPOS, tempoLabel } from '@/lib/tempo';
+import { priorityIsHigh, priorityIsFeatured, priorityRank } from '@/lib/archive-priority';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 
 function formatTime(seconds: number): string {
@@ -456,7 +457,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         return false;
       };
       const primary = all.filter(
-        (a) => a.id !== ended.id && a.priority === 'high' && sharesScene(a)
+        (a) => a.id !== ended.id && priorityIsHigh(a.priority) && sharesScene(a)
       );
       const pool = primary.length > 0 ? primary : all.filter((a) => a.id !== ended.id);
       if (pool.length === 0) return;
@@ -508,7 +509,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       !filteringActive ||
       resolveArchiveScenes(a, djSceneMap).some((id) => sceneFilter.has(id));
 
-    const high = archives.filter(a => a.priority === 'high' && inScene(a));
+    const high = archives.filter(a => priorityIsHigh(a.priority) && inScene(a));
     // Cap eligible archives per scene to the most recent 5 by recordedAt, so
     // the hero rotates through current shows rather than the full back catalog.
     const PER_SCENE_LIMIT = 5;
@@ -596,7 +597,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       : radioIsStar && !radioIsSpiral ? 'spiral'
       : null;
 
-    // Full pool: high-priority archives, exclude:
+    // Full pool: featured + high-priority archives, exclude:
     //   - the radio's own archive id (so slide 1 is never a literal
     //     duplicate of slide 0).
     //   - any archive whose primary DJ matches the radio's primary DJ
@@ -605,7 +606,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     const PER_SCENE_LIMIT = 5;
     const radioPrimaryDjUsername = radioArchive?.djs?.[0]?.username?.toLowerCase().trim() || null;
     const pool = archives.filter((a) => {
-      if (a.priority !== 'high') return false;
+      if (!priorityIsHigh(a.priority)) return false;
       if (radioCurrentArchiveId && a.id === radioCurrentArchiveId) return false;
       if (radioPrimaryDjUsername) {
         const aPrimary = a.djs?.[0]?.username?.toLowerCase().trim();
@@ -1593,12 +1594,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         // the new layout, slide 1 of the carousel is whatever we featured —
         // pin that one to position 3 of the past-shows grid for continuity.
         const heroFirstId = secondHeroArchive?.id ?? heroArchives[0]?.id;
-        // Rank by priority tier first (high above medium), recency as the
-        // tiebreaker within a tier — matching the grid order ChannelClient
-        // computes. 'low'/'hidden' are filtered out upstream but are ranked
-        // anyway so the order stays sane if any slip through.
-        const priorityRank = (p?: string) =>
-          p === 'high' ? 0 : p === 'medium' ? 1 : p === 'low' ? 2 : 3;
+        // Rank by priority tier first (featured above high above medium),
+        // recency as the tiebreaker within a tier — matching the grid order
+        // ChannelClient computes. 'low'/'hidden' are filtered out upstream but
+        // are ranked anyway so the order stays sane if any slip through.
         const prefiltered = archives
           .slice()
           .sort((a, b) => {
@@ -1654,86 +1653,122 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           ? sceneFiltered.filter(({ archive }) => archive.tempo && tempoFilter.has(archive.tempo))
           : sceneFiltered;
 
-        // Move hero first to position 3 (only when neither filter is active, so the
-        // curated order is preserved).
+        // Split into the dedicated "Featured" section (featured tier only) and
+        // the "Archives" section (everything else). Featured archives appear in
+        // the Featured section ONLY — not duplicated below. Both lists are
+        // already scene- + tempo-filtered, so the chips drive both sections.
+        const featuredList = filteredArchives.filter(({ archive }) => priorityIsFeatured(archive.priority));
+        const nonFeatured = filteredArchives.filter(({ archive }) => !priorityIsFeatured(archive.priority));
+
+        // Move hero first to position 3 of the Archives grid (only when neither
+        // filter is active, so the curated order is preserved). The pin runs on
+        // the non-featured list since featured items live in their own section.
         const anyFilteringActive = filteringActive || tempoFilteringActive;
-        const heroItem = heroFirstId ? filteredArchives.find((x) => x.archive.id === heroFirstId) : null;
+        const heroItem = heroFirstId ? nonFeatured.find((x) => x.archive.id === heroFirstId) : null;
         const ordered = heroItem && !anyFilteringActive
           ? (() => {
-              const rest = filteredArchives.filter((x) => x.archive.id !== heroFirstId);
+              const rest = nonFeatured.filter((x) => x.archive.id !== heroFirstId);
               return [...rest.slice(0, 2), heroItem, ...rest.slice(2)];
             })()
-          : filteredArchives;
+          : nonFeatured;
+
+        // Filter chips (scene glyphs + tempo dropdown). Rendered once — in the
+        // Featured header when a Featured section exists, otherwise in the
+        // Archives header — so the filters are always reachable but never doubled.
+        const filterChips =
+          (availableScenes.length > 0 || availableTempos.length > 0) ? (
+            <div className="flex flex-wrap items-center justify-end gap-1 md:gap-2 shrink-0">
+              {availableScenes.map((s) => {
+                // Empty selection means "show everything" (same behavior as all
+                // selected), so render all chips active in both cases.
+                const active = noneSelected || sceneFilter.has(s.id);
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => toggleSceneFilter(s.id)}
+                    title={s.name}
+                    aria-label={`Filter by ${s.name}`}
+                    className={`w-[27px] h-[27px] flex items-center justify-center transition-colors ${
+                      active
+                        ? 'bg-white text-black'
+                        : 'bg-transparent text-white/30 hover:text-white/60'
+                    }`}
+                  >
+                    <SceneGlyph slug={s.id} className="!w-5 !h-5" />
+                  </button>
+                );
+              })}
+              {availableTempos.length > 0 && (
+                <TempoFilterDropdown
+                  tempos={availableTempos}
+                  tempoFilter={tempoFilter}
+                  noneSelected={noTempoSelected}
+                  onToggle={toggleTempoFilter}
+                />
+              )}
+            </div>
+          ) : null;
+
+        // Card-grid renderer shared by both sections.
+        const renderGrid = (items: typeof filteredArchives) => (
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mx-auto ${homepage ? 'max-w-[90%]' : ''}`}>
+            {items.map(({ archive, sceneIds }) => (
+              <ArchiveGridCard
+                key={archive.id}
+                archive={archive}
+                isActive={archivePlayer.currentArchive?.id === archive.id}
+                isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
+                sceneChips={sceneIds
+                  .map((id) => scenesById.get(id))
+                  .filter((s): s is NonNullable<typeof s> => Boolean(s))
+                  .map((s) => ({ slug: s.id, name: s.name, emoji: s.emoji }))}
+                onPlay={() => {
+                  if (archivePlayer.currentArchive?.id === archive.id && archivePlayer.isPlaying) {
+                    archivePlayer.pause();
+                  } else {
+                    setUserSelectedMode('archive');
+                    playArchive(archive);
+                    // Snap the carousel to slide 1 — that's where the
+                    // listener-played archive renders. Without this the
+                    // listener stays on slide 0 (radio/live) while their
+                    // archive is what's actually playing.
+                    setHeroIndex(1);
+                  }
+                }}
+              />
+            ))}
+          </div>
+        );
+
+        const hasFeatured = featuredList.length > 0;
 
         return (
           <div className="mt-6 max-w-7xl mx-auto">
+            {/* Featured section — featured-tier archives only. Chips live here
+                when present so they sit at the top of the archive area. */}
+            {hasFeatured && (
+              <div className="mb-10">
+                <div className="mb-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-2xl md:text-3xl font-semibold">Featured</h2>
+                    {filterChips}
+                  </div>
+                  <p className="text-sm md:text-base text-zinc-400 mt-1">Hand-picked shows from the catalog</p>
+                </div>
+                {renderGrid(featuredList)}
+              </div>
+            )}
+
+            {/* Archives section — everything except featured. */}
             <div className="mb-4">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-2xl md:text-3xl font-semibold">Archives</h2>
-                {(availableScenes.length > 0 || availableTempos.length > 0) && (
-                  <div className="flex flex-wrap items-center justify-end gap-1 md:gap-2 shrink-0">
-                    {availableScenes.map((s) => {
-                      // Empty selection means "show everything" (same behavior as all
-                      // selected), so render all chips active in both cases.
-                      const active = noneSelected || sceneFilter.has(s.id);
-                      return (
-                        <button
-                          key={s.id}
-                          onClick={() => toggleSceneFilter(s.id)}
-                          title={s.name}
-                          aria-label={`Filter by ${s.name}`}
-                          className={`w-[27px] h-[27px] flex items-center justify-center transition-colors ${
-                            active
-                              ? 'bg-white text-black'
-                              : 'bg-transparent text-white/30 hover:text-white/60'
-                          }`}
-                        >
-                          <SceneGlyph slug={s.id} className="!w-5 !h-5" />
-                        </button>
-                      );
-                    })}
-                    {availableTempos.length > 0 && (
-                      <TempoFilterDropdown
-                        tempos={availableTempos}
-                        tempoFilter={tempoFilter}
-                        noneSelected={noTempoSelected}
-                        onToggle={toggleTempoFilter}
-                      />
-                    )}
-                  </div>
-                )}
+                {/* When a Featured section is showing it already holds the chips. */}
+                {hasFeatured ? null : filterChips}
               </div>
               <p className="text-sm md:text-base text-zinc-400 mt-1">Intentional shows by DJs and producers</p>
             </div>
-
-            {/* Card list — full width mobile, 2 cols desktop */}
-            <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mx-auto ${homepage ? 'max-w-[90%]' : ''}`}>
-              {ordered.map(({ archive, sceneIds }) => (
-                <ArchiveGridCard
-                  key={archive.id}
-                  archive={archive}
-                  isActive={archivePlayer.currentArchive?.id === archive.id}
-                  isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
-                  sceneChips={sceneIds
-                    .map((id) => scenesById.get(id))
-                    .filter((s): s is NonNullable<typeof s> => Boolean(s))
-                    .map((s) => ({ slug: s.id, name: s.name, emoji: s.emoji }))}
-                  onPlay={() => {
-                    if (archivePlayer.currentArchive?.id === archive.id && archivePlayer.isPlaying) {
-                      archivePlayer.pause();
-                    } else {
-                      setUserSelectedMode('archive');
-                      playArchive(archive);
-                      // Snap the carousel to slide 1 — that's where the
-                      // listener-played archive renders. Without this the
-                      // listener stays on slide 0 (radio/live) while their
-                      // archive is what's actually playing.
-                      setHeroIndex(1);
-                    }
-                  }}
-                />
-              ))}
-            </div>
+            {renderGrid(ordered)}
           </div>
         );
       })()}

@@ -26,8 +26,10 @@ type FilterSource = 'all' | 'live' | 'recording';
 type FilterPriority = 'all' | ArchivePriority;
 type SortBy = 'date' | 'duration' | 'streams' | 'priority';
 
-const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2, hidden: 3 };
+const PRIORITY_ORDER: Record<string, number> = { featured: 0, high: 1, medium: 2, low: 3, hidden: 4 };
 const PRIORITY_COLORS: Record<string, string> = {
+  // 'featured' is the top tier — brightest accent so it stands out above 'high'.
+  featured: 'bg-emerald-900/40 text-emerald-300 border-emerald-700',
   high: 'bg-red-900/40 text-red-400 border-red-800',
   medium: 'bg-yellow-900/30 text-yellow-400 border-yellow-800',
   low: 'bg-gray-800/50 text-gray-500 border-gray-700',
@@ -286,6 +288,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
   const recordingCount = archives.filter(a => a.sourceType === 'recording').length;
 
   const priorityStats: { key: ArchivePriority; label: string; className: string }[] = [
+    { key: 'featured', label: 'Featured', className: 'text-emerald-300' },
     { key: 'high', label: 'High', className: 'text-red-400' },
     { key: 'medium', label: 'Medium', className: 'text-yellow-400' },
     { key: 'low', label: 'Low', className: 'text-gray-400' },
@@ -371,7 +374,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
 
           <span className="text-gray-700 mx-1">|</span>
 
-          {(['all', 'high', 'medium', 'low'] as FilterPriority[]).map((p) => (
+          {(['all', 'featured', 'high', 'medium', 'low'] as FilterPriority[]).map((p) => (
             <button
               key={p}
               onClick={() => setFilterPriority(p)}
@@ -758,6 +761,7 @@ function ArchiveCard({
                   onChange={(e) => onPriorityChange(archive.id, e.target.value as ArchivePriority)}
                   className={`px-2 py-0.5 text-xs rounded border cursor-pointer appearance-none bg-transparent transition-colors ${PRIORITY_COLORS[currentPriority]}`}
                 >
+                  <option value="featured">Featured</option>
                   <option value="high">High</option>
                   <option value="medium">Medium</option>
                   <option value="low">Low</option>

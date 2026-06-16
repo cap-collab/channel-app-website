@@ -14,6 +14,7 @@ import { useSchedule } from '@/contexts/ScheduleContext';
 import { useFavoriteScenes } from '@/hooks/useFavoriteScenes';
 import { computeDJChatRoom } from '@/lib/broadcast-utils';
 import { getStationById } from '@/lib/stations';
+import { priorityRank } from '@/lib/archive-priority';
 import { SceneGlyph } from '@/components/SceneGlyph';
 import type { SceneSerialized } from '@/types/scenes';
 import type { ArchiveSerialized } from '@/types/broadcast';
@@ -150,10 +151,9 @@ export function ScenePublicClient({ data }: Props) {
   // Featured archive for this scene: highest priority, then most recent.
   const featuredArchive = useMemo(() => {
     if (archives.length === 0) return null;
-    const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
     return [...archives].sort((a, b) => {
-      const pa = PRIORITY_RANK[a.priority || 'medium'] ?? 1;
-      const pb = PRIORITY_RANK[b.priority || 'medium'] ?? 1;
+      const pa = priorityRank(a.priority || 'medium');
+      const pb = priorityRank(b.priority || 'medium');
       if (pa !== pb) return pa - pb;
       return (b.recordedAt || 0) - (a.recordedAt || 0);
     })[0];

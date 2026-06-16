@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { makeOG } from '@/lib/og';
 import { fetchSceneBySlugServer } from '@/lib/scenes';
+import { priorityRank } from '@/lib/archive-priority';
 import {
   ScenePublicClient,
   type SceneCollective,
@@ -262,10 +263,9 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
       priority: data.priority,
     });
   });
-  const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2, hidden: 3 };
   archives.sort((a, b) => {
-    const pa = PRIORITY_ORDER[a.priority || 'medium'] ?? 1;
-    const pb = PRIORITY_ORDER[b.priority || 'medium'] ?? 1;
+    const pa = priorityRank(a.priority || 'medium');
+    const pb = priorityRank(b.priority || 'medium');
     if (pa !== pb) return pa - pb;
     return b.recordedAt - a.recordedAt;
   });

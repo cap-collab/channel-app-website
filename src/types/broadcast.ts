@@ -302,13 +302,18 @@ export interface ArchiveDJ {
 }
 
 // Archive priority (admin-only field, not exposed in public API).
-// Order, highest → lowest: 'high' > 'medium' > 'low' > 'hidden'.
+// Order, highest → lowest: 'featured' > 'high' > 'medium' > 'low' > 'hidden'.
+// 'featured' is treated IDENTICALLY to 'high' everywhere high is special-cased
+// (radio loop eligibility/pool/weighting, restream picker, hero seed,
+// auto-advance, sorts) — it just ranks one notch above 'high' and additionally
+// surfaces in the homepage "Featured" section. Use the priorityIsHigh() helper
+// in src/lib/archive-priority.ts rather than comparing `=== 'high'` directly.
 // 'hidden' is the strongest exclusion: archives at this tier are dropped
 // entirely from /api/archives's default response (gated behind
 // includeHidden=true for admin views like /broadcast/admin → Archives so
 // they can still be managed/unhidden). Public surfaces (homepage, DJ
 // profiles, scenes, social render picker) never see them.
-export type ArchivePriority = 'high' | 'medium' | 'low' | 'hidden';
+export type ArchivePriority = 'featured' | 'high' | 'medium' | 'low' | 'hidden';
 
 // Tempo of a recording. Unlike scene (derived from the DJ), tempo is a property
 // of the individual recording — the same DJ can play downtempo one night and

@@ -76,7 +76,9 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
     console.warn('[archive-schedule-server] scene map fetch failed; items will have no sceneSlugs', err);
   }
 
-  // Eligible archives: high + medium priority, public, fully uploaded.
+  // Eligible archives: featured + high + medium priority, public, fully uploaded.
+  // 'featured' is collapsed to 'high' below so all downstream loop logic
+  // (pool selection, weighting) treats it identically to high.
   // Single collection.get() + in-code filter (matches /api/archives — keeps
   // us from needing a new composite index).
   const archivesSnap = await db.collection('archives').get();
@@ -85,8 +87,10 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
     const d = doc.data();
     if (d.uploadStatus === 'uploading') continue;
     if (d.isPublic === false) continue;
-    const priority = (d.priority || 'medium') as string;
-    if (priority !== 'high' && priority !== 'medium') continue;
+    const rawPriority = (d.priority || 'medium') as string;
+    if (rawPriority !== 'featured' && rawPriority !== 'high' && rawPriority !== 'medium') continue;
+    // Featured behaves exactly like high in the loop.
+    const priority = rawPriority === 'featured' ? 'high' : rawPriority;
     const recordingUrl: string | undefined = d.recordingUrl;
     const durationSec: number = Number(d.duration || 0);
     // Skip stubs and short archives — anything under 30 minutes isn't worth
@@ -264,8 +268,10 @@ async function loadEligibleArchives(): Promise<EligibleArchive[]> {
     const d = doc.data();
     if (d.uploadStatus === 'uploading') continue;
     if (d.isPublic === false) continue;
-    const priority = (d.priority || 'medium') as string;
-    if (priority !== 'high' && priority !== 'medium') continue;
+    const rawPriority = (d.priority || 'medium') as string;
+    if (rawPriority !== 'featured' && rawPriority !== 'high' && rawPriority !== 'medium') continue;
+    // Featured behaves exactly like high in the loop.
+    const priority = rawPriority === 'featured' ? 'high' : rawPriority;
     const recordingUrl: string | undefined = d.recordingUrl;
     const durationSec: number = Number(d.duration || 0);
     if (!recordingUrl || !durationSec || durationSec < 30 * 60) continue;
