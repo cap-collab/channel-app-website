@@ -576,7 +576,10 @@ export function SlotModal({
   const fetchArchives = async () => {
     if (archivesLoaded) return;
     try {
-      const res = await fetch('/api/archives');
+      // includeHidden so admins can schedule a hidden archive as a restream
+      // (and pick it for post-live) without first un-hiding it. The picker
+      // lists are admin-only; public surfaces still call /api/archives plain.
+      const res = await fetch('/api/archives?includeHidden=true');
       const data = await res.json();
       if (data.archives) {
         setArchives(data.archives);
@@ -2108,7 +2111,7 @@ Cap`;
                 />
                 <div className="max-h-56 overflow-y-auto">
                   {archives
-                    .filter((a) => (a.priority === 'high' || a.priority === 'medium') && a.duration >= 1800)
+                    .filter((a) => a.priority === 'high' && a.duration >= 1800)
                     .filter((a) => {
                       if (!postLiveSearchQuery) return true;
                       const q = postLiveSearchQuery.toLowerCase();
