@@ -1873,101 +1873,56 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           </div>
         </section>
 
-        {/* COLLECTIVE OWNERS — same card style as Residents. Hidden when owners == residents. */}
-        {profile.profileType === 'collective' && ownersResolved.length > 0 && (() => {
-          const ownerUids = profile.owners || [];
-          const residentUids = (profile.residentDJs || [])
-            .map((r) => r.djUserId)
-            .filter((u): u is string => !!u);
-          const residentUidSet = new Set(residentUids);
-          const ownersEqualResidents =
-            ownerUids.length > 0 &&
-            ownerUids.length === residentUids.length &&
-            ownerUids.every((u) => residentUidSet.has(u));
-          if (ownersEqualResidents) return null;
-
-          return (
-            <section className="mb-6">
-              <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">Owners</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {ownersResolved.map((o, i) => {
-                  const inner = (
-                    <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors h-full">
-                      <div className="w-14 h-14 bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                        {o.photoUrl ? (
-                          <Image
-                            src={o.photoUrl}
-                            alt={o.chatUsername}
-                            width={56}
-                            height={56}
-                            className="w-full h-full object-cover"
-                            unoptimized
-                          />
-                        ) : (
-                          <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-white font-medium text-sm truncate">{o.chatUsername}</p>
-                        {o.bio && (
-                          <p className="text-zinc-400 text-xs mt-1 line-clamp-2">{o.bio}</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                  return (
-                    <Link
-                      key={`${o.uid}-${i}`}
-                      href={`/dj/${normalizeUsername(o.chatUsername)}`}
-                      className="block"
-                    >
-                      {inner}
-                    </Link>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })()}
-
-        {/* COLLECTIVE RESIDENTS — 2-row horizontally-scrollable grid with arrows + dots.
+        {/* COLLECTIVE RESIDENTS — owners and residents together in one grid, owners first.
+            2-row horizontally-scrollable grid with arrows + dots.
             Desktop: 3 cards per row (6 visible). Mobile: 2 per row, bio hidden.
-            Photo-first sort keeps pictured residents in the no-scroll columns.
-            Owners are excluded — they already render in the OWNERS section above. */}
+            Photo-first sort runs within each group so owners stay ahead of residents. */}
         {profile.profileType === 'collective' &&
-          (residentsResolved.length > 0 || (profile.linkedCollectives && profile.linkedCollectives.length > 0)) && (() => {
-            const ownerUids = new Set((profile.owners || []).filter(Boolean));
-            const residentsWithoutOwners = residentsResolved.filter(
-              (r) => !r.djUserId || !ownerUids.has(r.djUserId)
-            );
-            if (residentsWithoutOwners.length === 0 && (!profile.linkedCollectives || profile.linkedCollectives.length === 0)) {
-              return null;
-            }
-            const items: { key: string; href: string | null; name: string; photoUrl?: string; bio?: string; badge?: string; isCollective: boolean }[] = [];
-            residentsWithoutOwners.forEach((r, i) => {
-              items.push({
+          (ownersResolved.length > 0 || residentsResolved.length > 0 || (profile.linkedCollectives && profile.linkedCollectives.length > 0)) && (() => {
+            type GridItem = { key: string; href: string | null; name: string; photoUrl?: string; bio?: string; badge?: string; isCollective: boolean };
+            const photoFirst = (a: GridItem, b: GridItem) =>
+              Number(Boolean(b.photoUrl)) - Number(Boolean(a.photoUrl));
+
+            // Owners first. Track their UIDs so residents who are also owners
+            // aren't listed twice.
+            const ownerUids = new Set<string>();
+            const ownerItems: GridItem[] = ownersResolved.map((o, i) => {
+              if (o.uid) ownerUids.add(o.uid);
+              return {
+                key: `owner-${o.uid}-${i}`,
+                href: `/dj/${normalizeUsername(o.chatUsername)}`,
+                name: o.chatUsername,
+                photoUrl: o.photoUrl,
+                bio: o.bio,
+                isCollective: false,
+              };
+            });
+            ownerItems.sort(photoFirst);
+
+            const residentItems: GridItem[] = residentsResolved
+              .filter((r) => !r.djUserId || !ownerUids.has(r.djUserId))
+              .map((r, i) => ({
                 key: `dj-${r.djUsername || r.djName}-${i}`,
                 href: r.djUsername ? `/dj/${normalizeUsername(r.djUsername)}` : null,
                 name: r.djName,
                 photoUrl: r.djPhotoUrl,
                 bio: r.bio,
                 isCollective: false,
-              });
-            });
-            (profile.linkedCollectives || []).forEach((lc, i) => {
-              items.push({
-                key: `coll-${lc.collectiveId}-${i}`,
-                href: lc.collectiveSlug ? `/dj/${lc.collectiveSlug}` : null,
-                name: lc.collectiveName,
-                photoUrl: lc.collectivePhoto || undefined,
-                badge: 'Collective',
-                isCollective: true,
-              });
-            });
-            // Photo-first stable sort.
-            items.sort((a, b) => Number(Boolean(b.photoUrl)) - Number(Boolean(a.photoUrl)));
+              }));
+            residentItems.sort(photoFirst);
+
+            const collectiveItems: GridItem[] = (profile.linkedCollectives || []).map((lc, i) => ({
+              key: `coll-${lc.collectiveId}-${i}`,
+              href: lc.collectiveSlug ? `/dj/${lc.collectiveSlug}` : null,
+              name: lc.collectiveName,
+              photoUrl: lc.collectivePhoto || undefined,
+              badge: 'Collective',
+              isCollective: true,
+            }));
+            collectiveItems.sort(photoFirst);
+
+            const items = [...ownerItems, ...residentItems, ...collectiveItems];
+            if (items.length === 0) return null;
 
             return (
               <section className="mb-6">
