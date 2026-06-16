@@ -1044,7 +1044,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                               {/* Show name — top left. 17px, wraps to at most 2
                                   lines when needed. No glyph overlay on live. */}
                               <div className="absolute top-2 left-2 right-2 drop-shadow-lg">
-                                <span className="text-[17px] font-bold text-white uppercase tracking-wide line-clamp-2 block">{showName}</span>
+                                <span className="text-[14.5px] font-bold text-white uppercase tracking-wide line-clamp-2 block">{showName}</span>
                               </div>
                               <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
                             </>
@@ -1762,7 +1762,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             {/* All-archives section — everything except featured. */}
             <div className="mb-4">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-2xl md:text-3xl font-semibold">All Archives</h2>
+                <h2 className="text-2xl md:text-3xl font-semibold">More Archives</h2>
                 {/* When a Featured section is showing it already holds the chips. */}
                 {hasFeatured ? null : filterChips}
               </div>
@@ -1864,7 +1864,7 @@ function HeroSlide({
               most 2 lines when needed and reserves right padding so it clears
               the top-right frosted tempo badge. */}
           <div className={`absolute top-2 left-2 drop-shadow-lg ${heroGlyphSlug ? 'right-28' : 'right-2'}`}>
-            <span className="text-[17px] font-bold text-white uppercase tracking-wide line-clamp-2 block">{archive.showName}</span>
+            <span className="text-[14.5px] font-bold text-white uppercase tracking-wide line-clamp-2 block">{archive.showName}</span>
           </div>
           {/* Top right: frosted-glass mood + tempo tag (same as the grid cards).
               Glyph + tempo name; glyph-only when the archive is untagged. */}
@@ -2052,7 +2052,7 @@ export function ArchiveGridCard({
             space for the top-right badge (live or tempo tag) so the title clears
             it instead of running underneath — matters most on narrow mobile cards. */}
         <div className={`absolute top-2.5 left-2.5 right-2.5 drop-shadow-lg ${hasTopRightBadge ? 'pr-24' : ''}`}>
-          <span className="text-sm font-bold text-white uppercase tracking-wide line-clamp-2 block">{archive.showName}</span>
+          <span className="text-[11.9px] font-bold text-white uppercase tracking-wide line-clamp-2 block">{archive.showName}</span>
         </div>
 
         {/* Top right: Live badge + BPM (only on live cards) */}
