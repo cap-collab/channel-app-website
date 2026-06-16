@@ -935,6 +935,7 @@ interface BroadcastReminderEmailParams {
   profileUrl: string | null;
   startTime: string; // e.g. "Tuesday, March 31"
   timeRange: string; // e.g. "8:00 PM – 10:00 PM EST"
+  isResident?: boolean; // monthly/quarterly resident — softer, warmer reminder
 }
 
 export async function sendBroadcast48HourReminderEmail({
@@ -943,11 +944,33 @@ export async function sendBroadcast48HourReminderEmail({
   showName,
   startTime,
   timeRange,
+  isResident = false,
 }: BroadcastReminderEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
     return false;
   }
+
+  // Residents (monthly/quarterly) already know the ropes — drop the
+  // setup/test/share checklist and keep just the show-presentation nudge.
+  const checklistRows = isResident
+    ? `
+            <tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; <strong>Pick a strong image and a good show name.</strong> It's what people see first, and it shapes how your show stands out.</td>
+            </tr>`
+    : `
+            <tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; <strong>Pick a strong image and a good show name.</strong> It's what people see first, and it shapes how your show stands out.</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Test your audio setup by doing a short recording</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Click "Prepare to go live" ahead of time to avoid any surprises</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Share it on IG and tag us <a href="https://www.instagram.com/channelrad.io" style="color: #555; text-decoration: underline;">@channelrad.io</a></td>
+            </tr>`;
 
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
@@ -968,19 +991,7 @@ export async function sendBroadcast48HourReminderEmail({
           <p style="margin: 0 0 4px; font-size: 14px; color: #1a1a1a;">
             Use the studio to get set up: <a href="https://channel-app.com/studio" style="color: #555; font-size: 14px; text-decoration: underline;">channel-app.com/studio</a>
           </p>
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">
-            <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; <strong>Pick a strong image and a good show name.</strong> It's what people see first, and it shapes how your show stands out.</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Test your audio setup by doing a short recording</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Click "Prepare to go live" ahead of time to avoid any surprises</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Share it on IG and tag us <a href="https://www.instagram.com/channelrad.io" style="color: #555; text-decoration: underline;">@channelrad.io</a></td>
-            </tr>
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">${checklistRows}
           </table>
           <p style="margin: 24px 0 12px; font-size: 14px; color: #666;">
             Something come up? No stress, just let me know.
@@ -1000,7 +1011,7 @@ export async function sendBroadcast48HourReminderEmail({
     const { error } = await resend.emails.send({
       from: FROM_EMAIL_DJ,
       to,
-      subject: `Test your audio set up, please`,
+      subject: isResident ? `Looking forward to your show` : `Test your audio set up, please`,
       html: wrapEmailContent(content, "You're receiving this because you have a scheduled show on Channel Radio."),
       headers: getUnsubscribeHeaders("dj"),
     });

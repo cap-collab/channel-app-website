@@ -129,6 +129,7 @@ interface DjInfo {
   hasTipLink: boolean;
   hasLocation: boolean;
   hasGenres: boolean;
+  isResident: boolean; // monthly or quarterly resident
 }
 
 const DEFAULT_TIMEZONE = 'America/Los_Angeles';
@@ -140,6 +141,7 @@ async function lookupDjInfo(db: FirebaseFirestore.Firestore, email: string): Pro
   if (!usersSnap.empty) {
     const user = usersSnap.docs[0].data();
     const djProfile = user.djProfile || {};
+    const cadence = djProfile.residency?.cadence;
     return {
       username: user.chatUsernameNormalized || null,
       name: user.name || djProfile.name || null,
@@ -148,6 +150,7 @@ async function lookupDjInfo(db: FirebaseFirestore.Firestore, email: string): Pro
       hasTipLink: !!djProfile.tipButtonLink,
       hasLocation: !!djProfile.location,
       hasGenres: Array.isArray(djProfile.genres) && djProfile.genres.length > 0,
+      isResident: cadence === 'monthly' || cadence === 'quarterly',
     };
   }
   // Check pending-dj-profiles
@@ -162,9 +165,10 @@ async function lookupDjInfo(db: FirebaseFirestore.Firestore, email: string): Pro
       hasTipLink: false,
       hasLocation: false,
       hasGenres: false,
+      isResident: false,
     };
   }
-  return { username: null, name: null, timezone: DEFAULT_TIMEZONE, hasPhoto: false, hasTipLink: false, hasLocation: false, hasGenres: false };
+  return { username: null, name: null, timezone: DEFAULT_TIMEZONE, hasPhoto: false, hasTipLink: false, hasLocation: false, hasGenres: false, isResident: false };
 }
 
 // Build a natural-language string of missing profile items
@@ -393,6 +397,7 @@ async function run48hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
           profileUrl: null,
           startTime: formatDate(target.startTime, djTimezone),
           timeRange: formatTimeRange(target.startTime, target.endTime, djTimezone),
+          isResident: djInfo.isResident,
         });
 
         if (success) { result.sent++; } else { result.errors.push(`Failed to send 48h reminder to ${target.email}`); }
