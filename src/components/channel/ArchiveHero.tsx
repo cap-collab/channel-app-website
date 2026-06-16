@@ -1750,23 +1750,22 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               <div className="mb-10">
                 <div className="mb-4">
                   <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-2xl md:text-3xl font-semibold">Featured</h2>
+                    <h2 className="text-2xl md:text-3xl font-semibold">Featured Archives</h2>
                     {filterChips}
                   </div>
-                  <p className="text-sm md:text-base text-zinc-400 mt-1">Hand-picked shows from the catalog</p>
+                  <p className="text-sm md:text-base text-zinc-400 mt-1">Intentional shows by DJs and producers</p>
                 </div>
                 {renderGrid(featuredList)}
               </div>
             )}
 
-            {/* Archives section — everything except featured. */}
+            {/* All-archives section — everything except featured. */}
             <div className="mb-4">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-2xl md:text-3xl font-semibold">Archives</h2>
+                <h2 className="text-2xl md:text-3xl font-semibold">All Archives</h2>
                 {/* When a Featured section is showing it already holds the chips. */}
                 {hasFeatured ? null : filterChips}
               </div>
-              <p className="text-sm md:text-base text-zinc-400 mt-1">Intentional shows by DJs and producers</p>
             </div>
             {renderGrid(ordered)}
           </div>
