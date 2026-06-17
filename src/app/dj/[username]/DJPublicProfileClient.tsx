@@ -2105,9 +2105,9 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               const recordingDate = new Date(archive.recordedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
               return (
-                <div key={archive.id} className="bg-black border border-[#333] rounded-none overflow-hidden">
+                <div key={archive.id} className="border border-[#333] rounded-none overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
                   {/* Header: Live Recording / Recording + optional venue + date */}
-                  <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-[#333] font-mono">
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-black border-b border-[#333] font-mono">
                     <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
                       {archive.sourceType === 'live' ? (
                         <>
@@ -2138,13 +2138,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                         </>
                       )}
                     </span>
-                    <span className="text-zinc-500 text-xs flex-shrink-0 ml-2">{recordingDate}</span>
+                    <span className="font-mono text-zinc-500 text-[11px] uppercase tracking-wider flex-shrink-0 ml-2">{recordingDate}</span>
                   </div>
 
                   {/* Body: image left + info right */}
                   <div className="p-3 flex items-start gap-3">
                     {showImage && (
-                      <div className="w-24 h-24 bg-zinc-800 flex-shrink-0 overflow-hidden">
+                      <div className="w-24 h-24 bg-zinc-800 flex-shrink-0 overflow-hidden border border-[#333] rounded-none">
                         <Image
                           src={showImage}
                           alt={archive.showName}
@@ -2177,16 +2177,33 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                               </svg>
                             )}
                           </button>
-                          <input
-                            type="range"
-                            min={0}
-                            max={archive.duration || 100}
-                            value={currentTime}
-                            onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
-                            className="flex-1 min-w-0 h-1 bg-zinc-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
-                          />
+                          <div className="relative flex-1 min-w-0 h-3 flex items-center">
+                            {/* Track */}
+                            <div className="absolute inset-x-0 h-px bg-zinc-700" />
+                            {/* Fill from left */}
+                            <div
+                              className="absolute left-0 h-px bg-white"
+                              style={{ width: `${Math.min(100, (currentTime / (archive.duration || 100)) * 100)}%` }}
+                            />
+                            {/* Seek handle (only while playing) */}
+                            {isPlayingArchive && (
+                              <div
+                                className="absolute h-2 w-px bg-white -translate-x-1/2"
+                                style={{ left: `${Math.min(100, (currentTime / (archive.duration || 100)) * 100)}%` }}
+                              />
+                            )}
+                            {/* Transparent range input for seeking */}
+                            <input
+                              type="range"
+                              min={0}
+                              max={archive.duration || 100}
+                              value={currentTime}
+                              onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
+                              className="absolute inset-0 w-full h-full appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-transparent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-0 [&::-moz-range-thumb]:h-0 [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-transparent"
+                            />
+                          </div>
                         </div>
-                        <div className="mt-1 pl-7 flex justify-between text-[10px] text-zinc-500 leading-none">
+                        <div className="mt-1 pl-7 flex justify-between font-mono text-[10px] text-zinc-500 leading-none">
                           <span>{formatDuration(currentTime)}</span>
                           <span>{formatDuration(archive.duration)}</span>
                         </div>
