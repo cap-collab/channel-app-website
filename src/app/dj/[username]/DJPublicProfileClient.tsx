@@ -20,6 +20,8 @@ import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
 import { getStationById, getMetadataKeyByStationId, getStationLogoUrl } from "@/lib/stations";
 import { useBPM } from "@/contexts/BPMContext";
+import { SceneGlyph } from "@/components/SceneGlyph";
+import { tempoLabel } from "@/lib/tempo";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { Venue, Collective, Event as ChannelEvent, EventDJRef, CollectiveRef } from "@/types/events";
 import { ResidentsGrid } from "@/components/dj/ResidentsGrid";
@@ -2103,6 +2105,11 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               const currentTime = isThisArchive ? archivePlayer.currentTime : 0;
               const showImage = archive.showImageUrl || archive.djs?.[0]?.photoUrl || profile.djProfile.photoUrl;
               const recordingDate = new Date(archive.recordedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+              // Scene + tempo live on the archive doc. The scene doc id IS its
+              // glyph slug ('grid' | 'star' | 'spiral'); the glyph is the first
+              // pinned scene that isn't the plain grid, matching the homepage.
+              const glyphSlug = archive.sceneIdsOverride?.find((s) => s !== 'grid');
+              const tempoText = tempoLabel(archive.tempo) ?? undefined;
 
               return (
                 <div key={archive.id} className="border border-[#333] rounded-none overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
@@ -2138,11 +2145,11 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                         </>
                       )}
                     </span>
-                    <span className="font-mono text-zinc-500 text-[11px] uppercase tracking-wider flex-shrink-0 ml-2">{recordingDate}</span>
+                    <span className="font-mono text-zinc-500 text-[11px] uppercase tracking-wider flex-shrink-0 ml-2">DATE: {recordingDate}</span>
                   </div>
 
-                  {/* Body: image left + info right */}
-                  <div className="p-3 flex items-start gap-3">
+                  {/* Body: image left + title right, with scene/tempo tag overlaid top-right */}
+                  <div className="relative p-3 flex items-start gap-3">
                     {showImage && (
                       <div className="w-24 h-24 bg-zinc-800 flex-shrink-0 overflow-hidden border border-[#333] rounded-none">
                         <Image
@@ -2155,59 +2162,66 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                         />
                       </div>
                     )}
-                    <div className="flex-1 min-w-0 flex flex-col" style={showImage ? { minHeight: '96px' } : undefined}>
-                      <div>
-                        <p className="text-sm font-bold text-white uppercase tracking-wide">{archive.showName}</p>
-                      </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-center" style={showImage ? { minHeight: '96px' } : undefined}>
+                      <p className="text-sm font-bold text-white uppercase tracking-wide pr-24">{archive.showName}</p>
+                    </div>
 
-                      {/* Player */}
-                      <div className="mt-auto mb-2">
-                        <div className="flex items-center">
-                          <button
-                            onClick={() => handlePlayPause(archive)}
-                            className="w-7 h-7 flex items-center justify-center transition-colors flex-shrink-0 text-white"
-                          >
-                            {isPlayingArchive ? (
-                              <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M6 3h4v18H6V3zm8 0h4v18h-4V3z" />
-                              </svg>
-                            ) : (
-                              <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M5 3v18l15-9z" />
-                              </svg>
-                            )}
-                          </button>
-                          <div className="relative flex-1 min-w-0 h-3 flex items-center">
-                            {/* Track */}
-                            <div className="absolute inset-x-0 h-px bg-zinc-700" />
-                            {/* Fill from left */}
-                            <div
-                              className="absolute left-0 h-px bg-white"
-                              style={{ width: `${Math.min(100, (currentTime / (archive.duration || 100)) * 100)}%` }}
-                            />
-                            {/* Seek handle (only while playing) */}
-                            {isPlayingArchive && (
-                              <div
-                                className="absolute h-2 w-px bg-white -translate-x-1/2"
-                                style={{ left: `${Math.min(100, (currentTime / (archive.duration || 100)) * 100)}%` }}
-                              />
-                            )}
-                            {/* Transparent range input for seeking */}
-                            <input
-                              type="range"
-                              min={0}
-                              max={archive.duration || 100}
-                              value={currentTime}
-                              onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
-                              className="absolute inset-0 w-full h-full appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-transparent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-0 [&::-moz-range-thumb]:h-0 [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-transparent"
-                            />
-                          </div>
-                        </div>
-                        <div className="mt-1 pl-7 flex justify-between font-mono text-[10px] text-zinc-500 leading-none">
-                          <span>{formatDuration(currentTime)}</span>
-                          <span>{formatDuration(archive.duration)}</span>
-                        </div>
+                    {/* Scene glyph + tempo pill — same frosted-glass overlay used on
+                        the homepage archive cards. */}
+                    {glyphSlug && (
+                      <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2 py-1 text-[10px] font-mono uppercase tracking-wide leading-none text-white bg-black/15 backdrop-blur-xl border border-white/10">
+                        <SceneGlyph slug={glyphSlug} className="!w-3 !h-3 shrink-0" />
+                        {tempoText && <span className="pt-px">{tempoText}</span>}
                       </div>
+                    )}
+                  </div>
+
+                  {/* Player: full-width row on solid black, below image + title */}
+                  <div className="bg-black border-t border-[#333] px-3 py-2">
+                    <div className="flex items-center">
+                      <button
+                        onClick={() => handlePlayPause(archive)}
+                        className="w-7 h-7 flex items-center justify-center transition-colors flex-shrink-0 text-white"
+                      >
+                        {isPlayingArchive ? (
+                          <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 3h4v18H6V3zm8 0h4v18h-4V3z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M5 3v18l15-9z" />
+                          </svg>
+                        )}
+                      </button>
+                      <div className="relative flex-1 min-w-0 h-3 flex items-center">
+                        {/* Track */}
+                        <div className="absolute inset-x-0 h-px bg-zinc-700" />
+                        {/* Fill from left */}
+                        <div
+                          className="absolute left-0 h-px bg-white"
+                          style={{ width: `${Math.min(100, (currentTime / (archive.duration || 100)) * 100)}%` }}
+                        />
+                        {/* Seek handle (only while playing) */}
+                        {isPlayingArchive && (
+                          <div
+                            className="absolute h-2 w-px bg-white -translate-x-1/2"
+                            style={{ left: `${Math.min(100, (currentTime / (archive.duration || 100)) * 100)}%` }}
+                          />
+                        )}
+                        {/* Transparent range input for seeking */}
+                        <input
+                          type="range"
+                          min={0}
+                          max={archive.duration || 100}
+                          value={currentTime}
+                          onChange={(e) => handleSeek(archive.id, parseFloat(e.target.value))}
+                          className="absolute inset-0 w-full h-full appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-transparent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-0 [&::-moz-range-thumb]:h-0 [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-transparent"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-1 pl-7 flex justify-between font-mono text-[10px] text-zinc-500 leading-none">
+                      <span>{formatDuration(currentTime)}</span>
+                      <span>{formatDuration(archive.duration)}</span>
                     </div>
                   </div>
                 </div>
