@@ -1677,9 +1677,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         // Archives header — so the filters are always reachable but never doubled.
         const filterChips =
           (availableScenes.length > 0 || availableTempos.length > 0) ? (
-            // min-w-0 lets the chip cluster shrink (and wrap internally) so the
-            // section title can stay on one line on mobile instead of wrapping.
-            <div className="flex flex-wrap items-center justify-end gap-1 md:gap-2 min-w-0">
+            <div className="flex flex-wrap items-center justify-end gap-1 md:gap-2 shrink-0">
               {availableScenes.map((s) => {
                 // Empty selection means "show everything" (same behavior as all
                 // selected), so render all chips active in both cases.
@@ -1752,9 +1750,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               <div className="mb-10">
                 <div className="mb-4">
                   <div className="flex items-center justify-between gap-3">
-                    {/* nowrap keeps the title on one line on mobile; the chip
-                        cluster (already flex-wrap) yields space instead. */}
-                    <h2 className="text-2xl md:text-3xl font-semibold whitespace-nowrap">Featured Archives</h2>
+                    <h2 className="text-2xl md:text-3xl font-semibold">Featured Archives</h2>
                     {filterChips}
                   </div>
                   <p className="text-sm md:text-base text-zinc-400 mt-1">Intentional shows by DJs and producers</p>
@@ -1766,7 +1762,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             {/* All-archives section — everything except featured. */}
             <div className="mb-4">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-2xl md:text-3xl font-semibold whitespace-nowrap">More Archives</h2>
+                <h2 className="text-2xl md:text-3xl font-semibold">More Archives</h2>
                 {/* When a Featured section is showing it already holds the chips. */}
                 {hasFeatured ? null : filterChips}
               </div>
