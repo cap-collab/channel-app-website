@@ -21,39 +21,6 @@ import { registerAudio, pauseOthers } from '@/lib/audio-exclusive';
 const R2_PUBLIC_URL = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '';
 const HLS_URL = R2_PUBLIC_URL ? `${R2_PUBLIC_URL}/channel-radio/live.m3u8` : '/api/hls/channel-radio/live.m3u8';
 
-// [audio-diag] Attach diagnostic listeners to a live audio element so we can
-// correlate iOS audio session kills with state. Strip once root cause is
-// found. Matches the listeners in useArchiveRadio.attachStateListeners.
-function attachLiveDiag(el: HTMLAudioElement) {
-  el.addEventListener('pause', () => {
-    console.log('[audio-diag] live PAUSE ct=' + el.currentTime.toFixed(2) + ' ended=' + el.ended + ' rs=' + el.readyState);
-  });
-  el.addEventListener('play', () => {
-    console.log('[audio-diag] live PLAY ct=' + el.currentTime.toFixed(2) + ' rs=' + el.readyState);
-  });
-  el.addEventListener('error', () => {
-    console.log('[audio-diag] live ERROR code=' + el.error?.code + ' msg=' + el.error?.message + ' ct=' + el.currentTime.toFixed(2));
-  });
-  el.addEventListener('stalled', () => {
-    console.log('[audio-diag] live STALLED ct=' + el.currentTime.toFixed(2) + ' rs=' + el.readyState);
-  });
-  el.addEventListener('suspend', () => {
-    console.log('[audio-diag] live SUSPEND ct=' + el.currentTime.toFixed(2) + ' rs=' + el.readyState);
-  });
-  el.addEventListener('waiting', () => {
-    console.log('[audio-diag] live WAITING ct=' + el.currentTime.toFixed(2) + ' rs=' + el.readyState);
-  });
-  el.addEventListener('abort', () => {
-    console.log('[audio-diag] live ABORT ct=' + el.currentTime.toFixed(2));
-  });
-  el.addEventListener('emptied', () => {
-    console.log('[audio-diag] live EMPTIED');
-  });
-  el.addEventListener('ended', () => {
-    console.log('[audio-diag] live ENDED ct=' + el.currentTime.toFixed(2));
-  });
-}
-
 // Detect if browser is Safari (has native HLS support)
 function isSafariBrowser(): boolean {
   if (typeof window === 'undefined') return false;
@@ -409,7 +376,6 @@ export function useBroadcastStream(
         if (!audioElementRef.current) {
           audioElementRef.current = new Audio();
           registerAudio('live', audioElementRef.current);
-          attachLiveDiag(audioElementRef.current);
         }
 
         // Attach the track to the audio element
@@ -506,7 +472,6 @@ export function useBroadcastStream(
     if (!audioElementRef.current) {
       audioElementRef.current = new Audio();
       registerAudio('live', audioElementRef.current);
-      attachLiveDiag(audioElementRef.current);
     }
 
     // Set mobile-friendly attributes
@@ -1095,53 +1060,6 @@ export function useBroadcastStream(
 
     return () => clearInterval(interval);
   }, [isPlaying, currentShow, onLockedInRef]);
-
-  // [audio-diag] 10s heartbeat — log live state snapshot + stuck detector.
-  // Stuck detector compares currentTime across heartbeats. If paused=false
-  // but ct hasn't advanced ~5s, log STUCK so we catch silent freezes that
-  // don't fire any error event. Strip when investigation wraps.
-  const prevLiveHeartbeatRef = useRef<{ ct: number; t: number } | null>(null);
-  useEffect(() => {
-    const tick = () => {
-      const el = audioElementRef.current;
-      const now = Date.now();
-      const prev = prevLiveHeartbeatRef.current;
-      const live = el
-        ? 'el:ct=' + el.currentTime.toFixed(1) + ' paused=' + el.paused + ' vol=' + el.volume.toFixed(2) + ' muted=' + el.muted + ' rs=' + el.readyState + ' err=' + (el.error?.code ?? '-')
-        : 'el:null';
-      console.log(
-        '[audio-diag] HB live',
-        'isPlaying=' + isPlaying,
-        'isLive=' + isLive,
-        'hasRoom=' + !!roomRef.current,
-        'hasHls=' + !!hlsRef.current,
-        'vis=' + (typeof document !== 'undefined' ? document.visibilityState : '?'),
-        '|', live,
-      );
-      const visible = typeof document === 'undefined' || document.visibilityState === 'visible';
-      if (prev && visible && el && !el.paused) {
-        const wall = (now - prev.t) / 1000;
-        const delta = el.currentTime - prev.ct;
-        if (wall > 5 && delta < wall * 0.5) {
-          console.log(
-            '[audio-diag] STUCK live',
-            'wallDelta=' + wall.toFixed(1) + 's',
-            'ctDelta=' + delta.toFixed(2) + 's',
-            'ct=' + el.currentTime.toFixed(2),
-            'paused=' + el.paused,
-            'rs=' + el.readyState,
-            'err=' + (el.error?.code ?? '-'),
-          );
-        }
-      }
-      prevLiveHeartbeatRef.current = el
-        ? { ct: el.currentTime, t: now }
-        : null;
-    };
-    const id = setInterval(tick, 10000);
-    return () => clearInterval(id);
-  }, [isPlaying, isLive]);
-
 
   return {
     isPlaying,

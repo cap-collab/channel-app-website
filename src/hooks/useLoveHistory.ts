@@ -21,12 +21,23 @@ export function useLoveHistory() {
     const ref = collection(db, 'users', user.uid, 'loveHistory');
     const q = query(ref, orderBy('lastLovedAt', 'desc'), limit(50));
 
-    const unsub = onSnapshot(q, (snap) => {
-      setLoveHistory(
-        snap.docs.map((d) => ({ id: d.id, ...d.data() } as LoveHistoryDoc & { id: string }))
-      );
-      setLoading(false);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setLoveHistory(
+          snap.docs.map((d) => ({ id: d.id, ...d.data() } as LoveHistoryDoc & { id: string }))
+        );
+        setLoading(false);
+      },
+      () => {
+        // Logged-out visitors get an anonymous Firebase user, so this guard
+        // passes and we subscribe to users/{anonUid}/loveHistory — which the
+        // rules deny (no owned doc). Reset quietly instead of leaving an
+        // uncaught rejection in the console on every logged-out page load.
+        setLoveHistory([]);
+        setLoading(false);
+      },
+    );
 
     return () => unsub();
   }, [user]);

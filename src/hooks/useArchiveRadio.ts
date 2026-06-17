@@ -262,13 +262,8 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   const userInitiatedRef = useRef(false);
 
   const attachStateListeners = useCallback((el: HTMLAudioElement) => {
-    // [audio-diag] tag for grep — investigating iOS audio session kills
-    // where audio goes silent but paused stays false. Strip once root cause
-    // is identified.
-    const which = el === audioARef.current ? 'A' : el === audioBRef.current ? 'B' : '?';
     el.addEventListener('pause', () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
-      console.log('[audio-diag] radio.' + which + ' PAUSE ct=' + el.currentTime.toFixed(2) + ' ended=' + el.ended + ' rs=' + el.readyState + ' active=' + activeKeyRef.current);
       if (el === active) {
         // Natural end of the audio file (vs. user pause): leave the queued
         // boundary timer alone so the next fade can still fire. Two reasons
@@ -294,7 +289,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     });
     el.addEventListener('play', () => {
       const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
-      console.log('[audio-diag] radio.' + which + ' PLAY ct=' + el.currentTime.toFixed(2) + ' rs=' + el.readyState + ' active=' + activeKeyRef.current);
       if (el === active) {
         setIsPlaying(true);
         return;
@@ -302,28 +296,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       // Guard suppressed during legitimate crossfades and preload prime.
       if (crossfadeInFlightRef.current || primingInFlightRef.current) return;
       try { el.pause(); } catch { /* ignore */ }
-    });
-    // iOS fires these when the audio session gets weird. Capture for diagnosis.
-    el.addEventListener('error', () => {
-      console.log('[audio-diag] radio.' + which + ' ERROR code=' + el.error?.code + ' msg=' + el.error?.message + ' ct=' + el.currentTime.toFixed(2));
-    });
-    el.addEventListener('stalled', () => {
-      console.log('[audio-diag] radio.' + which + ' STALLED ct=' + el.currentTime.toFixed(2) + ' rs=' + el.readyState);
-    });
-    el.addEventListener('suspend', () => {
-      console.log('[audio-diag] radio.' + which + ' SUSPEND ct=' + el.currentTime.toFixed(2) + ' rs=' + el.readyState);
-    });
-    el.addEventListener('waiting', () => {
-      console.log('[audio-diag] radio.' + which + ' WAITING ct=' + el.currentTime.toFixed(2) + ' rs=' + el.readyState);
-    });
-    el.addEventListener('abort', () => {
-      console.log('[audio-diag] radio.' + which + ' ABORT ct=' + el.currentTime.toFixed(2));
-    });
-    el.addEventListener('emptied', () => {
-      console.log('[audio-diag] radio.' + which + ' EMPTIED');
-    });
-    el.addEventListener('ended', () => {
-      console.log('[audio-diag] radio.' + which + ' ENDED ct=' + el.currentTime.toFixed(2));
     });
   }, []);
 
@@ -546,7 +518,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
         };
         w.onerror = (e) => console.warn('[useArchiveRadio] crossfade worker error', e.message);
         workerRef.current = w;
-        console.log('[audio-diag] worker CREATED at', new Date().toISOString());
       } catch (err) {
         console.warn('[useArchiveRadio] crossfade worker init failed', err);
       }
@@ -859,70 +830,6 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     if (opts.active) return;
     pause();
   }, [opts.active, pause]);
-
-  // [audio-diag] 10s heartbeat — log radio state snapshot + stuck detector.
-  // The stuck detector compares each tick's currentTime to the previous tick;
-  // if paused=false but ct hasn't advanced by ~5s, log STUCK so we catch
-  // silent freezes that don't fire any error event. Strip with the rest of
-  // the audio-diag logs when investigation wraps.
-  const prevHeartbeatRef = useRef<{ ctA: number; ctB: number; t: number } | null>(null);
-  useEffect(() => {
-    if (!opts.active) return;
-    const tick = () => {
-      const a = audioARef.current;
-      const b = audioBRef.current;
-      const now = Date.now();
-      const prev = prevHeartbeatRef.current;
-      const fmt = (el: HTMLAudioElement | null, label: string) =>
-        el
-          ? label + ':ct=' + el.currentTime.toFixed(1) + ' paused=' + el.paused + ' vol=' + el.volume.toFixed(2) + ' muted=' + el.muted + ' rs=' + el.readyState + ' err=' + (el.error?.code ?? '-')
-          : label + ':null';
-      console.log(
-        '[audio-diag] HB radio',
-        'active=' + activeKeyRef.current,
-        'isPlaying=' + isPlaying,
-        'inFlight=' + crossfadeInFlightRef.current,
-        'worker=' + (workerRef.current ? 'alive' : 'null'),
-        'vis=' + (typeof document !== 'undefined' ? document.visibilityState : '?'),
-        'playingKey=' + (playingKeyRef.current ? playingKeyRef.current.slice(0, 40) : 'null'),
-        '|', fmt(a, 'A'),
-        '|', fmt(b, 'B'),
-      );
-      // Stuck detector — only meaningful when the active element should be
-      // advancing. Skip backgrounded tabs (iOS legitimately throttles audio
-      // currentTime updates when hidden) and the first heartbeat (no prev).
-      const visible = typeof document === 'undefined' || document.visibilityState === 'visible';
-      if (prev && visible) {
-        const wall = (now - prev.t) / 1000;
-        const checkStuck = (el: HTMLAudioElement | null, prevCt: number, label: string) => {
-          if (!el || el.paused) return;
-          const delta = el.currentTime - prevCt;
-          // Allow some slack for setInterval drift. If audio is playing,
-          // ct should advance by at least ~80% of wall time.
-          if (wall > 5 && delta < wall * 0.5) {
-            console.log(
-              '[audio-diag] STUCK radio.' + label,
-              'wallDelta=' + wall.toFixed(1) + 's',
-              'ctDelta=' + delta.toFixed(2) + 's',
-              'ct=' + el.currentTime.toFixed(2),
-              'paused=' + el.paused,
-              'rs=' + el.readyState,
-              'err=' + (el.error?.code ?? '-'),
-            );
-          }
-        };
-        checkStuck(a, prev.ctA, 'A');
-        checkStuck(b, prev.ctB, 'B');
-      }
-      prevHeartbeatRef.current = {
-        ctA: a?.currentTime ?? 0,
-        ctB: b?.currentTime ?? 0,
-        t: now,
-      };
-    };
-    const id = setInterval(tick, 10000);
-    return () => clearInterval(id);
-  }, [opts.active, isPlaying]);
 
   useEffect(() => {
     return () => {

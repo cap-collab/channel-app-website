@@ -26,11 +26,21 @@ export function useGoLiveMutes() {
       return;
     }
     const ref = doc(db, 'users', user.uid);
-    return onSnapshot(ref, (snap) => {
-      const data = snap.data();
-      const arr = (data?.goLiveMutes as string[] | undefined) || [];
-      setMutes(new Set(arr));
-    });
+    return onSnapshot(
+      ref,
+      (snap) => {
+        const data = snap.data();
+        const arr = (data?.goLiveMutes as string[] | undefined) || [];
+        setMutes(new Set(arr));
+      },
+      () => {
+        // Logged-out visitors get an anonymous Firebase user, so this guard
+        // passes and we subscribe to users/{anonUid} — which the rules deny
+        // (no owned doc). Reset quietly instead of leaving an uncaught
+        // rejection in the console on every logged-out page load.
+        setMutes(new Set());
+      },
+    );
   }, [user]);
 
   const mute = useCallback(
