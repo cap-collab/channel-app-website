@@ -15,6 +15,29 @@ import { BroadcastSlotSerialized, BroadcastType, DJSlot, ArchiveDJ, STATION_ID }
 
 const COLLECTION = 'broadcast-slots';
 
+// Coerce a Firestore time field to millis, tolerating any shape it may have
+// been written in: a real Timestamp (.toMillis), a plain {_seconds,_nanoseconds}
+// object (e.g. from a REST/admin write that bypassed the Timestamp class), a
+// Date, or a raw millis number. A single bad doc must never throw here, or it
+// takes down the whole getSlots() fetch and blanks the admin Schedule/Marketing
+// tabs (see "REST Date vs Timestamp" failure mode).
+function toMillis(v: unknown): number {
+  if (v == null) return 0;
+  if (typeof v === 'number') return v;
+  if (typeof v === 'object') {
+    const o = v as { toMillis?: () => number; seconds?: number; _seconds?: number; nanoseconds?: number; _nanoseconds?: number };
+    if (typeof o.toMillis === 'function') return o.toMillis();
+    const seconds = o.seconds ?? o._seconds;
+    if (typeof seconds === 'number') {
+      const nanos = o.nanoseconds ?? o._nanoseconds ?? 0;
+      return seconds * 1000 + Math.floor(nanos / 1e6);
+    }
+    if (v instanceof Date) return v.getTime();
+  }
+  const parsed = typeof v === 'string' ? Date.parse(v) : NaN;
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 function generateToken(): string {
   const array = new Uint8Array(24);
   crypto.getRandomValues(array);
@@ -39,11 +62,11 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     djEmail: data.djEmail as string | undefined,
     djUsername: data.djUsername as string | undefined,
     djSlots: data.djSlots as DJSlot[] | undefined,
-    startTime: (data.startTime as { toMillis: () => number })?.toMillis() || 0,
-    endTime: (data.endTime as { toMillis: () => number })?.toMillis() || 0,
+    startTime: toMillis(data.startTime),
+    endTime: toMillis(data.endTime),
     broadcastToken: data.broadcastToken as string,
-    tokenExpiresAt: (data.tokenExpiresAt as { toMillis: () => number })?.toMillis() || 0,
-    createdAt: (data.createdAt as { toMillis: () => number })?.toMillis() || 0,
+    tokenExpiresAt: toMillis(data.tokenExpiresAt),
+    createdAt: toMillis(data.createdAt),
     createdBy: data.createdBy as string,
     status: data.status as BroadcastSlotSerialized['status'],
     broadcastType: (data.broadcastType as BroadcastType) || 'remote',
