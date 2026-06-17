@@ -341,6 +341,7 @@ export interface Archive {
   publishedAt?: number;          // When recording was published (Unix ms)
   priority?: ArchivePriority;    // Admin-only: high, medium, or low (default medium)
   sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
+  sceneSlugs?: string[];         // Denormalized effective scene slugs (e.g. ['spiral']) written at backfill time; fallback when there's no override
   tempo?: Tempo | null;          // Admin-set recording tempo; null/undefined = untagged
   // Venue attribution (admin-set on /broadcast/admin → Archives). Surfaces
   // recordings on /venue/[slug] alongside events, and links the

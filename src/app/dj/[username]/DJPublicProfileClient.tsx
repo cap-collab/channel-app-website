@@ -2107,8 +2107,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               const recordingDate = new Date(archive.recordedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
               // Scene + tempo live on the archive doc. The scene doc id IS its
               // glyph slug ('grid' | 'star' | 'spiral'); the glyph is the first
-              // pinned scene that isn't the plain grid, matching the homepage.
-              const glyphSlug = archive.sceneIdsOverride?.find((s) => s !== 'grid');
+              // scene that isn't the plain grid. Mirror the schedule/hero
+              // resolution order: admin pin (sceneIdsOverride) first, then the
+              // denormalized sceneSlugs written at backfill time.
+              const effectiveScenes = (archive.sceneIdsOverride?.length
+                ? archive.sceneIdsOverride
+                : archive.sceneSlugs) ?? [];
+              const glyphSlug = effectiveScenes.find((s) => s !== 'grid');
               const tempoText = tempoLabel(archive.tempo) ?? undefined;
 
               return (
