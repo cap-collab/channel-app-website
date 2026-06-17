@@ -617,7 +617,7 @@ export function DJProfileClient() {
               )}
             </div>
             <p className="text-gray-600 text-xs mt-2 px-1">
-              JPG, PNG, GIF, or WebP. Max 5MB. Appears during your live broadcasts.
+              JPG, PNG, GIF, or WebP. Max 10MB. Appears during your live broadcasts.
             </p>
           </section>
 

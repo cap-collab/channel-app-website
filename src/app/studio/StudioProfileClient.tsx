@@ -2627,7 +2627,7 @@ export function StudioProfileClient() {
                             <p className="text-red-400 text-xs mt-2">{showImageError}</p>
                           )}
                           <p className="text-gray-500 text-xs mt-2">
-                            JPG, PNG, GIF, or WebP. Max 5MB. Falls back to your DJ photo if left empty.
+                            JPG, PNG, GIF, or WebP. Max 10MB. Falls back to your DJ photo if left empty.
                           </p>
                         </div>
                       )}
@@ -2984,7 +2984,7 @@ export function StudioProfileClient() {
               )}
             </div>
             <p className="text-gray-500 text-xs mt-2 px-1">
-              JPG, PNG, GIF, or WebP. Max 5MB. Appears during your live broadcasts and on your public profile.
+              JPG, PNG, GIF, or WebP. Max 10MB. Appears during your live broadcasts and on your public profile.
             </p>
           </section>
 
@@ -3867,7 +3867,7 @@ export function StudioProfileClient() {
                 <p className="text-red-400 text-xs mt-2">{uploadImageError}</p>
               )}
               <p className="text-gray-500 text-xs mt-2">
-                JPG, PNG, GIF, or WebP. Max 5MB. Falls back to your DJ photo if left empty.
+                JPG, PNG, GIF, or WebP. Max 10MB. Falls back to your DJ photo if left empty.
               </p>
             </div>
 

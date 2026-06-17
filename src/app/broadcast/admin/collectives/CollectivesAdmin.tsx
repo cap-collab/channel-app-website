@@ -626,7 +626,7 @@ export function CollectivesAdmin() {
                       Remove photo
                     </button>
                   )}
-                  <p className="text-xs text-gray-500">JPG, PNG, GIF, or WebP. Max 5MB.</p>
+                  <p className="text-xs text-gray-500">JPG, PNG, GIF, or WebP. Max 10MB.</p>
                 </div>
               </div>
               {photoError && (

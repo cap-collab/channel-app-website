@@ -1156,7 +1156,7 @@ Cap`;
                       </button>
                     )}
                     <p className="text-xs text-gray-500">
-                      JPG, PNG, GIF, or WebP. Max 5MB.
+                      JPG, PNG, GIF, or WebP. Max 10MB.
                     </p>
                   </div>
                 </div>
