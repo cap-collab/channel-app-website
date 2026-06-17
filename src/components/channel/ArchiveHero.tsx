@@ -1750,7 +1750,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               <div className="mb-10">
                 <div className="mb-4">
                   <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-2xl md:text-3xl font-semibold">Featured Archives</h2>
+                    <h2 className="text-2xl md:text-3xl font-semibold">Featured</h2>
                     {filterChips}
                   </div>
                   <p className="text-sm md:text-base text-zinc-400 mt-1">Intentional shows by DJs and producers</p>
