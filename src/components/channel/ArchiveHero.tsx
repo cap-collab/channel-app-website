@@ -132,9 +132,10 @@ export function ArchiveSeekBar({ currentTime, duration, onSeek }: { currentTime:
           />
         </div>
       </div>
-      {/* Thumb – visible on hover/drag */}
+      {/* Marker – thin vertical tick (matches the archive recording-card seeker).
+          Always visible while playing/seeking; taller + opaque on hover/drag. */}
       <div
-        className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full shadow transition-opacity ${dragging ? 'opacity-100 scale-110' : 'opacity-0 group-hover:opacity-100'}`}
+        className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-px bg-white transition-all ${dragging ? 'h-3.5 opacity-100' : 'h-2.5 opacity-80 group-hover:h-3.5 group-hover:opacity-100'}`}
         style={{ left: pct }}
       />
     </div>
