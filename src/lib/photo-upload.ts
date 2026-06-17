@@ -10,6 +10,11 @@ export interface UploadPhotoResult {
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
+// Images are served raw (unoptimized) from Firebase Storage across the site,
+// so we downscale + re-encode on upload to keep download weight small.
+const MAX_DIMENSION = 1600; // longest edge, in px
+const OUTPUT_QUALITY = 0.85;
+
 /**
  * Validate a file before upload
  */
@@ -21,6 +26,53 @@ export function validatePhoto(file: File): { valid: boolean; error?: string } {
     return { valid: false, error: 'Image must be less than 10MB' };
   }
   return { valid: true };
+}
+
+/**
+ * Downscale (longest edge <= MAX_DIMENSION) and re-encode an image to WebP
+ * before upload. Returns a `.webp` File. Animated GIFs and any browser without
+ * canvas/toBlob support fall through to the original file unchanged.
+ */
+export async function processPhoto(file: File): Promise<File> {
+  // GIFs are usually animated; canvas would flatten them to a single frame.
+  if (file.type === 'image/gif') return file;
+  if (typeof document === 'undefined' || typeof createImageBitmap !== 'function') {
+    return file;
+  }
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const { width, height } = bitmap;
+    const scale = Math.min(1, MAX_DIMENSION / Math.max(width, height));
+    const targetW = Math.max(1, Math.round(width * scale));
+    const targetH = Math.max(1, Math.round(height * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      bitmap.close?.();
+      return file;
+    }
+    ctx.drawImage(bitmap, 0, 0, targetW, targetH);
+    bitmap.close?.();
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/webp', OUTPUT_QUALITY)
+    );
+    if (!blob) return file;
+
+    // If processing somehow produced a larger file (e.g. tiny already-compressed
+    // source), keep the original.
+    if (blob.size >= file.size && scale === 1) return file;
+
+    const baseName = file.name.replace(/\.[^/.]+$/, '') || 'image';
+    return new File([blob], `${baseName}.webp`, { type: 'image/webp' });
+  } catch (error) {
+    console.error('Photo processing failed, uploading original:', error);
+    return file;
+  }
 }
 
 /**
@@ -38,14 +90,15 @@ export async function uploadDJPhoto(userId: string, file: File): Promise<UploadP
   }
 
   try {
+    const processed = await processPhoto(file);
     // Generate filename with extension
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const ext = processed.name.split('.').pop()?.toLowerCase() || 'jpg';
     const filename = `profile.${ext}`;
     const photoRef = ref(storage, `dj-photos/${userId}/${filename}`);
 
     // Upload with metadata
-    await uploadBytes(photoRef, file, {
-      contentType: file.type,
+    await uploadBytes(photoRef, processed, {
+      contentType: processed.type,
       customMetadata: {
         uploadedAt: new Date().toISOString(),
       },
@@ -74,12 +127,13 @@ export async function uploadRecImage(userId: string, recIndex: number, file: Fil
   }
 
   try {
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const processed = await processPhoto(file);
+    const ext = processed.name.split('.').pop()?.toLowerCase() || 'jpg';
     const filename = `rec-${recIndex}.${ext}`;
     const photoRef = ref(storage, `dj-photos/${userId}/${filename}`);
 
-    await uploadBytes(photoRef, file, {
-      contentType: file.type,
+    await uploadBytes(photoRef, processed, {
+      contentType: processed.type,
       customMetadata: {
         uploadedAt: new Date().toISOString(),
       },
@@ -108,14 +162,15 @@ export async function uploadShowImage(slotId: string, file: File): Promise<Uploa
   }
 
   try {
+    const processed = await processPhoto(file);
     // Generate filename with extension
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const ext = processed.name.split('.').pop()?.toLowerCase() || 'jpg';
     const filename = `show-image.${ext}`;
     const photoRef = ref(storage, `show-images/${slotId}/${filename}`);
 
     // Upload with metadata
-    await uploadBytes(photoRef, file, {
-      contentType: file.type,
+    await uploadBytes(photoRef, processed, {
+      contentType: processed.type,
       customMetadata: {
         uploadedAt: new Date().toISOString(),
       },
@@ -171,14 +226,15 @@ export async function uploadPendingDJPhoto(profileId: string, file: File): Promi
   }
 
   try {
+    const processed = await processPhoto(file);
     // Generate filename with extension
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const ext = processed.name.split('.').pop()?.toLowerCase() || 'jpg';
     const filename = `profile.${ext}`;
     const photoRef = ref(storage, `pending-dj-photos/${profileId}/${filename}`);
 
     // Upload with metadata
-    await uploadBytes(photoRef, file, {
-      contentType: file.type,
+    await uploadBytes(photoRef, processed, {
+      contentType: processed.type,
       customMetadata: {
         uploadedAt: new Date().toISOString(),
       },
@@ -236,12 +292,13 @@ export async function uploadVenuePhoto(venueId: string, file: File): Promise<Upl
   }
 
   try {
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const processed = await processPhoto(file);
+    const ext = processed.name.split('.').pop()?.toLowerCase() || 'jpg';
     const filename = `photo.${ext}`;
     const photoRef = ref(storage, `venue-photos/${venueId}/${filename}`);
 
-    await uploadBytes(photoRef, file, {
-      contentType: file.type,
+    await uploadBytes(photoRef, processed, {
+      contentType: processed.type,
       customMetadata: {
         uploadedAt: new Date().toISOString(),
       },
@@ -297,12 +354,13 @@ export async function uploadCollectivePhoto(collectiveId: string, file: File): P
   }
 
   try {
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const processed = await processPhoto(file);
+    const ext = processed.name.split('.').pop()?.toLowerCase() || 'jpg';
     const filename = `photo.${ext}`;
     const photoRef = ref(storage, `collective-photos/${collectiveId}/${filename}`);
 
-    await uploadBytes(photoRef, file, {
-      contentType: file.type,
+    await uploadBytes(photoRef, processed, {
+      contentType: processed.type,
       customMetadata: {
         uploadedAt: new Date().toISOString(),
       },
@@ -358,12 +416,13 @@ export async function uploadEventPhoto(eventId: string, file: File): Promise<Upl
   }
 
   try {
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const processed = await processPhoto(file);
+    const ext = processed.name.split('.').pop()?.toLowerCase() || 'jpg';
     const filename = `photo.${ext}`;
     const photoRef = ref(storage, `event-photos/${eventId}/${filename}`);
 
-    await uploadBytes(photoRef, file, {
-      contentType: file.type,
+    await uploadBytes(photoRef, processed, {
+      contentType: processed.type,
       customMetadata: {
         uploadedAt: new Date().toISOString(),
       },
@@ -419,12 +478,13 @@ export async function uploadArchiveImage(archiveId: string, file: File): Promise
   }
 
   try {
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const processed = await processPhoto(file);
+    const ext = processed.name.split('.').pop()?.toLowerCase() || 'jpg';
     const filename = `archive-image.${ext}`;
     const photoRef = ref(storage, `show-images/${archiveId}/${filename}`);
 
-    await uploadBytes(photoRef, file, {
-      contentType: file.type,
+    await uploadBytes(photoRef, processed, {
+      contentType: processed.type,
       customMetadata: {
         uploadedAt: new Date().toISOString(),
       },
