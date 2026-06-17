@@ -251,6 +251,67 @@ export function TechHealthTab() {
             );
           })()}
 
+          {/* R2 backup. Daily copy-only mirror of original recordings (DJ
+              uploads + live-egress originals, pre-processing) to the
+              channel-broadcast-backup bucket. Healthy = ran recently with no
+              errors and nothing missing from source. */}
+          <section>
+            <h3 className="text-sm uppercase tracking-wide text-gray-400 mb-2">R2 backup (originals)</h3>
+            <div className="bg-[#1e1e1e] border border-white/10 p-4 space-y-2 text-sm">
+              {!data.r2Backup ? (
+                <div className="text-gray-500">Has not run yet — first backup at 11:00 UTC.</div>
+              ) : (() => {
+                const b = data.r2Backup;
+                const ageMs = Date.now() - b.ranAt;
+                const stale = ageMs > 2 * 24 * 60 * 60 * 1000; // daily cron; >2d = something's wrong
+                const unhealthy = b.errorCount > 0 || b.missingFromSourceCount > 0;
+                return (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div className="font-bold text-white">channel-broadcast-backup</div>
+                      <div className={unhealthy ? 'text-red-400 text-xs' : stale ? 'text-yellow-400 text-xs' : 'text-green-400 text-xs'}>
+                        {unhealthy ? '● needs attention' : stale ? '● stale' : '● healthy'}
+                      </div>
+                    </div>
+                    <Row label="Last run" value={
+                      <span className={stale ? 'text-yellow-400' : ''}>{fmtAgo(b.ranAt)}</span>
+                    } />
+                    <Row label="Originals backed up" value={
+                      <span>{b.totalOriginals - b.missingFromSourceCount} / {b.totalOriginals}</span>
+                    } />
+                    <Row label="Copied last run" value={String(b.copiedCount)} />
+                    <Row label="Missing from source" value={
+                      <span className={b.missingFromSourceCount > 0 ? 'text-red-400' : 'text-gray-300'}>
+                        {b.missingFromSourceCount}
+                      </span>
+                    } />
+                    <Row label="Errors last run" value={
+                      <span className={b.errorCount > 0 ? 'text-red-400' : 'text-gray-300'}>{b.errorCount}</span>
+                    } />
+                    {b.missingFromSourceCount > 0 && (
+                      <div className="text-xs text-red-300 pt-1 space-y-0.5">
+                        {b.missingFromSource.slice(0, 5).map((k) => (
+                          <div key={k} className="font-mono truncate">missing: {k}</div>
+                        ))}
+                        {b.missingFromSourceCount > 5 && <div>+{b.missingFromSourceCount - 5} more</div>}
+                      </div>
+                    )}
+                    {b.errorCount > 0 && (
+                      <div className="text-xs text-red-300 pt-1 space-y-0.5">
+                        {b.errors.slice(0, 5).map((e) => (
+                          <div key={e.key} className="font-mono truncate">{e.key}: {e.error}</div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-500 pt-1">
+                      Copy-only mirror · daily 11:00 UTC · never deletes
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </section>
+
           <div className="text-xs text-gray-500 pt-2">
             Read-only snapshot. Use the Refresh button for an up-to-date view.
           </div>
