@@ -638,7 +638,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                 </button>
                 {/* Show name — top left */}
                 <div className="absolute top-2 left-2 drop-shadow-lg">
-                  <span className="text-sm font-bold text-white uppercase tracking-wide">{showName}</span>
+                  <span className="text-[11.9px] font-bold text-white uppercase tracking-wide">{showName}</span>
                 </div>
                 {/* DJ info overlay — bottom left */}
                 <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
@@ -686,7 +686,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
                 </button>
                 {/* Show name — top left */}
                 <div className="absolute top-2 left-2 drop-shadow-lg">
-                  <span className="text-sm font-bold text-white uppercase tracking-wide">{showName}</span>
+                  <span className="text-[11.9px] font-bold text-white uppercase tracking-wide">{showName}</span>
                 </div>
                 <DJImageOverlay djName={djName} djGenres={djGenres} djDescription={djDescription} />
               </>
