@@ -978,7 +978,29 @@ export async function ensureNextLoop(args: { generatedBy?: 'cron' | 'admin' } = 
       // <= now < endMs), we still need to generate the next one.
       const isCurrentlyPlaying = startTimeMs <= now && now < endMs;
       if (!isCurrentlyPlaying) {
-        return { skipped: 'already-future', loopNumber: Number(data.loopNumber ?? 0) };
+        // A future loop already exists. Normally idempotent-skip — UNLESS a new
+        // anchor (live block) was scheduled INSIDE this future loop's span after
+        // it was generated. The stored loop, built with no anchor, would play
+        // straight through the live block with no hand-back. Regenerate (force)
+        // so the interlude + curated archive land on the block end. The
+        // currently-playing loop is handled above, so a live listener is never
+        // disrupted. (The cron only ever stores maxLoopNumber+1, so the latest
+        // stored loop is the only future loop to check.)
+        const loopNumber = Number(data.loopNumber ?? 0);
+        const locked = data.locked === true;
+        const storedReason = String(data.planReason ?? '');
+        const storedAligned = Number(data.catalogStats?.alignedAnchorCount ?? 0);
+        if (!locked && storedReason !== 'anchor' && storedAligned === 0) {
+          const anchorHorizonMs = startTimeMs + 72 * 3600 * 1000;
+          const anchors = await loadAnchors(db, startTimeMs);
+          const newAnchor = anchors.find(
+            (a) => a.endTimeMs > startTimeMs && a.endTimeMs <= anchorHorizonMs,
+          );
+          if (newAnchor) {
+            return generateLoop({ loopNumber, force: true, generatedBy: args.generatedBy });
+          }
+        }
+        return { skipped: 'already-future', loopNumber };
       }
     }
   }
