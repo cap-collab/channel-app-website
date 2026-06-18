@@ -19,11 +19,6 @@ const faqItems = [
       "An online radio platform built around artists and tastemakers.",
   },
   {
-    question: "Tell me more.",
-    answer:
-      "Channel is a community-led internet radio platform.\n\nArtists, DJs, producers, collectives, and labels host live shows and listening sessions. Listeners discover music through people, and shared experiences.\n\nBuilt for intentional listening.\n\nNo ads. No algorithms.",
-  },
-  {
     question: "Who is it for?",
     answer:
       "Anyone who values taste and craft over algorithms and hype.",
