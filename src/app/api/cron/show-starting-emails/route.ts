@@ -55,6 +55,11 @@ interface LiveShow {
   // Resolved DJ profile info
   djUsername?: string;
   djPhotoUrl?: string;
+  // Per-show cover art stored on the broadcast slot. Preferred over the
+  // proxy/profile photo in emails — and the ONLY image that resolves for a
+  // collective slot, whose djUsername is a collective slug (no user → the
+  // /api/dj-photo proxy 404s, blanking the image).
+  showImageUrl?: string;
   djHasEmail?: boolean;
   djUserId?: string; // Firebase UID of the DJ — used to skip sending them their own "go live" email
   streamingUrl?: string;
@@ -316,6 +321,7 @@ export async function GET(request: NextRequest) {
         stationName: "Channel Radio",
         showId: `broadcast-${slot.id}`,
         djUsername: data.djUsername as string | undefined,
+        showImageUrl: (data.showImageUrl as string) || undefined,
         djUserId: (data.liveDjUserId as string) || (data.djUserId as string) || undefined,
         collectiveOwnerUsernames: collectiveInfo?.ownerUsernames.length
           ? collectiveInfo.ownerUsernames
@@ -995,6 +1001,7 @@ export async function GET(request: NextRequest) {
         djName?: string;
         djUsername?: string;
         djPhotoUrl?: string;
+        showImageUrl?: string;
         stationName: string;
         stationId: string;
         startTime: string;
@@ -1029,6 +1036,7 @@ export async function GET(request: NextRequest) {
           djName: show.dj,
           djUsername: show.djUsername,
           djPhotoUrl: show.djPhotoUrl,
+          showImageUrl: show.showImageUrl,
           stationName: show.stationName,
           stationId: show.stationId,
           startTime: show.startTime,
@@ -1042,6 +1050,7 @@ export async function GET(request: NextRequest) {
         djName: b.djName,
         djUsername: b.djUsername,
         djPhotoUrl: b.djPhotoUrl,
+        showImageUrl: b.showImageUrl,
         stationName: b.stationName,
         stationId: b.stationId,
         startTime: b.startTime,
@@ -1070,6 +1079,7 @@ export async function GET(request: NextRequest) {
             djName: primary.dj,
             djUsername: primary.djUsername,
             djPhotoUrl: primary.djPhotoUrl,
+            showImageUrl: primary.showImageUrl,
             djHasEmail: primary.djHasEmail,
             stationName: primary.stationName,
             stationId: primary.stationId,
@@ -1094,6 +1104,7 @@ export async function GET(request: NextRequest) {
         djName: primary.dj,
         djUsername: primary.djUsername,
         djPhotoUrl: primary.djPhotoUrl,
+        showImageUrl: primary.showImageUrl,
         djHasEmail: primary.djHasEmail,
         stationName: primary.stationName,
         stationId: primary.stationId,

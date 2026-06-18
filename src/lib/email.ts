@@ -216,10 +216,22 @@ function normalizeDjUsername(djUsername: string): string {
   return djUsername.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-// Get a photo URL for emails
-// Always prefer the proxy when djUsername is known — it serves a clean, short URL
-// that email clients handle reliably (no long tokens, spaces, or special chars)
-function getEmailPhotoUrl(djUsername?: string, djPhotoUrl?: string): string | undefined {
+// Get a photo URL for emails.
+// Priority:
+//  1. showImageUrl — per-show cover art on the broadcast slot. This is the
+//     only image that works for a COLLECTIVE slot: its djUsername is a
+//     collective slug, so the /api/dj-photo proxy (keyed on a user's
+//     chatUsernameNormalized) 404s and the image blanks. It's also just the
+//     most show-accurate art when a DJ uploaded one.
+//  2. proxy by djUsername — clean, short URL email clients handle reliably
+//     (no long tokens, spaces, or special chars).
+//  3. raw djPhotoUrl fallback.
+function getEmailPhotoUrl(
+  djUsername?: string,
+  djPhotoUrl?: string,
+  showImageUrl?: string,
+): string | undefined {
+  if (showImageUrl) return showImageUrl;
   if (djUsername) {
     return `https://channel-app.com/api/dj-photo/${normalizeDjUsername(djUsername)}`;
   }
@@ -233,6 +245,7 @@ export interface LaterTodayShowRow {
   djName?: string;
   djUsername?: string;
   djPhotoUrl?: string;
+  showImageUrl?: string; // Per-show cover art — preferred over the DJ photo
   stationName: string;
   stationId: string;
   startTime: string; // ISO 8601
@@ -245,6 +258,7 @@ interface ShowStartingEmailParams {
   djName?: string;
   djUsername?: string; // DJ's chat username for profile link
   djPhotoUrl?: string; // DJ profile photo
+  showImageUrl?: string; // Per-show cover art — preferred over the DJ photo
   djHasEmail?: boolean; // Whether DJ has email set (can receive chat messages)
   stationName: string;
   stationId: string;
@@ -278,6 +292,7 @@ export async function sendShowStartingEmail({
   djName,
   djUsername,
   djPhotoUrl,
+  showImageUrl,
   // djHasEmail no longer used — button logic now checks stationId instead
   stationName,
   stationId,
@@ -328,9 +343,9 @@ export async function sendShowStartingEmail({
   };
   const fallbackColor = stationAccentColors[stationId] || "#DC9B50";
 
-  // DJ photo or fallback initial (email-compatible table-based fallback)
-  // Use proxy URL for reliable loading in email clients
-  const emailPhotoUrl = getEmailPhotoUrl(djUsername, djPhotoUrl);
+  // Show cover art → DJ photo (proxy) → fallback initial (email-compatible
+  // table-based fallback). showImageUrl is required for collective slots.
+  const emailPhotoUrl = getEmailPhotoUrl(djUsername, djPhotoUrl, showImageUrl);
   const photoHtml = emailPhotoUrl
     ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="80" height="80" style="width: 80px; height: 80px; border-radius: 0; object-fit: cover; border: 1px solid #e5e5e5;" />`
     : `<table width="80" height="80" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #e5e5e5; background-color: ${fallbackColor};">
@@ -567,7 +582,7 @@ function buildLaterTodayRowHtml(row: LaterTodayShowRow, timezone: string): strin
       : `https://channel-app.com/dj/${normalizeDjUsername(row.showName)}`;
 
   const fallbackColor = STATION_ACCENT_COLORS[row.stationId] || "#DC9B50";
-  const emailPhotoUrl = getEmailPhotoUrl(row.djUsername, row.djPhotoUrl);
+  const emailPhotoUrl = getEmailPhotoUrl(row.djUsername, row.djPhotoUrl, row.showImageUrl);
   const photoHtml = emailPhotoUrl
     ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="48" height="48" style="width: 48px; height: 48px; border-radius: 0; object-fit: cover; border: 1px solid #e5e5e5; display: block;" />`
     : `<table width="48" height="48" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #e5e5e5; background-color: ${fallbackColor};">
