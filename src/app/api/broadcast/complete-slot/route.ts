@@ -3,6 +3,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { BroadcastSlot, Recording, ROOM_NAME } from '@/types/broadcast';
 import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { cleanupSlotLiveKit } from '@/lib/livekit-cleanup';
+import { coerceSlotTimeMs } from '@/lib/broadcast-slots';
 
 // POST - Mark a slot as completed (called when slot end time passes)
 export async function POST(request: NextRequest) {
@@ -37,7 +38,9 @@ export async function POST(request: NextRequest) {
     const slot = slotDoc.data() as Omit<BroadcastSlot, 'id'>;
     const { force } = body;  // Allow force completion when DJ ends broadcast early
     const now = Date.now();
-    const endTime = slot.endTime.toMillis();
+    // coerceSlotTimeMs tolerates a flattened {_seconds} field (a raw
+    // slot.endTime.toMillis() throws on those). 0 = unparseable.
+    const endTime = coerceSlotTimeMs(slot.endTime);
 
     // If not forced, only complete if end time has passed
     if (!force && now <= endTime) {
@@ -118,9 +121,9 @@ export async function POST(request: NextRequest) {
 
         for (const nextDoc of nextShowSnapshot.docs) {
           const nextSlot = nextDoc.data();
-          const startTime = nextSlot.startTime?.toMillis?.() || nextSlot.startTime;
-          const nextEndTime = nextSlot.endTime?.toMillis?.() || nextSlot.endTime;
-          if (!startTime) continue;
+          const startTime = coerceSlotTimeMs(nextSlot.startTime);
+          const nextEndTime = coerceSlotTimeMs(nextSlot.endTime);
+          if (!startTime || !nextEndTime) continue;
 
           // In-window: preferred, handle as before.
           if (now >= startTime && now < nextEndTime) {
@@ -232,7 +235,7 @@ export async function POST(request: NextRequest) {
     // fires for restreams — live early-ends are handled by the DJ queue.
     if (!nextShowDoc && nearFutureRestreamDoc) {
       const nearSlot = nearFutureRestreamDoc.data();
-      const nearStart = nearSlot.startTime?.toMillis?.() || nearSlot.startTime;
+      const nearStart = coerceSlotTimeMs(nearSlot.startTime);
       console.log(`[complete-slot] Scheduling near-future restream ${nearFutureRestreamDoc.id} for ${new Date(nearStart).toISOString()}`);
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
       const cronSecret = process.env.CRON_SECRET || '';

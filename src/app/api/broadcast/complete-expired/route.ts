@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { coerceSlotTimeMs } from '@/lib/broadcast-slots';
 
 // POST - Complete all expired slots (called when admin loads dashboard)
 export async function POST() {
@@ -21,10 +22,11 @@ export async function POST() {
 
     for (const doc of snapshot.docs) {
       const slot = doc.data();
-      const endTime = slot.endTime?.toMillis?.() || slot.endTime;
+      const endTime = coerceSlotTimeMs(slot.endTime);
 
-      // Skip if slot hasn't ended yet
-      if (now <= endTime) continue;
+      // Skip if slot hasn't ended yet, or endTime is unparseable (0 from a
+      // missing/flattened field) — never expire a slot on an unknown time.
+      if (!endTime || now <= endTime) continue;
 
       // Determine final status based on current status
       let newStatus: 'completed' | 'missed';

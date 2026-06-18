@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import { cleanupSlotLiveKit } from '@/lib/livekit-cleanup';
+import { coerceSlotTimeMs } from '@/lib/broadcast-slots';
 
 // App URL for internal API calls
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
@@ -43,9 +44,11 @@ export async function GET(request: NextRequest) {
     for (const doc of snapshot.docs) {
       try {
         const slot = doc.data();
-        const endTime = slot.endTime?.toMillis?.() || slot.endTime;
+        const endTime = coerceSlotTimeMs(slot.endTime);
 
-        // Skip if slot hasn't ended yet or endTime is invalid
+        // Skip if slot hasn't ended yet or endTime is unparseable. coerceSlotTimeMs
+        // returns 0 for a missing/flattened time field — bail rather than expire,
+        // so a corrupted Timestamp can't false-mark a future slot missed/completed.
         if (!endTime || now <= endTime) continue;
 
         // Determine final status based on current status
@@ -123,15 +126,17 @@ export async function GET(request: NextRequest) {
     for (const restreamDoc of restreamSnapshot.docs) {
       try {
         const slot = restreamDoc.data();
-        const startTime = slot.startTime?.toMillis?.() || slot.startTime;
-        const endTime = slot.endTime?.toMillis?.() || slot.endTime;
+        const startTime = coerceSlotTimeMs(slot.startTime);
+        const endTime = coerceSlotTimeMs(slot.endTime);
         // Only process scheduled or live (without ingress) restreams
         if (slot.status !== 'scheduled' && slot.status !== 'live') {
           console.log(`[cron] skip ${restreamDoc.id}: status=${slot.status}`);
           continue;
         }
-        // Skip if not yet started or already ended
-        if (!startTime || now < startTime || now >= endTime) {
+        // Skip if not yet started or already ended. A 0 from coerceSlotTimeMs
+        // (missing/flattened time) bails here rather than activating a restream
+        // at the wrong moment.
+        if (!startTime || !endTime || now < startTime || now >= endTime) {
           console.log(`[cron] skip ${restreamDoc.id}: not in time window (start=${startTime}, end=${endTime}, now=${now})`);
           continue;
         }

@@ -21,6 +21,16 @@ const COLLECTION = 'broadcast-slots';
 // Date, or a raw millis number. A single bad doc must never throw here, or it
 // takes down the whole getSlots() fetch and blanks the admin Schedule/Marketing
 // tabs (see "REST Date vs Timestamp" failure mode).
+//
+// Returns 0 when the value is missing/unparseable. Callers making a time
+// COMPARISON (e.g. "has this slot ended?") must treat 0 as "unknown — skip",
+// NOT as epoch-zero/"in the past": the expiry crons used `t?.toMillis?.() || t`
+// which fell through to the raw object on a flattened field and made `now <= obj`
+// always-false, wrongly marking future slots missed/completed. Use
+// coerceSlotTimeMs and bail on 0 instead.
+export function coerceSlotTimeMs(v: unknown): number {
+  return toMillis(v);
+}
 function toMillis(v: unknown): number {
   if (v == null) return 0;
   if (typeof v === 'number') return v;
