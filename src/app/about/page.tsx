@@ -47,15 +47,15 @@ export default function About() {
           <div className="max-w-3xl mx-auto">
             <div className="space-y-6 text-zinc-400 leading-relaxed">
               <p>
-                My name is Cap. I&apos;m building Channel out of love for the music, and the people behind it.
+                My name is Cap. I&apos;m building Channel out of love for the music and the people behind it.
               </p>
 
               <p>
-                After moving from France to New York to Los Angeles, I realized how difficult it is to stay connected to the people and scenes quietly shaping culture forward. The internet gives us endless music, but very little context, identity, or human connection.
+                After moving from France to New York to Los Angeles, I realized how difficult it is to stay connected to the people and scenes quietly shaping culture. The internet gives us endless music, but very little context, identity, or human connection.
               </p>
 
               <p>
-                Channel was built as an alternative to algorithmic listening and mass consumption — a place for intentional listening, discovery, and people who genuinely care about the craft. Human radio shaped by artists, DJs, producers, and listeners more interested in substance than status.
+                Channel is an alternative to algorithmic listening and mass consumption. A place that values taste and craft over visibility and hype.
               </p>
             </div>
 
