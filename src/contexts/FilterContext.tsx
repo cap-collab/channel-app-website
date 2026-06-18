@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { getDefaultCity } from '@/lib/city-detection';
+import { getDefaultCity, DEFAULT_CITY_FALLBACK } from '@/lib/city-detection';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -119,7 +119,15 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
     clearUrlSceneRef.current = fn;
   }, []);
 
-  const [selectedCity, setSelectedCity] = useState<string>(getDefaultCity());
+  // Seed with the constant fallback, NOT getDefaultCity(): the latter reads
+  // Intl.DateTimeFormat().resolvedOptions().timeZone, which resolves to the
+  // server's timezone during SSR (→ 'London') and the visitor's timezone on
+  // the client's first render (→ possibly a different city). That divergence
+  // is a hydration mismatch (React #418/#425). Seeding a constant keeps SSR
+  // and the client's first render in lockstep; the post-mount effect below
+  // (auth + localStorage branches both fall back to getDefaultCity()) applies
+  // the real timezone-derived city after hydration.
+  const [selectedCity, setSelectedCity] = useState<string>(DEFAULT_CITY_FALLBACK);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedSceneIds, setSelectedSceneIds] = useState<string[] | null>(null);
   const [tunerHints, setTunerHints] = useState<TunerHints>({});

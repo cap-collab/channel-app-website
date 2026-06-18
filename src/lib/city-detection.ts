@@ -121,6 +121,12 @@ const TIMEZONE_TO_CITY: Record<string, string> = {
   'Pacific/Auckland': 'Sydney',
 };
 
+// SSR-safe constant city. getDefaultCity() reads the runtime timezone, which
+// differs server (UTC) vs client → hydration mismatch if used as initial
+// render state. Seed with this constant instead, then call getDefaultCity()
+// post-mount. Mirrors getDefaultCity()'s own fallback.
+export const DEFAULT_CITY_FALLBACK = 'London';
+
 /**
  * Get the default city based on the user's timezone
  * Falls back to 'London' if timezone is not recognized
@@ -128,9 +134,9 @@ const TIMEZONE_TO_CITY: Record<string, string> = {
 export function getDefaultCity(): string {
   try {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return TIMEZONE_TO_CITY[timezone] || 'London';
+    return TIMEZONE_TO_CITY[timezone] || DEFAULT_CITY_FALLBACK;
   } catch {
-    return 'London';
+    return DEFAULT_CITY_FALLBACK;
   }
 }
 

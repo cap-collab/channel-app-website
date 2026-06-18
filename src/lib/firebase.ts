@@ -1,6 +1,6 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, OAuthProvider, Auth } from "firebase/auth";
-import { initializeFirestore, getFirestore, Firestore } from "firebase/firestore";
+import { initializeFirestore, getFirestore, setLogLevel, Firestore } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -36,6 +36,13 @@ if (isConfigured) {
   db = isFresh
     ? initializeFirestore(app, { experimentalAutoDetectLongPolling: true })
     : getFirestore(app);
+  // Silence the benign "WebChannelConnection RPC 'Listen' stream transport
+  // errored" warnings the SDK logs on every WebChannel reconnect (carrier
+  // proxies, idle backgrounded tabs, Wi-Fi/cell handoffs). These are normal —
+  // the SDK transparently reopens the stream — but at the default 'warn' level
+  // they flood the console once every few minutes. Drop to 'error' so real
+  // failures still surface while the reconnect noise goes away.
+  setLogLevel("error");
   storage = getStorage(app);
   googleProvider = new GoogleAuthProvider();
   appleProvider = new OAuthProvider("apple.com");
