@@ -445,8 +445,8 @@ export function StudioProfileClient() {
     setUploadDuration(null);
 
     // Validate file size
-    if (file.size > 800 * 1024 * 1024) {
-      setUploadError('File is too large. Maximum size is 800MB.');
+    if (file.size > 1500 * 1024 * 1024) {
+      setUploadError('File is too large. Maximum size is 1500MB.');
       return;
     }
 
@@ -3790,7 +3790,7 @@ export function StudioProfileClient() {
             {/* File picker */}
             <div className="mb-4">
               <label className="text-gray-400 text-sm mb-1 block">Audio file</label>
-              <p className="text-gray-500 text-xs mb-1.5">MP3 or MP4 formats preferred · max 800MB</p>
+              <p className="text-gray-500 text-xs mb-1.5">MP3 or MP4 formats preferred · max 1500MB</p>
               <input
                 type="file"
                 accept="audio/*,.mp3,.wav,.aac,.m4a,.flac,.ogg,.mp4,.webm"
