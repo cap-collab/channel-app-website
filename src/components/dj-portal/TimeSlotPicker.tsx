@@ -46,6 +46,26 @@ function isWeekendPT(timestamp: number): boolean {
   return ptDayStr === 'Sat' || ptDayStr === 'Sun';
 }
 
+// Recurring block through end of year (PT): Fri 8 PM–midnight & Sun 8 AM–noon.
+// Most of these ranges are already covered by the weekend + nighttime rules; this
+// makes the intent explicit and catches the Fri 8–9 PM hour those rules miss.
+const RECURRING_BLOCK_UNTIL = new Date('2027-01-01T08:00:00Z').getTime(); // midnight PT Jan 1 2027
+
+function isRecurringBlockedPT(timestamp: number): boolean {
+  if (timestamp >= RECURRING_BLOCK_UNTIL) return false;
+  const parts = new Date(timestamp).toLocaleString('en-US', {
+    weekday: 'short',
+    hour: 'numeric',
+    hour12: false,
+    timeZone: 'America/Los_Angeles',
+  });
+  const [day, hourStr] = parts.split(', ');
+  const ptHour = parseInt(hourStr);
+  if (day === 'Fri') return ptHour >= 20; // 8 PM–midnight
+  if (day === 'Sun') return ptHour >= 8 && ptHour < 12; // 8 AM–noon
+  return false;
+}
+
 function formatHour(hour: number): string {
   if (hour === 0) return '12 AM';
   if (hour < 12) return `${hour} AM`;
@@ -215,6 +235,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
       isNighttimePT(timestamp) ||
       isWeekendPT(timestamp) ||
       isBlockedDate(timestamp) ||
+      isRecurringBlockedPT(timestamp) ||
       isTimeBooked(timestamp)
     );
   };
