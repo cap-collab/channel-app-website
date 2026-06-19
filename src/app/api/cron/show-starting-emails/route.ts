@@ -627,31 +627,48 @@ export async function GET(request: NextRequest) {
     // Keyed by normalized chatUsername so it composes with the existing
     // engagement / watchlist matchers. Always excludes the live DJ themselves.
     const relatedUsernamesByShowId = new Map<string, Set<string>>();
+    // Subset of related[] that came specifically from the audience-borrow
+    // source (live DJ borrows DJ X's fans). Used only to pick the bridge
+    // caption: crew bridges read "From the same world as X.", audience-borrow
+    // bridges read "If you like X.". A name appearing in both sources is
+    // treated as crew (crew wins), so this set is consulted only after the
+    // crew set misses.
+    const borrowedUsernamesByShowId = new Map<string, Set<string>>();
     for (const show of allMatchableShows) {
       if (show.stationId !== "broadcast") continue;
       if (!show.djUserId || !show.djUsername) continue;
       const related = new Set<string>();
+      const borrowed = new Set<string>();
       // 1. Audience-lent
       const audUids = audienceUidsByLiveDjUid.get(show.djUserId);
       if (audUids) {
         audUids.forEach((uid) => {
           const name = uidToUsername.get(uid);
-          if (name) related.add(name);
+          if (name) {
+            related.add(name);
+            borrowed.add(name);
+          }
         });
       }
       // 2. Crew/affiliation — mirror the DJ-side affiliatedRecipientsByShowId
       // construction, but emit usernames (for the engagement bridge) instead
-      // of uids (for direct affiliated-recipients).
+      // of uids (for direct affiliated-recipients). Crew names also land in
+      // `related`; any crew name is removed from `borrowed` below so a DJ who
+      // is both crew and audience-lent is captioned as crew (crew wins).
+      const addCrew = (name: string) => {
+        related.add(name);
+        borrowed.delete(name);
+      };
       const xAffiliation = affiliatedByLiveDjUid.get(show.djUserId);
       if (xAffiliation) {
         const name = uidToUsername.get(xAffiliation);
-        if (name) related.add(name);
+        if (name) addCrew(name);
       }
       const directAffiliates = affiliatesByUid.get(show.djUserId);
       if (directAffiliates) {
         directAffiliates.forEach((uid) => {
           const name = uidToUsername.get(uid);
-          if (name) related.add(name);
+          if (name) addCrew(name);
         });
       }
       if (xAffiliation) {
@@ -659,12 +676,15 @@ export async function GET(request: NextRequest) {
         if (siblings) {
           siblings.forEach((uid) => {
             const name = uidToUsername.get(uid);
-            if (name) related.add(name);
+            if (name) addCrew(name);
           });
         }
       }
-      related.delete(normalizeForLookup(show.djUsername));
+      const selfNorm = normalizeForLookup(show.djUsername);
+      related.delete(selfNorm);
+      borrowed.delete(selfNorm);
       if (related.size > 0) relatedUsernamesByShowId.set(show.showId, related);
+      if (borrowed.size > 0) borrowedUsernamesByShowId.set(show.showId, borrowed);
     }
 
     // 4c. Build engagement recipient sets per Channel Radio live show.
@@ -837,12 +857,16 @@ export async function GET(request: NextRequest) {
       const matchShow = (show: LiveShow): {
         matchedViaAffiliation: boolean;
         affiliationBridgeDj?: string;
+        bridgeKind?: "crew" | "borrow";
         engagementReason?: "engaged";
+        savedReason?: "favorite" | "watchlist";
       } | null => {
         let matched = false;
         let matchedViaAffiliation = false;
         let affiliationBridgeDj: string | undefined;
+        let bridgeKind: "crew" | "borrow" | undefined;
         let engagementReason: "engaged" | undefined;
+        let savedReason: "favorite" | "watchlist" | undefined;
 
         // Channel Radio only. Go-live emails never fire for external-station
         // shows (nts, subtle, dublab, rinse, sutro, …), for ANY recipient or
@@ -867,6 +891,7 @@ export async function GET(request: NextRequest) {
             (favTerm === show.name.toLowerCase() || favShowName === show.name.toLowerCase())
           ) {
             matched = true;
+            savedReason = "favorite";
             break;
           }
         }
@@ -879,6 +904,7 @@ export async function GET(request: NextRequest) {
               (show.collectiveOwnerUsernames && show.collectiveOwnerUsernames.some(u => wordBoundaryMatch(u, term)))
             ) {
               matched = true;
+              savedReason = "watchlist";
               break;
             }
           }
@@ -904,6 +930,7 @@ export async function GET(request: NextRequest) {
               matchedViaAffiliation = true;
             } else if (show.stationId === "broadcast") {
               const related = relatedUsernamesByShowId.get(show.showId);
+              const borrowed = borrowedUsernamesByShowId.get(show.showId);
               const engagedByR = engagedByRelatedDjByShowId.get(show.showId);
               if (related) {
                 for (const r of Array.from(related)) {
@@ -919,6 +946,9 @@ export async function GET(request: NextRequest) {
                     matched = true;
                     matchedViaAffiliation = true;
                     affiliationBridgeDj = r;
+                    // borrowed[] already excludes any crew member, so
+                    // membership here means audience-borrow; otherwise crew.
+                    bridgeKind = borrowed?.has(r) ? "borrow" : "crew";
                     break;
                   }
                 }
@@ -927,7 +957,7 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        return matched ? { matchedViaAffiliation, affiliationBridgeDj, engagementReason } : null;
+        return matched ? { matchedViaAffiliation, affiliationBridgeDj, bridgeKind, engagementReason, savedReason } : null;
       };
 
       // Shared universal gates that must hold for ANY show going into the
@@ -1086,7 +1116,9 @@ export async function GET(request: NextRequest) {
             streamingUrl: primary.streamingUrl,
             isAffiliated: primaryMatch.matchedViaAffiliation,
             affiliationBridgeDj: primaryMatch.affiliationBridgeDj,
+            bridgeKind: primaryMatch.bridgeKind,
             engagementReason: primaryMatch.engagementReason,
+            savedReason: primaryMatch.savedReason,
             laterToday: laterToday.length > 0 ? laterToday : undefined,
             userTimezone: userTz,
           });
@@ -1111,7 +1143,9 @@ export async function GET(request: NextRequest) {
         streamingUrl: primary.streamingUrl,
         isAffiliated: primaryMatch.matchedViaAffiliation,
         affiliationBridgeDj: primaryMatch.affiliationBridgeDj,
+        bridgeKind: primaryMatch.bridgeKind,
         engagementReason: primaryMatch.engagementReason,
+        savedReason: primaryMatch.savedReason,
         laterToday: laterToday.length > 0 ? laterToday : undefined,
         userTimezone: userTz,
       });

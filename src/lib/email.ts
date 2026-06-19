@@ -272,9 +272,18 @@ interface ShowStartingEmailParams {
   // and replaces the footer line with a neutral message. When undefined
   // alongside `isAffiliated`, falls back to the existing DJ-side wording.
   affiliationBridgeDj?: string;
+  // Which listener-side bridge connected the recipient: "crew" (same
+  // affiliation group) renders "From the same world as {R}."; "borrow"
+  // (audience-borrow — the live DJ borrows {R}'s fans) renders "If you like
+  // {R}.". Only affects the caption above the card; defaults to crew wording.
+  bridgeKind?: "crew" | "borrow";
   // Recipient was matched via past engagement (heart or lock-in) rather than
   // a watchlist/favorite. Changes footer copy only.
   engagementReason?: "engaged";
+  // Recipient matched because they saved this exact show ("favorite") vs. a
+  // saved search term that matched ("watchlist"). Only affects the default
+  // footer line; engagement/affiliation reasons take priority over this.
+  savedReason?: "favorite" | "watchlist";
   // Other shows the recipient would have matched today, bundled into a
   // single email so we cap each user at one go-live notification per day.
   // Sorted by startTime ascending. When empty/absent, no section renders
@@ -299,7 +308,9 @@ export async function sendShowStartingEmail({
   streamingUrl,
   isAffiliated,
   affiliationBridgeDj,
+  bridgeKind,
   engagementReason,
+  savedReason,
   laterToday,
   userTimezone,
 }: ShowStartingEmailParams) {
@@ -414,11 +425,24 @@ export async function sendShowStartingEmail({
     ? { url: muteUrl, label: `Unsubscribe from ${djDisplayName}` }
     : undefined;
 
-  // When the recipient matched via the listener-side affiliation path
-  // (Audience or crew bridge), render "From the same world as {R}." above
-  // the hero card and neutralise the footer line.
+  // Small grey caption above the hero card explaining the match. The
+  // affiliation-bridge path names the bridge DJ: crew bridges read "From the
+  // same world as {R}.", audience-borrow bridges read "If you like {R}." (the
+  // live DJ borrows {R}'s fans — similar, not same crew). The save-based paths
+  // use a short generic line. Engagement / affiliated-artist matches render no
+  // caption.
+  const captionStyle = "margin: 0; font-size: 13px; color: #999; letter-spacing: 0.02em;";
+  const bridgeName = affiliationBridgeDj
+    ? `<span style="color: #1a1a1a; font-weight: 600;">${affiliationBridgeDj}</span>`
+    : "";
   const aboveContentHtml = affiliationBridgeDj
-    ? `<p style="margin: 0; font-size: 13px; color: #999; letter-spacing: 0.02em;">From the same world as <span style="color: #1a1a1a; font-weight: 600;">${affiliationBridgeDj}</span>.</p>`
+    ? bridgeKind === "borrow"
+      ? `<p style="${captionStyle}">If you like ${bridgeName}.</p>`
+      : `<p style="${captionStyle}">From the same world as ${bridgeName}.</p>`
+    : savedReason === "watchlist"
+    ? `<p style="${captionStyle}">On your watchlist.</p>`
+    : savedReason === "favorite"
+    ? `<p style="${captionStyle}">A show you saved.</p>`
     : undefined;
 
   const footerText = affiliationBridgeDj
@@ -427,6 +451,8 @@ export async function sendShowStartingEmail({
     ? "You're receiving this because you engaged with that DJ in the past."
     : isAffiliated
     ? "You're receiving this because you're an affiliated artist."
+    : savedReason === "watchlist"
+    ? "You're receiving this because it matches a show on your watchlist."
     : "You're receiving this because you saved this show.";
 
   try {

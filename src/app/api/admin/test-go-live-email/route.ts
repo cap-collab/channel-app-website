@@ -4,7 +4,9 @@ import { queryUsersWhere } from "@/lib/firebase-rest";
 
 // One-shot test send for the go-live email template.
 // GET /api/admin/test-go-live-email?secret=$CRON_SECRET&to=cap@channel-app.com
-//   &dj=somedj&showName=Optional&station=broadcast&reason=hearted|lockedin
+//   &dj=somedj&showName=Optional&station=broadcast
+//   &reason=engaged|favorite|watchlist   ← which footer line to preview
+//                                           (default: engaged; ignored if ?bridge set)
 //   &bundle=1   ← include a sample "Also coming up later today" section
 //
 // Resolves the recipient's UID by email so the per-DJ unsubscribe link
@@ -31,11 +33,26 @@ export async function GET(request: NextRequest) {
   const stationId = url.searchParams.get("station") || "broadcast";
   const stationName =
     stationId === "broadcast" ? "Channel Radio" : stationId;
-  // Optional bridge DJ — renders "From the same world as {bridge}." caption
-  // and the listener-side affiliation copy. Otherwise the email uses the
-  // direct-engagement footer.
+  // Optional bridge DJ — renders the listener-side affiliation caption above
+  // the card: "From the same world as {bridge}." for crew (default), or
+  // "If you like {bridge}." when ?bridgeKind=borrow (audience-borrow). The
+  // footer is "You're getting this from Channel." either way. Without ?bridge,
+  // the footer is chosen by ?reason: "engaged" (default), "favorite" (saved
+  // show), or "watchlist" (saved search term).
   const bridge = url.searchParams.get("bridge") || undefined;
-  const engagementReason = bridge ? undefined : ("engaged" as const);
+  const bridgeKind =
+    bridge && url.searchParams.get("bridgeKind") === "borrow"
+      ? ("borrow" as const)
+      : bridge
+      ? ("crew" as const)
+      : undefined;
+  const reason = url.searchParams.get("reason") || "engaged";
+  const engagementReason =
+    bridge || reason !== "engaged" ? undefined : ("engaged" as const);
+  const savedReason =
+    !bridge && (reason === "favorite" || reason === "watchlist")
+      ? (reason as "favorite" | "watchlist")
+      : undefined;
   const includeBundle = url.searchParams.get("bundle") === "1";
 
   if (!to) {
@@ -101,8 +118,10 @@ export async function GET(request: NextRequest) {
     stationName,
     stationId,
     engagementReason,
+    savedReason,
     isAffiliated: !!bridge,
     affiliationBridgeDj: bridge,
+    bridgeKind,
     laterToday,
     userTimezone: "America/Los_Angeles",
   });
@@ -113,7 +132,9 @@ export async function GET(request: NextRequest) {
     dj,
     stationId,
     engagementReason,
+    savedReason: savedReason ?? null,
     bridge: bridge ?? null,
+    bridgeKind: bridgeKind ?? null,
     recipientUserId: recipientUserId ?? null,
     bundle: includeBundle ? laterToday?.length ?? 0 : 0,
     note: recipientUserId
