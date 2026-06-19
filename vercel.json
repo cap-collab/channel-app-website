@@ -45,6 +45,10 @@
       "schedule": "3 * * * *"
     },
     {
+      "path": "/api/cron/drain-faststart-queue",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/audit-r2-stats",
       "schedule": "0 8 * * *"
     },

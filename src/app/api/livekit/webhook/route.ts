@@ -123,6 +123,11 @@ export async function POST(request: NextRequest) {
             } catch (err) {
               console.error(`[webhook] Failed to start egress for restream ${slotId}:`, err);
             }
+          } else if (slotDoc.exists) {
+            // Attribution log: webhook arrived but skipped because the slot already
+            // has an egress id (set by start-restream's inline path). Confirms the
+            // track_published webhook is landing, not being dropped.
+            console.log(`[webhook] Restream ${slotId} already has egress ${slotDoc.data()?.restreamEgressId} — skipping (track_published landed OK)`);
           }
         }
       }
@@ -171,6 +176,11 @@ export async function POST(request: NextRequest) {
 
     // Handle egress ended events - save recording URL to Firestore
     if (event.event === 'egress_ended' && event.egressInfo) {
+      // Attribution log: how long this handler takes matters — a slow egress_ended
+      // (it used to do an inline blocking faststart fetch) stalls LiveKit's
+      // serialized webhook sender and starves the next boundary's track_published.
+      // Faststart is now deferred to a queue, so this should return fast.
+      const ee_t0 = Date.now();
       const egress = event.egressInfo;
       const fileResults = egress.fileResults || [];
 
@@ -267,51 +277,28 @@ export async function POST(request: NextRequest) {
             await slotRef.update(updateData);
             console.log(`Recording saved for slot ${slotId}: ${recordingUrl} (${durationSec}s)`);
 
-            // Run faststart on the recording (moves moov atom to front for streaming)
-            const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL;
-            const cronSecret = process.env.CRON_SECRET;
-            try {
-              if (restreamWorkerUrl && mp4File.filename) {
-                const faststartRes = await fetch(`${restreamWorkerUrl}/faststart`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${cronSecret}`,
-                  },
-                  body: JSON.stringify({ r2Key: mp4File.filename }),
-                });
-                const faststartResult = await faststartRes.json();
-                if (!faststartRes.ok) {
-                  console.error(`[webhook] Faststart failed (${faststartRes.status}) for ${mp4File.filename}:`, faststartResult);
-                } else {
-                  console.log(`[webhook] Faststart done for ${mp4File.filename}:`, faststartResult);
-                }
-              } else {
-                console.warn(`[webhook] Faststart skipped: RESTREAM_WORKER_URL=${restreamWorkerUrl ? 'set' : 'missing'}, filename=${mp4File.filename || 'missing'}`);
-              }
-            } catch (faststartError) {
-              console.error('[webhook] Faststart error:', faststartError);
-            }
-
-            // Enqueue normalize for post-broadcast processing. Running inline
-            // here would compete for CPU with any live or restream broadcast on
-            // the same VPS, so we defer. The drain cron
-            // (/api/cron/drain-normalize-queue, 5 * * * *) picks one entry per
-            // tick and only runs when no live show is starting in <15 min and
-            // none ended in the last 2 min. See normalize-queue collection.
+            // Enqueue faststart (moves moov atom to front) instead of running it
+            // inline. The inline `await fetch(.../faststart)` used to download +
+            // rewrite the whole MP4 here (seconds→minutes for long sets) BEFORE
+            // returning 200 — and LiveKit's webhook sender is serialized, so it
+            // starved the next slot boundary's track_published (which starts the
+            // restream egress) → silent restream transitions. Deferring it keeps
+            // egress_ended fast. The drain cron (/api/cron/drain-faststart-queue)
+            // runs faststart in a quiet window, then enqueues normalize (which
+            // must run AFTER faststart). See faststart-queue collection.
             try {
               if (mp4File.filename) {
-                await db.collection('normalize-queue').add({
+                await db.collection('faststart-queue').add({
                   r2Key: mp4File.filename,
                   slotId,
                   queuedAt: Date.now(),
                   status: 'pending',
                   attempts: 0,
                 });
-                console.log(`[webhook] Normalize queued for ${mp4File.filename}`);
+                console.log(`[webhook] Faststart queued for ${mp4File.filename}`);
               }
             } catch (queueError) {
-              console.error('[webhook] Normalize enqueue error:', queueError);
+              console.error('[webhook] Faststart enqueue error:', queueError);
             }
 
             // Create archive for the recording
@@ -511,6 +498,10 @@ export async function POST(request: NextRequest) {
           console.log('No slot found for egress:', egress.egressId);
         }
       }
+      // Attribution log: total egress_ended handler duration. Should be small now
+      // that faststart is queued (not awaited). A large value here = something
+      // else inline is still stalling LiveKit's serialized webhook queue.
+      console.log(`[webhook] egress_ended handled in ${Date.now() - ee_t0}ms (egress=${egress.egressId})`);
     }
 
     return NextResponse.json({ received: true });

@@ -53,6 +53,12 @@ export function BroadcastClient() {
   const currentDjSlotIdRef = useRef<string | null>(null);
   // Re-entry guard for audio glitch recovery (overlapping track-ended events).
   const recoveringAudioRef = useRef(false);
+  // Set true during an INTENTIONAL teardown (slot-end auto-end, or DJ clicks End)
+  // so the track-`ended` listener that `track.stop()` fires synchronously does NOT
+  // mistake an intentional end for a glitch and kick off recoverAudio()/goLive()
+  // — which would race the slot handoff. A ref (not state) because the `ended`
+  // event fires in the same tick as the stop, before any state update is visible.
+  const isEndingRef = useRef(false);
 
   // Fetch DJ profile data from the slot's linked DJ (user or pending)
   // This pre-populates tip button link and thank you message
@@ -339,6 +345,9 @@ export function BroadcastClient() {
   }, [broadcast]);
 
   const handleStream = useCallback((stream: MediaStream) => {
+    // A fresh capture means a new broadcast may begin — clear the intentional-end
+    // guard so a later real glitch on this stream can still auto-recover.
+    isEndingRef.current = false;
     setAudioStream(stream);
     // Extract the audio source label from the stream
     const audioTracks = stream.getAudioTracks();
@@ -432,6 +441,11 @@ export function BroadcastClient() {
   }, [broadcast]);
 
   const handleEndBroadcast = useCallback(async (options?: { keepHlsEgress?: boolean }) => {
+    // Mark this as an intentional teardown BEFORE stopping the track. track.stop()
+    // fires the track-`ended` listener synchronously, and at that moment isLive is
+    // still true (endBroadcast is awaited below) — without this flag the listener
+    // would fire recoverAudio() on a normal slot-end and race the handoff.
+    isEndingRef.current = true;
     // Stop local audio stream
     if (audioStream) {
       audioStream.getTracks().forEach(t => t.stop());
@@ -576,8 +590,17 @@ export function BroadcastClient() {
 
     const onTrackEnded = () => {
       console.log('Audio track ended (glitch, device disconnect, or stop-sharing)');
+      // Intentional teardown (slot-end auto-end or DJ clicked End): do NOT recover.
+      // Let the normal teardown proceed — recovering here would re-publish the
+      // outgoing DJ and race the handoff to the next show. (Attribution log: if this
+      // fires at a slot boundary, auto-recovery WAS the thing breaking transitions.)
+      if (isEndingRef.current || slotEnded) {
+        console.warn('[recover] SUPPRESSED at intentional end — would have fired recoverAudio (slot boundary / End clicked)');
+        return;
+      }
       if (broadcast.isLive) {
         if (broadcast.inputMethod === 'device') {
+          console.warn('[recover] firing on mid-slot glitch (device input, no intentional end in progress)');
           void recoverAudio();
         } else {
           // system/RTMP — keep original behavior (end the broadcast).
