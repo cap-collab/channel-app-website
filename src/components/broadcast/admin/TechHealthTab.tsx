@@ -180,6 +180,20 @@ export function TechHealthTab() {
                   {data.normalizeQueue.pending}
                 </span>
               } />
+              {data.normalizeQueue.pendingItems && data.normalizeQueue.pendingItems.length > 0 && (
+                <ul className="pl-3 border-l border-white/10 space-y-1">
+                  {data.normalizeQueue.pendingItems.map((item) => (
+                    <li key={item.id} className="flex items-center justify-between gap-2">
+                      <span className="text-white truncate">{item.showName}</span>
+                      <span className="text-gray-500 text-xs flex-shrink-0">
+                        {item.ageMin >= 60
+                          ? `${Math.floor(item.ageMin / 60)}h ${item.ageMin % 60}m`
+                          : `${item.ageMin}m`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <Row label="In progress" value={String(data.normalizeQueue.inProgress)} />
               {data.normalizeQueue.oldestPendingAgeMin !== null && (
                 <Row label="Oldest pending" value={

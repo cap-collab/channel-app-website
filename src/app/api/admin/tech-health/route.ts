@@ -49,12 +49,22 @@ export interface LivekitHealth {
   error?: string;
 }
 
+export interface NormalizeQueuePendingItem {
+  id: string;
+  showName: string;
+  ageMin: number;
+}
+
 export interface NormalizeQueueHealth {
   pending: number;
   inProgress: number;
   oldestPendingAgeMin: number | null;
   doneLast24h: number;
   failedLast24h: number;
+  // Pending entries with their resolved show name, oldest first. Show name is
+  // joined from the archive (artist uploads carry archiveId) or the broadcast
+  // slot (live recordings carry slotId); the queue doc itself has neither.
+  pendingItems: NormalizeQueuePendingItem[];
 }
 
 export interface R2Stats {
@@ -170,7 +180,7 @@ async function probeLivekit(): Promise<LivekitHealth> {
 async function probeNormalizeQueue(): Promise<NormalizeQueueHealth> {
   const db = getAdminDb();
   if (!db) {
-    return { pending: 0, inProgress: 0, oldestPendingAgeMin: null, doneLast24h: 0, failedLast24h: 0 };
+    return { pending: 0, inProgress: 0, oldestPendingAgeMin: null, doneLast24h: 0, failedLast24h: 0, pendingItems: [] };
   }
   const snap = await db.collection('normalize-queue').get();
   const now = Date.now();
@@ -180,12 +190,14 @@ async function probeNormalizeQueue(): Promise<NormalizeQueueHealth> {
   let oldestPendingMs = Infinity;
   let doneLast24h = 0;
   let failedLast24h = 0;
+  const pendingDocs: Array<{ id: string; archiveId?: string; slotId?: string; queuedAt: number }> = [];
   for (const d of snap.docs) {
     const data = d.data();
     if (data.status === 'pending') {
       pending++;
       const ts = Number(data.queuedAt || 0);
       if (ts > 0 && ts < oldestPendingMs) oldestPendingMs = ts;
+      pendingDocs.push({ id: d.id, archiveId: data.archiveId, slotId: data.slotId, queuedAt: ts });
     } else if (data.status === 'in-progress') {
       inProgress++;
     } else if (data.status === 'done') {
@@ -196,12 +208,41 @@ async function probeNormalizeQueue(): Promise<NormalizeQueueHealth> {
       if (ts >= dayAgo) failedLast24h++;
     }
   }
+
+  // Resolve a show name for each pending entry. Artist uploads carry archiveId
+  // (archives doc has showName); live recordings carry slotId (broadcast-slots
+  // doc has showName). Fall back to the id if the join comes up empty.
+  const pendingItems: NormalizeQueuePendingItem[] = await Promise.all(
+    pendingDocs
+      .sort((a, b) => (a.queuedAt || 0) - (b.queuedAt || 0)) // oldest first
+      .map(async (entry) => {
+        let showName = '';
+        try {
+          if (entry.archiveId) {
+            const doc = await db.collection('archives').doc(entry.archiveId).get();
+            showName = (doc.data()?.showName as string) || '';
+          } else if (entry.slotId) {
+            const doc = await db.collection('broadcast-slots').doc(entry.slotId).get();
+            showName = (doc.data()?.showName as string) || '';
+          }
+        } catch {
+          // leave showName empty; fall back below
+        }
+        return {
+          id: entry.id,
+          showName: showName || `(unknown — ${entry.id})`,
+          ageMin: entry.queuedAt > 0 ? Math.round((now - entry.queuedAt) / 60000) : 0,
+        };
+      })
+  );
+
   return {
     pending,
     inProgress,
     oldestPendingAgeMin: oldestPendingMs === Infinity ? null : Math.round((now - oldestPendingMs) / 60000),
     doneLast24h,
     failedLast24h,
+    pendingItems,
   };
 }
 
@@ -258,7 +299,7 @@ export async function GET(request: NextRequest) {
     probeWorker('Restream + normalize', restreamWorkerUrl),
     probeWorker('YouTube render', youtubeWorkerUrl),
     probeLivekit(),
-    probeNormalizeQueue().catch(() => ({ pending: 0, inProgress: 0, oldestPendingAgeMin: null, doneLast24h: 0, failedLast24h: 0 })),
+    probeNormalizeQueue().catch(() => ({ pending: 0, inProgress: 0, oldestPendingAgeMin: null, doneLast24h: 0, failedLast24h: 0, pendingItems: [] })),
     probeUpcomingSlots().catch(() => []),
     probeR2Stats().catch(() => null),
     probeR2Backup().catch(() => null),
