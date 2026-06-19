@@ -586,11 +586,21 @@ export async function GET(request: NextRequest) {
     // to translate Audience + crew uid sets into username-keyed lookups
     // for the engagement / watchlist fan-out below.
     const uidToUsername = new Map<string, string>();
+    // Parallel display map: normalized bridge username -> the DJ's raw
+    // chatUsername (e.g. "naomigreen" -> "Naomi Green"). The related-DJ sets
+    // and matcher key off the normalized form; this recovers the human-facing
+    // casing/spacing for the "From the same world as {R}." caption only.
+    const normalizedUsernameToDisplay = new Map<string, string>();
     for (const djUser of djUsers) {
+      const rawChatUsername = djUser.data.chatUsername as string | undefined;
       const cu =
         (djUser.data.chatUsernameNormalized as string | undefined) ||
-        (djUser.data.chatUsername as string | undefined);
-      if (cu) uidToUsername.set(djUser.id, normalizeForLookup(cu));
+        rawChatUsername;
+      if (cu) {
+        const normalized = normalizeForLookup(cu);
+        uidToUsername.set(djUser.id, normalized);
+        if (rawChatUsername) normalizedUsernameToDisplay.set(normalized, rawChatUsername);
+      }
     }
 
     // Listener-side bridge: audience map (direct, not inverse).
@@ -948,7 +958,10 @@ export async function GET(request: NextRequest) {
                   if (bridged) {
                     matched = true;
                     matchedViaAffiliation = true;
-                    affiliationBridgeDj = r;
+                    // r is the normalized username; show the DJ's raw
+                    // chatUsername in the caption (e.g. "Naomi Green", not
+                    // "naomigreen"). Falls back to r if no display is found.
+                    affiliationBridgeDj = normalizedUsernameToDisplay.get(r) || r;
                     // borrowed[] already excludes any crew member, so
                     // membership here means audience-borrow; otherwise crew.
                     bridgeKind = borrowed?.has(r) ? "borrow" : "crew";
