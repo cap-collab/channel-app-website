@@ -219,6 +219,7 @@ function GoLiveEmailsControl({ slot }: { slot: BroadcastSlotSerialized }) {
       <span className="text-gray-500">
         Go-live emails: <span className="text-gray-300">{countLabel}</span>
         {lastRunLabel && <span className="text-gray-600"> · {lastRunLabel}</span>}
+        {slot.goLiveEmailsDisabled && <span className="text-amber-400"> · disabled</span>}
       </span>
       <button
         onClick={handleSend}

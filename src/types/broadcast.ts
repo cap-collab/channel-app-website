@@ -202,6 +202,10 @@ export interface BroadcastSlotSerialized {
   goLiveEmailsTotalCount?: number;
   goLiveEmailsLastRunCount?: number;
   goLiveEmailsLastRunAt?: string;  // ISO timestamp
+  // Admin toggle (Marketing tab): when true, the show-starting-emails cron
+  // skips this slot entirely — used to test a real go-live without emailing
+  // real subscribers.
+  goLiveEmailsDisabled?: boolean;
 }
 
 // Recording status type

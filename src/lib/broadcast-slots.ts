@@ -106,6 +106,7 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     goLiveEmailsTotalCount: data.goLiveEmailsTotalCount as number | undefined,
     goLiveEmailsLastRunCount: data.goLiveEmailsLastRunCount as number | undefined,
     goLiveEmailsLastRunAt: data.goLiveEmailsLastRunAt as string | undefined,
+    goLiveEmailsDisabled: data.goLiveEmailsDisabled as boolean | undefined,
   };
 }
 
@@ -145,6 +146,8 @@ export async function createSlot(data: {
   restreamDjs?: ArchiveDJ[];
   // Radio loop alignment
   postLiveArchiveId?: string;
+  // Marketing: suppress go-live emails for this slot (testing)
+  goLiveEmailsDisabled?: boolean;
 }): Promise<{ slot: BroadcastSlotSerialized; broadcastUrl: string }> {
   if (!db) throw new Error('Firestore not initialized');
 
@@ -242,6 +245,8 @@ export async function createSlot(data: {
     }),
     // Radio loop alignment (any broadcast type)
     postLiveArchiveId: data.postLiveArchiveId || null,
+    // Marketing: suppress go-live emails for this slot (testing)
+    goLiveEmailsDisabled: data.goLiveEmailsDisabled === true,
   };
 
   const docRef = await addDoc(collection(db, COLLECTION), slotData);
@@ -272,6 +277,7 @@ export async function createSlot(data: {
     archiveDuration: data.archiveDuration,
     restreamDjs: data.restreamDjs,
     postLiveArchiveId: data.postLiveArchiveId,
+    goLiveEmailsDisabled: data.goLiveEmailsDisabled === true,
   };
 
   // All slots use token URLs
@@ -298,6 +304,8 @@ export async function updateSlot(
     restreamDjs: ArchiveDJ[];
     // Radio loop alignment
     postLiveArchiveId: string;
+    // Marketing tab: suppress go-live emails for this slot (testing)
+    goLiveEmailsDisabled: boolean;
   }>
 ): Promise<void> {
   if (!db) throw new Error('Firestore not initialized');
@@ -395,6 +403,9 @@ export async function updateSlot(
 
   // Radio loop alignment — empty string clears curation
   if (updates.postLiveArchiveId !== undefined) updateData.postLiveArchiveId = updates.postLiveArchiveId || null;
+
+  // Marketing tab go-live email suppression
+  if (updates.goLiveEmailsDisabled !== undefined) updateData.goLiveEmailsDisabled = updates.goLiveEmailsDisabled;
 
   await updateDoc(doc(db, COLLECTION, slotId), updateData);
 }

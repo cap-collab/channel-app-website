@@ -310,6 +310,9 @@ export async function GET(request: NextRequest) {
       // spam. The "no follower emails for restreams" rule still governs the
       // broadcast-emails blast.
       if (data.djUsername === "channelbroadcast") return;
+      // Admin opt-out: a slot flagged from the Marketing tab (e.g. while
+      // testing a real DJ/restream go-live) never fans out go-live emails.
+      if (data.goLiveEmailsDisabled === true) return;
       const slug = data.djUsername as string | undefined;
       const collectiveInfo = slug ? collectiveOwnerInfoBySlug.get(slug) : undefined;
       const startMs = slotStartMs(data.startTime);

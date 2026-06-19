@@ -29,6 +29,9 @@ interface SlotModalProps {
     // Curated archive that plays at the radio loop anchor right after this
     // slot's contiguous live block ends. Empty string clears the curation.
     postLiveArchiveId?: string;
+    // Suppress go-live emails for this slot — used when testing a real
+    // go-live so real subscribers aren't emailed.
+    goLiveEmailsDisabled?: boolean;
   }) => Promise<void>;
   onDelete?: (slotId: string) => Promise<void>;
   initialStartTime?: Date;
@@ -307,6 +310,9 @@ export function SlotModal({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  // When true, the show-starting-emails cron skips this slot — used to test a
+  // real go-live/restream without emailing real subscribers.
+  const [goLiveEmailsDisabled, setGoLiveEmailsDisabled] = useState(false);
   // Archive/restream tab state
   const [modalTab, setModalTab] = useState<SlotModalTab>('new-show');
   const [archives, setArchives] = useState<Archive[]>([]);
@@ -809,6 +815,7 @@ export function SlotModal({
         setDjName(slot.djName || '');
         setDjEmail(slot.djEmail || '');
         setShowImageUrl(slot.showImageUrl);
+        setGoLiveEmailsDisabled(slot.goLiveEmailsDisabled === true);
         // Use local date formatting to avoid timezone issues
         setStartDate(formatLocalDate(start));
         setEndDate(formatLocalDate(end));
@@ -901,6 +908,7 @@ export function SlotModal({
         setDjName('');
         setDjEmail('');
         setShowImageUrl(undefined);
+        setGoLiveEmailsDisabled(false);
         // Use local date formatting to avoid timezone issues
         setStartDate(formatLocalDate(initialStartTime));
         setEndDate(formatLocalDate(initialEndTime));
@@ -1077,6 +1085,7 @@ export function SlotModal({
         // archive-radio cron reads this when generating loops to choose what
         // plays at the loop anchor after this slot's contiguous live block.
         postLiveArchiveId: postLiveArchive?.id ?? '',
+        goLiveEmailsDisabled,
       };
 
       if (modalTab === 'archives' && selectedArchive) {
@@ -2162,6 +2171,23 @@ Cap`;
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Go-live emails — disable for test broadcasts so the cron doesn't
+              email real subscribers when you take a real slot live to test. */}
+          <div className="px-4 pb-4 border-t border-gray-800 pt-4 mt-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={goLiveEmailsDisabled}
+                onChange={(e) => setGoLiveEmailsDisabled(e.target.checked)}
+                className="w-4 h-4 flex-shrink-0 accent-white"
+              />
+              <span className="text-sm text-gray-200">Disable go-live emails (testing)</span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1.5">
+              When checked, the show-starting cron skips this slot — no go-live notifications are sent. Use when testing a real go-live or restream.
+            </p>
           </div>
         </div>
 

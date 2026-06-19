@@ -139,6 +139,8 @@ export function AdminDashboard() {
     restreamDjs?: ArchiveDJ[];
     // Radio loop alignment
     postLiveArchiveId?: string;
+    // Marketing: suppress go-live emails for this slot (testing)
+    goLiveEmailsDisabled?: boolean;
   }) => {
     if (!user) return;
 
@@ -171,6 +173,7 @@ export function AdminDashboard() {
           archiveDuration: data.archiveDuration,
           restreamDjs: data.restreamDjs,
           postLiveArchiveId: data.postLiveArchiveId,
+          goLiveEmailsDisabled: data.goLiveEmailsDisabled,
         });
         savedSlotId = selectedSlot.id;
       }
