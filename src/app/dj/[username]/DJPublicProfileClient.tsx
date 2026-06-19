@@ -1122,6 +1122,15 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             });
             if (matchesDj) return true;
 
+            // Per-archive cross-listing by UID: surface a collective's show on
+            // a member's individual profile without re-crediting it (see
+            // crossListUserIds on the Archive type). Does not affect any other
+            // surface — djs[] is untouched, so credits/social/scenes/SEO stay.
+            if (djUserId && Array.isArray(archive.crossListUserIds)
+                && archive.crossListUserIds.includes(djUserId)) {
+              return true;
+            }
+
             // Also match live broadcasts by slot
             if (archive.sourceType === 'live' && archive.broadcastSlotId) {
               return pastSlotsMap.has(archive.broadcastSlotId);

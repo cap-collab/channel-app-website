@@ -324,6 +324,7 @@ export async function GET(request: Request) {
         venueId: data.venueId ?? null,
         venueName: data.venueName ?? null,
         venueSlug: data.venueSlug ?? null,
+        crossListUserIds: Array.isArray(data.crossListUserIds) ? data.crossListUserIds : undefined,
       };
     });
 

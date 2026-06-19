@@ -350,6 +350,12 @@ export interface Archive {
   venueId?: string | null;
   venueName?: string | null;
   venueSlug?: string | null;
+  // Profile-page cross-listing ONLY. UIDs listed here cause this archive to
+  // also appear on those DJs' /dj/[username] pages, WITHOUT adding them to
+  // djs[] — so the public credit line, homepage, social render, scene tags,
+  // and SEO are all unaffected. Used to surface a collective's show on a
+  // member's individual profile. Empty/absent = no cross-listing.
+  crossListUserIds?: string[];
 }
 
 // Serialized version for API responses (same as Archive since all fields are already serialized)
