@@ -953,18 +953,81 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
   };
 }
 
+// An anchor inside `loop`'s span that the loop didn't account for — i.e. a live
+// show scheduled after the loop was built, with no hand-back placed at its block
+// end. Returns the first such still-upcoming anchor, or null. "Accounted for" =
+// an item lands at the anchor's block end (the curated archive when set, else an
+// archive immediately after an interlude). Checked by TIME POSITION, not mere
+// presence (the curated archive can also appear elsewhere as a plain item).
+async function findUnaccountedAnchor(
+  db: FirebaseFirestore.Firestore,
+  loopStartMs: number,
+  loopEndMs: number,
+  items: Array<{ kind?: string; archiveId?: string; startOffsetSec?: number }>,
+  nowMs: number,
+): Promise<LiveBlockBoundary | null> {
+  const TOL_MS = 5 * 60 * 1000;
+  const anchors = await loadAnchors(db, loopStartMs);
+  for (const a of anchors) {
+    if (a.endTimeMs <= nowMs) continue;                          // already passed
+    if (a.endTimeMs <= loopStartMs || a.endTimeMs >= loopEndMs) continue; // outside span
+    const accounted = items.some((it, i) => {
+      const itMs = loopStartMs + Number(it.startOffsetSec ?? 0) * 1000;
+      if (Math.abs(itMs - a.endTimeMs) > TOL_MS) return false;
+      return a.curatedArchiveId
+        ? it.kind === 'archive' && it.archiveId === a.curatedArchiveId
+        : it.kind === 'archive' && items[i - 1]?.kind === 'interstitial';
+    });
+    if (!accounted) return a;
+  }
+  return null;
+}
+
 // Idempotent: ensures a loop exists whose startTimeMs > now. If the latest
 // stored loop's end is in the future, do nothing. Otherwise generate the next
 // loop. Used by the cron + the listener-side "ending soon" trigger.
+//
+// STEP 1 (runs first): if the CURRENTLY-PLAYING loop has an anchor in its span
+// it didn't account for (a show added after the loop was built), regenerate that
+// loop in place — pretending "now" is the loop's own start so the anchor's
+// backwards-from-end start calc isn't clamped forward (which would shove the
+// playing loop hours late). The loop keeps its number + ~start, so listeners stay
+// on it and re-sync; loadAnchors then lands the hand-back at the block end.
 export async function ensureNextLoop(args: { generatedBy?: 'cron' | 'admin' } = {}): Promise<GenerateLoopResult | { skipped: 'already-future'; loopNumber: number }> {
   const db = getAdminDb();
   if (!db) throw new Error('database not configured');
   const now = Date.now();
+  // Fetch a few latest loops — the currently-playing one isn't always the
+  // highest-numbered (a future loop may already be stored).
   const latestSnap = await db
     .collection(LOOP_COLLECTION)
     .orderBy('loopNumber', 'desc')
-    .limit(1)
+    .limit(3)
     .get();
+
+  // ── STEP 1: new anchor in the CURRENTLY-PLAYING loop it didn't account for. ──
+  const playingDoc = latestSnap.docs.find((d) => {
+    const x = d.data();
+    const s = Number(x.startTimeMs ?? 0);
+    return s <= now && now < s + Number(x.totalDurationSec ?? 0) * 1000;
+  });
+  if (playingDoc) {
+    const x = playingDoc.data();
+    const playStart = Number(x.startTimeMs ?? 0);
+    const playEnd = playStart + Number(x.totalDurationSec ?? 0) * 1000;
+    const items = Array.isArray(x.items) ? x.items : [];
+    if (x.locked !== true && (await findUnaccountedAnchor(db, playStart, playEnd, items, now))) {
+      // Pretend "now" is the loop's start so the anchor start isn't clamped
+      // forward; loop keeps its number + ~start, listeners re-sync in place.
+      return generateLoop({
+        loopNumber: Number(x.loopNumber ?? 0),
+        force: true,
+        generatedBy: args.generatedBy,
+        nowMsOverride: playStart,
+      });
+    }
+  }
+
   if (!latestSnap.empty) {
     const data = latestSnap.docs[0].data();
     const startTimeMs = Number(data.startTimeMs ?? 0);
