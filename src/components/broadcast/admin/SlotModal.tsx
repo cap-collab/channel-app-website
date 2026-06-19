@@ -336,6 +336,11 @@ export function SlotModal({
   // effect skips its first recompute for that archive until the admin actually
   // edits the start, the archive, or the toggle.
   const hydratedRestreamArchiveIdRef = useRef<string | null>(null);
+  // Tracks the slot id whose post-live anchor we've already hydrated, so the
+  // hydration effect runs ONCE per slot and never re-adds the anchor after the
+  // user clears it (without this, clearing sets null and the effect immediately
+  // re-resolves it from the still-unsaved slot.postLiveArchiveId — "can't clear").
+  const hydratedPostLiveSlotIdRef = useRef<string | null>(null);
   // Curated post-live archive (radio-loop alignment). Optional.
   const [postLiveArchive, setPostLiveArchive] = useState<Archive | null>(null);
   const [postLivePickerOpen, setPostLivePickerOpen] = useState(false);
@@ -607,13 +612,19 @@ export function SlotModal({
   }, [slot, archives, selectedArchive, showImageUrl]);
 
   // When editing a slot with an existing postLiveArchiveId, resolve to the
-  // archive once the archives list is loaded.
+  // archive once the archives list is loaded — but only ONCE per slot. Guarding
+  // on a per-slot ref (not `!postLiveArchive`) means clearing the anchor sticks:
+  // after the user clears it, this effect won't re-resolve it from the slot's
+  // still-unsaved postLiveArchiveId.
   useEffect(() => {
-    if (slot?.postLiveArchiveId && archives.length > 0 && !postLiveArchive) {
+    if (!slot?.id || archives.length === 0) return;
+    if (hydratedPostLiveSlotIdRef.current === slot.id) return;
+    hydratedPostLiveSlotIdRef.current = slot.id;
+    if (slot.postLiveArchiveId) {
       const match = archives.find(a => a.id === slot.postLiveArchiveId);
       if (match) setPostLiveArchive(match);
     }
-  }, [slot, archives, postLiveArchive]);
+  }, [slot, archives]);
 
   // Filter archives by search query and date
   const filteredArchives = archives.filter(archive => {
@@ -771,6 +782,13 @@ export function SlotModal({
       setArchiveSearchQuery('');
       setArchiveDateFilter('');
       setSelectedArchive(null);
+      // Reset the post-live anchor too. Without this it persists across modal
+      // opens: editing slot A with anchor X then opening slot B still shows X,
+      // and the !postLiveArchive hydration guard below can't correct it — so a
+      // save bleeds X onto B (and onto every slot you touch). It re-hydrates
+      // from slot.postLiveArchiveId in the effect below (once per slot).
+      setPostLiveArchive(null);
+      hydratedPostLiveSlotIdRef.current = null;
       // Reset restream exact-time state; the edit branch below re-seeds it for
       // an existing restream.
       setRestreamExactStartMs(null);
