@@ -5,7 +5,7 @@ service firebase.storage {
       allow read: if request.auth != null;
       allow write: if request.auth != null
         && request.auth.uid == userId
-        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|gif|webp)');
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
@@ -13,7 +13,7 @@ service firebase.storage {
     match /show-images/{slotId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
-        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|gif|webp)');
       allow delete: if request.auth != null;
     }
@@ -21,7 +21,7 @@ service firebase.storage {
     match /pending-dj-photos/{profileId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
-        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|gif|webp)');
       allow delete: if request.auth != null;
     }
@@ -29,7 +29,7 @@ service firebase.storage {
     match /event-photos/{eventId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
-        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|gif|webp)');
       allow delete: if request.auth != null;
     }
@@ -37,7 +37,7 @@ service firebase.storage {
     match /venue-photos/{venueId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
-        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|gif|webp)');
       allow delete: if request.auth != null;
     }
@@ -45,7 +45,7 @@ service firebase.storage {
     match /collective-photos/{collectiveId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
-        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|gif|webp)');
       allow delete: if request.auth != null;
     }
