@@ -148,8 +148,17 @@ export async function GET(request: NextRequest) {
 
 interface DrainOutcome {
   r2Key: string;
-  action: 'normalized' | 'normalized-trimmed' | 'skipped' | 'failed' | 'pending-retry';
+  action: 'normalized' | 'normalized-trimmed' | 'skipped' | 'failed' | 'pending-retry' | 'dead-skip';
   attempts?: number;
+}
+
+// An R2 404 (the source MP4 was never written, e.g. an aborted egress segment)
+// can never succeed, so retrying it 5× just head-of-line-blocks every healthy
+// recording behind it for hours. Detect it and fail the entry immediately
+// without burning the tick. Matches the worker's surfaced error string.
+function isMissingSourceError(body: Record<string, unknown>): boolean {
+  const msg = JSON.stringify(body).toLowerCase();
+  return msg.includes('specified key does not exist') || msg.includes('nosuchkey');
 }
 
 // If a previous tick's worker call hung past the WORKER_CALL_TIMEOUT_MS
@@ -212,17 +221,20 @@ async function processOnePending(
 
   if (!result.ok) {
     const newAttempts = (entry.attempts || 0) + 1;
-    const isExhausted = newAttempts >= 5;
+    // A missing source MP4 (R2 404) is unrecoverable — fail it now so it can't
+    // block the rest of the queue, and DON'T bail the tick (caller keeps going).
+    const deadSource = isMissingSourceError(result.body);
+    const isExhausted = deadSource || newAttempts >= 5;
     await entryRef.update({
       status: isExhausted ? 'failed' : 'pending',
       attempts: newAttempts,
       lastError: `enqueue ${result.status}: ${JSON.stringify(result.body).slice(0, 500)}`,
       lastAttemptAt: Date.now(),
     });
-    console.error(`[drain-normalize-queue] Worker enqueue error for ${entry.r2Key}:`, result.body);
+    console.error(`[drain-normalize-queue] Worker enqueue error for ${entry.r2Key}${deadSource ? ' (missing source — failing immediately)' : ''}:`, result.body);
     return {
       r2Key: entry.r2Key,
-      action: isExhausted ? 'failed' : 'pending-retry',
+      action: deadSource ? 'dead-skip' : (isExhausted ? 'failed' : 'pending-retry'),
       attempts: newAttempts,
     };
   }
@@ -253,7 +265,11 @@ async function runDrain() {
   }
 
   const outcomes: DrainOutcome[] = [];
-  for (let i = 0; i < MAX_PER_TICK; i++) {
+  let enqueued = 0; // real worker enqueues; dead-skips don't count toward MAX_PER_TICK
+  // Absolute iteration cap so a long run of poison-pill entries can't spin
+  // forever — enough headroom to clear several dead entries AND fill the worker.
+  const MAX_ITERATIONS = MAX_PER_TICK + 20;
+  for (let i = 0; enqueued < MAX_PER_TICK && i < MAX_ITERATIONS; i++) {
     // Re-check the quiet window between entries — if a live show was just
     // scheduled or if a broadcast snuck into the 45-min horizon during our
     // last normalize, we stop here and let the next cron tick resume.
@@ -280,6 +296,12 @@ async function runDrain() {
       });
     }
     outcomes.push(outcome);
+    // A dead source (R2 404) was just failed-out — it can't block anything, so
+    // keep going and try the next pending entry without spending a tick slot.
+    if (outcome.action === 'dead-skip') {
+      continue;
+    }
+    enqueued++;
     // If the entry retry-failed, bail to avoid burning the tick on a stuck file.
     if (outcome.action === 'failed' || outcome.action === 'pending-retry') {
       return NextResponse.json({
@@ -290,7 +312,7 @@ async function runDrain() {
       });
     }
   }
-  // Hit MAX_PER_TICK. Next cron tick will pick up the rest.
+  // Hit MAX_PER_TICK (or the iteration cap). Next cron tick picks up the rest.
   return NextResponse.json({
     processed: outcomes.length,
     outcomes,
