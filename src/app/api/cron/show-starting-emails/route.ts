@@ -815,6 +815,9 @@ export async function GET(request: NextRequest) {
       email: string;
       userId: string;
       primary: string;
+      // Why this recipient matched the primary show: favorite | watchlist |
+      // engaged | affiliated-artist | bridge-crew(<dj>) | bridge-borrow(<dj>).
+      reason: string;
       bundled: string[];
       bundleTrace: string[];
     };
@@ -1106,10 +1109,18 @@ export async function GET(request: NextRequest) {
       if (dryRun) {
         if (!traceTo || userEmail.toLowerCase() === traceTo) {
           if (dryRunTrace.length < traceLimit) {
+            const reason = primaryMatch.affiliationBridgeDj
+              ? `bridge-${primaryMatch.bridgeKind ?? "crew"}(${primaryMatch.affiliationBridgeDj})`
+              : primaryMatch.engagementReason
+              ? "engaged"
+              : primaryMatch.matchedViaAffiliation
+              ? "affiliated-artist"
+              : primaryMatch.savedReason ?? "favorite";
             dryRunTrace.push({
               email: userEmail,
               userId,
               primary: `${primary.djUsername || primary.name} (${primary.showId})`,
+              reason,
               bundled: laterToday.map((b) => `${b.djUsername || b.showName} @ ${b.startTime}`),
               bundleTrace,
             });
