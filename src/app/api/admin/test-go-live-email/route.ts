@@ -54,6 +54,8 @@ export async function GET(request: NextRequest) {
       ? (reason as "favorite" | "watchlist")
       : undefined;
   const includeBundle = url.searchParams.get("bundle") === "1";
+  // ?restream=1 → subject + headline say "airing" instead of "is live".
+  const isRestream = url.searchParams.get("restream") === "1";
 
   if (!to) {
     return NextResponse.json(
@@ -122,6 +124,7 @@ export async function GET(request: NextRequest) {
     isAffiliated: !!bridge,
     affiliationBridgeDj: bridge,
     bridgeKind,
+    isRestream,
     laterToday,
     userTimezone: "America/Los_Angeles",
   });

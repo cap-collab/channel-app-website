@@ -292,6 +292,9 @@ interface ShowStartingEmailParams {
   // Recipient's timezone (e.g. "America/Los_Angeles") — used to format the
   // time label on each bundled row.
   userTimezone?: string;
+  // When the primary show is a restream (not a live broadcast), the subject
+  // and headline say "airing" instead of "is live".
+  isRestream?: boolean;
 }
 
 export async function sendShowStartingEmail({
@@ -313,6 +316,7 @@ export async function sendShowStartingEmail({
   savedReason,
   laterToday,
   userTimezone,
+  isRestream,
 }: ShowStartingEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -391,9 +395,14 @@ export async function sendShowStartingEmail({
       nameList = `${shown.slice(0, -1).join(", ")} & ${shown[shown.length - 1]}`;
     }
     if (extra > 0) nameList += ` +${extra} more`;
-    subject = `${nameList} are live on ${stationSuffix}`;
+    // A restream primary uses "airing" rather than the live "are live".
+    subject = isRestream
+      ? `${nameList} airing on ${stationSuffix}`
+      : `${nameList} are live on ${stationSuffix}`;
   } else {
-    subject = `${primarySubjectName} is live on ${stationSuffix}`;
+    subject = isRestream
+      ? `${primarySubjectName} airing on ${stationSuffix}`
+      : `${primarySubjectName} is live on ${stationSuffix}`;
   }
 
   const content = `
@@ -404,7 +413,7 @@ export async function sendShowStartingEmail({
             ${photoHtml}
           </div>
           <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #1a1a1a;">
-            ${displayName} <span style="color: #999;">is live</span>
+            ${displayName} <span style="color: #999;">${isRestream ? "airing" : "is live"}</span>
           </h1>
           <p style="margin: 0 0 24px; font-size: 14px; color: #666;">on ${isChannelRadio ? "channel" : stationName}</p>
           <a href="${buttonUrl}" style="${BUTTON_STYLE}">${buttonText}</a>

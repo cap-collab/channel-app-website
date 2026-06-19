@@ -73,6 +73,9 @@ interface LiveShow {
   // filter and the bundled-row time label can read it. Currently-live shows
   // don't need it.
   startTime?: string;
+  // Broadcast type for Channel Radio slots. Restreams say "airing" instead
+  // of "is live" in the email subject + headline.
+  broadcastType?: string;
 }
 
 const STATION_NAMES: Record<string, string> = {
@@ -333,6 +336,7 @@ export async function GET(request: NextRequest) {
           ? collectiveInfo.ownerUids
           : undefined,
         startTime: typeof startMs === "number" ? new Date(startMs).toISOString() : undefined,
+        broadcastType: data.broadcastType as string | undefined,
       });
     };
 
@@ -1141,6 +1145,7 @@ export async function GET(request: NextRequest) {
             stationName: primary.stationName,
             stationId: primary.stationId,
             streamingUrl: primary.streamingUrl,
+            isRestream: primary.broadcastType === "restream",
             isAffiliated: primaryMatch.matchedViaAffiliation,
             affiliationBridgeDj: primaryMatch.affiliationBridgeDj,
             bridgeKind: primaryMatch.bridgeKind,
@@ -1168,6 +1173,7 @@ export async function GET(request: NextRequest) {
         stationName: primary.stationName,
         stationId: primary.stationId,
         streamingUrl: primary.streamingUrl,
+        isRestream: primary.broadcastType === "restream",
         isAffiliated: primaryMatch.matchedViaAffiliation,
         affiliationBridgeDj: primaryMatch.affiliationBridgeDj,
         bridgeKind: primaryMatch.bridgeKind,
