@@ -413,7 +413,7 @@ export async function sendShowStartingEmail({
             ${photoHtml}
           </div>
           <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #1a1a1a;">
-            ${displayName} <span style="color: #999;">${isRestream ? "airing" : "is live"}</span>
+            ${displayName} <span style="color: #999;">${isRestream ? "is airing" : "is live"}</span>
           </h1>
           <p style="margin: 0 0 24px; font-size: 14px; color: #666;">on ${isChannelRadio ? "channel" : stationName}</p>
           <a href="${buttonUrl}" style="${BUTTON_STYLE}">${buttonText}</a>
