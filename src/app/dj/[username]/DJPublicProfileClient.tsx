@@ -21,6 +21,7 @@ import { Archive } from "@/types/broadcast";
 import { getStationById, getMetadataKeyByStationId, getStationLogoUrl } from "@/lib/stations";
 import { useBPM } from "@/contexts/BPMContext";
 import { SceneGlyph } from "@/components/SceneGlyph";
+import { useScenesData, resolveArchiveScenes } from "@/hooks/useScenesData";
 import { tempoLabel } from "@/lib/tempo";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
 import { Venue, Collective, Event as ChannelEvent, EventDJRef, CollectiveRef } from "@/types/events";
@@ -377,6 +378,10 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   const { chatUsername, setChatUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const { isInWatchlist, isExactlyInWatchlist, followDJ, removeFromWatchlist, addToWatchlist, loading: favoritesLoading } = useFavorites();
   const { stationBPM } = useBPM();
+  // DJ scene tags, so past-recording cards can resolve a glyph live from the
+  // credited DJ when the archive itself has no pinned/denormalized scene —
+  // matching how the homepage decorates its archive cards.
+  const { djSceneMap } = useScenesData();
 
   // SSR seed: render the photo and name on first paint while the full profile
   // (bio, social links, genres, etc.) loads in the background. Kept as a
@@ -2116,12 +2121,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               const recordingDate = new Date(archive.recordedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
               // Scene + tempo live on the archive doc. The scene doc id IS its
               // glyph slug ('grid' | 'star' | 'spiral'); the glyph is the first
-              // scene that isn't the plain grid. Mirror the schedule/hero
-              // resolution order: admin pin (sceneIdsOverride) first, then the
-              // denormalized sceneSlugs written at backfill time.
-              const effectiveScenes = (archive.sceneIdsOverride?.length
-                ? archive.sceneIdsOverride
-                : archive.sceneSlugs) ?? [];
+              // scene that isn't the plain grid. Resolve exactly like the
+              // homepage cards: admin pin (sceneIdsOverride) wins — including an
+              // explicit [] meaning "no scene" — else live from the credited
+              // DJ's scene tags. Older archives predate the sceneSlugs backfill,
+              // so this live fallback is what surfaces a glyph (and, since tempo
+              // shares the pill, the tempo stamp too).
+              const effectiveScenes = resolveArchiveScenes(archive, djSceneMap);
               const glyphSlug = effectiveScenes.find((s) => s !== 'grid');
               const tempoText = tempoLabel(archive.tempo) ?? undefined;
 
