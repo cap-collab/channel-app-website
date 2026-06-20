@@ -50,6 +50,12 @@ export interface LivekitHealth {
   // BOTH web (WebRTC) and mobile (HLS) listeners — unlike participantCount, which
   // only sees WebRTC + machinery. null if the presence read failed/unavailable.
   listenerCount: number | null;
+  // Derived ON/OFF status (from data already fetched + one CDN check):
+  recordingOn: boolean;   // an ACTIVE egress has a file (mp4) output
+  postingOn: boolean;     // a participant publishes an unmuted audio track
+  audibleOn: boolean;     // an HLS (segments) egress is active AND live.m3u8 → 200
+  webCount: number;       // participants whose identity starts "web-listener-"
+  machineryCount: number; // remaining participants (publisher + egress)
   error?: string;
 }
 
@@ -159,6 +165,44 @@ async function readListenerCount(): Promise<number | null> {
   }
 }
 
+// HEAD the listener-facing HLS manifest on the CDN to confirm the stream is
+// actually audible on the website. This hits Cloudflare/R2 (media.channel-app.com),
+// NOT the LiveKit VPS — zero stream load. AbortController-bounded so it can't hang.
+async function isHlsManifestLive(): Promise<boolean> {
+  try {
+    const base = process.env.R2_PUBLIC_URL;
+    if (!base) return false;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const res = await fetch(`${base}/${ROOM_NAME}/live.m3u8`, {
+        method: 'HEAD', signal: ctrl.signal, cache: 'no-store',
+      });
+      return res.ok;
+    } finally {
+      clearTimeout(t);
+    }
+  } catch {
+    return false;
+  }
+}
+
+// Active = STARTING(0) or ACTIVE(1). Classify by output type. Our egresses use the
+// SDK plural arrays (segmentOutputs/fileOutputs); the deprecated singular `output`
+// is empty on them (verified on the live restream), so check arrays first with a
+// singular fallback for safety.
+function isActiveEgress(e: { status?: number }): boolean {
+  return e.status === 0 || e.status === 1;
+}
+function egressHasFile(e: { request?: { value?: unknown } }): boolean {
+  const v = e.request?.value as { fileOutputs?: unknown[]; output?: { case?: string } } | undefined;
+  return !!v?.fileOutputs?.length || v?.output?.case === 'file';
+}
+function egressHasSegments(e: { request?: { value?: unknown } }): boolean {
+  const v = e.request?.value as { segmentOutputs?: unknown[]; output?: { case?: string } } | undefined;
+  return !!v?.segmentOutputs?.length || v?.output?.case === 'segments';
+}
+
 async function probeLivekit(): Promise<LivekitHealth> {
   // Read listener count independently of the LiveKit probe so a LiveKit failure
   // doesn't hide the listener number (and vice-versa).
@@ -176,6 +220,11 @@ async function probeLivekit(): Promise<LivekitHealth> {
       ingressCount: 0,
       staleEgressCount: 0,
       listenerCount,
+      recordingOn: false,
+      postingOn: false,
+      audibleOn: false,
+      webCount: 0,
+      machineryCount: 0,
       error: 'LiveKit not configured',
     };
   }
@@ -194,6 +243,18 @@ async function probeLivekit(): Promise<LivekitHealth> {
       const startedAt = Number(e.startedAt) / 1_000_000; // proto returns ns
       return startedAt > 0 && startedAt < staleThresholdMs;
     }).length;
+
+    // Derived status — all from the arrays already fetched (no new LiveKit calls).
+    const activeEgresses = egresses.filter(isActiveEgress);
+    const recordingOn = activeEgresses.some(egressHasFile);
+    const hlsEgressActive = activeEgresses.some(egressHasSegments);
+    const postingOn = publishing.length > 0;
+    const webCount = participants.filter((p) => p.identity.startsWith('web-listener-')).length;
+    const machineryCount = participants.length - webCount;
+    // Only HEAD the CDN manifest when an HLS egress is supposedly active — confirms
+    // it's genuinely reaching listeners. (CDN, not the VPS.)
+    const audibleOn = hlsEgressActive && (await isHlsManifestLive());
+
     return {
       reachable: true,
       isLive: publishing.length > 0,
@@ -203,6 +264,11 @@ async function probeLivekit(): Promise<LivekitHealth> {
       ingressCount: ingresses.length,
       staleEgressCount,
       listenerCount,
+      recordingOn,
+      postingOn,
+      audibleOn,
+      webCount,
+      machineryCount,
     };
   } catch (e) {
     return {
@@ -214,6 +280,11 @@ async function probeLivekit(): Promise<LivekitHealth> {
       ingressCount: 0,
       staleEgressCount: 0,
       listenerCount,
+      recordingOn: false,
+      postingOn: false,
+      audibleOn: false,
+      webCount: 0,
+      machineryCount: 0,
       error: (e as Error).message,
     };
   }

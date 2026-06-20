@@ -108,7 +108,15 @@ export function TechHealthTab() {
                       {data.livekit.isLive ? `Yes (${data.livekit.currentDJ})` : 'No'}
                     </span>
                   } />
-                  <Row label="Participants (raw)" value={String(data.livekit.participantCount)} />
+                  <Row label="Audio posting" value={<OnOff on={data.livekit.postingOn} />} />
+                  <Row label="Audible on website" value={<OnOff on={data.livekit.audibleOn} />} />
+                  <Row label="Recording" value={<OnOff on={data.livekit.recordingOn} />} />
+                  <Row label="Connections" value={
+                    <span className="text-gray-300">
+                      web: {data.livekit.webCount} · machinery: {data.livekit.machineryCount}
+                      <span className="text-gray-500"> (raw {data.livekit.participantCount}, WebRTC only)</span>
+                    </span>
+                  } />
                   <Row label="Active egresses" value={
                     <span className={data.livekit.staleEgressCount > 0 ? 'text-yellow-400' : ''}>
                       {data.livekit.egressCount}
@@ -348,5 +356,13 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
       <span className="text-gray-400">{label}</span>
       <span className="text-white">{value}</span>
     </div>
+  );
+}
+
+function OnOff({ on }: { on: boolean }) {
+  return (
+    <span className={on ? 'text-green-400 font-bold' : 'text-gray-500'}>
+      {on ? 'ON' : 'OFF'}
+    </span>
   );
 }
