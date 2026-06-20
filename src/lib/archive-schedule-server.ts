@@ -511,20 +511,7 @@ async function resolveLoopPlan(
   // Loop start: the 1-2am PT window nearest prevNaturalEnd (gapless chaining —
   // the previous long loop ends ~3-4am PT, so the next loop's 1-2am start lands
   // just before that, with the higher loop number winning on the listener side).
-  //
-  // GAP GUARD: nearestWindowMidMs can round FORWARD to the next morning's 1-2am
-  // window when the previous loop ends mid-day (e.g. truncation landed prev's end
-  // at ~2:52pm PT → nearest 1-2am is the NEXT day → a ~10h gap with no active loop,
-  // which makes useArchiveRadio storm through the ended loop). The next loop must
-  // never start AFTER the previous ends. Clamp to prevNaturalEnd so a mid-day end
-  // chains immediately instead of jumping forward. NOTE: this is the NO-ANCHOR base
-  // start only — when an anchor exists, generateLoop OVERRIDES startTimeMs with the
-  // backwards-from-anchor calc (which intentionally overlaps the previous loop), so
-  // this clamp does not affect anchor alignment/overlap.
-  const startTimeMs = Math.min(
-    nearestWindowMidMs(prevNaturalEnd, START_WINDOW_UTC_H[0]),
-    prevNaturalEnd,
-  );
+  const startTimeMs = nearestWindowMidMs(prevNaturalEnd, START_WINDOW_UTC_H[0]);
 
   // Anchor: the first upcoming live block whose end falls after the loop starts
   // and within the loop's reachable span (~3 days). Optional.
