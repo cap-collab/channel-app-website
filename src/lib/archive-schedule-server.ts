@@ -436,21 +436,6 @@ function truncateAtEndWindow(
   return kept.length > 0 ? kept : pool;
 }
 
-// The [hourLo, hourLo+1) UTC window midpoint NEAREST `targetMs` (any direction).
-// Used for the loop START — the 1-2am PT window closest to the previous loop's
-// natural end, for gapless chaining.
-function nearestWindowMidMs(targetMs: number, hourLo: number): number {
-  const day = new Date(targetMs);
-  day.setUTCHours(0, 0, 0, 0);
-  let best = day.getTime() + (hourLo + 0.5) * 3600 * 1000;
-  let bestDist = Math.abs(best - targetMs);
-  for (let d = -1; d <= 1; d++) {
-    const mid = day.getTime() + d * 86_400_000 + (hourLo + 0.5) * 3600 * 1000;
-    const dist = Math.abs(mid - targetMs);
-    if (dist < bestDist) { bestDist = dist; best = mid; }
-  }
-  return best;
-}
 
 // The LAST [hourLo, hourLo+1) UTC window midpoint at-or-before `beforeMs`. Used
 // for the end boundary: truncation can only shorten, so we round DOWN to the
