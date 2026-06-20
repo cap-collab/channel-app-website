@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { RoomServiceClient, EgressClient, IngressClient } from 'livekit-server-sdk';
-import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { getAdminAuth, getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import { ROOM_NAME } from '@/types/broadcast';
 
 // Single read-only aggregator for the admin Tech Health tab. Probes every
@@ -46,6 +46,10 @@ export interface LivekitHealth {
   egressCount: number;
   ingressCount: number;
   staleEgressCount: number; // egresses older than 12h
+  // Real listener count from Firebase RTDB presence (presence/broadcast). Covers
+  // BOTH web (WebRTC) and mobile (HLS) listeners — unlike participantCount, which
+  // only sees WebRTC + machinery. null if the presence read failed/unavailable.
+  listenerCount: number | null;
   error?: string;
 }
 
@@ -123,7 +127,25 @@ async function probeWorker(name: string, url: string): Promise<WorkerHealth> {
   }
 }
 
+// Real listener count from Firebase RTDB presence. Each playing listener (web OR
+// mobile/HLS) writes presence/broadcast/<sessionId>; the count is the number of
+// children. RTDB is separate infra from LiveKit/audio, so this read adds zero load
+// on the streams. Returns null on any failure (so the panel shows "n/a", never errors).
+async function readListenerCount(): Promise<number | null> {
+  try {
+    const rtdb = getAdminRtdb();
+    if (!rtdb) return null;
+    const snap = await rtdb.ref('presence/broadcast').once('value');
+    return snap.numChildren();
+  } catch {
+    return null;
+  }
+}
+
 async function probeLivekit(): Promise<LivekitHealth> {
+  // Read listener count independently of the LiveKit probe so a LiveKit failure
+  // doesn't hide the listener number (and vice-versa).
+  const listenerCount = await readListenerCount();
   const host = process.env.LIVEKIT_URL?.replace('wss://', 'https://') ?? '';
   const apiKey = process.env.LIVEKIT_API_KEY ?? '';
   const apiSecret = process.env.LIVEKIT_API_SECRET ?? '';
@@ -136,6 +158,7 @@ async function probeLivekit(): Promise<LivekitHealth> {
       egressCount: 0,
       ingressCount: 0,
       staleEgressCount: 0,
+      listenerCount,
       error: 'LiveKit not configured',
     };
   }
@@ -162,6 +185,7 @@ async function probeLivekit(): Promise<LivekitHealth> {
       egressCount: egresses.length,
       ingressCount: ingresses.length,
       staleEgressCount,
+      listenerCount,
     };
   } catch (e) {
     return {
@@ -172,6 +196,7 @@ async function probeLivekit(): Promise<LivekitHealth> {
       egressCount: 0,
       ingressCount: 0,
       staleEgressCount: 0,
+      listenerCount,
       error: (e as Error).message,
     };
   }

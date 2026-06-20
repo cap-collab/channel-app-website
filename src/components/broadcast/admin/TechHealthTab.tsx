@@ -94,6 +94,13 @@ export function TechHealthTab() {
               {!data.livekit.reachable && (
                 <div className="text-red-400">Unreachable: {data.livekit.error}</div>
               )}
+              {/* Real listener count (web + mobile) from Firebase presence — shown
+                  even if the LiveKit probe failed, since it's read independently. */}
+              <Row label="Listeners (now)" value={
+                <span className="font-bold">
+                  {data.livekit.listenerCount === null ? 'n/a' : String(data.livekit.listenerCount)}
+                </span>
+              } />
               {data.livekit.reachable && (
                 <>
                   <Row label="Live now" value={
@@ -101,7 +108,7 @@ export function TechHealthTab() {
                       {data.livekit.isLive ? `Yes (${data.livekit.currentDJ})` : 'No'}
                     </span>
                   } />
-                  <Row label="Participants" value={String(data.livekit.participantCount)} />
+                  <Row label="Participants (raw)" value={String(data.livekit.participantCount)} />
                   <Row label="Active egresses" value={
                     <span className={data.livekit.staleEgressCount > 0 ? 'text-yellow-400' : ''}>
                       {data.livekit.egressCount}
