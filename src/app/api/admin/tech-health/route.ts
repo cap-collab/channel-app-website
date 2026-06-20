@@ -131,12 +131,18 @@ async function probeWorker(name: string, url: string): Promise<WorkerHealth> {
 // mobile/HLS) writes presence/broadcast/<sessionId>; the count is the number of
 // children. RTDB is separate infra from LiveKit/audio, so this read adds zero load
 // on the streams. Returns null on any failure (so the panel shows "n/a", never errors).
+//
+// CRITICAL: rtdb.once('value') has NO built-in timeout — if the RTDB connection
+// stalls it never resolves, which would hang the whole tech-health response
+// ("Loading…" forever). Race it against a short timeout so a stalled read degrades
+// to null instead of blocking the panel. (Other probes use the same guard pattern.)
 async function readListenerCount(): Promise<number | null> {
   try {
     const rtdb = getAdminRtdb();
     if (!rtdb) return null;
-    const snap = await rtdb.ref('presence/broadcast').once('value');
-    return snap.numChildren();
+    const read = rtdb.ref('presence/broadcast').once('value').then((s) => s.numChildren());
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
+    return await Promise.race([read, timeout]);
   } catch {
     return null;
   }
