@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { RoomServiceClient, EgressClient, IngressClient } from 'livekit-server-sdk';
-import { getAdminAuth, getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
+import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { ROOM_NAME } from '@/types/broadcast';
 
 // Single read-only aggregator for the admin Tech Health tab. Probes every
@@ -129,20 +129,31 @@ async function probeWorker(name: string, url: string): Promise<WorkerHealth> {
 
 // Real listener count from Firebase RTDB presence. Each playing listener (web OR
 // mobile/HLS) writes presence/broadcast/<sessionId>; the count is the number of
-// children. RTDB is separate infra from LiveKit/audio, so this read adds zero load
-// on the streams. Returns null on any failure (so the panel shows "n/a", never errors).
+// children. Covers live AND restream. RTDB is separate infra from LiveKit/audio, so
+// this read adds zero load on the streams. Returns null on failure → panel shows "n/a".
 //
-// CRITICAL: rtdb.once('value') has NO built-in timeout — if the RTDB connection
-// stalls it never resolves, which would hang the whole tech-health response
-// ("Loading…" forever). Race it against a short timeout so a stalled read degrades
-// to null instead of blocking the panel. (Other probes use the same guard pattern.)
+// IMPORTANT: we read via the RTDB **REST API**, NOT the firebase-admin SDK. The SDK's
+// once('value') opens a persistent websocket that stalls in serverless (cold
+// connection) and never resolves — it hung the whole tech-health response. The REST
+// endpoint returns instantly (~0.2s). `?shallow=true` returns just the child keys
+// (tiny). presence/broadcast is publicly readable (the client player reads it), so no
+// token is needed; AbortController bounds it so it can never hang the panel.
 async function readListenerCount(): Promise<number | null> {
   try {
-    const rtdb = getAdminRtdb();
-    if (!rtdb) return null;
-    const read = rtdb.ref('presence/broadcast').once('value').then((s) => s.numChildren());
-    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
-    return await Promise.race([read, timeout]);
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    if (!projectId) return null;
+    const url = `https://${projectId}-default-rtdb.firebaseio.com/presence/broadcast.json?shallow=true`;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      // shallow returns { "<sessionId>": true, ... } or null when empty.
+      return data && typeof data === 'object' ? Object.keys(data).length : 0;
+    } finally {
+      clearTimeout(t);
+    }
   } catch {
     return null;
   }
