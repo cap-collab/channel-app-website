@@ -508,10 +508,13 @@ async function resolveLoopPlan(
   }
   const earliestStartMs = Math.max(nowMs, prevNaturalEnd);
 
-  // Loop start: the 1-2am PT window nearest prevNaturalEnd (gapless chaining —
-  // the previous long loop ends ~3-4am PT, so the next loop's 1-2am start lands
-  // just before that, with the higher loop number winning on the listener side).
-  const startTimeMs = nearestWindowMidMs(prevNaturalEnd, START_WINDOW_UTC_H[0]);
+  // Base start for ANCHOR SELECTION: the 1-2am PT window AT-OR-BEFORE prevNaturalEnd.
+  // Using prevWindowMidMs (not nearestWindowMidMs) guarantees the base is never AFTER
+  // prevEnd — nearestWindowMidMs could round FORWARD to the next morning when prev ends
+  // mid-day, opening a gap (next loop starts after prev ends → useArchiveRadio storms)
+  // AND filtering out the soonest anchor. Starting from a before-prevEnd window means the
+  // soonest upcoming anchor inside the current loop's span is seen/selected.
+  let startTimeMs = prevWindowMidMs(prevNaturalEnd, START_WINDOW_UTC_H[0]);
 
   // Anchor: the first upcoming live block whose end falls after the loop starts
   // and within the loop's reachable span (~3 days). Optional.
@@ -519,6 +522,18 @@ async function resolveLoopPlan(
   const anchors = await loadAnchors(db, startTimeMs);
   const firstAnchor = anchors.find((a) => a.endTimeMs > startTimeMs && a.endTimeMs <= anchorHorizonMs) ?? null;
   const curatedId = firstAnchor?.curatedArchiveId ?? null;
+
+  // ANCHOR start (Rule 2): the loop must start at a 1-2am PT window that is BEFORE BOTH
+  // the anchor (so it can take over and hand off cleanly) AND prevEnd (so it overlaps the
+  // still-playing previous loop — no gap). The anchor is often INSIDE the current loop's
+  // span (that's why we regenerate). The later :881 backwards-align still fine-tunes the
+  // exact hand-off landing. (The no-anchor branch overrides this to prevEnd below.)
+  if (firstAnchor) {
+    startTimeMs = prevWindowMidMs(
+      Math.min(firstAnchor.endTimeMs, prevNaturalEnd),
+      START_WINDOW_UTC_H[0],
+    );
+  }
 
   const avgInterludeSec = interstitials.length === 0
     ? 0
@@ -539,15 +554,18 @@ async function resolveLoopPlan(
   const diversify = (seg: EligibleArchive[], segStartMs: number): string[] =>
     reorderForTimeOfDayDiversity(seg, recentPlays, segStartMs, avgInterludeSec).map((a) => a.id);
 
-  // ── No anchor: pour the whole pool from 1-2am PT, truncate so it ends at the
-  // last 3-4am PT window before the pool's natural end. ──
+  // ── No anchor: it's a radio — just CONTINUE. The next loop starts EXACTLY when the
+  // previous loop ends (no overlap, no window snap). Overlap exists only to hand off to
+  // an anchor; with no anchor there's no reason to jump/overlap. Truncate so it ends at
+  // the last 3-4am PT window before the pool's natural end. ──
   if (!firstAnchor) {
-    const kept = truncateAtEndWindow(pool, startTimeMs, avgInterludeSec);
+    const noAnchorStart = prevNaturalEnd;
+    const kept = truncateAtEndWindow(pool, noAnchorStart, avgInterludeSec);
     return {
-      startTimeMs,
+      startTimeMs: noAnchorStart,
       anchor: null,
       preAnchorArchiveIds: null,
-      postAnchorArchiveIds: diversify(kept, startTimeMs),
+      postAnchorArchiveIds: diversify(kept, noAnchorStart),
       mode: 'short',
       maxDurationSec: null,
       earliestStartMs,
@@ -881,16 +899,11 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
       startTimeMs = plan.anchor.endTimeMs + ANCHOR_WARMUP_MS - anchorInterludeOffset * 1000;
     }
   }
-  // Small overlap with the previous loop is intentional: useArchiveRadio
-  // picks the highest-loopNumber loop whose startTimeMs has passed, so when
-  // loop N's start arrives, listeners cross over from N-1. The 1-3 AM PT
-  // window already sits BEFORE loop N-1's natural end (which is itself in
-  // 1-3 AM PT a day later), giving a clean handoff.
-  // Guard against unbounded backwards drift: cap overlap at 4 hours.
-  const MAX_OVERLAP_MS = 4 * 3600 * 1000;
-  if (startTimeMs < plan.earliestStartMs - MAX_OVERLAP_MS) {
-    startTimeMs = plan.earliestStartMs - MAX_OVERLAP_MS;
-  }
+  // Overlap with the previous loop is intentional and unbounded: useArchiveRadio picks
+  // the highest-loopNumber loop whose startTimeMs has passed, so when loop N's start
+  // arrives, listeners cross over from N-1. We deliberately do NOT cap overlap — for an
+  // anchor loop the start is whatever it needs to be (1-2am window before both the anchor
+  // and prevEnd) to hand off cleanly; the amount of overlap is irrelevant to listeners.
   const generatedAtMs = Date.now();
 
   // Firestore rejects undefined values; sanitize before write.
