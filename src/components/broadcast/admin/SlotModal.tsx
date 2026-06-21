@@ -32,6 +32,8 @@ interface SlotModalProps {
     // Suppress go-live emails for this slot — used when testing a real
     // go-live so real subscribers aren't emailed.
     goLiveEmailsDisabled?: boolean;
+    // Anchor slots: opt-in to emails (off by default).
+    anchorEmailsEnabled?: boolean;
   }) => Promise<void>;
   onDelete?: (slotId: string) => Promise<void>;
   initialStartTime?: Date;
@@ -313,6 +315,11 @@ export function SlotModal({
   // When true, the show-starting-emails cron skips this slot — used to test a
   // real go-live/restream without emailing real subscribers.
   const [goLiveEmailsDisabled, setGoLiveEmailsDisabled] = useState(false);
+  // Anchor-only: an Archives-tab slot that schedules the archive radio (anchor
+  // + curated archive) but NEVER takes over the live player. Off = normal
+  // restream. anchorEmailsEnabled (nested) opts the anchor into emails.
+  const [anchorOnly, setAnchorOnly] = useState(false);
+  const [anchorEmailsEnabled, setAnchorEmailsEnabled] = useState(false);
   // Archive/restream tab state
   const [modalTab, setModalTab] = useState<SlotModalTab>('new-show');
   const [archives, setArchives] = useState<Archive[]>([]);
@@ -602,10 +609,10 @@ export function SlotModal({
     }
   };
 
-  // When editing a restream, auto-select the matching archive once archives load
-  // This also fills in showImageUrl if it was missing from the slot
+  // When editing a restream OR anchor, auto-select the matching archive once
+  // archives load. This also fills in showImageUrl if it was missing from the slot
   useEffect(() => {
-    if (slot?.broadcastType === 'restream' && slot.archiveId && archives.length > 0 && !selectedArchive) {
+    if ((slot?.broadcastType === 'restream' || slot?.broadcastType === 'anchor') && slot.archiveId && archives.length > 0 && !selectedArchive) {
       const match = archives.find(a => a.id === slot.archiveId);
       if (match) {
         setSelectedArchive(match);
@@ -804,10 +811,15 @@ export function SlotModal({
       hydratedRestreamArchiveIdRef.current = null;
 
       if (slot) {
-        // Default to archives tab when editing a restream
+        // Default to archives tab when editing a restream OR an anchor (both
+        // are configured on the Archives tab via the archive picker).
         const isRestream = slot.broadcastType === 'restream';
-        setModalTab(isRestream ? 'archives' : 'new-show');
-        if (isRestream) fetchArchives();
+        const isAnchor = slot.broadcastType === 'anchor';
+        const isArchiveTab = isRestream || isAnchor;
+        setModalTab(isArchiveTab ? 'archives' : 'new-show');
+        if (isArchiveTab) fetchArchives();
+        setAnchorOnly(isAnchor);
+        setAnchorEmailsEnabled(slot.anchorEmailsEnabled === true);
         // Editing existing slot
         const start = new Date(slot.startTime);
         const end = new Date(slot.endTime);
@@ -822,11 +834,11 @@ export function SlotModal({
         setStartTime(snapToHalfHour(start.toTimeString().slice(0, 5)));
         setEndTime(snapToHalfHour(end.toTimeString().slice(0, 5)));
         setBroadcastType(slot.broadcastType || 'remote');
-        // Restream: seed the second-accurate start/end from the saved slot so a
-        // no-change re-save is a no-op (the snapped HH:mm fields above are
-        // display-only). hydratedRestreamArchiveIdRef guards the timing effect
-        // from overwriting these once the archive auto-selects.
-        if (isRestream) {
+        // Restream/anchor: seed the second-accurate start/end from the saved
+        // slot so a no-change re-save is a no-op (the snapped HH:mm fields above
+        // are display-only). hydratedRestreamArchiveIdRef guards the timing
+        // effect from overwriting these once the archive auto-selects.
+        if (isArchiveTab) {
           setRestreamExactStartMs(slot.startTime);
           setRestreamExactEndMs(slot.endTime);
           hydratedRestreamArchiveIdRef.current = slot.archiveId ?? null;
@@ -909,6 +921,8 @@ export function SlotModal({
         setDjEmail('');
         setShowImageUrl(undefined);
         setGoLiveEmailsDisabled(false);
+        setAnchorOnly(false);
+        setAnchorEmailsEnabled(false);
         // Use local date formatting to avoid timezone issues
         setStartDate(formatLocalDate(initialStartTime));
         setEndDate(formatLocalDate(initialEndTime));
@@ -1079,13 +1093,17 @@ export function SlotModal({
         djSlots: convertedDjSlots,
         startTime: finalStartMs,
         endTime: finalEndMs,
-        broadcastType: modalTab === 'archives' ? 'restream' : broadcastType,
+        broadcastType: modalTab === 'archives' ? (anchorOnly ? 'anchor' : 'restream') : broadcastType,
         showImageUrl,
         // Empty string clears any previous curation; non-empty sets it. The
         // archive-radio cron reads this when generating loops to choose what
-        // plays at the loop anchor after this slot's contiguous live block.
-        postLiveArchiveId: postLiveArchive?.id ?? '',
+        // plays at the loop anchor after this slot's contiguous live block. For
+        // an anchor-only slot the chosen archive IS the curated hand-off, so
+        // pin postLiveArchiveId to it (the separate post-live picker is hidden).
+        postLiveArchiveId: anchorOnly && selectedArchive ? selectedArchive.id : (postLiveArchive?.id ?? ''),
         goLiveEmailsDisabled,
+        // Only meaningful for anchors; false for everything else.
+        anchorEmailsEnabled: anchorOnly ? anchorEmailsEnabled : false,
       };
 
       if (modalTab === 'archives' && selectedArchive) {
@@ -1375,7 +1393,7 @@ Cap`;
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-800 sticky top-0 bg-[#252525] z-10">
           <h2 className="text-lg font-semibold text-white">
-            {isEditing ? 'Edit Show' : modalTab === 'archives' ? 'Schedule Restream' : 'New Show'}
+            {isEditing ? 'Edit Show' : modalTab === 'archives' ? (anchorOnly ? 'Schedule Anchor' : 'Schedule Restream') : 'New Show'}
           </h2>
           <button
             onClick={onClose}
@@ -1387,8 +1405,8 @@ Cap`;
           </button>
         </div>
 
-        {/* Tab bar — show when creating new, or editing a restream */}
-        {(!isEditing || slot?.broadcastType === 'restream') && (
+        {/* Tab bar — show when creating new, or editing a restream/anchor */}
+        {(!isEditing || slot?.broadcastType === 'restream' || slot?.broadcastType === 'anchor') && (
           <div className="flex border-b border-gray-800">
             <button
               type="button"
@@ -1454,6 +1472,41 @@ Cap`;
                     >
                       Change
                     </button>
+                  </div>
+
+                  {/* Anchor-only: schedule for the radio without taking over the player */}
+                  <div className="mt-3 pt-3 border-t border-purple-500/20">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={anchorOnly}
+                        onChange={(e) => setAnchorOnly(e.target.checked)}
+                        className="mt-0.5"
+                      />
+                      <span className="text-sm text-gray-200">
+                        Anchor only (schedule for the radio, don&rsquo;t take over the player)
+                        <span className="block text-xs text-gray-400 mt-0.5">
+                          The live player never switches to this show. The archive radio uses its end time as a hand-off point and plays the chosen archive next. It still appears on the DJ&rsquo;s page and public schedule. Avoid placing it within ~1 min of a real live show.
+                        </span>
+                      </span>
+                    </label>
+
+                    {anchorOnly && (
+                      <label className="flex items-start gap-2 cursor-pointer mt-2 ml-6">
+                        <input
+                          type="checkbox"
+                          checked={anchorEmailsEnabled}
+                          onChange={(e) => setAnchorEmailsEnabled(e.target.checked)}
+                          className="mt-0.5"
+                        />
+                        <span className="text-sm text-gray-200">
+                          Send emails for this anchor
+                          <span className="block text-xs text-gray-400 mt-0.5">
+                            By default anchors don&rsquo;t notify anyone. Check this to send the normal show emails (reminders / show-starting) for this anchor.
+                          </span>
+                        </span>
+                      </label>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -2087,7 +2140,9 @@ Cap`;
 
           {/* Post-live archive (radio loop alignment). Optional — leave empty
               to let the cron pick a random archive at the loop anchor that
-              follows this slot's live block. */}
+              follows this slot's live block. Hidden for anchor-only slots: the
+              chosen archive IS the curated hand-off there. */}
+          {!anchorOnly && (
           <div className="px-4 pb-4 border-t border-gray-800 pt-4 mt-2">
             <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
               Post-live archive (radio loop)
@@ -2172,6 +2227,7 @@ Cap`;
               </div>
             )}
           </div>
+          )}
 
           {/* Go-live emails — disable for test broadcasts so the cron doesn't
               email real subscribers when you take a real slot live to test. */}

@@ -142,6 +142,8 @@ export async function GET(request: NextRequest) {
   for (const doc of slotsSnap.docs) {
     const slot = doc.data();
     if (slot.status === 'cancelled' || slot.broadcastType === 'recording') continue;
+    // Anchors aren't a resident's live slot — never count them as "booked".
+    if (slot.broadcastType === 'anchor') continue;
 
     const slotStart = toMillis(slot.startTime);
     const slotEnd = toMillis(slot.endTime);

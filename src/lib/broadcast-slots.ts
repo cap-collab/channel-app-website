@@ -96,12 +96,14 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     recordingUrl: data.recordingUrl as string | undefined,
     recordingStatus: data.recordingStatus as BroadcastSlotSerialized['recordingStatus'],
     recordingDuration: data.recordingDuration as number | undefined,
-    // Restream fields
+    // Restream fields (also used by anchor slots for DJ-page display)
     archiveId: data.archiveId as string | undefined,
     archiveRecordingUrl: data.archiveRecordingUrl as string | undefined,
     archiveDuration: data.archiveDuration as number | undefined,
+    restreamDjs: data.restreamDjs as ArchiveDJ[] | undefined,
     // Radio loop alignment
     postLiveArchiveId: data.postLiveArchiveId as string | undefined,
+    anchorEmailsEnabled: data.anchorEmailsEnabled as boolean | undefined,
     // Go-live email tracking
     goLiveEmailsTotalCount: data.goLiveEmailsTotalCount as number | undefined,
     goLiveEmailsLastRunCount: data.goLiveEmailsLastRunCount as number | undefined,
@@ -148,6 +150,8 @@ export async function createSlot(data: {
   postLiveArchiveId?: string;
   // Marketing: suppress go-live emails for this slot (testing)
   goLiveEmailsDisabled?: boolean;
+  // Anchor slots: opt-in to emails (off by default)
+  anchorEmailsEnabled?: boolean;
 }): Promise<{ slot: BroadcastSlotSerialized; broadcastUrl: string }> {
   if (!db) throw new Error('Firestore not initialized');
 
@@ -236,8 +240,9 @@ export async function createSlot(data: {
     liveDjBio: liveDjBio || null,
     liveDjPhotoUrl: liveDjPhotoUrl || null,
     showImageUrl: data.showImageUrl || null,
-    // Restream fields
-    ...(broadcastType === 'restream' && {
+    // Restream fields — anchors carry the same archive metadata so they show
+    // on DJ pages / public schedules using the archive's info.
+    ...((broadcastType === 'restream' || broadcastType === 'anchor') && {
       archiveId: data.archiveId || null,
       archiveRecordingUrl: data.archiveRecordingUrl || null,
       archiveDuration: data.archiveDuration || null,
@@ -247,6 +252,8 @@ export async function createSlot(data: {
     postLiveArchiveId: data.postLiveArchiveId || null,
     // Marketing: suppress go-live emails for this slot (testing)
     goLiveEmailsDisabled: data.goLiveEmailsDisabled === true,
+    // Anchor slots: opt-in to emails (off by default)
+    anchorEmailsEnabled: data.anchorEmailsEnabled === true,
   };
 
   const docRef = await addDoc(collection(db, COLLECTION), slotData);
@@ -278,6 +285,7 @@ export async function createSlot(data: {
     restreamDjs: data.restreamDjs,
     postLiveArchiveId: data.postLiveArchiveId,
     goLiveEmailsDisabled: data.goLiveEmailsDisabled === true,
+    anchorEmailsEnabled: data.anchorEmailsEnabled === true,
   };
 
   // All slots use token URLs
@@ -306,6 +314,8 @@ export async function updateSlot(
     postLiveArchiveId: string;
     // Marketing tab: suppress go-live emails for this slot (testing)
     goLiveEmailsDisabled: boolean;
+    // Anchor slots: opt-in to emails (off by default)
+    anchorEmailsEnabled: boolean;
   }>
 ): Promise<void> {
   if (!db) throw new Error('Firestore not initialized');
@@ -406,6 +416,9 @@ export async function updateSlot(
 
   // Marketing tab go-live email suppression
   if (updates.goLiveEmailsDisabled !== undefined) updateData.goLiveEmailsDisabled = updates.goLiveEmailsDisabled;
+
+  // Anchor slots: opt-in to emails
+  if (updates.anchorEmailsEnabled !== undefined) updateData.anchorEmailsEnabled = updates.anchorEmailsEnabled;
 
   await updateDoc(doc(db, COLLECTION, slotId), updateData);
 }

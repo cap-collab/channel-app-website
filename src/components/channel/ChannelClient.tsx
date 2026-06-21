@@ -447,8 +447,8 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
     // Radio shows from followed DJs / favorited shows in next 2 weeks
     for (const show of allShows) {
       if (!show.dj) continue;
-      // Never show restreams in watchlist (regular restreams, external show restreams, or channel broadcast restreams)
-      if (show.type === 'restream' || show.type === 'playlist' || show.broadcastType === 'restream') continue;
+      // Never show restreams or anchors in watchlist (regular restreams, external show restreams, channel broadcast restreams, or radio-only anchors)
+      if (show.type === 'restream' || show.type === 'playlist' || show.broadcastType === 'restream' || show.broadcastType === 'anchor') continue;
       // Skip shows the user explicitly dismissed (tapped × on the card).
       // The dismissal is recorded by removeFavorite even when the DJ is
       // still followed, so the show doesn't auto-resurface via that path.

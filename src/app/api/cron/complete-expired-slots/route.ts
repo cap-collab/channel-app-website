@@ -58,8 +58,16 @@ export async function GET(request: NextRequest) {
           newStatus = 'completed';
           completedCount++;
         } else if (slot.status === 'scheduled') {
-          newStatus = 'missed';
-          missedCount++;
+          // Anchor slots never "go live" — a passed anchor is completed, not
+          // missed (it did its job as a radio hand-off marker). Marking it
+          // missed would misreport it as a failed show.
+          if (slot.broadcastType === 'anchor') {
+            newStatus = 'completed';
+            completedCount++;
+          } else {
+            newStatus = 'missed';
+            missedCount++;
+          }
         } else {
           continue;
         }

@@ -4,6 +4,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import {
   loopDocId,
   LOOP_COLLECTION,
+  reflowOffsets,
 } from '@/lib/archive-schedule';
 import type { ScheduleItem } from '@/types/broadcast';
 
@@ -58,28 +59,50 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ loopNumber:
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
-  if (!Array.isArray(body.items)) {
-    return NextResponse.json({ error: 'items must be an array' }, { status: 400 });
-  }
 
   const db = getAdminDb();
   if (!db) return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
 
-  // Coerce + recompute offsets back-to-back. Same shape sanitization as the
-  // daily route; loops are always continuous (no slot alignment).
-  let cursor = 0;
+  // Metadata-only lock toggle: when no items are sent, update ONLY { locked }.
+  // This MUST NOT rewrite items[] — doing so previously round-tripped the loop
+  // through the serializer below and corrupted it (interludes relabeled
+  // kind:'archive', offsets re-timed without crossfade → late anchor handoff).
+  if (body.items === undefined) {
+    if (typeof body.locked !== 'boolean') {
+      return NextResponse.json({ error: 'items must be an array, or send { locked } alone' }, { status: 400 });
+    }
+    const docRef = db.collection(LOOP_COLLECTION).doc(loopDocId(loopNumber));
+    await docRef.set({ locked: body.locked }, { merge: true });
+    return NextResponse.json({ success: true, loopNumber, locked: body.locked });
+  }
+
+  if (!Array.isArray(body.items)) {
+    return NextResponse.json({ error: 'items must be an array' }, { status: 400 });
+  }
+
+  // Coerce items, PRESERVING kind/interstitialId. Offsets are recomputed below
+  // by reflowOffsets (the shared crossfade-aware pass) — NOT here, so we don't
+  // re-derive the timing math and drift it.
   const items: ScheduleItem[] = [];
   for (const raw of body.items as Array<Record<string, unknown>>) {
     if (!raw || typeof raw !== 'object') continue;
     const recordingUrl = typeof raw.recordingUrl === 'string' ? raw.recordingUrl : '';
     const durationSec = Number(raw.durationSec ?? 0);
     if (!recordingUrl || !durationSec) continue;
-    const kind = (raw.kind as ScheduleItem['kind']) ?? 'archive';
+    // Preserve the real kind. Default to 'archive' only when truly absent;
+    // an item carrying an interstitialId is an interstitial regardless.
+    const interstitialId = typeof raw.interstitialId === 'string' ? raw.interstitialId : undefined;
+    const kind: ScheduleItem['kind'] =
+      raw.kind === 'interstitial' || raw.kind === 'archive'
+        ? raw.kind
+        : interstitialId
+          ? 'interstitial'
+          : 'archive';
     const item: ScheduleItem = {
       kind,
       recordingUrl,
       durationSec,
-      startOffsetSec: cursor,
+      startOffsetSec: 0, // set by reflowOffsets below
       title: typeof raw.title === 'string' ? raw.title : undefined,
       artworkUrl: typeof raw.artworkUrl === 'string' ? raw.artworkUrl : undefined,
       djs: Array.isArray(raw.djs)
@@ -95,11 +118,13 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ loopNumber:
         ? (raw.sceneSlugs as unknown[]).filter((s): s is string => typeof s === 'string')
         : undefined,
       archiveId: typeof raw.archiveId === 'string' ? raw.archiveId : undefined,
-      interstitialId: typeof raw.interstitialId === 'string' ? raw.interstitialId : undefined,
+      interstitialId,
     };
     items.push(item);
-    cursor += durationSec;
   }
+
+  // Crossfade-aware cumulative offsets + total (same math as generateLoop).
+  const totalDurationSec = reflowOffsets(items);
 
   const cleanItems = items.map((it) => {
     const obj: Record<string, unknown> = {
@@ -126,7 +151,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ loopNumber:
   const docRef = db.collection(LOOP_COLLECTION).doc(loopDocId(loopNumber));
   const update: Record<string, unknown> = {
     loopNumber,
-    totalDurationSec: cursor,
+    totalDurationSec,
     generatedAt: Timestamp.fromMillis(generatedAtMs),
     generatedAtMs,
     generatedBy: 'admin',
@@ -135,5 +160,5 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ loopNumber:
   if (typeof body.locked === 'boolean') update.locked = body.locked;
   await docRef.set(update, { merge: true });
 
-  return NextResponse.json({ success: true, loopNumber, itemCount: cleanItems.length, totalDurationSec: cursor });
+  return NextResponse.json({ success: true, loopNumber, itemCount: cleanItems.length, totalDurationSec });
 }

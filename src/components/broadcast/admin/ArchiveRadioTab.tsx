@@ -5,12 +5,15 @@ import Image from 'next/image';
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ArchiveSerialized } from '@/types/broadcast';
-import { LOOP_COLLECTION } from '@/lib/archive-schedule';
+import { LOOP_COLLECTION, CROSSFADE_SEC } from '@/lib/archive-schedule';
 import { priorityIsLoopEligible } from '@/lib/archive-priority';
 
 // A single editable item in the loop. Mirrors ScheduleItem but only the fields
-// the admin UI needs to show/save.
+// the admin UI needs to show/save. kind + interstitialId MUST be carried
+// through load→edit→save: dropping them relabels interludes as archives and
+// breaks the toilet-therapist anchor pinning (see loop-editor corruption fix).
 interface UIItem {
+  kind: 'archive' | 'interstitial';
   recordingUrl: string;
   durationSec: number;
   startOffsetSec: number;
@@ -19,6 +22,7 @@ interface UIItem {
   djs?: { name: string; username?: string; photoUrl?: string }[];
   artworkUrl?: string;
   archiveId?: string;
+  interstitialId?: string;
 }
 
 interface LoopDoc {
@@ -29,7 +33,7 @@ interface LoopDoc {
   generatedAtMs?: number;
   generatedBy?: 'cron' | 'admin';
   locked?: boolean;
-  catalogStats?: { highCount: number; mediumCount: number; placedHighDurationSec?: number; placedMediumDurationSec?: number; interstitialCount?: number; totalItems: number } | null;
+  catalogStats?: { highCount: number; mediumCount: number; placedHighDurationSec?: number; placedMediumDurationSec?: number; interstitialCount?: number; alignedAnchorCount?: number; totalItems: number } | null;
   items?: Array<UIItem>;
 }
 
@@ -38,7 +42,7 @@ interface LoopSummary {
   loopNumber: number;
   startTimeMs: number;
   totalDurationSec: number;
-  catalogStats?: { highCount: number; mediumCount: number; placedHighDurationSec?: number; placedMediumDurationSec?: number; interstitialCount?: number; totalItems: number } | null;
+  catalogStats?: { highCount: number; mediumCount: number; placedHighDurationSec?: number; placedMediumDurationSec?: number; interstitialCount?: number; alignedAnchorCount?: number; totalItems: number } | null;
   locked: boolean;
 }
 
@@ -234,6 +238,7 @@ export function ArchiveRadioTab() {
       setLoopDoc(data);
       const itemsRaw = data.items ?? [];
       setItems(itemsRaw.map((it) => ({
+        kind: it.kind === 'interstitial' ? 'interstitial' : (it.interstitialId ? 'interstitial' : 'archive'),
         recordingUrl: it.recordingUrl,
         durationSec: it.durationSec,
         startOffsetSec: it.startOffsetSec,
@@ -241,6 +246,7 @@ export function ArchiveRadioTab() {
         djs: it.djs,
         artworkUrl: it.artworkUrl,
         archiveId: it.archiveId,
+        interstitialId: it.interstitialId,
       })));
     } catch (err) {
       console.error('[ArchiveRadioTab] load loop', err);
@@ -255,12 +261,16 @@ export function ArchiveRadioTab() {
   }, [selectedLoopNumber, loadLoop]);
 
   // Recompute startOffsetSec from current item order whenever the items list
-  // mutates. Back-to-back packing.
+  // mutates. Each item starts CROSSFADE_SEC earlier than the previous one's
+  // nominal end (matching the generator + the PUT route's reflowOffsets); the
+  // last item is not decremented. Re-deriving this WITHOUT the crossfade
+  // subtraction drifts every item ~5s × its position later.
   const reflow = useCallback((arr: UIItem[]): UIItem[] => {
     let cursor = 0;
-    return arr.map((it) => {
+    return arr.map((it, i) => {
       const next: UIItem = { ...it, startOffsetSec: cursor };
-      cursor += it.durationSec;
+      const isLast = i === arr.length - 1;
+      cursor += it.durationSec - (isLast ? 0 : CROSSFADE_SEC);
       return next;
     });
   }, []);
@@ -303,7 +313,7 @@ export function ArchiveRadioTab() {
     try {
       const payload = {
         items: items.map((it) => ({
-          kind: 'archive',
+          kind: it.kind,
           recordingUrl: it.recordingUrl,
           durationSec: it.durationSec,
           startOffsetSec: it.startOffsetSec,
@@ -311,6 +321,7 @@ export function ArchiveRadioTab() {
           djs: it.djs,
           artworkUrl: it.artworkUrl,
           archiveId: it.archiveId,
+          interstitialId: it.interstitialId,
         })),
         locked: loopDoc?.locked ?? false,
       };
@@ -332,10 +343,13 @@ export function ArchiveRadioTab() {
     if (selectedLoopNumber == null) return;
     const next = !(loopDoc?.locked ?? false);
     try {
+      // Metadata-only: send ONLY { locked }, never items[]. Round-tripping
+      // items through the editor corrupts them (relabels interludes, drifts
+      // offsets) — locking must be safe on a live loop.
       await fetch(`/api/admin/archive-radio-loop/${selectedLoopNumber}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: items.map((it) => ({ ...it, kind: 'archive' })), locked: next }),
+        body: JSON.stringify({ locked: next }),
       });
       setLoopDoc((prev) => (prev ? { ...prev, locked: next } : prev));
     } catch (err) {
@@ -363,6 +377,7 @@ export function ArchiveRadioTab() {
     setItems((prev) => {
       const next = [...prev];
       next[index] = {
+        kind: 'archive',
         recordingUrl: archive.recordingUrl,
         durationSec: archive.duration || 0,
         startOffsetSec: 0,
@@ -381,6 +396,7 @@ export function ArchiveRadioTab() {
     setItems((prev) => {
       const next = [...prev];
       const newItem: UIItem = {
+        kind: 'archive',
         recordingUrl: archive.recordingUrl,
         durationSec: archive.duration || 0,
         startOffsetSec: 0,
@@ -488,6 +504,12 @@ export function ArchiveRadioTab() {
               : ''}
         </div>
       </div>
+
+      {dirty && (loopDoc?.catalogStats?.alignedAnchorCount ?? 0) > 0 && (
+        <div className="mb-3 p-3 bg-amber-950/40 border border-amber-700 text-amber-200 text-sm rounded">
+          This is an anchor loop. Manual edits don’t re-pin the live→radio hand-off — use “Regenerate this loop” to restore exact anchor timing.
+        </div>
+      )}
 
       {error && (
         <div className="mb-3 p-3 bg-red-950/40 border border-red-700 text-red-200 text-sm rounded">

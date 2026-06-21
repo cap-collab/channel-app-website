@@ -18,6 +18,31 @@ export function loopDocId(n: number): string {
 const DAY_SECONDS = 24 * 60 * 60;
 const SECONDS_MS = 1000;
 
+// Listener-side crossfade overlap: each transition compresses the schedule by
+// CROSSFADE_SEC because the incoming item's audio becomes audible CROSSFADE_SEC
+// before the schedule boundary. Items are NOT shorter in playback (the file
+// plays its full durationSec), but each item's audible tail overlaps the next
+// item's audible head by CROSSFADE_SEC. Listener-side CROSSFADE_MS = 5000 in
+// useArchiveRadio.ts. Exported so the admin loop-editor (PUT route + UI) reuses
+// the SAME math the generator does — re-deriving it without the subtraction
+// drifts every item ~5s × its position later (see loop#28 ~70s-late handoff).
+export const CROSSFADE_SEC = 5;
+
+// Canonical cumulative-offset pass. Sets each item's startOffsetSec to the
+// running cursor; each item starts CROSSFADE_SEC earlier than the previous
+// one's nominal end (the last item is not decremented since nothing follows it).
+// Returns the total loop duration in seconds. Mutates items in place (matching
+// buildLoop's pass) AND returns the total, so callers can write totalDurationSec.
+export function reflowOffsets(items: ScheduleItem[]): number {
+  let total = 0;
+  for (let i = 0; i < items.length; i++) {
+    items[i].startOffsetSec = total;
+    const isLast = i === items.length - 1;
+    total += items[i].durationSec - (isLast ? 0 : CROSSFADE_SEC);
+  }
+  return total;
+}
+
 // UTC date helpers — schedule docs are keyed by UTC date so listeners across
 // timezones agree on "what day's queue am I in." Doc id = YYYY-MM-DD.
 export function utcDateId(d: Date): string {
@@ -627,13 +652,8 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     }
   }
 
-  // Listener-side crossfade overlap: each transition compresses the schedule
-  // by CROSSFADE_SEC because the incoming item's audio becomes audible
-  // CROSSFADE_SEC before the schedule boundary. Items are NOT shorter in
-  // playback (the file plays its full durationSec), but each item's audible
-  // tail overlaps the next item's audible head by CROSSFADE_SEC.
-  // Listener-side CROSSFADE_MS = 5000 in useArchiveRadio.ts.
-  const CROSSFADE_SEC = 5;
+  // CROSSFADE_SEC is the module-scope constant (shared with the admin loop
+  // editor). See its definition near the top of this file.
 
   // Optional truncation: when a maxDurationSec cap is set (because a NEXT
   // loop will truncate this one), drop items past the cap. If the natural
@@ -683,17 +703,11 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     }
   }
 
-  // Cumulative startOffsetSec — each item starts CROSSFADE_SEC earlier than
-  // the previous one's nominal end because the listener begins fading in the
-  // next item that many seconds before the schedule boundary.
-  //   next.startOffsetSec = prev.startOffsetSec + prev.durationSec - CROSSFADE_SEC
-  // The schedule's startOffsetSec represents when the audio becomes audible.
-  let totalDurationSec = 0;
-  for (let i = 0; i < items.length; i++) {
-    items[i].startOffsetSec = totalDurationSec;
-    const isLast = i === items.length - 1;
-    totalDurationSec += items[i].durationSec - (isLast ? 0 : CROSSFADE_SEC);
-  }
+  // Cumulative startOffsetSec via the shared reflowOffsets pass — each item
+  // starts CROSSFADE_SEC earlier than the previous one's nominal end (listener
+  // begins fading in that many seconds before the boundary). startOffsetSec
+  // represents when the audio becomes audible.
+  const totalDurationSec = reflowOffsets(items);
 
   // Count what actually got PLACED (not the input catalog), so callers can
   // verify the high/medium mix of the real loop. Includes the curated anchor

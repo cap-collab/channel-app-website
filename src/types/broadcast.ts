@@ -16,8 +16,13 @@ export type RedChannelChoice = 'mono' | 'stereo' | 'unsure';
 // - missed: slot time passed without ever going live
 export type BroadcastSlotStatus = 'scheduled' | 'live' | 'paused' | 'completed' | 'missed';
 
-// Broadcast type - venue uses permanent URL, remote gets unique token, recording is self-service, restream plays archived content
-export type BroadcastType = 'venue' | 'remote' | 'recording' | 'restream';
+// Broadcast type - venue uses permanent URL, remote gets unique token,
+// recording is self-service, restream plays archived content as a live show,
+// anchor is a radio-only scheduling marker (never takes over the live player;
+// the archive radio uses its endTime as a hand-off point and plays the chosen
+// archive next — see postLiveArchiveId. Still appears on public schedules/DJ
+// pages using the archive's metadata).
+export type BroadcastType = 'venue' | 'remote' | 'recording' | 'restream' | 'anchor';
 
 // Individual DJ profile for B3B scenarios (multiple DJs sharing one slot)
 export interface DJProfileInfo {
@@ -127,7 +132,8 @@ export interface BroadcastSlot {
   roomName?: string;            // Custom room name for recordings (not shared channel-radio)
   // Tagged DJs for venue recordings (other DJs playing alongside the recorder)
   taggedDJs?: TaggedDJ[];
-  // Restream fields (when broadcastType === 'restream')
+  // Restream fields (when broadcastType === 'restream' OR 'anchor' — anchors
+  // carry the same archive metadata so they display like restreams on DJ pages)
   archiveId?: string;             // Firestore doc ID of the archive being restreamed
   archiveRecordingUrl?: string;   // Cached MP4 URL from the archive
   archiveDuration?: number;       // Duration in seconds
@@ -141,6 +147,10 @@ export interface BroadcastSlot {
   // contiguous live block ends. Read by the archive-radio loop generator; empty
   // means the generator picks a random archive at the anchor.
   postLiveArchiveId?: string;
+  // Anchor slots only: emails are OFF by default (anchors aren't real
+  // broadcasts). When true, the go-live / reminder crons treat the anchor like
+  // a normal show. Inverse of goLiveEmailsDisabled (which is opt-OUT).
+  anchorEmailsEnabled?: boolean;
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -196,6 +206,7 @@ export interface BroadcastSlotSerialized {
   streamCount?: number;            // Number of streams (counted after 5+ min playback)
   sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
   postLiveArchiveId?: string;     // see BroadcastSlot.postLiveArchiveId
+  anchorEmailsEnabled?: boolean;  // see BroadcastSlot.anchorEmailsEnabled
   // Go-live email fan-out tracking (written by show-starting-emails cron +
   // the admin manual trigger). totalCount accumulates across runs; the
   // lastRun pair is the most recent batch only.

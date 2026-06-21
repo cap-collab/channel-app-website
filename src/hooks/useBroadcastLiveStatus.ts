@@ -219,6 +219,9 @@ export async function hasScheduledSlotNow(
     const nowMs = Date.now();
     return snap.docs.some(doc => {
       const data = doc.data();
+      // Anchors never take over the player, so they must NOT sustain the live
+      // grace period. Also skip recordings and cancelled slots (never live).
+      if (data.broadcastType === 'anchor' || data.broadcastType === 'recording' || data.status === 'cancelled') return false;
       const startMs = (data.startTime as Timestamp).toMillis();
       return startMs <= nowMs;
     });
@@ -253,6 +256,9 @@ export async function hasActiveOrImminentBroadcastSlot(
     const horizonMs = nowMs + lookaheadMs;
     return snap.docs.some(doc => {
       const data = doc.data();
+      // Anchors never take over the player; they must NOT suppress the hand-off
+      // to archive radio. Skip recordings/cancelled too (never live).
+      if (data.broadcastType === 'anchor' || data.broadcastType === 'recording' || data.status === 'cancelled') return false;
       const startMs = (data.startTime as Timestamp).toMillis();
       return startMs <= horizonMs;
     });

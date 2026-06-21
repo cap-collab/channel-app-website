@@ -347,10 +347,12 @@ export function WeeklyCalendar({
     const isPast = new Date(slot.endTime) < new Date();
     const isRemote = slot.broadcastType === 'remote';
     const isRestream = slot.broadcastType === 'restream';
+    const isAnchor = slot.broadcastType === 'anchor';
 
     const getSlotColors = () => {
       if (isLive) return 'bg-red-600 border-2 border-red-400';
       if (isPast) return 'bg-gray-600 opacity-60';
+      if (isAnchor) return 'bg-teal-600 hover:bg-teal-500'; // radio-only anchor
       if (isRestream) return 'bg-purple-600 hover:bg-purple-500';
       if (isRemote) return 'bg-blue-600 hover:bg-blue-500';
       return 'bg-accent hover:bg-accent-hover'; // venue slots
@@ -385,10 +387,11 @@ export function WeeklyCalendar({
         className={`absolute left-1 right-1 ${borderRadius} cursor-pointer overflow-visible transition-all hover:brightness-110 ${getSlotColors()}`}
         style={{ top: `${top}px`, height: `${height}px`, pointerEvents: isResizing ? 'none' : 'auto' }}
       >
-        {/* Top resize handle — not for restreams: their duration is fixed by the
-            audio, and resizing snaps to the 30-min grid, which would corrupt the
-            second-accurate start/end. Edit times in the slot modal instead. */}
-        {isFirstSegment && !isPast && !isRestream && onUpdateSlot && (
+        {/* Top resize handle — not for restreams/anchors: their duration is
+            fixed by the archive audio, and resizing snaps to the 30-min grid,
+            which would corrupt the second-accurate start/end. Edit times in the
+            slot modal instead. */}
+        {isFirstSegment && !isPast && !isRestream && !isAnchor && onUpdateSlot && (
           <div
             className="absolute -top-1 left-0 right-0 h-3 cursor-ns-resize group z-10"
             onMouseDown={(e) => handleResizeStart(e, slot, 'top')}
@@ -422,6 +425,9 @@ export function WeeklyCalendar({
                 <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
+              )}
+              {isAnchor && (
+                <span className="flex-shrink-0 text-[9px] font-bold uppercase tracking-wide bg-teal-900/70 text-teal-200 px-1 rounded">Anchor</span>
               )}
               {slot.showName}
             </div>

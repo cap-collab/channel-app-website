@@ -322,6 +322,9 @@ async function run1WeekReminders(db: FirebaseFirestore.Firestore, now: number): 
     const slot = doc.data();
 
     if (slot.broadcastType === 'restream') { result.skipped++; continue; }
+    // Anchors never hit the follower blast (same as restreams — not a real
+    // broadcast). The per-anchor email opt-in governs show-starting-emails only.
+    if (slot.broadcastType === 'anchor') { result.skipped++; continue; }
     // Admin per-slot kill-switch (slot editor): also suppresses DJ reminders.
     if (slot.goLiveEmailsDisabled === true) { result.skipped++; continue; }
     const dedup = await shouldSkipForDay(db, slot, 'reminder1WeekEmailSentAt', 'reminder1WeekEmailSentForDay');
@@ -380,6 +383,9 @@ async function run48hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
     const slot = doc.data();
 
     if (slot.broadcastType === 'restream') { result.skipped++; continue; }
+    // Anchors never hit the follower blast (same as restreams — not a real
+    // broadcast). The per-anchor email opt-in governs show-starting-emails only.
+    if (slot.broadcastType === 'anchor') { result.skipped++; continue; }
     // Admin per-slot kill-switch (slot editor): also suppresses DJ reminders.
     if (slot.goLiveEmailsDisabled === true) { result.skipped++; continue; }
     const dedup = await shouldSkipForDay(db, slot, 'reminder48hEmailSentAt', 'reminder48hEmailSentForDay');
@@ -447,6 +453,9 @@ async function run2hReminders(db: FirebaseFirestore.Firestore, now: number): Pro
     const slot = doc.data();
 
     if (slot.broadcastType === 'restream') { result.skipped++; continue; }
+    // Anchors never hit the follower blast (same as restreams — not a real
+    // broadcast). The per-anchor email opt-in governs show-starting-emails only.
+    if (slot.broadcastType === 'anchor') { result.skipped++; continue; }
     // Admin per-slot kill-switch (slot editor): also suppresses DJ reminders.
     if (slot.goLiveEmailsDisabled === true) { result.skipped++; continue; }
     const dedup = await shouldSkipForDay(db, slot, 'reminder2hEmailSentAt', 'reminder2hEmailSentForDay');
@@ -518,6 +527,9 @@ async function runPostBroadcast(db: FirebaseFirestore.Firestore, now: number): P
     const slot = doc.data();
 
     if (slot.broadcastType === 'restream') { result.skipped++; continue; }
+    // Anchors never hit the follower blast (same as restreams — not a real
+    // broadcast). The per-anchor email opt-in governs show-starting-emails only.
+    if (slot.broadcastType === 'anchor') { result.skipped++; continue; }
     // Admin per-slot kill-switch (slot editor): also suppresses DJ reminders.
     if (slot.goLiveEmailsDisabled === true) { result.skipped++; continue; }
     if (slot.postBroadcastEmailSentAt) { result.skipped++; continue; }

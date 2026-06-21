@@ -181,6 +181,8 @@ export async function GET(request: NextRequest) {
       const status = data.status as string;
       if (status === "cancelled") continue;
       if (data.broadcastType === "restream") continue;
+      // Anchors are radio-only markers, not real shows to notify watchers about.
+      if (data.broadcastType === "anchor") continue;
 
       const startTime = data.startTime as Date;
       const showName = data.showName as string;

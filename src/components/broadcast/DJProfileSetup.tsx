@@ -25,12 +25,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDebouncedCallback } from 'use-debounce';
+import type { BroadcastType } from '@/types/broadcast';
 
 
 interface DJProfileSetupProps {
   defaultUsername?: string;
   showName?: string;
-  broadcastType?: 'venue' | 'remote' | 'recording' | 'restream';
+  broadcastType?: BroadcastType;  // anchors never reach this page, but accept the full union
   isVenueRecording?: boolean;  // For recordings made at a venue (shows venue-specific terms)
   onComplete: (username: string) => void;
 }
