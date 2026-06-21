@@ -145,11 +145,12 @@ describe("generateRecommendations — latest-per-artist & already-heard", () => 
     expect(mariaCount).toBe(1);
   });
 
-  it("the one Maria archive kept is the less-heard one (already-heard penalty)", () => {
-    // USER_HEAVY streamed a-maria-new 50x, a-maria-old 1x → collapse keeps old.
+  it("favorite-artists keeps the LATEST recording per artist (not the less-heard)", () => {
+    // a-maria-new recorded 2d ago, a-maria-old 20d ago. Latest wins regardless
+    // of the already-heard penalty (which only affects scoring/ordering).
     const r = run(USER_HEAVY, MARIA_CREW_AFFILIATION);
     const maria = ids(r, "favorite-artists").filter((id) => id.startsWith("a-maria"));
-    expect(maria).toEqual(["a-maria-old"]);
+    expect(maria).toEqual(["a-maria-new"]);
   });
 });
 

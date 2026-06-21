@@ -70,6 +70,9 @@ export interface SharedData {
   upcomingShows: MatchableShow[];
   upcomingStartMsByShowId: Map<string, number>;
   upcomingDjNameByShowId: Map<string, string | undefined>;
+  // Effective scenes per upcoming show (override, else the DJ's archive scenes)
+  // — used to surface slots from the user's most-engaged scene.
+  upcomingScenesByShowId: Map<string, string[]>;
 }
 
 function slotStartMs(value: unknown): number | undefined {
@@ -93,11 +96,19 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
   const archiveSnap = await db.collection("archives").get();
   const items: ContentItem[] = [];
   const archiveById = new Map<string, ContentItem>();
+  // normalized DJ username → union of scenes across their archives. Used to
+  // resolve an upcoming slot's scene when the slot has no scene override.
+  const scenesByDj = new Map<string, Set<string>>();
   for (const doc of archiveSnap.docs) {
     const a = { id: doc.id, ...(doc.data() as Omit<Archive, "id">) } as Archive;
     const item = normalizeArchive(a);
     items.push(item);
     archiveById.set(item.id, item);
+    for (const dj of item.djUsernames) {
+      const set = scenesByDj.get(dj) ?? new Set<string>();
+      for (const s of item.sceneSlugs) set.add(s);
+      scenesByDj.set(dj, set);
+    }
   }
 
   // DJ-role users → affiliation graph.
@@ -127,6 +138,7 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
   const upcomingShows: MatchableShow[] = [];
   const upcomingStartMsByShowId = new Map<string, number>();
   const upcomingDjNameByShowId = new Map<string, string | undefined>();
+  const upcomingScenesByShowId = new Map<string, string[]>();
   const slotSnap = await db.collection("broadcast-slots").where("status", "==", "scheduled").get();
   for (const doc of slotSnap.docs) {
     const data = doc.data();
@@ -136,18 +148,28 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
     if (typeof startMs !== "number") continue;
     if (startMs < nowMs || startMs > nowMs + NEXT_WEEK_MS) continue;
     const showId = `broadcast-${doc.id}`;
+    const djUsername = data.djUsername as string | undefined;
     upcomingShows.push({
       name: data.showName as string,
       dj: data.djName as string | undefined,
       stationId: "broadcast",
       showId,
-      djUsername: data.djUsername as string | undefined,
+      djUsername,
       djUserId: (data.liveDjUserId as string) || (data.djUserId as string) || undefined,
       collectiveOwnerUserIds: undefined,
       collectiveOwnerUsernames: undefined,
     });
     upcomingStartMsByShowId.set(showId, startMs);
     upcomingDjNameByShowId.set(showId, data.djName as string | undefined);
+    // Effective scenes: slot override, else the DJ's archive scenes.
+    const override = data.sceneIdsOverride;
+    let scenes: string[] = [];
+    if (Array.isArray(override)) {
+      scenes = override.filter((s): s is string => typeof s === "string");
+    } else if (djUsername) {
+      scenes = Array.from(scenesByDj.get(normalizeForLookup(djUsername)) ?? []);
+    }
+    upcomingScenesByShowId.set(showId, scenes);
   }
 
   return {
@@ -158,6 +180,7 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
     upcomingShows,
     upcomingStartMsByShowId,
     upcomingDjNameByShowId,
+    upcomingScenesByShowId,
   };
 }
 
@@ -341,6 +364,28 @@ function buildComingUp(
       reason,
     });
   }
+
+  // Also surface upcoming slots in the user's MOST-engaged scene (only if they
+  // add — i.e. not already matched above), tagged so the reason is visible.
+  const topScene = signals.tasteSummary.sceneCounts[0]?.scene;
+  if (topScene) {
+    const already = new Set(out.map((o) => o.showId));
+    for (const show of shared.upcomingShows) {
+      if (already.has(show.showId)) continue;
+      if (failsUniversalGates(show, uid, signals.goLiveMutes)) continue;
+      const scenes = shared.upcomingScenesByShowId.get(show.showId) ?? [];
+      if (!scenes.includes(topScene)) continue;
+      out.push({
+        showId: show.showId,
+        showName: show.name,
+        djName: shared.upcomingDjNameByShowId.get(show.showId),
+        djUsername: show.djUsername,
+        startTimeMs: shared.upcomingStartMsByShowId.get(show.showId) ?? 0,
+        reason: `In your top scene: ${topScene}`,
+      });
+    }
+  }
+
   out.sort((a, b) => a.startTimeMs - b.startTimeMs);
   return out;
 }

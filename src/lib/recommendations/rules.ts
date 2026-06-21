@@ -117,12 +117,16 @@ export function applyRules(
   return { sections, dropped };
 }
 
-// Collapse a section's (already score-sorted) list to one representative per
-// group, keeping the highest-scored. favorite-artists → one per primary DJ;
-// discovery → one per (scene+tempo) combo. Other sections pass through.
+// Collapse a section to one representative per group. Pinned (editorially
+// featured) items ALWAYS survive and occupy their group, so an admin pin can't
+// be collapsed away by a newer/higher sibling.
+//  - favorite-artists: one per artist = the artist's LATEST recording (by
+//    recordedAtMs, not score); artists ordered by latest-recording date.
+//  - discovery: one per (scene+tempo) combo = highest-priority then latest
+//    (input is score-sorted). Same DJ MAY repeat across different combos.
 function collapseSection(sectionId: SectionId, items: ScoredCandidate[]): ScoredCandidate[] {
   if (sectionId === "favorite-artists") {
-    return collapseByKey(items, (c) => c.item.djUsernames[0] ?? c.item.id);
+    return latestPerArtist(items);
   }
   if (sectionId === "discovery") {
     return collapseByKey(items, (c) => `${c.item.sceneSlugs[0] ?? ""}|${c.item.tempo ?? ""}`);
@@ -130,19 +134,63 @@ function collapseSection(sectionId: SectionId, items: ScoredCandidate[]): Scored
   return items;
 }
 
-// Keep the first item per key. Input is pre-sorted by score (desc) with a
-// recency component, so "first" is the best/latest — deterministic.
+const artistKey = (c: ScoredCandidate) => c.item.djUsernames[0] ?? c.item.id;
+
+// One archive per artist = their newest recording (pinned wins its artist
+// outright). Artists ordered by their kept archive's recording date, freshest
+// first. Deterministic (id tie-break).
+function latestPerArtist(items: ScoredCandidate[]): ScoredCandidate[] {
+  const byArtist = new Map<string, ScoredCandidate>();
+  for (const c of items) {
+    const k = artistKey(c);
+    const cur = byArtist.get(k);
+    if (!cur) {
+      byArtist.set(k, c);
+      continue;
+    }
+    if (cur.pinned && !c.pinned) continue; // pin holds the slot
+    if (!cur.pinned && c.pinned) {
+      byArtist.set(k, c); // pin takes over
+      continue;
+    }
+    // Same pin status → keep the later recording (id tie-break).
+    if (
+      c.item.recordedAtMs > cur.item.recordedAtMs ||
+      (c.item.recordedAtMs === cur.item.recordedAtMs && c.item.id < cur.item.id)
+    ) {
+      byArtist.set(k, c);
+    }
+  }
+  return Array.from(byArtist.values()).sort((a, b) => {
+    // Pinned artists float to the top (in feature order via the upstream sort);
+    // otherwise freshest-recording artist first.
+    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    if (b.item.recordedAtMs !== a.item.recordedAtMs) return b.item.recordedAtMs - a.item.recordedAtMs;
+    return a.item.id < b.item.id ? -1 : 1;
+  });
+}
+
+// Keep one item per key. Pinned items claim their key; otherwise the first
+// (input is pre-sorted by score, so first = highest-priority then latest).
 function collapseByKey(
   items: ScoredCandidate[],
   keyOf: (c: ScoredCandidate) => string,
 ): ScoredCandidate[] {
-  const seen = new Set<string>();
+  const chosen = new Map<string, ScoredCandidate>();
+  for (const c of items) {
+    const k = keyOf(c);
+    const cur = chosen.get(k);
+    if (!cur) chosen.set(k, c);
+    else if (!cur.pinned && c.pinned) chosen.set(k, c); // pin overrides first-seen
+  }
+  // Preserve input order (score-sorted), but with the chosen item per key.
+  const emitted = new Set<string>();
   const out: ScoredCandidate[] = [];
   for (const c of items) {
     const k = keyOf(c);
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(c);
+    if (emitted.has(k)) continue;
+    emitted.add(k);
+    out.push(chosen.get(k)!);
   }
   return out;
 }
