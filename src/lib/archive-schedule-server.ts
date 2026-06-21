@@ -485,27 +485,30 @@ async function resolveLoopPlan(
   // otherwise the new doc overlaps the currently-playing one mid-loop.
   const prev = await db.collection(LOOP_COLLECTION).doc(loopDocId(args.loopNumber - 1)).get();
   let prevNaturalEnd = nowMs;
+  let prevStart = nowMs;
   if (prev.exists) {
     const data = prev.data() ?? {};
-    const prevStart = Number(data.startTimeMs ?? 0);
+    prevStart = Number(data.startTimeMs ?? 0);
     const totalDurationSec = Number(data.totalDurationSec ?? 0);
     prevNaturalEnd = prevStart + totalDurationSec * 1000;
   }
   const earliestStartMs = Math.max(nowMs, prevNaturalEnd);
 
-  // Base start for ANCHOR SELECTION: the 1-2am PT window AT-OR-BEFORE prevNaturalEnd.
-  // Using prevWindowMidMs (not nearestWindowMidMs) guarantees the base is never AFTER
-  // prevEnd — nearestWindowMidMs could round FORWARD to the next morning when prev ends
-  // mid-day, opening a gap (next loop starts after prev ends → useArchiveRadio storms)
-  // AND filtering out the soonest anchor. Starting from a before-prevEnd window means the
-  // soonest upcoming anchor inside the current loop's span is seen/selected.
-  let startTimeMs = prevWindowMidMs(prevNaturalEnd, START_WINDOW_UTC_H[0]);
+  // ANCHOR SELECTION base: look back over the PREVIOUS loop's FULL span (from its start),
+  // so an anchor that falls INSIDE the currently-playing loop is still selectable — that's
+  // how the next loop catches an anchor the playing loop didn't account for, WITHOUT ever
+  // regenerating the playing loop. (selBase only scopes which anchors are visible; the
+  // actual start is computed below.)
+  const selBase = prevWindowMidMs(prevStart, START_WINDOW_UTC_H[0]);
+  let startTimeMs = selBase;
 
-  // Anchor: the first upcoming live block whose end falls after the loop starts
-  // and within the loop's reachable span (~3 days). Optional.
-  const anchorHorizonMs = startTimeMs + 72 * 3600 * 1000;
-  const anchors = await loadAnchors(db, startTimeMs);
-  const firstAnchor = anchors.find((a) => a.endTimeMs > startTimeMs && a.endTimeMs <= anchorHorizonMs) ?? null;
+  // Anchor: the SOONEST upcoming (still-in-the-future) live block within the loop's
+  // reachable span. `endTimeMs > nowMs` so we never "catch" an anchor that already passed.
+  const anchorHorizonMs = selBase + 72 * 3600 * 1000;
+  const anchors = await loadAnchors(db, selBase);
+  const firstAnchor = anchors.find(
+    (a) => a.endTimeMs > nowMs && a.endTimeMs > selBase && a.endTimeMs <= anchorHorizonMs,
+  ) ?? null;
   const curatedId = firstAnchor?.curatedArchiveId ?? null;
 
   // ANCHOR start (Rule 2): the loop must start at a 1-2am PT window that is BEFORE BOTH
@@ -951,35 +954,6 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
   };
 }
 
-// An anchor inside `loop`'s span that the loop didn't account for — i.e. a live
-// show scheduled after the loop was built, with no hand-back placed at its block
-// end. Returns the first such still-upcoming anchor, or null. "Accounted for" =
-// an item lands at the anchor's block end (the curated archive when set, else an
-// archive immediately after an interlude). Checked by TIME POSITION, not mere
-// presence (the curated archive can also appear elsewhere as a plain item).
-async function findUnaccountedAnchor(
-  db: FirebaseFirestore.Firestore,
-  loopStartMs: number,
-  loopEndMs: number,
-  items: Array<{ kind?: string; archiveId?: string; startOffsetSec?: number }>,
-  nowMs: number,
-): Promise<LiveBlockBoundary | null> {
-  const TOL_MS = 5 * 60 * 1000;
-  const anchors = await loadAnchors(db, loopStartMs);
-  for (const a of anchors) {
-    if (a.endTimeMs <= nowMs) continue;                          // already passed
-    if (a.endTimeMs <= loopStartMs || a.endTimeMs >= loopEndMs) continue; // outside span
-    const accounted = items.some((it, i) => {
-      const itMs = loopStartMs + Number(it.startOffsetSec ?? 0) * 1000;
-      if (Math.abs(itMs - a.endTimeMs) > TOL_MS) return false;
-      return a.curatedArchiveId
-        ? it.kind === 'archive' && it.archiveId === a.curatedArchiveId
-        : it.kind === 'archive' && items[i - 1]?.kind === 'interstitial';
-    });
-    if (!accounted) return a;
-  }
-  return null;
-}
 
 // Idempotent: ensures a loop exists whose startTimeMs > now. If the latest
 // stored loop's end is in the future, do nothing. Otherwise generate the next
@@ -1003,28 +977,12 @@ export async function ensureNextLoop(args: { generatedBy?: 'cron' | 'admin' } = 
     .limit(3)
     .get();
 
-  // ── STEP 1: new anchor in the CURRENTLY-PLAYING loop it didn't account for. ──
-  const playingDoc = latestSnap.docs.find((d) => {
-    const x = d.data();
-    const s = Number(x.startTimeMs ?? 0);
-    return s <= now && now < s + Number(x.totalDurationSec ?? 0) * 1000;
-  });
-  if (playingDoc) {
-    const x = playingDoc.data();
-    const playStart = Number(x.startTimeMs ?? 0);
-    const playEnd = playStart + Number(x.totalDurationSec ?? 0) * 1000;
-    const items = Array.isArray(x.items) ? x.items : [];
-    if (x.locked !== true && (await findUnaccountedAnchor(db, playStart, playEnd, items, now))) {
-      // Pretend "now" is the loop's start so the anchor start isn't clamped
-      // forward; loop keeps its number + ~start, listeners re-sync in place.
-      return generateLoop({
-        loopNumber: Number(x.loopNumber ?? 0),
-        force: true,
-        generatedBy: args.generatedBy,
-        nowMsOverride: playStart,
-      });
-    }
-  }
+  // NEVER touch the currently-playing loop. ensureNextLoop only ever writes a NEW
+  // next loop (N+1). An anchor that falls INSIDE the currently-playing loop is caught
+  // by generating N+1 with a start BEFORE that anchor (resolveLoopPlan's anchor
+  // selection looks back over the previous loop's span) — N+1 then takes over via
+  // loop-number precedence at its start and hands off to the anchor, with the playing
+  // loop left completely untouched (no reshuffle, no mid-show jump).
 
   if (!latestSnap.empty) {
     const data = latestSnap.docs[0].data();
