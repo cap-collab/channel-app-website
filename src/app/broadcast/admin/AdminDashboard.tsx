@@ -17,8 +17,9 @@ import { ScenesTab } from '@/components/broadcast/admin/ScenesTab';
 import { SocialRenderTab } from '@/components/broadcast/admin/SocialRenderTab';
 import { ArchiveRadioTab } from '@/components/broadcast/admin/ArchiveRadioTab';
 import { TechHealthTab } from '@/components/broadcast/admin/TechHealthTab';
+import { RecommendationsTab } from '@/components/broadcast/admin/RecommendationsTab';
 
-type AdminTab = 'schedule' | 'applications' | 'archives' | 'archive-radio' | 'marketing' | 'scenes' | 'social-render' | 'tech-health';
+type AdminTab = 'schedule' | 'applications' | 'archives' | 'archive-radio' | 'marketing' | 'scenes' | 'social-render' | 'tech-health' | 'recommendations';
 
 // Get start of current week (Sunday)
 function getWeekStart(date: Date = new Date()): Date {
@@ -422,6 +423,16 @@ export function AdminDashboard() {
             >
               Tech Health
             </button>
+            <button
+              onClick={() => setActiveTab('recommendations')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === 'recommendations'
+                  ? 'bg-white text-black'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              Recommendations
+            </button>
             <Link
               href="/broadcast/admin/pending-djs"
               className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-800 text-gray-300 hover:bg-gray-700"
@@ -490,6 +501,8 @@ export function AdminDashboard() {
             <ScenesTab />
           ) : activeTab === 'social-render' ? (
             <SocialRenderTab />
+          ) : activeTab === 'recommendations' ? (
+            <RecommendationsTab />
           ) : (
             <TechHealthTab />
           )}
