@@ -103,7 +103,6 @@ function serializeSlot(docId: string, data: Record<string, unknown>): BroadcastS
     restreamDjs: data.restreamDjs as ArchiveDJ[] | undefined,
     // Radio loop alignment
     postLiveArchiveId: data.postLiveArchiveId as string | undefined,
-    anchorEmailsEnabled: data.anchorEmailsEnabled as boolean | undefined,
     // Go-live email tracking
     goLiveEmailsTotalCount: data.goLiveEmailsTotalCount as number | undefined,
     goLiveEmailsLastRunCount: data.goLiveEmailsLastRunCount as number | undefined,
@@ -148,10 +147,9 @@ export async function createSlot(data: {
   restreamDjs?: ArchiveDJ[];
   // Radio loop alignment
   postLiveArchiveId?: string;
-  // Marketing: suppress go-live emails for this slot (testing)
+  // Marketing: suppress go-live emails for this slot (testing). Anchors pass
+  // this true by default (they reuse this toggle for their opt-in-off emails).
   goLiveEmailsDisabled?: boolean;
-  // Anchor slots: opt-in to emails (off by default)
-  anchorEmailsEnabled?: boolean;
 }): Promise<{ slot: BroadcastSlotSerialized; broadcastUrl: string }> {
   if (!db) throw new Error('Firestore not initialized');
 
@@ -252,8 +250,6 @@ export async function createSlot(data: {
     postLiveArchiveId: data.postLiveArchiveId || null,
     // Marketing: suppress go-live emails for this slot (testing)
     goLiveEmailsDisabled: data.goLiveEmailsDisabled === true,
-    // Anchor slots: opt-in to emails (off by default)
-    anchorEmailsEnabled: data.anchorEmailsEnabled === true,
   };
 
   const docRef = await addDoc(collection(db, COLLECTION), slotData);
@@ -285,7 +281,6 @@ export async function createSlot(data: {
     restreamDjs: data.restreamDjs,
     postLiveArchiveId: data.postLiveArchiveId,
     goLiveEmailsDisabled: data.goLiveEmailsDisabled === true,
-    anchorEmailsEnabled: data.anchorEmailsEnabled === true,
   };
 
   // All slots use token URLs
@@ -312,10 +307,9 @@ export async function updateSlot(
     restreamDjs: ArchiveDJ[];
     // Radio loop alignment
     postLiveArchiveId: string;
-    // Marketing tab: suppress go-live emails for this slot (testing)
+    // Marketing tab: suppress go-live emails for this slot (testing). Anchors
+    // reuse this toggle (set true by default at save time).
     goLiveEmailsDisabled: boolean;
-    // Anchor slots: opt-in to emails (off by default)
-    anchorEmailsEnabled: boolean;
   }>
 ): Promise<void> {
   if (!db) throw new Error('Firestore not initialized');
@@ -414,11 +408,8 @@ export async function updateSlot(
   // Radio loop alignment — empty string clears curation
   if (updates.postLiveArchiveId !== undefined) updateData.postLiveArchiveId = updates.postLiveArchiveId || null;
 
-  // Marketing tab go-live email suppression
+  // Marketing tab go-live email suppression (anchors reuse this toggle)
   if (updates.goLiveEmailsDisabled !== undefined) updateData.goLiveEmailsDisabled = updates.goLiveEmailsDisabled;
-
-  // Anchor slots: opt-in to emails
-  if (updates.anchorEmailsEnabled !== undefined) updateData.anchorEmailsEnabled = updates.anchorEmailsEnabled;
 
   await updateDoc(doc(db, COLLECTION, slotId), updateData);
 }

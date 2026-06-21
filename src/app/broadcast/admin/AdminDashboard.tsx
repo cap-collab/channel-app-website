@@ -140,10 +140,9 @@ export function AdminDashboard() {
     restreamDjs?: ArchiveDJ[];
     // Radio loop alignment
     postLiveArchiveId?: string;
-    // Marketing: suppress go-live emails for this slot (testing)
+    // Marketing: suppress go-live emails for this slot (testing). Anchors set
+    // this true by default (they reuse this toggle).
     goLiveEmailsDisabled?: boolean;
-    // Anchor slots: opt-in to emails (off by default)
-    anchorEmailsEnabled?: boolean;
   }) => {
     if (!user) return;
 
@@ -177,7 +176,6 @@ export function AdminDashboard() {
           restreamDjs: data.restreamDjs,
           postLiveArchiveId: data.postLiveArchiveId,
           goLiveEmailsDisabled: data.goLiveEmailsDisabled,
-          anchorEmailsEnabled: data.anchorEmailsEnabled,
         });
         savedSlotId = selectedSlot.id;
       }

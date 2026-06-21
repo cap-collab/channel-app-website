@@ -147,10 +147,6 @@ export interface BroadcastSlot {
   // contiguous live block ends. Read by the archive-radio loop generator; empty
   // means the generator picks a random archive at the anchor.
   postLiveArchiveId?: string;
-  // Anchor slots only: emails are OFF by default (anchors aren't real
-  // broadcasts). When true, the go-live / reminder crons treat the anchor like
-  // a normal show. Inverse of goLiveEmailsDisabled (which is opt-OUT).
-  anchorEmailsEnabled?: boolean;
 }
 
 // Serialized version for API responses (timestamps as numbers)
@@ -206,7 +202,6 @@ export interface BroadcastSlotSerialized {
   streamCount?: number;            // Number of streams (counted after 5+ min playback)
   sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
   postLiveArchiveId?: string;     // see BroadcastSlot.postLiveArchiveId
-  anchorEmailsEnabled?: boolean;  // see BroadcastSlot.anchorEmailsEnabled
   // Go-live email fan-out tracking (written by show-starting-emails cron +
   // the admin manual trigger). totalCount accumulates across runs; the
   // lastRun pair is the most recent batch only.

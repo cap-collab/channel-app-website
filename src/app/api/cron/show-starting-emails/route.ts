@@ -313,12 +313,10 @@ export async function GET(request: NextRequest) {
       // spam. The "no follower emails for restreams" rule still governs the
       // broadcast-emails blast.
       if (data.djUsername === "channelbroadcast") return;
-      // Anchor slots are opt-IN for emails: skip unless the admin checked
-      // "Send emails for this anchor". Opted-in anchors flow through normally
-      // using the archive's DJ/show metadata.
-      if (data.broadcastType === "anchor" && data.anchorEmailsEnabled !== true) return;
       // Admin opt-out: a slot flagged from the Marketing tab (e.g. while
       // testing a real DJ/restream go-live) never fans out go-live emails.
+      // Anchors reuse this same toggle — set true by default at save time so an
+      // anchor sends no go-live emails unless the admin explicitly unchecks it.
       if (data.goLiveEmailsDisabled === true) return;
       const slug = data.djUsername as string | undefined;
       const collectiveInfo = slug ? collectiveOwnerInfoBySlug.get(slug) : undefined;

@@ -30,10 +30,9 @@ interface SlotModalProps {
     // slot's contiguous live block ends. Empty string clears the curation.
     postLiveArchiveId?: string;
     // Suppress go-live emails for this slot — used when testing a real
-    // go-live so real subscribers aren't emailed.
+    // go-live so real subscribers aren't emailed. Anchors set this true by
+    // default (they reuse this toggle instead of a separate one).
     goLiveEmailsDisabled?: boolean;
-    // Anchor slots: opt-in to emails (off by default).
-    anchorEmailsEnabled?: boolean;
   }) => Promise<void>;
   onDelete?: (slotId: string) => Promise<void>;
   initialStartTime?: Date;
@@ -317,9 +316,9 @@ export function SlotModal({
   const [goLiveEmailsDisabled, setGoLiveEmailsDisabled] = useState(false);
   // Anchor-only: an Archives-tab slot that schedules the archive radio (anchor
   // + curated archive) but NEVER takes over the live player. Off = normal
-  // restream. anchorEmailsEnabled (nested) opts the anchor into emails.
+  // restream. Emails are controlled by the existing goLiveEmailsDisabled toggle
+  // (pre-checked for anchors so they default to no notifications).
   const [anchorOnly, setAnchorOnly] = useState(false);
-  const [anchorEmailsEnabled, setAnchorEmailsEnabled] = useState(false);
   // Archive/restream tab state
   const [modalTab, setModalTab] = useState<SlotModalTab>('new-show');
   const [archives, setArchives] = useState<Archive[]>([]);
@@ -819,7 +818,6 @@ export function SlotModal({
         setModalTab(isArchiveTab ? 'archives' : 'new-show');
         if (isArchiveTab) fetchArchives();
         setAnchorOnly(isAnchor);
-        setAnchorEmailsEnabled(slot.anchorEmailsEnabled === true);
         // Editing existing slot
         const start = new Date(slot.startTime);
         const end = new Date(slot.endTime);
@@ -922,7 +920,6 @@ export function SlotModal({
         setShowImageUrl(undefined);
         setGoLiveEmailsDisabled(false);
         setAnchorOnly(false);
-        setAnchorEmailsEnabled(false);
         // Use local date formatting to avoid timezone issues
         setStartDate(formatLocalDate(initialStartTime));
         setEndDate(formatLocalDate(initialEndTime));
@@ -1102,8 +1099,6 @@ export function SlotModal({
         // pin postLiveArchiveId to it (the separate post-live picker is hidden).
         postLiveArchiveId: anchorOnly && selectedArchive ? selectedArchive.id : (postLiveArchive?.id ?? ''),
         goLiveEmailsDisabled,
-        // Only meaningful for anchors; false for everything else.
-        anchorEmailsEnabled: anchorOnly ? anchorEmailsEnabled : false,
       };
 
       if (modalTab === 'archives' && selectedArchive) {
@@ -1480,33 +1475,23 @@ Cap`;
                       <input
                         type="checkbox"
                         checked={anchorOnly}
-                        onChange={(e) => setAnchorOnly(e.target.checked)}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setAnchorOnly(on);
+                          // Anchors default to NO emails — reuse the existing
+                          // "Disable go-live emails" toggle below (pre-checked).
+                          // Turning anchor off restores the normal default (on).
+                          setGoLiveEmailsDisabled(on);
+                        }}
                         className="mt-0.5"
                       />
                       <span className="text-sm text-gray-200">
                         Anchor only (schedule for the radio, don&rsquo;t take over the player)
                         <span className="block text-xs text-gray-400 mt-0.5">
-                          The live player never switches to this show. The archive radio uses its end time as a hand-off point and plays the chosen archive next. It still appears on the DJ&rsquo;s page and public schedule. Avoid placing it within ~1 min of a real live show.
+                          The live player never switches to this show. The archive radio uses its end time as a hand-off point and plays the chosen archive next. It still appears on the DJ&rsquo;s page and public schedule. Avoid placing it within ~1 min of a real live show. Emails are off by default — use “Disable go-live emails” below to control them.
                         </span>
                       </span>
                     </label>
-
-                    {anchorOnly && (
-                      <label className="flex items-start gap-2 cursor-pointer mt-2 ml-6">
-                        <input
-                          type="checkbox"
-                          checked={anchorEmailsEnabled}
-                          onChange={(e) => setAnchorEmailsEnabled(e.target.checked)}
-                          className="mt-0.5"
-                        />
-                        <span className="text-sm text-gray-200">
-                          Send emails for this anchor
-                          <span className="block text-xs text-gray-400 mt-0.5">
-                            By default anchors don&rsquo;t notify anyone. Check this to send the normal show emails (reminders / show-starting) for this anchor.
-                          </span>
-                        </span>
-                      </label>
-                    )}
                   </div>
                 </div>
               ) : (
