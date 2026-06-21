@@ -14,6 +14,7 @@ import type {
   SnapshotSection,
   ComingUpItem,
   ScoredCandidate,
+  TasteSummary,
 } from "./types";
 
 export function snapshotDocId(uid: string, context: RecommendationContext): string {
@@ -46,6 +47,7 @@ export interface BuildSnapshotMeta {
   generatedAtMs: number;
   generatedBy: RecommendationSnapshot["generatedBy"];
   comingUp: ComingUpItem[];
+  tasteSummary: TasteSummary;
 }
 
 export function buildSnapshot(
@@ -70,5 +72,6 @@ export function buildSnapshot(
     sections,
     candidateCount: deliveredCount,
     excludedCount: result.dropped.length,
+    tasteSummary: meta.tasteSummary,
   };
 }

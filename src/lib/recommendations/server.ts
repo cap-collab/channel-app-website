@@ -36,6 +36,7 @@ import type {
   RecommendationConfig,
   ContentItem,
   ComingUpItem,
+  TasteSummary,
 } from "./types";
 import { DEFAULT_RECOMMENDATION_CONFIG, mergeConfig } from "./config";
 import { normalizeArchive, normalizeUser, type AffiliationLookup } from "./normalize";
@@ -204,7 +205,7 @@ async function buildUserResultAndComingUp(
   context: RecommendationContext,
   nowMs: number,
   upcomingSets: ReturnType<typeof buildUpcomingRelationshipSets>,
-): Promise<{ result: RecommendationResult; comingUp: ComingUpItem[] }> {
+): Promise<{ result: RecommendationResult; comingUp: ComingUpItem[]; tasteSummary: TasteSummary }> {
   const uid = user.id;
 
   // User's own engagement subcollections (forward reads).
@@ -260,7 +261,7 @@ async function buildUserResultAndComingUp(
   const searchTerms = searchFavorites.map((f) => f.term || "").filter(Boolean);
   const comingUp = buildComingUp(user, signals, shared, upcomingSets, searchTerms);
 
-  return { result, comingUp };
+  return { result, comingUp, tasteSummary: signals.tasteSummary };
 }
 
 function buildComingUp(
@@ -380,7 +381,7 @@ export async function generateForUser(
   const user = await fetchUserDoc(db, uid);
   if (!user) return { snapshot: null, skipped: "no-user" };
 
-  const { result, comingUp } = await buildUserResultAndComingUp(
+  const { result, comingUp, tasteSummary } = await buildUserResultAndComingUp(
     db,
     user,
     sharedData,
@@ -396,6 +397,7 @@ export async function generateForUser(
     generatedAtMs: nowMs,
     generatedBy: opts.generatedBy,
     comingUp,
+    tasteSummary,
   });
 
   if (opts.persist) {
@@ -470,7 +472,7 @@ export async function generateForAllUsers(
         continue;
       }
 
-      const { result: recResult, comingUp } = await buildUserResultAndComingUp(
+      const { result: recResult, comingUp, tasteSummary } = await buildUserResultAndComingUp(
         db,
         { id: doc.id, data },
         shared,
@@ -485,6 +487,7 @@ export async function generateForAllUsers(
         generatedAtMs: nowMs,
         generatedBy: "cron",
         comingUp,
+        tasteSummary,
       });
       await db.collection(SNAPSHOT_COLLECTION).doc(snapshotDocId(doc.id, context)).set(snapshot);
       result.sent++;

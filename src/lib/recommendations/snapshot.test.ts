@@ -49,9 +49,11 @@ describe("buildSnapshot", () => {
       comingUp: [
         { showId: "broadcast-x", showName: "X Live", djUsername: "x", startTimeMs: NOW_MS + 1000, reason: "engaged" },
       ],
+      tasteSummary: signals.tasteSummary,
     });
 
     expect(snap.generatedAtMs).toBe(12345);
+    expect(snap.tasteSummary.lovedDjs).toContain("Maria");
     expect(snap.generatedBy).toBe("cron");
     expect(snap.uid).toBe(USER_MARIA_FAN.uid);
     expect(snap.context).toBe("weekly-email");

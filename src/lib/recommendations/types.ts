@@ -33,6 +33,17 @@ export interface ContentItem {
   isPublic: boolean;
 }
 
+// Human-readable summary of what the recommendations are based on. Surfaced in
+// the admin preview so you can see the user's engagement at a glance.
+export interface TasteSummary {
+  lovedDjs: string[]; // DJ display names the user hearted
+  streamedDjs: string[]; // DJ display names the user streamed
+  watchlistDjs: string[]; // search-favorite terms (watchlist)
+  archivesStreamed: number; // distinct archives streamed
+  sceneCounts: Array<{ scene: string; count: number }>; // streams per scene, desc
+  tempoCounts: Array<{ tempo: Tempo; count: number }>; // streams per tempo, desc
+}
+
 // ── Per-user taste, built entirely from engagement history ──────────────────
 export interface UserSignals {
   uid: string;
@@ -52,6 +63,8 @@ export interface UserSignals {
   // goLiveMutes (normalized) + opt-outs, for exclusion + Section 3 matching.
   goLiveMutes: Set<string>;
   ownDjUsername?: string;
+  // Display-facing summary of the above (for the admin preview header).
+  tasteSummary: TasteSummary;
 }
 
 // One candidate = an archive + this user's relationship to it. Pre-derived so
@@ -199,6 +212,8 @@ export interface RecommendationSnapshot {
   sections: SnapshotSection[];
   candidateCount: number;
   excludedCount: number;
+  // What the recommendations are based on (for inspection / the admin header).
+  tasteSummary: TasteSummary;
 }
 
 // Static, human-facing section titles.

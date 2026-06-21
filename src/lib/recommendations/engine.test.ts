@@ -94,17 +94,22 @@ describe("generateRecommendations — sections", () => {
     expect(droppedReasons.has("not public")).toBe(true);
   });
 
-  it("brand-new user gets fallback-filled personalized sections", () => {
+  it("brand-new user gets EMPTY favorite-artists (no engagement → no padding)", () => {
     const r = run(USER_NEW);
     const fav = section(r, "favorite-artists");
+    // No favorites/engagement → favorite-artists must stay empty (not filled).
+    expect(fav.items.length).toBe(0);
+    // discovery may still fallback-fill for cold-start discovery.
     const disc = section(r, "discovery");
-    // No personalized ties, but minimum=2 each → fallback fills with featured/high.
-    expect(fav.items.length).toBeGreaterThanOrEqual(2);
     expect(disc.items.length).toBeGreaterThanOrEqual(0);
-    // Fallback items are flagged + carry a generic reason.
-    const fb = fav.items.find((i) => i.isFallback);
-    expect(fb).toBeDefined();
-    expect(fb!.reasons.length).toBeGreaterThan(0);
+  });
+
+  it("user WITH favorites but few new shows gets favorite-artists fallback-filled", () => {
+    // Maria fan: has engagement, so favorite-artists is fallback-eligible.
+    const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION, { minimums: { "favorite-artists": 6, discovery: 2, "coming-up": 0 } });
+    const fav = section(r, "favorite-artists");
+    // 2 real Maria shows + fallback to reach the minimum.
+    expect(fav.items.some((i) => i.isFallback)).toBe(true);
   });
 
   it("ranks are contiguous 1..N within each section", () => {

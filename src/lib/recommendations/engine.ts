@@ -19,6 +19,7 @@ import type {
   EngineContext,
   RecommendationResult,
   RecommendationSection,
+  SectionId,
 } from "./types";
 import { SECTION_TITLES } from "./types";
 import { buildCandidateInputs, type AffiliationLookup } from "./normalize";
@@ -42,9 +43,17 @@ export function generateRecommendations(
   const inputs = buildCandidateInputs(user, candidates, affiliation);
   const scored = inputs.map((i) => scoreCandidate(i, config, ctx.nowMs));
 
+  // favorite-artists is only fallback-filled when the user actually has
+  // favorites/engagement; a user with no taste gets an EMPTY favorite-artists
+  // section (no padding with featured archives). discovery may always fall back.
+  const hasFavorites = user.engagedDjs.size > 0 || user.watchlistArtists.size > 0;
+  const fallbackSections = new Set<SectionId>(["discovery"]);
+  if (hasFavorites) fallbackSections.add("favorite-artists");
+
   const { sections, dropped } = applyRules(scored, config, ctx.context, {
     goLiveMutes: user.goLiveMutes,
     ownDjUsername: user.ownDjUsername,
+    fallbackSections,
   });
 
   // Append the empty coming-up section so the snapshot shape is consistent;

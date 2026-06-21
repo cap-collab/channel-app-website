@@ -59,6 +59,22 @@ describe("normalizeUser — taste profile from engagement", () => {
     expect(u.archiveStreamCount["a-maria-new"]).toBe(3);
   });
 
+  it("builds a taste summary with per-scene and per-tempo counts", () => {
+    const u = normalizeUser({
+      uid: USER_MARIA_FAN.uid,
+      email: USER_MARIA_FAN.email,
+      loveHistory: USER_MARIA_FAN.loveHistory,
+      streamHistory: USER_MARIA_FAN.streamHistory,
+      searchFavorites: USER_MARIA_FAN.searchFavorites,
+      archiveById: itemMap(),
+    });
+    expect(u.tasteSummary.lovedDjs).toContain("Maria");
+    expect(u.tasteSummary.archivesStreamed).toBe(1);
+    // Streamed a-maria-new → scene spiral ×1, tempo uptempo ×1.
+    expect(u.tasteSummary.sceneCounts).toEqual([{ scene: "spiral", count: 1 }]);
+    expect(u.tasteSummary.tempoCounts).toEqual([{ tempo: "uptempo", count: 1 }]);
+  });
+
   it("brand-new user has empty taste", () => {
     const u = normalizeUser({
       uid: USER_NEW.uid,

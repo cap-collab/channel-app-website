@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getAuth } from 'firebase/auth';
+import { tempoLabel } from '@/lib/tempo';
 import type {
   RecommendationSnapshot,
   RecommendationContext,
   ScoredCandidate,
   SnapshotSection,
   RecommendationConfig,
+  TasteSummary,
 } from '@/lib/recommendations/types';
 
 // Read-only admin preview of the three recommendation sections for any user,
@@ -185,6 +187,9 @@ export function RecommendationsTab() {
         </div>
       )}
 
+      {/* What we're basing recs on */}
+      {snapshot && <TasteHeader summary={snapshot.tasteSummary} />}
+
       {/* Sections */}
       {snapshot && (
         <div className="space-y-8">
@@ -219,6 +224,69 @@ export function RecommendationsTab() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function TasteHeader({ summary }: { summary: TasteSummary }) {
+  const hasAnything =
+    summary.lovedDjs.length ||
+    summary.streamedDjs.length ||
+    summary.watchlistDjs.length ||
+    summary.archivesStreamed;
+
+  return (
+    <div className="mb-6 rounded-lg bg-gray-900 border border-gray-800 p-4">
+      <div className="text-sm font-semibold text-white mb-2">Based on what this user has done</div>
+      {!hasAnything ? (
+        <div className="text-sm text-gray-500">
+          No engagement or watchlist yet — recommendations are cold-start (discovery + coming-up only).
+        </div>
+      ) : (
+        <div className="space-y-2 text-xs text-gray-300">
+          {summary.lovedDjs.length > 0 && (
+            <Row label="Loved DJs" values={summary.lovedDjs} />
+          )}
+          {summary.streamedDjs.length > 0 && (
+            <Row label="Streamed DJs" values={summary.streamedDjs} />
+          )}
+          {summary.watchlistDjs.length > 0 && (
+            <Row label="Watchlist" values={summary.watchlistDjs} />
+          )}
+          <div className="text-gray-500">
+            {summary.archivesStreamed} archive{summary.archivesStreamed === 1 ? '' : 's'} streamed
+          </div>
+          {summary.sceneCounts.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-gray-500 mr-1">Scenes engaged:</span>
+              {summary.sceneCounts.map((s) => (
+                <span key={s.scene} className="px-2 py-0.5 rounded-full bg-gray-800 text-gray-300">
+                  {s.scene} ×{s.count}
+                </span>
+              ))}
+            </div>
+          )}
+          {summary.tempoCounts.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-gray-500 mr-1">Tempos engaged:</span>
+              {summary.tempoCounts.map((t) => (
+                <span key={t.tempo} className="px-2 py-0.5 rounded-full bg-gray-800 text-gray-300">
+                  {tempoLabel(t.tempo) ?? t.tempo} ×{t.count}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Row({ label, values }: { label: string; values: string[] }) {
+  return (
+    <div className="flex gap-2">
+      <span className="text-gray-500 shrink-0 w-24">{label}:</span>
+      <span className="text-gray-300">{values.join(', ')}</span>
     </div>
   );
 }

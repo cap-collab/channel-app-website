@@ -35,7 +35,14 @@ export function applyRules(
   scored: ScoredCandidate[],
   config: RecommendationConfig,
   context: keyof RecommendationConfig["caps"],
-  user: { goLiveMutes: Set<string>; ownDjUsername?: string },
+  user: {
+    goLiveMutes: Set<string>;
+    ownDjUsername?: string;
+    // Sections that may be fallback-filled when short. favorite-artists is
+    // only included when the user actually has favorites/engagement — a user
+    // with no taste gets an EMPTY favorite-artists section, not padding.
+    fallbackSections: Set<SectionId>;
+  },
 ): ApplyRulesResult {
   const dropped: ScoredCandidate[] = [];
   const kept: ScoredCandidate[] = [];
@@ -86,7 +93,7 @@ export function applyRules(
       ...diversified,
     ];
     const minimum = config.minimums[sectionId];
-    if (assembled.length < minimum) {
+    if (user.fallbackSections.has(sectionId) && assembled.length < minimum) {
       const need = Math.min(cap, minimum) - assembled.length;
       if (need > 0) {
         const fill = takeFallback(fallbackPool, need, assembled, config.diversity.maxPerDj);

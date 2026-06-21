@@ -93,10 +93,19 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
   const streamedArchiveIds = new Set<string>();
   const archiveStreamCount: Record<string, number> = {};
 
+  // Display-name + count collectors for the taste summary.
+  const lovedDjNames = new Set<string>();
+  const streamedDjNames = new Set<string>();
+  const watchlistTerms: string[] = [];
+  const sceneCount = new Map<string, number>();
+  const tempoCount = new Map<Tempo, number>();
+
   // Loved DJs.
   for (const d of args.loveHistory) {
     const norm = d.djUsernameNormalized || (d.djUsername ? normalizeForLookup(d.djUsername) : undefined);
     if (norm) engagedDjs.add(norm);
+    const display = d.djDisplayName || d.djUsername;
+    if (display) lovedDjNames.add(display);
   }
 
   // Streamed DJs + scenes/tempos from the streamed archives.
@@ -107,22 +116,46 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
     for (const dj of d.djUsernames ?? []) {
       const handle = dj.username || dj.name;
       if (handle) engagedDjs.add(normalizeForLookup(handle));
+      if (dj.name) streamedDjNames.add(dj.name);
     }
     if (d.archiveId) {
       streamedArchiveIds.add(d.archiveId);
-      archiveStreamCount[d.archiveId] = d.streamCount ?? 1;
+      const streams = d.streamCount ?? 1;
+      archiveStreamCount[d.archiveId] = streams;
       const item = args.archiveById.get(d.archiveId);
       if (item) {
-        for (const s of item.sceneSlugs) engagedScenes.add(s);
-        if (item.tempo) engagedTempos.add(item.tempo);
+        for (const s of item.sceneSlugs) {
+          engagedScenes.add(s);
+          sceneCount.set(s, (sceneCount.get(s) ?? 0) + 1);
+        }
+        if (item.tempo) {
+          engagedTempos.add(item.tempo);
+          tempoCount.set(item.tempo, (tempoCount.get(item.tempo) ?? 0) + 1);
+        }
       }
     }
   }
 
   // Watchlist artists (search favorites).
   for (const f of args.searchFavorites) {
-    if (f.term) watchlistArtists.add(normalizeForLookup(f.term));
+    if (f.term) {
+      watchlistArtists.add(normalizeForLookup(f.term));
+      watchlistTerms.push(f.term);
+    }
   }
+
+  const tasteSummary = {
+    lovedDjs: Array.from(lovedDjNames),
+    streamedDjs: Array.from(streamedDjNames),
+    watchlistDjs: watchlistTerms,
+    archivesStreamed: streamedArchiveIds.size,
+    sceneCounts: Array.from(sceneCount.entries())
+      .map(([scene, count]) => ({ scene, count }))
+      .sort((a, b) => b.count - a.count || a.scene.localeCompare(b.scene)),
+    tempoCounts: Array.from(tempoCount.entries())
+      .map(([tempo, count]) => ({ tempo, count }))
+      .sort((a, b) => b.count - a.count),
+  };
 
   return {
     uid: args.uid,
@@ -135,6 +168,7 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
     archiveStreamCount,
     goLiveMutes: new Set((args.goLiveMutes ?? []).map((m) => normalizeForLookup(m))),
     ownDjUsername: args.ownDjUsername ? normalizeForLookup(args.ownDjUsername) : undefined,
+    tasteSummary,
   };
 }
 
