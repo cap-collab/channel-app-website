@@ -1,55 +1,30 @@
 'use client';
 
 import { useState } from 'react';
+import { Header } from '@/components/Header';
 import { HeaderSearch } from '@/components/HeaderSearch';
 import { AuthModal } from '@/components/AuthModal';
-import { ChannelClient } from '@/components/channel/ChannelClient';
-import { useFilterContext } from '@/contexts/FilterContext';
-import { Tuner } from '@/components/channel/Tuner';
-
-function SceneTuner() {
-  const {
-    selectedCity,
-    handleCityChange,
-    selectedGenres,
-    handleGenresChange,
-    cityResultCount,
-    genreResultCount,
-    citiesWithMatches,
-    genresWithMatches,
-    onGenreDropdownClose,
-  } = useFilterContext();
-
-  return (
-    <Tuner
-      selectedCity={selectedCity}
-      onCityChange={handleCityChange}
-      selectedGenres={selectedGenres}
-      onGenresChange={handleGenresChange}
-      cityResultCount={cityResultCount}
-      genreResultCount={genreResultCount}
-      citiesWithMatches={citiesWithMatches}
-      genresWithMatches={genresWithMatches}
-      onGenreDropdownClose={onGenreDropdownClose}
-    />
-  );
-}
+import { AnimatedBackground } from '@/components/AnimatedBackground';
+import { SceneRecommendations } from '@/components/scene/SceneRecommendations';
 
 export function SceneClient() {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   return (
-    <>
-      <ChannelClient
-        skipHero
-        sceneMode
-        topSearchSlot={<HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />}
-        discoveryFiltersSlot={<SceneTuner />}
-      />
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-      />
-    </>
+    <div className="min-h-[100dvh] text-white relative flex flex-col">
+      <AnimatedBackground />
+      <Header currentPage="explore" position="sticky" />
+
+      <main className="flex-1 w-full">
+        {/* Search bar (kept from the old /scene) */}
+        <div className="max-w-5xl mx-auto px-4 pt-4">
+          <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
+        </div>
+
+        <SceneRecommendations onAuthRequired={() => setShowAuthModal(true)} />
+      </main>
+
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+    </div>
   );
 }

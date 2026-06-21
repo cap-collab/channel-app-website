@@ -13,7 +13,7 @@
  */
 
 import { tempoLabel } from "@/lib/tempo";
-import { priorityIsHigh, priorityIsFeatured } from "@/lib/archive-priority";
+import { priorityIsHigh } from "@/lib/archive-priority";
 import type {
   CandidateInput,
   RecommendationConfig,
@@ -125,28 +125,26 @@ export function scoreCandidate(
 // Human-readable reasons, most compelling first, never empty.
 function buildReasons(input: CandidateInput, section: SectionId | null): string[] {
   const reasons: string[] = [];
-  const { item } = input;
 
+  // Short, mobile-optimized band strings (see plan wording spec). reasons[0] is
+  // what the Suggested band renders.
   if (section === "favorite-artists") {
-    if (input.matchedEngagedDjs.length > 0) {
-      reasons.push(`New show from ${primaryDjName(input)}`);
-    } else if (input.matchedWatchlistDjs.length > 0) {
-      reasons.push(`New show from an artist on your watchlist`);
-    }
+    // §1: "New · {dj}" (engaged or watchlisted artist).
+    reasons.push(`New · ${primaryDjName(input)}`);
   } else if (section === "discovery") {
     if (input.sceneTempoMatch) {
-      const t = tempoLabel(input.matchedTempo);
+      // §2 scene+tempo: "More {scene} {tempo}", e.g. "More star uptempo".
+      // Lowercase the tempo label so it reads consistently with the scene slug.
+      const t = tempoLabel(input.matchedTempo)?.toLowerCase();
       const scene = input.matchedScenes[0];
-      const bits = [scene, t].filter(Boolean).join(" · ");
-      reasons.push(bits ? `Same scene & vibe you listen to (${bits})` : `Matches your taste`);
+      const bits = [scene, t].filter(Boolean).join(" ");
+      reasons.push(bits ? `More ${bits}` : "More like this");
     } else if (input.isAffiliated && input.affiliatedTo) {
-      reasons.push(`From the same world as ${input.affiliatedTo}`);
+      // §2 crew/affiliation: "In {dj}'s world". (Audience-borrow vs crew is
+      // only distinguishable in §3 via the matcher's bridgeKind.)
+      reasons.push(`In ${input.affiliatedTo}'s world`);
     }
   }
-
-  // Editorial flavor reasons (apply in any section).
-  if (priorityIsFeatured(item.priority)) reasons.push("Featured");
-  else if (priorityIsHigh(item.priority)) reasons.push("Editor's pick");
 
   // Guarantee non-empty.
   if (reasons.length === 0) reasons.push("New on Channel");

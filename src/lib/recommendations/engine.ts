@@ -26,6 +26,7 @@ import { SECTION_TITLES } from "./types";
 import { buildCandidateInputs, type AffiliationLookup } from "./normalize";
 import { scoreCandidate } from "./scoring";
 import { applyRules } from "./rules";
+import { pickStartHereItems } from "./start-here";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -87,32 +88,25 @@ export function generateRecommendations(
   };
 }
 
-// Cold-start "Start here": one FEATURED archive per (scene+tempo) combo, latest
-// first. Deterministic — sorted by score (priority+recency) then id, collapsed
-// to one per combo. Excludes hidden/private/too-short via the same eligibility.
+// Cold-start "Start here": latest FEATURED archive per (scene+tempo) combo.
+// Shares the pure picker with the public /featured route (start-here.ts).
 function buildStartHere(
   scored: ScoredCandidate[],
   config: RecommendationConfig,
   context: EngineContext["context"],
 ): RecommendationSection {
-  const eligible = scored.filter(
-    (c) =>
-      (c.item.priority === "featured" || c.item.priority === "high") &&
-      (!config.eligibility.requirePublic || c.item.isPublic) &&
-      c.item.durationSec >= config.eligibility.minDurationSec,
+  const byId = new Map(scored.map((c) => [c.item.id, c]));
+  const picked = pickStartHereItems(
+    scored.map((c) => c.item),
+    {
+      minDurationSec: config.eligibility.minDurationSec,
+      requirePublic: config.eligibility.requirePublic,
+      cap: config.caps[context]["start-here"],
+    },
   );
-  eligible.sort((a, b) => (b.score !== a.score ? b.score - a.score : a.item.id < b.item.id ? -1 : 1));
-
-  const seen = new Set<string>();
-  const picks: ScoredCandidate[] = [];
-  const cap = config.caps[context]["start-here"];
-  for (const c of eligible) {
-    const key = `${c.item.sceneSlugs[0] ?? ""}|${c.item.tempo ?? ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    picks.push({ ...c, section: "start-here", reasons: ["Featured on Channel"], rank: picks.length + 1 });
-    if (picks.length >= cap) break;
-  }
-
-  return { id: "start-here", title: SECTION_TITLES["start-here"], items: picks };
+  const items = picked.map((it, i) => {
+    const base = byId.get(it.id)!;
+    return { ...base, section: "start-here" as const, reasons: ["Featured on Channel"], rank: i + 1 };
+  });
+  return { id: "start-here", title: SECTION_TITLES["start-here"], items };
 }

@@ -9,15 +9,20 @@ interface BridgeProps {
   // Empty string = no bridge to attribute (e.g. empty-state Channel picks
   // for logged-out users / users with no engagement history). Banner stays
   // as "Suggested"; the caption is skipped.
-  bridgeDjName: string;
+  bridgeDjName?: string;
   // 'crew' = shared crew with the bridge DJ → "Affiliated with {bridge}"
   // 'audience' (default) = shared audience → "Similar to {bridge}"
   kind?: SuggestionKind;
+  // Verbatim attribution text. When set, it overrides the kind-derived
+  // "Similar to / Affiliated with {bridge}" wording — used by the
+  // recommendation engine to render its own short reason strings
+  // (e.g. "New · Maria", "More star uptempo", "In London").
+  customLabel?: string;
 }
 
-export function SuggestedBanner({ bridgeDjName, kind = 'audience' }: BridgeProps) {
-  const hasBridge = !!bridgeDjName;
-  const label = kind === 'crew' ? `Affiliated with ${bridgeDjName}` : `Similar to ${bridgeDjName}`;
+export function SuggestedBanner({ bridgeDjName = '', kind = 'audience', customLabel }: BridgeProps) {
+  const label = customLabel ?? (kind === 'crew' ? `Affiliated with ${bridgeDjName}` : `Similar to ${bridgeDjName}`);
+  const hasBridge = !!(customLabel || bridgeDjName);
   // Mobile: single banner shows the bridge attribution directly when there's
   // one, otherwise just "Suggested". No second caption line — keeps the
   // chrome to a single bar above the image. Desktop: "Suggested" on the

@@ -96,7 +96,8 @@ describe("scoreCandidate", () => {
       NOW_MS,
     );
     expect(disc.section).toBe("discovery");
-    expect(disc.reasons[0]).toContain("scene");
+    // §2 scene+tempo band: "More {scene} {tempo}".
+    expect(disc.reasons[0]).toBe("More spiral uptempo");
 
     const cold = scoreCandidate(candidate({ item: normalizeArchive(archiveById("a-stranger-cold")) }), cfg, NOW_MS);
     expect(cold.section).toBeNull();

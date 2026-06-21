@@ -21,6 +21,11 @@ interface IRLShowCardProps {
   // /scene Edit mode — when set, the card renders a CardRemoveButton overlay.
   onRemove?: () => void | Promise<void>;
   isRemoving?: boolean;
+  // When true the top-left badge shows the cloud icon + station label instead of
+  // the green "IRL" badge — for online radio shows reusing this card.
+  isOnline?: boolean;
+  // Station label for the online badge (e.g. "Channel"). Defaults to "Channel".
+  stationLabel?: string;
 }
 
 export function IRLShowCard({
@@ -34,6 +39,8 @@ export function IRLShowCard({
   suggestionKind,
   onRemove,
   isRemoving,
+  isOnline,
+  stationLabel = 'Channel',
 }: IRLShowCardProps) {
   const [imageError, setImageError] = useState(false);
   // Compact /scene layout vs full discovery layout.
@@ -51,22 +58,31 @@ export function IRLShowCard({
       {/* Gradient scrims */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-transparent to-transparent" />
-      {/* Top row: IRL badge left, Date right */}
+      {/* Top row: IRL/Online badge left, Date right */}
       <div className="absolute top-2 left-2 right-2 flex items-center justify-between">
-        <span className="text-[10px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
-          <svg
-            className="w-3 h-3 text-green-300 drop-shadow-[0_0_3px_rgba(74,222,128,0.6)]"
-            fill="currentColor"
-            stroke="currentColor"
-            strokeWidth={1.4}
-            strokeLinejoin="round"
-            viewBox="0 0 24 24"
-          >
-            <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
-          </svg>
-          IRL
-        </span>
-        <span className="text-[10px] font-mono text-white uppercase tracking-tighter drop-shadow-lg whitespace-nowrap">
+        {isOnline ? (
+          <span className="text-[11.9px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
+            <svg className="w-3.5 h-3.5 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
+            </svg>
+            {stationLabel}
+          </span>
+        ) : (
+          <span className="text-[11.9px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg min-w-0 mr-2">
+            <svg
+              className="w-3.5 h-3.5 shrink-0 text-green-300 drop-shadow-[0_0_3px_rgba(74,222,128,0.6)]"
+              fill="currentColor"
+              stroke="currentColor"
+              strokeWidth={1.4}
+              strokeLinejoin="round"
+              viewBox="0 0 24 24"
+            >
+              <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
+            </svg>
+            <span className="truncate">IRL{show.venueName ? ` · ${show.venueName}` : ''}</span>
+          </span>
+        )}
+        <span className="text-[11.9px] font-mono text-white uppercase tracking-tighter drop-shadow-lg whitespace-nowrap">
           <span className="md:hidden">
             {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
@@ -75,15 +91,23 @@ export function IRLShowCard({
           </span>
         </span>
       </div>
-      {/* DJ name, genre, city - bottom left */}
+      {/* Bottom left: DJ/collective name + (scene mode) show name, else genres. */}
       <div className="absolute bottom-2 left-2 right-2">
-        <span className="text-xs font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+        <span className="text-sm font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
           {show.djName}
         </span>
-        {show.djGenres && show.djGenres.length > 0 && (
-          <span className="block text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 drop-shadow-lg whitespace-nowrap overflow-hidden">
-            {show.djGenres.join(' · ')}
-          </span>
+        {sceneLayout ? (
+          show.eventName && show.eventName !== show.djName ? (
+            <span className="block text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 drop-shadow-lg whitespace-nowrap overflow-hidden">
+              {show.eventName}
+            </span>
+          ) : null
+        ) : (
+          show.djGenres && show.djGenres.length > 0 && (
+            <span className="block text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 drop-shadow-lg whitespace-nowrap overflow-hidden">
+              {show.djGenres.join(' · ')}
+            </span>
+          )
         )}
       </div>
     </>
@@ -102,23 +126,24 @@ export function IRLShowCard({
       {imageOverlays}
     </>
   ) : (
-    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-stone-800 to-amber-900">
-      <h2 className="text-4xl font-black uppercase tracking-tight leading-none text-white text-center px-4">
-        {show.djName}
-      </h2>
+    // No photo: gradient placeholder, but keep ALL the same overlays (badge,
+    // date, DJ/show name) so image-less cards look consistent with the rest.
+    <div className="w-full h-full bg-gradient-to-br from-stone-800 to-amber-900">
+      {imageOverlays}
     </div>
   );
 
   return (
     <div className="w-full group flex flex-col h-full">
-      {/* Match label row */}
-      <div className="flex items-center mb-1 h-4 px-0.5">
-        {matchLabel && (
+      {/* Match label row — only when there's a label, so the card top aligns
+          with the archive cards (no empty spacer above image). */}
+      {matchLabel && (
+        <div className="flex items-center mb-1 h-4 px-0.5">
           <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-tighter">
             {matchLabel}
           </span>
-        )}
-      </div>
+        </div>
+      )}
       {suggestionBridge !== undefined && <SuggestedBanner bridgeDjName={suggestionBridge} kind={suggestionKind} />}
       {/* Full width image with overlays */}
       <div className="relative">
@@ -151,37 +176,40 @@ export function IRLShowCard({
         )}
       </div>
 
-      {/* Event info */}
-      <div className="py-2 mt-auto">
-        <h3 className="text-sm font-bold text-white leading-tight truncate">
-          {show.eventName}
-        </h3>
-        {show.venueName ? (
-          show.venueSlug ? (
-            <Link
-              href={`/venue/${show.venueSlug}`}
-              className="text-[10px] text-zinc-500 hover:text-white mt-0.5 uppercase block w-fit truncate"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {show.venueName}
-            </Link>
+      {/* Event info (discovery mode only). In scene mode the show name + DJ live
+          in the image overlay and the venue sits next to the IRL badge, so the
+          below-card block is omitted entirely (no dead padding). */}
+      {!sceneLayout && (
+        <div className="py-2 mt-auto">
+          <h3 className="text-sm font-bold text-white leading-tight truncate">
+            {show.eventName}
+          </h3>
+          {show.venueName ? (
+            show.venueSlug ? (
+              <Link
+                href={`/venue/${show.venueSlug}`}
+                className="text-[10px] text-zinc-500 hover:text-white mt-0.5 uppercase block w-fit truncate"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {show.venueName}
+              </Link>
+            ) : (
+              <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
+                {show.venueName}
+              </p>
+            )
           ) : (
             <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
-              {show.venueName}
+              in {show.location}
             </p>
-          )
-        ) : (
-          <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
-            in {show.location}
-          </p>
-        )}
-        {/* Discovery mode: genre line under venue/location. */}
-        {!sceneLayout && show.djGenres && show.djGenres.length > 0 && (
-          <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter truncate">
-            {show.djGenres.join(' · ')}
-          </p>
-        )}
-      </div>
+          )}
+          {show.djGenres && show.djGenres.length > 0 && (
+            <p className="text-[10px] font-mono text-zinc-500 mt-0.5 uppercase tracking-tighter truncate">
+              {show.djGenres.join(' · ')}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Discovery mode: original two-button row (Watchlist + Tickets). */}
       {!sceneLayout && (

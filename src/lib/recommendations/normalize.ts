@@ -15,14 +15,53 @@ import type {
   CandidateInput,
 } from "./types";
 
-// Effective scenes for an archive: override wins, else denormalized slugs.
-function effectiveScenes(a: Archive): string[] {
-  if (Array.isArray(a.sceneIdsOverride)) return a.sceneIdsOverride;
-  return a.sceneSlugs ?? [];
+// Normalized DJ username → scene ids (from the DJ's profile). Lets an archive
+// inherit its DJ's scenes when it has no scene tag of its own — mirroring the
+// app's resolveArchiveScenes. Built in the I/O layer, passed in to stay pure.
+export type DjSceneMap = Map<string, string[]>;
+
+// Build the DJ-username → profile-scenes map from already-fetched DJ docs.
+// Pure. Keyed by normalizeForLookup(chatUsername) to match archive DJ keys.
+export function buildDjSceneMap(
+  djDocs: Array<{ data: Record<string, unknown> }>,
+): DjSceneMap {
+  const map: DjSceneMap = new Map();
+  for (const d of djDocs) {
+    const data = d.data;
+    const handle =
+      (data.chatUsernameNormalized as string | undefined) ||
+      (data.chatUsername as string | undefined);
+    if (!handle) continue;
+    const profile = data.djProfile as Record<string, unknown> | undefined;
+    const sceneIds = (profile?.sceneIds as string[] | undefined) || [];
+    if (sceneIds.length > 0) map.set(normalizeForLookup(handle), sceneIds);
+  }
+  return map;
 }
 
-/** Archive doc → normalized ContentItem. Pure. */
-export function normalizeArchive(a: Archive): ContentItem {
+// Effective scenes for an archive: use what's on the ARCHIVE (override, else
+// denormalized slugs); if the archive has none, inherit the DJs' profile
+// scenes. This is why a spiral DJ's untagged archive still counts as spiral.
+function effectiveScenes(a: Archive, djUsernamesNorm: string[], djSceneMap?: DjSceneMap): string[] {
+  const own =
+    a.sceneIdsOverride && a.sceneIdsOverride.length > 0
+      ? a.sceneIdsOverride
+      : a.sceneSlugs && a.sceneSlugs.length > 0
+        ? a.sceneSlugs
+        : [];
+  if (own.length > 0) return own;
+  if (djSceneMap) {
+    const out = new Set<string>();
+    for (const u of djUsernamesNorm) {
+      for (const s of djSceneMap.get(u) ?? []) out.add(s);
+    }
+    if (out.size > 0) return Array.from(out);
+  }
+  return [];
+}
+
+/** Archive doc → normalized ContentItem. Pure. djSceneMap optional. */
+export function normalizeArchive(a: Archive, djSceneMap?: DjSceneMap): ContentItem {
   const djUsernames: string[] = [];
   const djDisplayNames: string[] = [];
   const seen = new Set<string>();
@@ -46,7 +85,7 @@ export function normalizeArchive(a: Archive): ContentItem {
     createdAtMs: a.createdAt,
     priority: a.priority ?? "medium",
     tempo: a.tempo ?? null,
-    sceneSlugs: effectiveScenes(a),
+    sceneSlugs: effectiveScenes(a, djUsernames, djSceneMap),
     djUsernames,
     djDisplayNames,
     isPublic: a.isPublic !== false,

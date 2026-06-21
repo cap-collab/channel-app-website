@@ -13,7 +13,7 @@ import {
 } from "./__fixtures__/fake-users";
 
 function items(): ContentItem[] {
-  return FAKE_ARCHIVES.map(normalizeArchive);
+  return FAKE_ARCHIVES.map((a) => normalizeArchive(a));
 }
 function itemMap() {
   const m = new Map<string, ContentItem>();

@@ -47,6 +47,23 @@ const CONFIG_DOC_PATH = { collection: "app-config", id: "recommendations" };
 const SNAPSHOT_COLLECTION = "recommendation-snapshots";
 const NEXT_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+// Firestore rejects `undefined`. Deep-strip undefined fields before writing a
+// snapshot (optional fields like showImageUrl are absent on some archives).
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((v) => stripUndefined(v)) as unknown as T;
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v === undefined) continue;
+      out[k] = stripUndefined(v);
+    }
+    return out as T;
+  }
+  return value;
+}
+
 // ── Config ───────────────────────────────────────────────────────────────────
 export async function loadConfig(db: Firestore): Promise<RecommendationConfig> {
   try {
@@ -456,7 +473,7 @@ export async function generateForUser(
   });
 
   if (opts.persist) {
-    await db.collection(SNAPSHOT_COLLECTION).doc(snapshotDocId(uid, context)).set(snapshot);
+    await db.collection(SNAPSHOT_COLLECTION).doc(snapshotDocId(uid, context)).set(stripUndefined(snapshot));
   }
   return { snapshot, dropped: result.dropped };
 }
@@ -544,7 +561,7 @@ export async function generateForAllUsers(
         comingUp,
         tasteSummary,
       });
-      await db.collection(SNAPSHOT_COLLECTION).doc(snapshotDocId(doc.id, context)).set(snapshot);
+      await db.collection(SNAPSHOT_COLLECTION).doc(snapshotDocId(doc.id, context)).set(stripUndefined(snapshot));
       result.sent++;
     } catch (e) {
       result.failed++;
