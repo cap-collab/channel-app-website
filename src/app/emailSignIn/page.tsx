@@ -137,8 +137,9 @@ export default function EmailSignInPage() {
 
   const handleSubmitEmail = (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim()) {
-      completeSignIn(email.trim());
+    const normalized = email.trim().toLowerCase();
+    if (normalized) {
+      completeSignIn(normalized);
     }
   };
 

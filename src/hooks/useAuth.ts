@@ -64,18 +64,40 @@ export function useAuth() {
           djTermsAccepted: window.localStorage.getItem('djTermsAccepted'),
           authRedirectTo: window.localStorage.getItem('authRedirectTo'),
         });
-        let email = window.localStorage.getItem(EMAIL_FOR_SIGN_IN_KEY);
+        let email = window.localStorage.getItem(EMAIL_FOR_SIGN_IN_KEY)?.trim() || null;
         const enableNotifications = window.localStorage.getItem(NOTIFICATIONS_PREF_KEY) === "true";
 
+        // On Android the link very often opens in a different browser/WebView
+        // (e.g. Gmail's in-app browser) than the one that requested it, so the
+        // stored email isn't present. Ask for it, and re-ask on a typo — the
+        // link is only consumed by a *successful* signInWithEmailLink, so a bad
+        // email throws without burning it.
         if (!email) {
-          // User opened the link on a different device
-          email = window.prompt("Please provide your email for confirmation");
+          email = window.prompt("Confirm the email address you signed in with")?.trim().toLowerCase() || null;
         }
 
         if (email) {
           try {
             setState((prev) => ({ ...prev, loading: true }));
-            const result = await signInWithEmailLink(authInstance, email, window.location.href);
+            let result;
+            for (;;) {
+              try {
+                result = await signInWithEmailLink(authInstance, email, window.location.href);
+                break;
+              } catch (linkError) {
+                const code = (linkError as { code?: string }).code;
+                // A mistyped email rejects with invalid-email; the action code
+                // itself is still valid, so re-prompt rather than dead-ending.
+                if (code === "auth/invalid-email") {
+                  const retry = window.prompt("That email didn't match. Re-enter the exact email you used")?.trim().toLowerCase();
+                  if (retry) {
+                    email = retry;
+                    continue;
+                  }
+                }
+                throw linkError;
+              }
+            }
             const user = result.user;
 
             // Create or update user document
