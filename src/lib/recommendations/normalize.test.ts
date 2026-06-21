@@ -75,6 +75,25 @@ describe("normalizeUser — taste profile from engagement", () => {
     expect(u.tasteSummary.tempoCounts).toEqual([{ tempo: "uptempo", count: 1 }]);
   });
 
+  it("DJ's own archives fold scene+tempo into taste (selfScenes/selfTempos)", () => {
+    // Treat a-luke-new (star, uptempo) as the user's OWN archive.
+    const own = [normalizeArchive(archiveById("a-luke-new"))];
+    const u = normalizeUser({
+      uid: "u-dj",
+      email: "dj@example.com",
+      loveHistory: [],
+      streamHistory: [],
+      searchFavorites: [],
+      archiveById: itemMap(),
+      ownArchives: own,
+    });
+    expect(u.selfScenes.has("star")).toBe(true);
+    expect(u.selfTempos.has("uptempo")).toBe(true);
+    // Folded into engaged sets too, so they drive matching.
+    expect(u.engagedScenes.has("star")).toBe(true);
+    expect(u.engagedTempos.has("uptempo")).toBe(true);
+  });
+
   it("brand-new user has empty taste", () => {
     const u = normalizeUser({
       uid: USER_NEW.uid,

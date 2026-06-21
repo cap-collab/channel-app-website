@@ -16,6 +16,7 @@ export const DEFAULT_RECOMMENDATION_CONFIG: RecommendationConfig = {
     priority: 3, // editorial priority tier dominates ordering within a section
     recency: 1.2,
     sectionBonus: 1,
+    selfTasteBoost: 2, // DJ user's own scene/tempo lifts matching discovery picks
   },
   recency: {
     halfLifeDays: 14,
@@ -32,17 +33,20 @@ export const DEFAULT_RECOMMENDATION_CONFIG: RecommendationConfig = {
       "favorite-artists": 8,
       discovery: 8,
       "coming-up": 8,
+      "start-here": 8,
     },
     "weekly-email": {
       "favorite-artists": 4,
       discovery: 4,
       "coming-up": 5,
+      "start-here": 6,
     },
   },
   minimums: {
     "favorite-artists": 2,
     discovery: 2,
     "coming-up": 0, // never fallback-filled — it's scheduled shows, not archives
+    "start-here": 0, // built directly from featured-per-type, no fallback
   },
   eligibility: {
     minDurationSec: 300, // 5 min

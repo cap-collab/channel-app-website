@@ -12,8 +12,8 @@ import type { ArchivePriority, Tempo } from "@/types/broadcast";
 // Which surface a snapshot is built for. Caps/minimums differ per context.
 export type RecommendationContext = "website" | "weekly-email";
 
-// The three named sections shown to a user.
-export type SectionId = "favorite-artists" | "discovery" | "coming-up";
+// Section ids. "start-here" replaces all others for a no-history user.
+export type SectionId = "favorite-artists" | "discovery" | "coming-up" | "start-here";
 
 // ── Normalized content (one per candidate archive) ──────────────────────────
 export interface ContentItem {
@@ -63,6 +63,11 @@ export interface UserSignals {
   // goLiveMutes (normalized) + opt-outs, for exclusion + Section 3 matching.
   goLiveMutes: Set<string>;
   ownDjUsername?: string;
+  // Scenes/tempos from the user's OWN archives (DJ users only). Folded into
+  // engagedScenes/engagedTempos for matching, AND used to rank-boost discovery
+  // picks that match the DJ's own scene/tempo. Empty for non-DJ users.
+  selfScenes: Set<string>;
+  selfTempos: Set<Tempo>;
   // Display-facing summary of the above (for the admin preview header).
   tasteSummary: TasteSummary;
 }
@@ -81,6 +86,9 @@ export interface CandidateInput {
   sceneTempoMatch: boolean; // scene ∈ engagedScenes AND tempo ∈ engagedTempos
   matchedScenes: string[];
   matchedTempo: Tempo | null;
+  // DJ self-taste: archive matches one of the DJ's OWN archives' scene/tempo →
+  // gets a discovery rank boost.
+  matchesSelfTaste: boolean;
 }
 
 // ── Scoring ─────────────────────────────────────────────────────────────────
@@ -88,6 +96,7 @@ export type ScoreComponentName =
   | "priority"
   | "recency"
   | "sectionBonus"
+  | "selfTasteBoost"
   | "editorialBoost"
   | "alreadyHeardPenalty";
 
@@ -127,6 +136,7 @@ export interface RecommendationConfig {
     priority: number;
     recency: number;
     sectionBonus: number; // flat bonus for landing in a personalized section
+    selfTasteBoost: number; // boost for a DJ user's own scene/tempo (discovery)
   };
   recency: {
     halfLifeDays: number;
@@ -221,4 +231,5 @@ export const SECTION_TITLES: Record<SectionId, string> = {
   "favorite-artists": "New archives from your favorite artists",
   discovery: "We think you'd like",
   "coming-up": "Coming up next week",
+  "start-here": "Start here",
 };

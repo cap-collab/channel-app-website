@@ -222,6 +222,15 @@ async function buildUserResultAndComingUp(
   const ownChatUsername =
     (user.data.chatUsernameNormalized as string | undefined) ||
     (user.data.chatUsername as string | undefined);
+  const ownDjUsernameNorm = ownChatUsername ? normalizeForLookup(ownChatUsername) : undefined;
+
+  // DJ users: their OWN archives (where they're credited) feed self-taste +
+  // the discovery rank boost. Empty for non-DJ users.
+  const isDj = (user.data.role as string | undefined) === "dj";
+  const ownArchives =
+    isDj && ownDjUsernameNorm
+      ? shared.items.filter((it) => it.djUsernames.includes(ownDjUsernameNorm))
+      : [];
 
   const signals = normalizeUser({
     uid,
@@ -232,6 +241,7 @@ async function buildUserResultAndComingUp(
     archiveById: shared.archiveById,
     goLiveMutes: (user.data.goLiveMutes as string[] | undefined) || [],
     ownDjUsername: ownChatUsername,
+    ownArchives,
   });
 
   // Section-2 affiliation lookup for THIS user: an archive DJ U is

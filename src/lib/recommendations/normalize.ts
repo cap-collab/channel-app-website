@@ -79,6 +79,9 @@ export interface NormalizeUserArgs {
   archiveById: Map<string, ContentItem>;
   goLiveMutes?: string[];
   ownDjUsername?: string;
+  // DJ users only: the user's OWN archives (already normalized). Their scenes
+  // and tempos are folded into the taste profile AND drive the discovery boost.
+  ownArchives?: ContentItem[];
 }
 
 /**
@@ -144,6 +147,22 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
     }
   }
 
+  // DJ self-taste: a DJ's OWN archives' scenes/tempos count as taste (a
+  // priority). Folded into the engaged sets so they drive matching, and kept
+  // separately (selfScenes/selfTempos) so the scorer can boost matching picks.
+  const selfScenes = new Set<string>();
+  const selfTempos = new Set<Tempo>();
+  for (const own of args.ownArchives ?? []) {
+    for (const s of own.sceneSlugs) {
+      selfScenes.add(s);
+      engagedScenes.add(s);
+    }
+    if (own.tempo) {
+      selfTempos.add(own.tempo);
+      engagedTempos.add(own.tempo);
+    }
+  }
+
   const tasteSummary = {
     lovedDjs: Array.from(lovedDjNames),
     streamedDjs: Array.from(streamedDjNames),
@@ -168,6 +187,8 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
     archiveStreamCount,
     goLiveMutes: new Set((args.goLiveMutes ?? []).map((m) => normalizeForLookup(m))),
     ownDjUsername: args.ownDjUsername ? normalizeForLookup(args.ownDjUsername) : undefined,
+    selfScenes,
+    selfTempos,
     tasteSummary,
   };
 }
@@ -210,6 +231,11 @@ export function buildCandidateInputs(
     const tempoEngaged = item.tempo != null && user.engagedTempos.has(item.tempo);
     const sceneTempoMatch = matchedScenes.length > 0 && tempoEngaged;
 
+    // DJ self-taste: archive shares a scene OR tempo with the DJ's own archives.
+    const matchesSelfTaste =
+      item.sceneSlugs.some((s) => user.selfScenes.has(s)) ||
+      (item.tempo != null && user.selfTempos.has(item.tempo));
+
     return {
       item,
       alreadyStreamedCount: user.archiveStreamCount[item.id] ?? 0,
@@ -220,6 +246,7 @@ export function buildCandidateInputs(
       sceneTempoMatch,
       matchedScenes,
       matchedTempo: tempoEngaged ? item.tempo : null,
+      matchesSelfTaste,
     };
   });
 }

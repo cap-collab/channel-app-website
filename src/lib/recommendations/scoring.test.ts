@@ -16,6 +16,7 @@ function candidate(over: Partial<CandidateInput> & { item: ContentItem }): Candi
     sceneTempoMatch: false,
     matchedScenes: [],
     matchedTempo: null,
+    matchesSelfTaste: false,
     ...over,
   };
 }

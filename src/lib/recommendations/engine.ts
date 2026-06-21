@@ -19,6 +19,7 @@ import type {
   EngineContext,
   RecommendationResult,
   RecommendationSection,
+  ScoredCandidate,
   SectionId,
 } from "./types";
 import { SECTION_TITLES } from "./types";
@@ -43,12 +44,27 @@ export function generateRecommendations(
   const inputs = buildCandidateInputs(user, candidates, affiliation);
   const scored = inputs.map((i) => scoreCandidate(i, config, ctx.nowMs));
 
-  // favorite-artists is only fallback-filled when the user actually has
-  // favorites/engagement; a user with no taste gets an EMPTY favorite-artists
-  // section (no padding with featured archives). discovery may always fall back.
-  const hasFavorites = user.engagedDjs.size > 0 || user.watchlistArtists.size > 0;
+  // A user with ZERO signal of any kind (no engagement, no watchlist, no
+  // self-taste as a DJ) gets a single "Start here" section that REPLACES all
+  // others: the latest featured archive per (scene+tempo) combo.
+  const hasAnyTaste =
+    user.engagedDjs.size > 0 ||
+    user.watchlistArtists.size > 0 ||
+    user.engagedScenes.size > 0 ||
+    user.engagedTempos.size > 0;
+
+  if (!hasAnyTaste) {
+    return {
+      sections: [buildStartHere(scored, config, ctx.context)],
+      dropped: [],
+      configVersion: config.version,
+    };
+  }
+
+  // favorite-artists is NEVER padded with strangers — it's exactly the latest
+  // archive per artist the user engaged with / watchlisted, however many that
+  // is. Only discovery fallback-fills (cold-start discovery from featured).
   const fallbackSections = new Set<SectionId>(["discovery"]);
-  if (hasFavorites) fallbackSections.add("favorite-artists");
 
   const { sections, dropped } = applyRules(scored, config, ctx.context, {
     goLiveMutes: user.goLiveMutes,
@@ -69,4 +85,34 @@ export function generateRecommendations(
     dropped,
     configVersion: config.version,
   };
+}
+
+// Cold-start "Start here": one FEATURED archive per (scene+tempo) combo, latest
+// first. Deterministic — sorted by score (priority+recency) then id, collapsed
+// to one per combo. Excludes hidden/private/too-short via the same eligibility.
+function buildStartHere(
+  scored: ScoredCandidate[],
+  config: RecommendationConfig,
+  context: EngineContext["context"],
+): RecommendationSection {
+  const eligible = scored.filter(
+    (c) =>
+      (c.item.priority === "featured" || c.item.priority === "high") &&
+      (!config.eligibility.requirePublic || c.item.isPublic) &&
+      c.item.durationSec >= config.eligibility.minDurationSec,
+  );
+  eligible.sort((a, b) => (b.score !== a.score ? b.score - a.score : a.item.id < b.item.id ? -1 : 1));
+
+  const seen = new Set<string>();
+  const picks: ScoredCandidate[] = [];
+  const cap = config.caps[context]["start-here"];
+  for (const c of eligible) {
+    const key = `${c.item.sceneSlugs[0] ?? ""}|${c.item.tempo ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    picks.push({ ...c, section: "start-here", reasons: ["Featured on Channel"], rank: picks.length + 1 });
+    if (picks.length >= cap) break;
+  }
+
+  return { id: "start-here", title: SECTION_TITLES["start-here"], items: picks };
 }

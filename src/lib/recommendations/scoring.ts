@@ -90,6 +90,16 @@ export function scoreCandidate(
     },
   ];
 
+  // DJ self-taste boost: a DJ user's own scene/tempo lifts matching discovery
+  // picks above other discovery candidates.
+  const selfRawVal = input.matchesSelfTaste ? 1 : 0;
+  components.push({
+    name: "selfTasteBoost",
+    rawValue: selfRawVal,
+    weight: config.weights.selfTasteBoost,
+    contribution: selfRawVal * config.weights.selfTasteBoost,
+  });
+
   const additiveBase = components.reduce((sum, c) => sum + c.contribution, 0);
 
   // Already-heard damper: score /= (1 + count * strength). Recorded so the

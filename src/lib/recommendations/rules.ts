@@ -92,12 +92,19 @@ export function applyRules(
       ...pinned.map((c) => ({ ...c, pinned: true })),
       ...diversified,
     ];
+    // Section-specific collapse (pre-cap, post-sort so we keep the best):
+    //  - favorite-artists: at most ONE archive per artist (the latest/highest).
+    //  - discovery: at most ONE archive per (scene+tempo) combo.
+    assembled = collapseSection(sectionId, assembled);
+
     const minimum = config.minimums[sectionId];
     if (user.fallbackSections.has(sectionId) && assembled.length < minimum) {
       const need = Math.min(cap, minimum) - assembled.length;
       if (need > 0) {
-        const fill = takeFallback(fallbackPool, need, assembled, config.diversity.maxPerDj);
-        assembled = [...assembled, ...fill];
+        // Fallback respects the same collapse so we don't reintroduce dupes.
+        const existing = assembled;
+        const fill = takeFallback(fallbackPool, need, existing, config.diversity.maxPerDj);
+        assembled = collapseSection(sectionId, [...existing, ...fill]);
       }
     }
 
@@ -108,6 +115,36 @@ export function applyRules(
   });
 
   return { sections, dropped };
+}
+
+// Collapse a section's (already score-sorted) list to one representative per
+// group, keeping the highest-scored. favorite-artists → one per primary DJ;
+// discovery → one per (scene+tempo) combo. Other sections pass through.
+function collapseSection(sectionId: SectionId, items: ScoredCandidate[]): ScoredCandidate[] {
+  if (sectionId === "favorite-artists") {
+    return collapseByKey(items, (c) => c.item.djUsernames[0] ?? c.item.id);
+  }
+  if (sectionId === "discovery") {
+    return collapseByKey(items, (c) => `${c.item.sceneSlugs[0] ?? ""}|${c.item.tempo ?? ""}`);
+  }
+  return items;
+}
+
+// Keep the first item per key. Input is pre-sorted by score (desc) with a
+// recency component, so "first" is the best/latest — deterministic.
+function collapseByKey(
+  items: ScoredCandidate[],
+  keyOf: (c: ScoredCandidate) => string,
+): ScoredCandidate[] {
+  const seen = new Set<string>();
+  const out: ScoredCandidate[] = [];
+  for (const c of items) {
+    const k = keyOf(c);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(c);
+  }
+  return out;
 }
 
 function exclusionReason(
