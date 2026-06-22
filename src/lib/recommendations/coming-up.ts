@@ -66,22 +66,29 @@ export function nextSunday7amPtMs(nowMs: number): number {
 interface FetchComingUpArgs {
   db: Firestore;
   nowMs: number;
-  // null = logged-out → no city gate (show all upcoming events).
+  // null = logged-out → no city gate on IRL events.
   userCity: string | null;
   // normalized engaged/watchlist DJ usernames (for the "{dj} · {city}" reason).
   engagedDjUsernames: Set<string>;
+  // normalized DJ usernames the user muted → hide their shows/events.
+  goLiveMutes?: Set<string>;
+  // the user's own normalized username → hide their own shows.
+  ownDjUsername?: string;
 }
 
 const ptDate = (ms: number) =>
   new Date(ms).toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
 
 export async function fetchComingUp(args: FetchComingUpArgs): Promise<ComingUpRow[]> {
-  const { db, nowMs, userCity, engagedDjUsernames } = args;
+  const { db, nowMs, userCity, engagedDjUsernames, goLiveMutes, ownDjUsername } = args;
   const windowEnd = nextSunday7amPtMs(nowMs);
   const floor = nowMs - 12 * 60 * 60 * 1000; // small back-look so "today" shows
+  const muted = goLiveMutes ?? new Set<string>();
   const rows: ComingUpRow[] = [];
 
   // ── Online shows (broadcast-slots) ──────────────────────────────────────
+  // Show ALL upcoming online shows, EXCEPT muted DJs, the user's own shows, or
+  // the channelbroadcast test account. (No engagement gate.)
   const slotSnap = await db.collection("broadcast-slots").where("status", "==", "scheduled").get();
   type SlotCand = { djUsername: string; djName: string; showName: string; showImageUrl?: string; startMs: number };
   const slotCands: SlotCand[] = [];
@@ -90,10 +97,11 @@ export async function fetchComingUp(args: FetchComingUpArgs): Promise<ComingUpRo
     const djUsername = x.djUsername as string | undefined;
     const djName = (x.djName as string | undefined) || djUsername;
     if (!djUsername || djUsername === "channelbroadcast") continue; // no DJ / test acct
+    const norm = normUser(djUsername);
+    if (muted.has(norm)) continue; // user muted this DJ
+    if (ownDjUsername && norm === ownDjUsername) continue; // user's own show
     const startMs = slotStartMs(x.startTime);
     if (typeof startMs !== "number" || startMs < floor || startMs > windowEnd) continue;
-    const engaged = engagedDjUsernames.has(normUser(djUsername));
-    if (userCity !== null && !engaged) continue; // logged-in: engaged DJs only
     slotCands.push({
       djUsername,
       djName: djName || "",
@@ -190,6 +198,9 @@ export async function fetchComingUp(args: FetchComingUpArgs): Promise<ComingUpRo
     if (userCity && !matchesCity(location, userCity)) continue;
 
     const djs = (data.djs as Array<{ djName?: string; djUsername?: string; djPhotoUrl?: string }>) || [];
+    // Hide if ANY lineup DJ is muted or is the user's own.
+    const lineupNorms = djs.map((d) => normUser(d.djUsername)).filter(Boolean);
+    if (lineupNorms.some((n) => muted.has(n) || n === ownDjUsername)) continue;
     const firstDj = djs[0];
     const engagedDj = djs.find((d) => normUser(d.djUsername) && engagedDjUsernames.has(normUser(d.djUsername)));
     const reason = engagedDj?.djName ? `${engagedDj.djName} · ${location}` : `In ${location}`;

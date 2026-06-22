@@ -19,6 +19,18 @@ import type {
 
 type UserRow = { uid: string; email: string; displayName: string };
 
+// Mirror of the /scene payload (subset we render in the preview).
+type SceneArchive = { id: string; showName: string; djs?: { name: string }[] };
+type SceneSection = { id: string; title: string; archives: SceneArchive[] };
+type SceneComingUp = { eventName: string; djName: string; reason: string; isIRL: boolean; date: string };
+type ScenePreview = {
+  sections: SceneSection[];
+  comingUp: SceneComingUp[];
+  comingUpTitle: string;
+  diveBackIn: SceneArchive[];
+  diveBackInTitle: string;
+};
+
 async function getAuthToken(): Promise<string | null> {
   const user = getAuth().currentUser;
   if (!user) return null;
@@ -36,6 +48,8 @@ export function RecommendationsTab() {
   const [context, setContext] = useState<RecommendationContext>('website');
   const [snapshot, setSnapshot] = useState<RecommendationSnapshot | null>(null);
   const [dropped, setDropped] = useState<ScoredCandidate[]>([]);
+  // The exact /scene payload (4 sections in order) for the selected user.
+  const [scene, setScene] = useState<ScenePreview | null>(null);
   const [config, setConfig] = useState<RecommendationConfig | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,10 +104,12 @@ export function RecommendationsTab() {
         const data = await res.json();
         setSnapshot(data.snapshot);
         setDropped(data.dropped || []);
+        setScene(data.scene || null);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Preview failed');
         setSnapshot(null);
         setDropped([]);
+        setScene(null);
       } finally {
         setLoading(false);
       }
@@ -190,7 +206,10 @@ export function RecommendationsTab() {
       {/* What we're basing recs on */}
       {snapshot && <TasteHeader summary={snapshot.tasteSummary} />}
 
-      {/* Sections */}
+      {/* What the user actually sees on /scene, in order, across all sections. */}
+      {scene && <ScenePreviewView scene={scene} />}
+
+      {/* Engine debug (scores + reasons + excluded) below the /scene view. */}
       {snapshot && (
         <div className="space-y-8">
           {snapshot.sections.map((section) => (
@@ -287,6 +306,50 @@ function Row({ label, values }: { label: string; values: string[] }) {
     <div className="flex gap-2">
       <span className="text-gray-500 shrink-0 w-24">{label}:</span>
       <span className="text-gray-300">{values.join(', ')}</span>
+    </div>
+  );
+}
+
+// Faithful, read-only mirror of what the user sees on /scene — the 4 sections
+// in order (Your Scene, Beyond Your Scene, Coming up, Dive back in).
+function ScenePreviewView({ scene }: { scene: ScenePreview }) {
+  const visible = 4;
+  const archiveRow = (a: SceneArchive) => (
+    <div key={a.id} className="flex items-center gap-2 bg-[#1e1e1e] border border-white/10 px-3 py-2 text-sm">
+      <span className="text-white truncate">{a.showName}</span>
+      {a.djs && a.djs.length > 0 && (
+        <span className="text-gray-500 truncate">· {a.djs.map((d) => d.name).join(', ')}</span>
+      )}
+    </div>
+  );
+  const block = (title: string, rows: React.ReactNode, count: number) => (
+    <section>
+      <h3 className="text-sm uppercase tracking-wide text-gray-400 mb-2">
+        {title} <span className="text-gray-600">({count})</span>
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">{rows}</div>
+    </section>
+  );
+  return (
+    <div className="mb-8 space-y-6 border-b border-white/10 pb-8">
+      <div className="text-xs uppercase tracking-[0.2em] text-emerald-400/80">As seen on /scene</div>
+      {scene.sections.map((s) =>
+        block(s.title, s.archives.slice(0, visible).map(archiveRow), s.archives.length),
+      )}
+      {scene.comingUp.length > 0 &&
+        block(
+          scene.comingUpTitle,
+          scene.comingUp.slice(0, visible).map((c, i) => (
+            <div key={i} className="flex items-center gap-2 bg-[#1e1e1e] border border-white/10 px-3 py-2 text-sm">
+              <span className={c.isIRL ? 'text-green-300' : 'text-sky-300'}>{c.isIRL ? 'IRL' : 'Channel'}</span>
+              <span className="text-white truncate">{c.eventName || c.djName}</span>
+              <span className="text-gray-500 truncate">· {c.reason}</span>
+            </div>
+          )),
+          scene.comingUp.length,
+        )}
+      {scene.diveBackIn.length > 0 &&
+        block(scene.diveBackInTitle, scene.diveBackIn.slice(0, visible).map(archiveRow), scene.diveBackIn.length)}
     </div>
   );
 }

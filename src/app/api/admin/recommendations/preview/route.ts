@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { generateForUser } from "@/lib/recommendations/server";
+import { buildScenePayload } from "@/lib/recommendations/scene-payload";
 import type { RecommendationContext } from "@/lib/recommendations/types";
 
 // Live recommendation preview for any user, BEFORE anything is sent. By default
@@ -61,9 +62,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  // The exact /scene payload for this user (same builder as the live page), so
+  // the dashboard mirrors /scene order + rules across all sections.
+  const scene = await buildScenePayload(db, uid);
+
   return NextResponse.json({
     snapshot: outcome.snapshot,
     dropped: outcome.dropped ?? [],
+    scene,
     persisted: force,
     context,
   });
