@@ -54,31 +54,38 @@ export function SceneClient() {
       <AnimatedBackground />
       <Header currentPage="explore" position="sticky" />
 
-      {/* Edit toggle — fixed top-right, stays visible while scrolling. Its `top`
-          is MEASURED from the actual sticky header height (nav + broadcast bar,
-          which varies) so it lands just below the header, level with the search
-          bar, instead of behind it. */}
+      {/* Edit toggle — fixed, stays visible while scrolling. `top` is MEASURED
+          from the sticky header height (nav + broadcast bar, which varies) so it
+          lands level with the search bar. Wrapped in the cards' max-w-7xl
+          container (justify-end) so its RIGHT edge aligns with the cards, not the
+          viewport edge, on desktop. */}
       {canEdit && (
-        <button
-          data-scene-edit-toggle
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          onClick={() => setEditMode((v) => !v)}
-          aria-pressed={editMode}
+        <div
           style={{ top: editTop }}
-          className="fixed right-4 z-50 flex items-center gap-2 px-3 py-2
-                     text-[11px] font-mono uppercase tracking-[0.2em] text-white
-                     bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md
-                     transition-colors"
+          className="fixed inset-x-0 z-50 pointer-events-none"
         >
-          <span
-            aria-hidden
-            className={`inline-block w-[6px] h-[6px] rounded-full transition-all ${
-              editMode ? 'bg-green-400 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]' : 'bg-zinc-400'
-            }`}
-          />
-          {editMode ? 'Done' : 'Edit'}
-        </button>
+          <div className="max-w-7xl mx-auto px-4 flex justify-end">
+            <button
+              data-scene-edit-toggle
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onClick={() => setEditMode((v) => !v)}
+              aria-pressed={editMode}
+              className="pointer-events-auto flex items-center gap-2 px-3 py-2
+                         text-[11px] font-mono uppercase tracking-[0.2em] text-white
+                         bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md
+                         transition-colors"
+            >
+              <span
+                aria-hidden
+                className={`inline-block w-[6px] h-[6px] rounded-full transition-all ${
+                  editMode ? 'bg-green-400 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]' : 'bg-zinc-400'
+                }`}
+              />
+              {editMode ? 'Done' : 'Edit'}
+            </button>
+          </div>
+        </div>
       )}
 
       <main className="flex-1 w-full">
