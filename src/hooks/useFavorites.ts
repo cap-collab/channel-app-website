@@ -20,6 +20,7 @@ import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Show, IRLShowData } from "@/types";
 import { wordBoundaryMatch, showMatchesDJ, irlShowMatchesDJ } from "@/lib/dj-matching";
+import { generateSlug } from "@/lib/slug";
 
 // Helper to fetch enriched shows and IRL shows from API
 async function fetchEnrichedShowsAndIRL(): Promise<{ shows: Show[]; irlShows: IRLShowData[] }> {
@@ -489,9 +490,12 @@ export function useFavorites() {
               } else {
                 // Last resort: a collective followed via search (no uid passed).
                 // Match by slug or name against the collectives collection.
+                // Collective slugs strip ALL non-alphanumerics (generateSlug),
+                // so re-slug the term — normalizedSearchTerm keeps dots and
+                // would miss e.g. "B. Rod b2b David L" (slug "brodb2bdavidl").
                 const collectivesRef = collection(db, "collectives");
                 const bySlug = await getDocs(
-                  query(collectivesRef, where("slug", "==", normalizedSearchTerm))
+                  query(collectivesRef, where("slug", "==", generateSlug(term)))
                 );
                 const cDoc = !bySlug.empty
                   ? bySlug.docs[0]

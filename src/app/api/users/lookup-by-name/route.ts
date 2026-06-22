@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { generateSlug } from '@/lib/slug';
 
 // GET /api/users/lookup-by-name?name=Spillman
 // Returns full DJ profile info by name (checks users then pending-dj-profiles)
@@ -87,8 +88,13 @@ export async function GET(request: NextRequest) {
     // 3. Final fallback: collective by slug. Collectives share the namespace
     //    so an admin typing "pollensource" in the slot's DJ Name field
     //    resolves to the collective's identity (acts as a DJ everywhere).
+    //    Collective slugs are generated with generateSlug (strips ALL
+    //    non-alphanumerics, incl. periods), whereas `normalized` above keeps
+    //    dots — so a name like "B. Rod b2b David L" must be re-slugged here or
+    //    it never matches its stored slug "brodb2bdavidl".
+    const collectiveSlug = generateSlug(name);
     const collectivesSnapshot = await db.collection('collectives')
-      .where('slug', '==', normalized)
+      .where('slug', '==', collectiveSlug)
       .limit(1)
       .get();
 

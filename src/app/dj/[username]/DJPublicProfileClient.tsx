@@ -24,6 +24,7 @@ import { SceneGlyph } from "@/components/SceneGlyph";
 import { useScenesData, resolveArchiveScenes } from "@/hooks/useScenesData";
 import { tempoLabel } from "@/lib/tempo";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
+import { generateSlug } from "@/lib/slug";
 import { Venue, Collective, Event as ChannelEvent, EventDJRef, CollectiveRef } from "@/types/events";
 import { ResidentsGrid } from "@/components/dj/ResidentsGrid";
 // Icon components (inline SVGs to avoid external dependencies)
@@ -717,8 +718,15 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     const now = Date.now();
     const djName = djProfile.chatUsername;
 
-    // Normalize profile username for matching
-    const normalizedProfileUsername = djName.replace(/[\s-]+/g, "").toLowerCase();
+    // Normalize profile username for matching. For collectives, shows store the
+    // collective's slug (generateSlug — strips ALL non-alphanumerics) as
+    // djUsername, so match against the stored slug rather than the canonical
+    // normalization of the display name (which keeps dots and would miss a
+    // name like "B. Rod b2b David L" → slug "brodb2bdavidl").
+    const normalizedProfileUsername =
+      djProfile.profileType === "collective" && djProfile.collectiveSlug
+        ? djProfile.collectiveSlug
+        : djName.replace(/[\s-]+/g, "").toLowerCase();
 
     // Check if live on Channel Radio
     const matchesProfile = (show: Show) =>
@@ -923,7 +931,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
       // 2. Filter external radio shows by djUsername (pre-matched in metadata build)
       // Simple O(1) lookup - no regex matching needed!
-      const normalizedProfileUsername = djProfile.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
+      // Collectives store their slug (generateSlug — strips ALL non-alphanumerics)
+      // as a show's djUsername, so match against the stored slug rather than the
+      // canonical (dot-keeping) normalization of the display name.
+      const normalizedProfileUsername =
+        djProfile.profileType === "collective" && djProfile.collectiveSlug
+          ? djProfile.collectiveSlug
+          : djProfile.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
 
       // For collectives whose slug equals a station id (e.g. /dj/vpn = the VPN station's
       // collective page), surface every show from that station, not just shows where
@@ -1245,7 +1259,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       const collectiveDocId = isCollectiveProfile && djProfile.uid.startsWith('collective-')
         ? djProfile.uid.slice('collective-'.length)
         : undefined;
-      const collectiveSlug = isCollectiveProfile ? (djProfile.collectiveSlug || normalizedUsername) : undefined;
+      const collectiveSlug = isCollectiveProfile ? (djProfile.collectiveSlug || generateSlug(djProfile.chatUsername)) : undefined;
 
       const matchesDJ = (refs: EventDJRef[] | undefined): boolean => {
         if (!refs || refs.length === 0) return false;
@@ -1683,7 +1697,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     ? profile.uid.slice('collective-'.length)
     : null;
   const viewingCollectiveSlug = profile.profileType === 'collective'
-    ? (profile.collectiveSlug || profile.chatUsername.replace(/[\s-]+/g, '').toLowerCase())
+    ? (profile.collectiveSlug || generateSlug(profile.chatUsername))
     : null;
   const filterEventDjs = (djs: EventDJRef[]): EventDJRef[] => {
     if (!viewingCollectiveSlug) return djs;
@@ -3001,8 +3015,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                   // the current collective's slug AND we're on that collective page (so the
                   // collective doesn't link to itself). DJ self-matches still render — useful
                   // when the show name is just the show title and the DJ chip provides context.
-                  const profileSlug = djProfile?.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
                   const isOnCollectivePage = djProfile?.profileType === "collective";
+                  // Collective shows store the dot-stripped slug as djUsername, so
+                  // compare against the stored collectiveSlug (not the dot-keeping
+                  // normalization of the name) to hide the collective's own chip.
+                  const profileSlug = isOnCollectivePage && djProfile?.collectiveSlug
+                    ? djProfile.collectiveSlug
+                    : djProfile?.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
                   const shouldHide = (slug: string) => isOnCollectivePage && slug === profileSlug;
                   type DjLink = { slug: string; label: string };
                   const djLinksMap = new Map<string, DjLink>();

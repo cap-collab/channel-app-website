@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { BroadcastSlot } from '@/types/broadcast';
 import { FieldValue } from 'firebase-admin/firestore';
+import { generateSlug } from '@/lib/slug';
 
 // POST - Mark a broadcast slot as live and save DJ info
 export async function POST(request: NextRequest) {
@@ -164,8 +165,11 @@ export async function POST(request: NextRequest) {
             } else {
               // Final fallback: collective by slug. Build a synthetic profile
               // blob so the live broadcast carries the collective's bio/photo.
+              // Slugs strip ALL non-alphanumerics (generateSlug), so re-slug the
+              // candidate — `normalized` above keeps dots and would miss a
+              // collective like "B. Rod b2b David L" (slug "brodb2bdavidl").
               const byCollectiveSnap = await db.collection('collectives')
-                .where('slug', '==', normalized)
+                .where('slug', '==', generateSlug(candidateUsername.toString()))
                 .limit(1)
                 .get();
               if (!byCollectiveSnap.empty) {
@@ -331,9 +335,11 @@ export async function POST(request: NextRequest) {
               userProfileData = pendingByUsernameSnap.docs[0].data();
               console.log('[go-live] Guest: resolved DJ by chatUsername (pending):', { candidateUsername });
             } else {
-              // Final fallback: collective by slug.
+              // Final fallback: collective by slug. Re-slug the candidate
+              // (generateSlug strips ALL non-alphanumerics) — `normalized` keeps
+              // dots and would miss e.g. "B. Rod b2b David L" (slug "brodb2bdavidl").
               const collectiveSnap = await db.collection('collectives')
-                .where('slug', '==', normalized)
+                .where('slug', '==', generateSlug(candidateUsername.toString()))
                 .limit(1)
                 .get();
               if (!collectiveSnap.empty) {
