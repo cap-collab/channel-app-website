@@ -105,10 +105,16 @@ export async function POST(request: NextRequest) {
     const djs = extractDJs(slotData);
 
     // Scene: prefer the slot's override, else inherit the DJs' profile scenes
-    // so every new archive carries sceneSlugs.
-    const sceneSlugs = Array.isArray(slotData.sceneIdsOverride) && slotData.sceneIdsOverride.length > 0
-      ? (slotData.sceneIdsOverride as string[])
-      : await resolveSceneSlugsForArchive(db, djs);
+    // so every new archive carries sceneSlugs. Best-effort — a scene-resolve
+    // failure must NEVER block archive creation, so fall back to [].
+    let sceneSlugs: string[] = [];
+    try {
+      sceneSlugs = Array.isArray(slotData.sceneIdsOverride) && slotData.sceneIdsOverride.length > 0
+        ? (slotData.sceneIdsOverride as string[])
+        : await resolveSceneSlugsForArchive(db, djs);
+    } catch (e) {
+      console.error('[archives/create] scene resolve failed (non-fatal):', e);
+    }
 
     // Get recorded time from slot's startTime
     const startTime = slotData.startTime;
