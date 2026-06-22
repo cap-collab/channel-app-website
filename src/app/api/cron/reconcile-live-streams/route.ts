@@ -72,39 +72,44 @@ export async function GET(request: NextRequest) {
         .doc(uid)
         .collection("streamHistory")
         .doc(archive.id);
-
-      const existing = await archiveStreamRef.get();
-      if (existing.exists) {
-        result.skippedExisting++;
-        continue; // already reconciled → don't double-count
-      }
+      const archiveRef = db.collection("archives").doc(archive.id);
 
       const liveCount = typeof data.streamCount === "number" && data.streamCount > 0 ? data.streamCount : 1;
 
-      // Create the archive-keyed streamHistory doc, carrying engagement fields
-      // and using the ARCHIVE's denormalized data so scene/tempo resolves.
-      await archiveStreamRef.set({
-        archiveId: archive.id,
-        slug: archive.data.slug ?? null,
-        showName: archive.data.showName ?? data.showName ?? "",
-        djs: data.djs ?? archive.data.djs ?? [],
-        djUsernames: data.djUsernames ?? [],
-        djUsernamesNormalized: data.djUsernamesNormalized ?? [],
-        stationId: archive.data.stationId ?? data.stationId ?? "channel-main",
-        showImageUrl: archive.data.showImageUrl ?? data.showImageUrl ?? null,
-        sourceType: "archive",
-        streamCount: liveCount,
-        firstStreamedAt: data.firstStreamedAt ?? FieldValue.serverTimestamp(),
-        lastStreamedAt: data.lastStreamedAt ?? FieldValue.serverTimestamp(),
-        // Provenance: this was reconciled from a live listen, not a direct archive play.
-        reconciledFromLive: true,
+      // Transaction: the existence-guard read AND both writes are atomic, so the
+      // archive.streamCount increment happens IF AND ONLY IF the per-user doc is
+      // created in the same commit. This prevents both double-counting (re-runs /
+      // overlapping runs) and under-counting (crash between the two writes).
+      // The archive write is a single additive streamCount increment — it never
+      // overwrites or deletes any archive field.
+      const created = await db.runTransaction(async (tx) => {
+        const existing = await tx.get(archiveStreamRef);
+        if (existing.exists) return false; // already reconciled
+
+        tx.set(archiveStreamRef, {
+          archiveId: archive.id,
+          slug: archive.data.slug ?? null,
+          showName: archive.data.showName ?? data.showName ?? "",
+          djs: data.djs ?? archive.data.djs ?? [],
+          djUsernames: data.djUsernames ?? [],
+          djUsernamesNormalized: data.djUsernamesNormalized ?? [],
+          stationId: archive.data.stationId ?? data.stationId ?? "channel-main",
+          showImageUrl: archive.data.showImageUrl ?? data.showImageUrl ?? null,
+          sourceType: "archive",
+          streamCount: liveCount,
+          firstStreamedAt: data.firstStreamedAt ?? FieldValue.serverTimestamp(),
+          lastStreamedAt: data.lastStreamedAt ?? FieldValue.serverTimestamp(),
+          reconciledFromLive: true,
+        });
+        // Additive single-field increment; archive doc is otherwise untouched.
+        tx.update(archiveRef, { streamCount: FieldValue.increment(liveCount) });
+        return true;
       });
 
-      // Bump the archive's global streamCount by the live count.
-      await db.collection("archives").doc(archive.id).update({
-        streamCount: FieldValue.increment(liveCount),
-      });
-
+      if (!created) {
+        result.skippedExisting++;
+        continue; // already reconciled → no double-count
+      }
       result.linksCreated++;
       result.streamCountAdded += liveCount;
     } catch (e) {
