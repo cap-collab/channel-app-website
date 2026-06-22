@@ -35,26 +35,23 @@ export function SceneClient() {
       <Header currentPage="explore" position="sticky" />
 
       <main className="flex-1 w-full">
-        {/* Search bar — left, capped, aligned with the cards' left edge. */}
+        {/* Search row — search bar (left, capped) + Edit toggle (right), in the
+            cards' container so the left edge aligns with the grid. Both sit on
+            the same row → same top + same height; on mobile the search bar ends
+            before the Edit button (flex, search flexes, button shrink-0). */}
         <div className="max-w-7xl mx-auto px-4 pt-4">
-          <div className="max-w-md">
-            <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
-          </div>
-        </div>
-
-        {/* Edit toggle — FIXED top-right, stays visible while scrolling. Wrapped
-            in the same max-w-7xl container so its right edge aligns with the
-            cards; top-20 sits it ~level with the search bar, below the header. */}
-        {canEdit && (
-          <div className="fixed inset-x-0 top-20 z-40 pointer-events-none">
-            <div className="max-w-7xl mx-auto px-4 flex justify-end">
+          <div className="flex items-stretch gap-2">
+            <div className="flex-1 max-w-md min-w-0">
+              <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
+            </div>
+            {canEdit && (
               <button
                 data-scene-edit-toggle
                 onMouseDown={(e) => e.stopPropagation()}
                 onTouchStart={(e) => e.stopPropagation()}
                 onClick={() => setEditMode((v) => !v)}
                 aria-pressed={editMode}
-                className="pointer-events-auto flex items-center gap-2 px-3 py-2.5
+                className="shrink-0 flex items-center gap-2 px-3
                            text-[11px] font-mono uppercase tracking-[0.2em] text-white
                            bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md
                            transition-colors"
@@ -67,9 +64,9 @@ export function SceneClient() {
                 />
                 {editMode ? 'Done' : 'Edit'}
               </button>
-            </div>
+            )}
           </div>
-        )}
+        </div>
 
         <SceneRecommendations
           onAuthRequired={() => setShowAuthModal(true)}
