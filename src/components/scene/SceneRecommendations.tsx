@@ -266,7 +266,7 @@ function ArchiveGrid({
               band && (band.glyphSlug || tempoText) && (
                 <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center gap-1.5">
                   {band.glyphSlug && <SceneGlyph slug={band.glyphSlug} className="!w-3 !h-3" />}
-                  {tempoText && <span className="lowercase tracking-normal">{tempoText.toLowerCase()}</span>}
+                  {tempoText && <span>{tempoText}</span>}
                 </div>
               )
             )}

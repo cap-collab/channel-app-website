@@ -10,6 +10,10 @@ import { DEFAULT_RECOMMENDATION_CONFIG } from "@/lib/recommendations/config";
 //    rows in tempo order downtempo → uptempo → very_slow (Very Chill) →
 //    very_fast (Intense). One archive per scene×tempo cell (latest).
 //  - "Coming up": all upcoming shows/events this week (no city gate).
+//
+// The result is the same for every logged-out visitor and changes slowly, so we
+// cache it: a short in-process memo (instant warm hits) + Cache-Control so the
+// CDN/browser cache it too. This keeps logged-out /scene snappy.
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +21,17 @@ export const dynamic = "force-dynamic";
 const TEMPO_ORDER: Tempo[] = ["downtempo", "uptempo", "very_slow", "very_fast"];
 const SCENE_ORDER = ["spiral", "star"];
 
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+let cache: { at: number; body: unknown } | null = null;
+
 export async function GET() {
+  // Warm in-process hit → return instantly.
+  if (cache && Date.now() - cache.at < CACHE_TTL_MS) {
+    return NextResponse.json(cache.body, {
+      headers: { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600" },
+    });
+  }
+
   const db = getAdminDb();
   if (!db) return NextResponse.json({ error: "Database not configured" }, { status: 500 });
 
@@ -61,10 +75,14 @@ export async function GET() {
     engagedDjUsernames: new Set(),
   });
 
-  return NextResponse.json({
+  const body = {
     archives,
     comingUp,
     startHereTitle: "Start here",
     comingUpTitle: "Coming up",
+  };
+  cache = { at: Date.now(), body };
+  return NextResponse.json(body, {
+    headers: { "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600" },
   });
 }
