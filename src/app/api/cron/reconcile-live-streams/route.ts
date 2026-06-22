@@ -35,12 +35,29 @@ export async function GET(request: NextRequest) {
 
   const cutoff = new Date(Date.now() - ACTIVE_WINDOW_MS);
 
-  // slotId → archive (id + stamp fields). One archives scan.
+  // One archives scan → two lookups:
+  //   archiveBySlot: broadcastSlotId → archive  (the show's ORIGINAL live slot)
+  //   archiveById:   archiveId        → archive  (for restream resolution below)
   const archivesSnap = await db.collection("archives").get();
   const archiveBySlot = new Map<string, { id: string; data: FirebaseFirestore.DocumentData }>();
+  const archiveById = new Map<string, { id: string; data: FirebaseFirestore.DocumentData }>();
   for (const doc of archivesSnap.docs) {
+    const entry = { id: doc.id, data: doc.data() };
+    archiveById.set(doc.id, entry);
     const slotId = doc.data().broadcastSlotId as string | undefined;
-    if (slotId) archiveBySlot.set(slotId, { id: doc.id, data: doc.data() });
+    if (slotId) archiveBySlot.set(slotId, entry);
+  }
+
+  // Restream slots REPLAY an existing archive — their doc carries archiveId.
+  // A "live" listen to a restream is keyed by the restream slot id, which won't
+  // match any archive's broadcastSlotId; resolve those via slot.archiveId so
+  // restream listeners are credited to the archive they actually heard.
+  // slotId → archiveId for slots that point at an archive.
+  const archiveIdBySlot = new Map<string, string>();
+  const slotsSnap = await db.collection("broadcast-slots").get();
+  for (const doc of slotsSnap.docs) {
+    const aId = doc.data().archiveId as string | undefined;
+    if (aId) archiveIdBySlot.set(doc.id, aId);
   }
 
   // Active LIVE stream docs across all users (collection-group; admin SDK
@@ -57,7 +74,10 @@ export async function GET(request: NextRequest) {
     try {
       const data = liveDoc.data();
       const slotId = (data.archiveId as string) || liveDoc.id; // live docs key archiveId = slotId
-      const archive = archiveBySlot.get(slotId);
+      // Resolve the archive: original live show (broadcastSlotId === slotId), OR
+      // a restream slot that replays an archive (slot.archiveId).
+      const restreamArchiveId = archiveIdBySlot.get(slotId);
+      const archive = archiveBySlot.get(slotId) ?? (restreamArchiveId ? archiveById.get(restreamArchiveId) : undefined);
       if (!archive) {
         result.skippedNoArchive++;
         continue;

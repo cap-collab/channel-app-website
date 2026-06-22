@@ -77,6 +77,15 @@ describe("generateRecommendations — sections", () => {
     expect(disc).not.toContain("a-maria-new");
   });
 
+  it("scene+tempo discovery is high/featured only (medium excluded)", () => {
+    const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
+    const disc = ids(r, "discovery");
+    // a-stranger-scene (high, spiral+uptempo) qualifies via scene+tempo...
+    expect(disc).toContain("a-stranger-scene");
+    // ...but the MEDIUM spiral+uptempo archive must NOT (weak signal → best only).
+    expect(disc).not.toContain("a-stranger-scene-med");
+  });
+
   it("discovery shows at most one archive per (scene+tempo) combo", () => {
     const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
     const disc = section(r, "discovery").items;
