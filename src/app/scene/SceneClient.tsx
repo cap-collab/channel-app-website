@@ -11,6 +11,26 @@ export function SceneClient() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  // Measured top offset for the fixed Edit button = sticky <header> height + the
+  // search bar's pt-4 (16px), so it lands level with the search bar regardless of
+  // whether the broadcast bar inside the header is showing.
+  const [editTop, setEditTop] = useState(96);
+
+  useEffect(() => {
+    const measure = () => {
+      const header = document.querySelector('header');
+      const h = header?.getBoundingClientRect().height ?? 80;
+      setEditTop(Math.round(h + 16)); // + pt-4
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    // Re-measure shortly after mount (broadcast bar may expand/collapse async).
+    const t = setTimeout(measure, 500);
+    return () => {
+      window.removeEventListener('resize', measure);
+      clearTimeout(t);
+    };
+  }, [canEdit]);
 
   // In edit mode, a click anywhere exits — except the remove (X) buttons (which
   // stopPropagation) and the Edit toggle itself.
@@ -34,9 +54,10 @@ export function SceneClient() {
       <AnimatedBackground />
       <Header currentPage="explore" position="sticky" />
 
-      {/* Edit toggle — fixed top-right, stays visible while scrolling. top-28
-          lowers it to align with the top of the search bar (below header/player).
-          The simple fixed version that worked; just positioned lower. */}
+      {/* Edit toggle — fixed top-right, stays visible while scrolling. Its `top`
+          is MEASURED from the actual sticky header height (nav + broadcast bar,
+          which varies) so it lands just below the header, level with the search
+          bar, instead of behind it. */}
       {canEdit && (
         <button
           data-scene-edit-toggle
@@ -44,7 +65,8 @@ export function SceneClient() {
           onTouchStart={(e) => e.stopPropagation()}
           onClick={() => setEditMode((v) => !v)}
           aria-pressed={editMode}
-          className="fixed top-28 right-4 z-50 flex items-center gap-2 px-3 py-2
+          style={{ top: editTop }}
+          className="fixed right-4 z-50 flex items-center gap-2 px-3 py-2
                      text-[11px] font-mono uppercase tracking-[0.2em] text-white
                      bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md
                      transition-colors"
