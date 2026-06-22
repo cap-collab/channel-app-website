@@ -89,31 +89,18 @@ export function CollectivesAdmin() {
       const options: DJOption[] = [];
       const seenUsernames = new Set<string>();
 
-      // 1. Pending DJ profiles
-      const pendingRef = collection(db, 'pending-dj-profiles');
-      const pendingSnapshot = await getDocs(pendingRef);
-      pendingSnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (data.status !== 'pending') return;
-        const username = data.chatUsernameNormalized || '';
-        if (username) seenUsernames.add(username);
-        options.push({
-          label: data.chatUsername || data.chatUsernameNormalized || 'Unknown',
-          djName: data.chatUsername || data.chatUsernameNormalized || 'Unknown',
-          djUsername: data.chatUsernameNormalized,
-          djPhotoUrl: data.djProfile?.photoUrl || undefined,
-          source: 'pending',
-        });
-      });
-
-      // 2. Users with DJ role
+      // 1. Users with a DJ role FIRST. A real account always wins over a
+      // pending placeholder of the same username — otherwise a stale
+      // auto-discovered pending-dj-profile (claimedBy never reconciled) shadows
+      // the real user and drops them from the owner picker (owners require a
+      // real djUserId). Same users-before-pending rule as the rest of the app.
       const usersRef = collection(db, 'users');
       const djQuery = query(usersRef, where('role', 'in', ['dj', 'broadcaster', 'admin']));
       const usersSnapshot = await getDocs(djQuery);
       usersSnapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const username = data.chatUsernameNormalized || '';
-        if (username && seenUsernames.has(username)) return; // skip duplicates
+        if (username) seenUsernames.add(username);
         options.push({
           label: data.chatUsername || data.displayName || 'Unknown',
           djName: data.chatUsername || data.displayName || 'Unknown',
@@ -121,6 +108,24 @@ export function CollectivesAdmin() {
           djUsername: data.chatUsernameNormalized || data.chatUsername,
           djPhotoUrl: data.djProfile?.photoUrl || undefined,
           source: 'user',
+        });
+      });
+
+      // 2. Pending DJ profiles — only for usernames a real user hasn't claimed.
+      const pendingRef = collection(db, 'pending-dj-profiles');
+      const pendingSnapshot = await getDocs(pendingRef);
+      pendingSnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.status !== 'pending') return;
+        const username = data.chatUsernameNormalized || '';
+        if (username && seenUsernames.has(username)) return; // real user wins
+        if (username) seenUsernames.add(username);
+        options.push({
+          label: data.chatUsername || data.chatUsernameNormalized || 'Unknown',
+          djName: data.chatUsername || data.chatUsernameNormalized || 'Unknown',
+          djUsername: data.chatUsernameNormalized,
+          djPhotoUrl: data.djProfile?.photoUrl || undefined,
+          source: 'pending',
         });
       });
 
