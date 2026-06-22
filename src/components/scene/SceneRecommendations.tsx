@@ -54,6 +54,7 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
   const [comingUp, setComingUp] = useState<ComingUpRow[]>([]);
   const [comingUpTitle, setComingUpTitle] = useState('Coming up this week');
   const [diveBackIn, setDiveBackIn] = useState<ArchiveSerialized[]>([]);
+  const [diveExpanded, setDiveExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -196,15 +197,26 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
       {diveBackIn.length > 0 && (
         <Section title="Dive back in">
           <ArchiveGrid
-            archives={diveBackIn.slice(0, VISIBLE_PER_SECTION)}
+            archives={diveExpanded ? diveBackIn : diveBackIn.slice(0, VISIBLE_PER_SECTION)}
             editMode={editMode}
             removing={removing}
             onRemove={handleRemove}
           />
+          {!diveExpanded && diveBackIn.length > VISIBLE_PER_SECTION && (
+            <button
+              onClick={() => setDiveExpanded(true)}
+              className="mt-4 mx-auto block px-4 py-2 text-[11px] font-mono uppercase tracking-[0.2em]
+                         text-white bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md
+                         transition-colors"
+            >
+              See more
+            </button>
+          )}
         </Section>
       )}
 
-      {/* Sticky floating glass Edit/Done toggle — one control for all sections. */}
+      {/* Sticky top-right Edit/Done toggle. Previous LED-dot design, but glass +
+          thin + squared (matches the card overlay buttons). One control for all. */}
       {canEdit && (
         <button
           data-scene-edit-toggle
@@ -212,10 +224,10 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
           onTouchStart={(e) => e.stopPropagation()}
           onClick={() => setEditMode((v) => !v)}
           aria-pressed={editMode}
-          className="fixed bottom-5 right-5 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full
-                     text-[12px] font-mono uppercase tracking-[0.2em] text-white
-                     bg-white/10 backdrop-blur-xl border border-white/20 shadow-lg
-                     hover:bg-white/20 transition-colors"
+          className="fixed top-20 right-4 z-40 flex items-center gap-2 px-3 py-1.5
+                     text-[11px] font-mono uppercase tracking-[0.2em] text-white
+                     bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md
+                     transition-colors"
         >
           <span
             aria-hidden

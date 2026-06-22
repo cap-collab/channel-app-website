@@ -151,12 +151,14 @@ export async function POST(request: NextRequest) {
 
   // 5. "Dive back in": archives the user has streamed, OLDEST last-listened first
   //    (revisit neglected listens). Excludes dismissed + hidden. Show 4, load 8.
+  // It's the user's listening back-catalog, so return a deep list (cap 50); the
+  // UI shows 4 and a "See more" reveals the rest.
   const diveBackIn: ArchiveSerialized[] = Array.from(streamedArchiveIds)
     .filter((id) => !dismissedArchiveIds.has(id))
     .map((id) => archiveById.get(id))
     .filter((a): a is ArchiveSerialized => !!a && a.priority !== "hidden")
     .sort((a, b) => (streamedAtMs.get(a.id) ?? 0) - (streamedAtMs.get(b.id) ?? 0))
-    .slice(0, 8);
+    .slice(0, 50);
 
   return NextResponse.json({
     sections: archiveSections,
