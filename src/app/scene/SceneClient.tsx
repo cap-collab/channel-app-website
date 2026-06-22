@@ -34,37 +34,38 @@ export function SceneClient() {
       <AnimatedBackground />
       <Header currentPage="explore" position="sticky" />
 
+      {/* Edit toggle — fixed top-right, stays visible while scrolling. top-28
+          lowers it to align with the top of the search bar (below header/player).
+          The simple fixed version that worked; just positioned lower. */}
+      {canEdit && (
+        <button
+          data-scene-edit-toggle
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onClick={() => setEditMode((v) => !v)}
+          aria-pressed={editMode}
+          className="fixed top-28 right-4 z-50 flex items-center gap-2 px-3 py-2
+                     text-[11px] font-mono uppercase tracking-[0.2em] text-white
+                     bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md
+                     transition-colors"
+        >
+          <span
+            aria-hidden
+            className={`inline-block w-[6px] h-[6px] rounded-full transition-all ${
+              editMode ? 'bg-green-400 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]' : 'bg-zinc-400'
+            }`}
+          />
+          {editMode ? 'Done' : 'Edit'}
+        </button>
+      )}
+
       <main className="flex-1 w-full">
-        {/* Search row — search bar (left, capped) + Edit toggle (right), in the
-            cards' container so the left edge aligns with the grid. Both sit on
-            the same row → same top + same height; on mobile the search bar ends
-            before the Edit button (flex, search flexes, button shrink-0). */}
+        {/* Search bar — left, capped, aligned with the cards' left edge. Right
+            padding reserves space for the fixed Edit button so the field stops
+            before it on mobile (md+ has room, so no reserve needed). */}
         <div className="max-w-7xl mx-auto px-4 pt-4">
-          <div className="flex items-stretch gap-2">
-            <div className="flex-1 max-w-md min-w-0">
-              <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
-            </div>
-            {canEdit && (
-              <button
-                data-scene-edit-toggle
-                onMouseDown={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
-                onClick={() => setEditMode((v) => !v)}
-                aria-pressed={editMode}
-                className="shrink-0 flex items-center gap-2 px-3
-                           text-[11px] font-mono uppercase tracking-[0.2em] text-white
-                           bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md
-                           transition-colors"
-              >
-                <span
-                  aria-hidden
-                  className={`inline-block w-[6px] h-[6px] rounded-full transition-all ${
-                    editMode ? 'bg-green-400 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]' : 'bg-zinc-400'
-                  }`}
-                />
-                {editMode ? 'Done' : 'Edit'}
-              </button>
-            )}
+          <div className="max-w-md pr-20 md:pr-0">
+            <HeaderSearch onAuthRequired={() => setShowAuthModal(true)} />
           </div>
         </div>
 
