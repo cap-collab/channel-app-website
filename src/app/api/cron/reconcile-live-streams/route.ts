@@ -137,5 +137,20 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Status doc for the Tech Health admin readout (best-effort).
+  try {
+    await db.collection("system").doc("reconcile-live-streams-status").set({
+      lastRunAt: Date.now(),
+      liveDocsChecked: result.liveDocsChecked,
+      linksCreated: result.linksCreated,
+      streamCountAdded: result.streamCountAdded,
+      skippedExisting: result.skippedExisting,
+      skippedNoArchive: result.skippedNoArchive,
+      errorCount: result.errors.length,
+    });
+  } catch {
+    // non-fatal
+  }
+
   return NextResponse.json(result);
 }

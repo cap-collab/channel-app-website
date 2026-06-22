@@ -97,6 +97,16 @@ export interface R2BackupStatus {
   errors: { key: string; error: string }[];
 }
 
+export interface ReconcileStatus {
+  lastRunAt: number;
+  liveDocsChecked: number;
+  linksCreated: number;
+  streamCountAdded: number;
+  skippedExisting: number;
+  skippedNoArchive: number;
+  errorCount: number;
+}
+
 export interface TechHealthResponse {
   generatedAt: number;
   workers: WorkerHealth[];
@@ -105,6 +115,7 @@ export interface TechHealthResponse {
   upcomingSlots: { slotId: string; djName: string; startMs: number; type: string }[];
   r2Stats: R2Stats | null;
   r2Backup: R2BackupStatus | null;
+  reconcileLiveStreams: ReconcileStatus | null;
 }
 
 async function probeWorker(name: string, url: string): Promise<WorkerHealth> {
@@ -375,6 +386,14 @@ async function probeR2Backup(): Promise<R2BackupStatus | null> {
   return doc.data() as R2BackupStatus;
 }
 
+async function probeReconcileLiveStreams(): Promise<ReconcileStatus | null> {
+  const db = getAdminDb();
+  if (!db) return null;
+  const doc = await db.collection('system').doc('reconcile-live-streams-status').get();
+  if (!doc.exists) return null;
+  return doc.data() as ReconcileStatus;
+}
+
 async function probeUpcomingSlots(): Promise<{ slotId: string; djName: string; startMs: number; type: string }[]> {
   const db = getAdminDb();
   if (!db) return [];
@@ -408,7 +427,7 @@ export async function GET(request: NextRequest) {
 
   // Probes run in parallel; each one swallows its own errors so the dashboard
   // shows partial data when a probe fails rather than a 500.
-  const [workersRestream, workersYoutube, livekit, normalizeQueue, upcomingSlots, r2Stats, r2Backup] = await Promise.all([
+  const [workersRestream, workersYoutube, livekit, normalizeQueue, upcomingSlots, r2Stats, r2Backup, reconcileLiveStreams] = await Promise.all([
     probeWorker('Restream + normalize', restreamWorkerUrl),
     probeWorker('YouTube render', youtubeWorkerUrl),
     probeLivekit(),
@@ -416,6 +435,7 @@ export async function GET(request: NextRequest) {
     probeUpcomingSlots().catch(() => []),
     probeR2Stats().catch(() => null),
     probeR2Backup().catch(() => null),
+    probeReconcileLiveStreams().catch(() => null),
   ]);
 
   const body: TechHealthResponse = {
@@ -426,6 +446,7 @@ export async function GET(request: NextRequest) {
     upcomingSlots,
     r2Stats,
     r2Backup,
+    reconcileLiveStreams,
   };
   return NextResponse.json(body);
 }

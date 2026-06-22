@@ -341,6 +341,28 @@ export function TechHealthTab() {
             </div>
           </section>
 
+          {/* Reconcile live→archive streams (weekly cron). One line. */}
+          <section>
+            <h3 className="text-sm uppercase tracking-wide text-gray-400 mb-2">Live→archive reconcile</h3>
+            <div className="bg-[#1e1e1e] border border-white/10 p-4 text-sm">
+              {!data.reconcileLiveStreams ? (
+                <div className="text-gray-500">Has not run yet — weekly, Mondays 09:00 UTC.</div>
+              ) : (() => {
+                const r = data.reconcileLiveStreams;
+                const stale = Date.now() - r.lastRunAt > 9 * 24 * 60 * 60 * 1000; // weekly; >9d = missed
+                return (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-gray-300">
+                      <span className={stale ? 'text-yellow-400' : 'text-green-400'}>●</span>{' '}
+                      Ran {fmtAgo(r.lastRunAt)} · {r.linksCreated} linked (+{r.streamCountAdded} streams)
+                      {r.errorCount > 0 ? <span className="text-red-400"> · {r.errorCount} errors</span> : null}
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
+          </section>
+
           <div className="text-xs text-gray-500 pt-2">
             Read-only snapshot. Use the Refresh button for an up-to-date view.
           </div>
