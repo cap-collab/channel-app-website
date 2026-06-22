@@ -2478,7 +2478,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                 }
                 if (item.feedType === "radio") {
                   const broadcast = item as UpcomingShow & { feedType: "radio"; feedStatus: "upcoming" };
-                  const isWatching = isInWatchlist(broadcast.showName);
+                  const isWatching = isSubscribed || isInWatchlist(broadcast.showName);
                   const isToggling = togglingFavoriteId === broadcast.id;
                   const stationAccentColor = getStationById(broadcast.stationId)?.accentColor;
 
@@ -2653,7 +2653,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
                   // Check watchlist status for this radio show
                   const radioShowName = radioShow.name || `On ${radioShow.radioName}`;
-                  const isWatching = isInWatchlist(radioShowName);
+                  const isWatching = isSubscribed || isInWatchlist(radioShowName);
                   const isToggling = togglingFavoriteId === radioShow.id;
 
                   return (
@@ -2944,7 +2944,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                 if (item.feedType === "dj-radio") {
                   const radioShow = item as RadioShow & { feedType: "dj-radio"; feedStatus: "past"; id: string };
                   const showName = radioShow.name || `On ${radioShow.radioName}`;
-                  const isWatching = isInWatchlist(showName);
+                  const isWatching = isSubscribed || isInWatchlist(showName);
                   const isToggling = togglingFavoriteId === radioShow.id;
                   const dateStr = radioShow.date
                     ? new Date(radioShow.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
@@ -3000,7 +3000,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
                 if (item.feedType === "show") {
                   const pastShow = item as PastShow & { feedType: "show"; feedStatus: "past" };
-                  const isWatching = isInWatchlist(pastShow.showName);
+                  const isWatching = isSubscribed || isInWatchlist(pastShow.showName);
                   const isToggling = togglingFavoriteId === pastShow.id;
                   const stationAccentColor = getStationById(pastShow.stationId)?.accentColor;
                   const pastShowStationCollectiveSlug = getStationById(pastShow.stationId)?.collectiveSlug;
