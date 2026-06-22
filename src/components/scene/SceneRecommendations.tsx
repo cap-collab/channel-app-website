@@ -37,6 +37,8 @@ interface MeResponse {
   sections: RecSection[];
   comingUp: ComingUpRow[];
   comingUpTitle: string;
+  diveBackIn: ArchiveSerialized[];
+  diveBackInTitle: string;
 }
 interface FeaturedResponse {
   archives: ArchiveSerialized[];
@@ -51,6 +53,7 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
   const [startHere, setStartHere] = useState<ArchiveSerialized[] | null>(null);
   const [comingUp, setComingUp] = useState<ComingUpRow[]>([]);
   const [comingUpTitle, setComingUpTitle] = useState('Coming up this week');
+  const [diveBackIn, setDiveBackIn] = useState<ArchiveSerialized[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -72,6 +75,7 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
           setStartHere(null);
           setComingUp(data.comingUp || []);
           setComingUpTitle(data.comingUpTitle || 'Coming up this week');
+          setDiveBackIn(data.diveBackIn || []);
         } else {
           const res = await fetch('/api/recommendations/featured');
           if (!res.ok) throw new Error('featured failed');
@@ -81,6 +85,7 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
           setStartHere(data.archives || []);
           setComingUp(data.comingUp || []);
           setComingUpTitle(data.comingUpTitle || 'Coming up this week');
+          setDiveBackIn([]);
         }
       } catch {
         if (!cancelled) {
@@ -102,12 +107,14 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
   const [editMode, setEditMode] = useState(false);
   const [removing, setRemoving] = useState<Set<string>>(new Set());
 
-  // Exit edit mode on outside click/tap.
+  // In edit mode, a click ANYWHERE exits edit mode — except the remove (X)
+  // buttons, which stopPropagation so a real removal doesn't also close edit.
+  // The Edit/Done toggle handles its own state, so ignore clicks on it too.
   useEffect(() => {
     if (!editMode) return;
     const handler = (e: Event) => {
       const t = e.target as HTMLElement | null;
-      if (t && t.closest('[data-scene-edit-boundary]')) return;
+      if (t && t.closest('[data-scene-edit-toggle]')) return; // toggle manages itself
       setEditMode(false);
     };
     document.addEventListener('mousedown', handler);
@@ -129,10 +136,11 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
   const handleRemove = async (archive: ArchiveSerialized) => {
     if (!user) return;
     setRemoving((s) => new Set(s).add(archive.id));
-    // Optimistically drop from view.
+    // Optimistically drop from view (all sections it could appear in).
     setSections((prev) =>
       prev.map((sec) => ({ ...sec, archives: sec.archives.filter((a) => a.id !== archive.id) })),
     );
+    setDiveBackIn((prev) => prev.filter((a) => a.id !== archive.id));
     try {
       const primary = archive.djs?.[0];
       const token = await user.getIdToken();
@@ -153,6 +161,9 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
   };
 
   const hasArchiveSections = sections.some((s) => s.archives.length > 0);
+  // The Edit toggle lives on the first editable section header (sections first,
+  // else "Dive back in" if that's all the user has). One toggle controls all.
+  const canEdit = hasArchiveSections || diveBackIn.length > 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-10" data-scene-edit-boundary>
@@ -162,15 +173,8 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
         </Section>
       )}
 
-      {sections.map((section, idx) => (
-        <Section
-          key={section.id}
-          title={section.title}
-          // Edit toggle only on the first archive section header (controls both).
-          editButton={idx === 0 && hasArchiveSections}
-          editMode={editMode}
-          onToggleEdit={() => setEditMode((v) => !v)}
-        >
+      {sections.map((section) => (
+        <Section key={section.id} title={section.title}>
           <ArchiveGrid
             // Show 4; the API pre-loads extras so removing a card reveals the
             // next-best already-loaded item.
@@ -188,43 +192,48 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
           <ComingUpGrid rows={comingUp} onAuthRequired={onAuthRequired} />
         </Section>
       )}
+
+      {diveBackIn.length > 0 && (
+        <Section title="Dive back in">
+          <ArchiveGrid
+            archives={diveBackIn.slice(0, VISIBLE_PER_SECTION)}
+            editMode={editMode}
+            removing={removing}
+            onRemove={handleRemove}
+          />
+        </Section>
+      )}
+
+      {/* Sticky floating glass Edit/Done toggle — one control for all sections. */}
+      {canEdit && (
+        <button
+          data-scene-edit-toggle
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onClick={() => setEditMode((v) => !v)}
+          aria-pressed={editMode}
+          className="fixed bottom-5 right-5 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full
+                     text-[12px] font-mono uppercase tracking-[0.2em] text-white
+                     bg-white/10 backdrop-blur-xl border border-white/20 shadow-lg
+                     hover:bg-white/20 transition-colors"
+        >
+          <span
+            aria-hidden
+            className={`inline-block w-[6px] h-[6px] rounded-full transition-all ${
+              editMode ? 'bg-green-400 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]' : 'bg-zinc-400'
+            }`}
+          />
+          {editMode ? 'Done' : 'Edit'}
+        </button>
+      )}
     </div>
   );
 }
 
-function Section({
-  title,
-  children,
-  editButton,
-  editMode,
-  onToggleEdit,
-}: {
-  title: string;
-  children: React.ReactNode;
-  editButton?: boolean;
-  editMode?: boolean;
-  onToggleEdit?: () => void;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <div className="flex items-center justify-between gap-2 mb-4">
-        <h2 className="text-2xl md:text-3xl font-semibold">{title}</h2>
-        {editButton && (
-          <button
-            onClick={onToggleEdit}
-            aria-pressed={editMode}
-            className="shrink-0 flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.2em] text-zinc-500 hover:text-zinc-300 transition-colors px-1 py-1"
-          >
-            <span
-              aria-hidden
-              className={`inline-block w-[6px] h-[6px] rounded-full transition-all ${
-                editMode ? 'bg-green-400 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]' : 'bg-zinc-700'
-              }`}
-            />
-            Edit
-          </button>
-        )}
-      </div>
+      <h2 className="text-2xl md:text-3xl font-semibold mb-4">{title}</h2>
       {children}
     </section>
   );

@@ -77,9 +77,17 @@ export async function POST(request: NextRequest) {
   ]);
   const streamedArchiveIds = new Set<string>();
   const engagedDjUsernames = new Set<string>();
+  // For "Dive back in": streamed archiveId → lastStreamedAt (ms), oldest first.
+  const streamedAtMs = new Map<string, number>();
   for (const d of streamSnap.docs) {
     const data = d.data();
-    if (data.archiveId) streamedArchiveIds.add(data.archiveId as string);
+    if (data.archiveId) {
+      streamedArchiveIds.add(data.archiveId as string);
+      const ts = data.lastStreamedAt;
+      const ms =
+        typeof ts?.toMillis === "function" ? ts.toMillis() : typeof ts?._seconds === "number" ? ts._seconds * 1000 : 0;
+      streamedAtMs.set(data.archiveId as string, ms);
+    }
     for (const n of (data.djUsernamesNormalized as string[] | undefined) ?? []) engagedDjUsernames.add(n);
   }
   for (const d of loveSnap.docs) {
@@ -141,9 +149,20 @@ export async function POST(request: NextRequest) {
     engagedDjUsernames,
   });
 
+  // 5. "Dive back in": archives the user has streamed, OLDEST last-listened first
+  //    (revisit neglected listens). Excludes dismissed + hidden. Show 4, load 8.
+  const diveBackIn: ArchiveSerialized[] = Array.from(streamedArchiveIds)
+    .filter((id) => !dismissedArchiveIds.has(id))
+    .map((id) => archiveById.get(id))
+    .filter((a): a is ArchiveSerialized => !!a && a.priority !== "hidden")
+    .sort((a, b) => (streamedAtMs.get(a.id) ?? 0) - (streamedAtMs.get(b.id) ?? 0))
+    .slice(0, 8);
+
   return NextResponse.json({
     sections: archiveSections,
     comingUp,
     comingUpTitle: "Coming up",
+    diveBackIn,
+    diveBackInTitle: "Dive back in",
   });
 }
