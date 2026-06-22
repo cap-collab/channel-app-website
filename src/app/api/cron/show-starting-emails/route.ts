@@ -172,6 +172,19 @@ export async function GET(request: NextRequest) {
   // nothing. Lets an admin see the exact email a given user would receive.
   const previewTo = params.get("previewTo")?.toLowerCase() || undefined;
 
+  // PAUSED: the automated hourly "Show is going live" send is disabled. Admin
+  // escape hatches still run so we can pre-flight before un-pausing: dry-run
+  // traces (?dryRun=1), single-recipient previews (?previewTo=), and
+  // simulate-live (?simulateLive=) all stamp/send nothing or only the one
+  // preview recipient. A plain cron tick (none of those set) returns early.
+  // To resume: delete this block.
+  if (!dryRun && !previewTo) {
+    return NextResponse.json({
+      paused: true,
+      message: "Show-starting (go-live) emails are temporarily paused",
+    });
+  }
+
   if (!isRestApiConfigured()) {
     return NextResponse.json(
       { error: "Firebase REST API not configured" },
