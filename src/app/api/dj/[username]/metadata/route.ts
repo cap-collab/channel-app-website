@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { normalizeUsername } from "@/lib/dj-matching";
 
 export async function GET(
   request: NextRequest,
@@ -13,7 +14,7 @@ export async function GET(
   }
 
   try {
-    const normalized = decodeURIComponent(username).replace(/[\s-]+/g, "").toLowerCase();
+    const normalized = normalizeUsername(decodeURIComponent(username));
 
     // Check pending-dj-profiles first
     const pendingSnapshot = await adminDb

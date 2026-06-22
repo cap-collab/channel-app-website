@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 // Reserved usernames that cannot be registered (case-insensitive)
 const RESERVED_USERNAMES = ['channel', 'admin', 'system', 'moderator', 'mod'];
@@ -30,8 +31,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Generate normalized handle (strip spaces and hyphens, lowercase)
-    const handle = trimmed.replace(/[\s-]+/g, '').toLowerCase();
+    // Generate normalized handle (strip ALL non-alphanumerics incl dots, lowercase)
+    const handle = normalizeUsername(trimmed);
 
     // Check reserved usernames
     if (RESERVED_USERNAMES.includes(handle)) {

@@ -12,12 +12,15 @@ export function normalizeName(name: string): string {
   return name.toLowerCase().trim();
 }
 
-// Canonical username form. Matches the rule used when chatUsernameNormalized
-// is written in src/app/api/chat/register-username/route.ts: strip spaces and
-// hyphens, lowercase. ANY field meant to match chatUsernameNormalized at query
-// time MUST be produced by this function.
+// Canonical username form: strip ALL non-alphanumerics (spaces, hyphens, AND
+// dots/punctuation), lowercase. This intentionally matches generateSlug() in
+// src/lib/slug.ts so usernames and collective slugs normalize identically —
+// e.g. "B. Rod" → "brod", never "b.rod". Dotted DJ names previously broke
+// /dj/<username> resolution because the lookup kept the dot while the stored
+// chatUsernameNormalized had it stripped. ANY field meant to match
+// chatUsernameNormalized at query time MUST be produced by this function.
 export function normalizeUsername(name: string): string {
-  return name.replace(/[\s-]+/g, "").toLowerCase();
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 /**

@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { makeOG } from "@/lib/og";
+import { normalizeUsername } from "@/lib/dj-matching";
 import { DJPublicProfileClient } from "./DJPublicProfileClient";
 
 // Force dynamic rendering so Admin SDK has access to env vars at runtime
@@ -18,7 +19,7 @@ async function getDJData(username: string): Promise<{ name: string; photoUrl: st
   }
 
   try {
-    const normalized = decodeURIComponent(username).replace(/[\s-]+/g, "").toLowerCase();
+    const normalized = normalizeUsername(decodeURIComponent(username));
     console.log("[DJ Metadata] Looking up:", normalized);
 
     // Check users collection first — Studio writes here, so it has the

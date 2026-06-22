@@ -364,9 +364,11 @@ function calculateShowProgress(startTime: string, endTime: string): number {
   return Math.min(100, Math.max(0, (elapsed / total) * 100));
 }
 
-// Normalize username for chat stationId (lowercase, no spaces/hyphens)
+// Normalize username (lowercase, strip ALL non-alphanumerics incl dots) — same
+// rule as the shared @/lib/dj-matching normalizeUsername / generateSlug, so a
+// dotted name like "B. Rod" resolves and links as "brod".
 function normalizeUsername(chatUsername: string): string {
-  return chatUsername.replace(/[\s-]+/g, "").toLowerCase();
+  return chatUsername.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 function formatShowTime(date: Date): string {
@@ -498,8 +500,8 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       }
 
       try {
-        // Normalize the URL param: lowercase, remove spaces/hyphens
-        const normalized = decodeURIComponent(username).replace(/[\s-]+/g, "").toLowerCase();
+        // Normalize the URL param with the canonical rule (strips dots too)
+        const normalized = normalizeUsername(decodeURIComponent(username));
 
         // Check pending-dj-profiles FIRST (has public read, avoids permission issues)
         const pendingRef = collection(db, "pending-dj-profiles");

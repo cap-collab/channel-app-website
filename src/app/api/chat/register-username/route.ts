@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 // Reserved usernames that cannot be registered (case-insensitive)
 const RESERVED_USERNAMES = ['channel', 'admin', 'system', 'moderator', 'mod'];
@@ -75,8 +76,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Generate normalized handle (strip spaces and hyphens, lowercase) for uniqueness and @mentions
-    const handle = trimmedUsername.replace(/[\s-]+/g, '').toLowerCase();
+    // Generate normalized handle (strip ALL non-alphanumerics incl dots, lowercase)
+    // for uniqueness and @mentions — same rule as generateSlug / normalizeUsername.
+    const handle = normalizeUsername(trimmedUsername);
     const usernameDocRef = db.collection('usernames').doc(handle);
     const userDocRef = db.collection('users').doc(userId);
 
