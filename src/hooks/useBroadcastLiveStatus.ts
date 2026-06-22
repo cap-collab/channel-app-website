@@ -17,6 +17,33 @@ function isHiddenTestDj(...candidates: Array<string | null | undefined>): boolea
   return candidates.some(c => typeof c === 'string' && c.length > 0 && normalizeUsername(c) === HIDDEN_TEST_DJ);
 }
 
+// Private "test mode": visit any page with ?testmode=1 to opt this browser in
+// (persisted in localStorage), ?testmode=0 to opt out. While on, the
+// channelbroadcast admin test broadcast is treated as a real live show on THIS
+// browser only — so go-live, back-to-back, and transitions can be watched and
+// heard exactly as the public would, without ever showing up for anyone else.
+// Only ever un-hides the channelbroadcast account; never affects a real DJ.
+const TEST_MODE_KEY = 'channelTestMode';
+
+function readTestMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const param = params.get('testmode');
+    if (param === '1' || param === 'true') {
+      window.localStorage.setItem(TEST_MODE_KEY, '1');
+      return true;
+    }
+    if (param === '0' || param === 'false') {
+      window.localStorage.removeItem(TEST_MODE_KEY);
+      return false;
+    }
+    return window.localStorage.getItem(TEST_MODE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -62,6 +89,7 @@ export function useBroadcastLiveStatus(): UseBroadcastLiveStatusReturn {
   }, []);
 
   useEffect(() => {
+    const testMode = readTestMode();
     const app = getFirebaseApp();
     const db = getFirestore(app);
 
@@ -140,7 +168,9 @@ export function useBroadcastLiveStatus(): UseBroadcastLiveStatusReturn {
           const data = doc.data();
 
           // Admin test broadcast — keep it off the public site (recording still runs).
-          if (isHiddenTestDj(data.liveDjUsername, data.liveDjChatUsername, data.djUsername, data.djName)) {
+          // In private test mode (?testmode=1 on this browser) we let it through
+          // so the broadcast can be watched/heard like a real show.
+          if (!testMode && isHiddenTestDj(data.liveDjUsername, data.liveDjChatUsername, data.djUsername, data.djName)) {
             setIsLive(false);
             setShowName(null);
             setDjName(null);

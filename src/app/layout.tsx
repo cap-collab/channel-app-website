@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { Providers } from "./Providers";
 import MetaPixel from "./MetaPixel";
+import { TestModeBadge } from "@/components/TestModeBadge";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -73,6 +74,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <MetaPixel />
         <Providers>{children}</Providers>
+        <TestModeBadge />
       </body>
     </html>
   );
