@@ -73,6 +73,14 @@
         { "fieldPath": "term", "order": "ASCENDING" },
         { "fieldPath": "type", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "streamHistory",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "sourceType", "order": "ASCENDING" },
+        { "fieldPath": "lastStreamedAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

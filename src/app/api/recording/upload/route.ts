@@ -205,6 +205,10 @@ export async function POST(request: NextRequest) {
       priority: 'hidden',
       // Artist-selected tempo/category (null if they skipped it)
       tempo: tempoValue,
+      // Scene inherited from the uploader's profile so the archive carries it.
+      ...(Array.isArray(djProfile.sceneIds) && djProfile.sceneIds.length > 0
+        ? { sceneSlugs: djProfile.sceneIds }
+        : {}),
       // Upload tracking fields
       uploadStatus: 'uploading',
       uploadFilePath: r2Key,

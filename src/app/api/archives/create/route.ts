@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { STATION_ID } from '@/types/broadcast';
 import { extractDJs } from '@/lib/extract-djs';
+import { resolveSceneSlugsForArchive } from '@/lib/archive-scene-resolve';
 
 // Generate URL-friendly slug from show name
 function generateSlug(showName: string): string {
@@ -103,6 +104,12 @@ export async function POST(request: NextRequest) {
     // Extract DJ info
     const djs = extractDJs(slotData);
 
+    // Scene: prefer the slot's override, else inherit the DJs' profile scenes
+    // so every new archive carries sceneSlugs.
+    const sceneSlugs = Array.isArray(slotData.sceneIdsOverride) && slotData.sceneIdsOverride.length > 0
+      ? (slotData.sceneIdsOverride as string[])
+      : await resolveSceneSlugsForArchive(db, djs);
+
     // Get recorded time from slot's startTime
     const startTime = slotData.startTime;
     const recordedAt = startTime?.toMillis ? startTime.toMillis() : Date.now();
@@ -120,6 +127,7 @@ export async function POST(request: NextRequest) {
       stationId: slotData.stationId || STATION_ID,
       priority: 'medium',
       showImageUrl: slotData.showImageUrl || null,
+      sceneSlugs,
     });
 
     return NextResponse.json({

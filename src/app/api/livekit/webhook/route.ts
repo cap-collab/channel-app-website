@@ -4,6 +4,7 @@ import { SegmentedFileOutput, SegmentedFileProtocol, S3Upload } from '@livekit/p
 import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import { Recording, STATION_ID, ROOM_NAME } from '@/types/broadcast';
 import { extractDJs } from '@/lib/extract-djs';
+import { resolveSceneSlugsForArchive } from '@/lib/archive-scene-resolve';
 import { copyCollectiveChatToOwners } from '@/lib/copy-collective-chat';
 
 // Generate URL-friendly slug from show name
@@ -414,6 +415,17 @@ export async function POST(request: NextRequest) {
               // Carry the resolved Opus RED decision from the slot, if recorded.
               if (typeof slotData?.redMode === 'string') {
                 archiveDoc.redMode = slotData.redMode;
+              }
+
+              // Scene: slot override, else inherit the DJs' profile scenes so the
+              // archive always carries sceneSlugs (additive — no existing field touched).
+              try {
+                const sceneSlugs = Array.isArray(slotData?.sceneIdsOverride) && slotData.sceneIdsOverride.length > 0
+                  ? (slotData.sceneIdsOverride as string[])
+                  : await resolveSceneSlugsForArchive(db, djs);
+                if (sceneSlugs.length > 0) archiveDoc.sceneSlugs = sceneSlugs;
+              } catch (e) {
+                console.error('[webhook] scene resolve failed (non-fatal):', e);
               }
 
               await archivesRef.add(archiveDoc);
