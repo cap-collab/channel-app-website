@@ -61,6 +61,12 @@ export function SceneRecommendations({
   const [startHere, setStartHere] = useState<ArchiveSerialized[] | null>(null);
   const [comingUp, setComingUp] = useState<ComingUpRow[]>([]);
   const [comingUpTitle, setComingUpTitle] = useState('Coming up this week');
+  // Transient "Added to watchlist" confirmation (auto-hides).
+  const [toast, setToast] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 2200);
+  };
   const [diveBackIn, setDiveBackIn] = useState<ArchiveSerialized[]>([]);
   const [diveExpanded, setDiveExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -183,7 +189,7 @@ export function SceneRecommendations({
 
       {comingUp.length > 0 && (
         <Section title={comingUpTitle}>
-          <ComingUpGrid rows={comingUp} onAuthRequired={onAuthRequired} />
+          <ComingUpGrid rows={comingUp} onAuthRequired={onAuthRequired} onAdded={() => showToast('Added to watchlist')} />
         </Section>
       )}
 
@@ -206,6 +212,19 @@ export function SceneRecommendations({
             </button>
           )}
         </Section>
+      )}
+
+      {/* Transient confirmation toast — same frosted-glass + mono-uppercase +
+          squared vocabulary as the card/Edit buttons. Green check = done. */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 flex items-center gap-2
+                        text-[12px] font-mono uppercase tracking-[0.15em] text-white
+                        bg-white/10 backdrop-blur-md border border-white/30 shadow-lg">
+          <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+          </svg>
+          {toast}
+        </div>
       )}
     </div>
   );
@@ -299,7 +318,15 @@ function ArchiveGrid({
 
 // §3 cards reuse IRLShowCard. ticketUrl='' → only the Watchlist button renders;
 // reason → matchLabel.
-function ComingUpGrid({ rows, onAuthRequired }: { rows: ComingUpRow[]; onAuthRequired: () => void }) {
+function ComingUpGrid({
+  rows,
+  onAuthRequired,
+  onAdded,
+}: {
+  rows: ComingUpRow[];
+  onAuthRequired: () => void;
+  onAdded: (name: string) => void;
+}) {
   const { isAuthenticated } = useAuthContext();
   const { addToWatchlist, isInWatchlist } = useFavorites();
   const [adding, setAdding] = useState<Set<string>>(new Set());
@@ -312,7 +339,9 @@ function ComingUpGrid({ rows, onAuthRequired }: { rows: ComingUpRow[]; onAuthReq
     const key = row.djUsername || row.eventName;
     setAdding((s) => new Set(s).add(key));
     try {
-      await addToWatchlist(row.djName, row.djUsername || undefined);
+      // addToWatchlist also auto-adds the DJ's matching upcoming shows + IRL events.
+      const ok = await addToWatchlist(row.djName, row.djUsername || undefined);
+      if (ok !== false) onAdded(row.djName);
     } finally {
       setAdding((s) => {
         const n = new Set(s);
