@@ -364,6 +364,7 @@ export function StudioProfileClient() {
     sourceType?: string;
     source?: 'archive' | 'session'; // which collection this came from
     showImageUrl?: string;
+    ownerUserId?: string; // djs[0].userId — only the owner may delete. Absent for session recs (uploader is owner).
   }
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loadingRecordings, setLoadingRecordings] = useState(true);
@@ -917,6 +918,7 @@ export function StudioProfileClient() {
             sourceType: data.sourceType,
             source: 'archive',
             showImageUrl: data.showImageUrl,
+            ownerUserId: data.djs?.[0]?.userId,
           });
         });
         archivesLoaded = true;
@@ -1014,6 +1016,18 @@ export function StudioProfileClient() {
         // Delete from archives + associated studio-session
         const archiveRef = firestoreDoc(db, 'archives', recordingId);
         const archiveSnap = await getDoc(archiveRef);
+        // Only the current OWNER (djs[0]) may delete. After an admin reassigns
+        // an archive's owner (e.g. DJ → collective, original DJ kept only as a
+        // contributor), the original uploader is no longer the owner and must
+        // not be able to delete it. djs[0].userId is the owner; if it's set and
+        // isn't this user, refuse. (No userId on djs[0] — e.g. a collective
+        // owner — also means this individual isn't the owner.)
+        const ownerUserId = archiveSnap.data()?.djs?.[0]?.userId;
+        if (ownerUserId !== user.uid) {
+          alert('Only the current owner of this recording can delete it.');
+          setDeletingRecording(null);
+          return;
+        }
         const sessionId = archiveSnap.data()?.broadcastSlotId;
         if (sessionId) {
           const sessionRef = firestoreDoc(db, 'studio-sessions', sessionId);
@@ -2821,8 +2835,12 @@ export function StudioProfileClient() {
                                 )}
                               </button>
 
-                              {/* Delete button — hidden for live broadcast recordings */}
-                              {recording.sourceType !== 'live' && (
+                              {/* Delete button — hidden for live broadcast
+                                  recordings, and for archives this user no
+                                  longer owns (owner reassigned away). Session
+                                  recs have no owner field → uploader is owner. */}
+                              {recording.sourceType !== 'live'
+                                && (recording.source !== 'archive' || recording.ownerUserId === user?.uid) && (
                               <button
                                 onClick={() => handleDeleteRecording(recording.id)}
                                 disabled={deletingRecording === recording.id}

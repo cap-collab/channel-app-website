@@ -61,6 +61,15 @@ export async function PATCH(request: NextRequest) {
     if (body.tempo !== undefined) {
       updates.tempo = isTempo(body.tempo) ? body.tempo : null;
     }
+    // Cross-listed DJ UIDs (admin-set). Surfaces this archive on the listed
+    // DJs' individual /dj/<username> pages WITHOUT touching djs[] — so the
+    // public credit, scenes, hero, social render, SEO, and delete-ownership
+    // are all unaffected. null/[]/non-array clears all tags.
+    if (body.crossListUserIds !== undefined) {
+      updates.crossListUserIds = Array.isArray(body.crossListUserIds)
+        ? body.crossListUserIds.filter((v: unknown) => typeof v === 'string')
+        : [];
+    }
 
     // DJ-level updates (genres, location, name, username, photoUrl)
     if (body.djIndex !== undefined) {

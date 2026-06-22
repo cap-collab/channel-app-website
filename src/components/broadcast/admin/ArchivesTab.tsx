@@ -18,6 +18,27 @@ interface VenueOption {
   slug: string;
 }
 
+// A real DJ user that can be cross-list-tagged (contributor) on an archive.
+// Only users with accounts (a real uid) qualify — cross-listing keys on uid.
+interface DjOption {
+  uid: string;
+  label: string;
+  username?: string;
+}
+
+// An option for the OWNER picker (djs[0]): a DJ user OR a collective. Carries
+// the exact fields written to djs[0] so the dropdown can set them directly —
+// for a collective, username = slug (that's how collective pages match) and
+// there's no userId. `key` is a stable select value (uid or `col:<slug>`).
+interface OwnerOption {
+  key: string;
+  kind: 'user' | 'collective';
+  label: string;
+  name: string;
+  username: string;
+  userId?: string;
+}
+
 interface ArchivesTabProps {
   onArchiveCountChange: (count: number) => void;
 }
@@ -85,6 +106,66 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
   } | null>(null);
   const [socialArchive, setSocialArchive] = useState<ArchiveSerialized | null>(null);
   const [venues, setVenues] = useState<VenueOption[]>([]);
+  // DJ users only — for the contributors (cross-list) picker.
+  const [djOptions, setDjOptions] = useState<DjOption[]>([]);
+  // DJ users + collectives — for the owner (djs[0]) dropdown.
+  const [ownerOptions, setOwnerOptions] = useState<OwnerOption[]>([]);
+
+  // Fetch DJ users + collectives once for the owner dropdown and the
+  // contributors picker. Public reads; no auth needed.
+  useEffect(() => {
+    if (!db) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { query, where } = await import('firebase/firestore');
+        const [usersSnap, colSnap] = await Promise.all([
+          getDocs(query(collection(db, 'users'), where('role', 'in', ['dj', 'broadcaster', 'admin']))),
+          getDocs(collection(db, 'collectives')),
+        ]);
+
+        const djs: DjOption[] = [];
+        const owners: OwnerOption[] = [];
+        usersSnap.forEach((docSnap) => {
+          const data = docSnap.data();
+          const label = data.chatUsername || data.displayName || data.email || 'Unknown';
+          const username = data.chatUsernameNormalized || data.chatUsername || '';
+          djs.push({ uid: docSnap.id, label, username: username || undefined });
+          owners.push({
+            key: docSnap.id,
+            kind: 'user',
+            label,
+            name: data.chatUsername || data.displayName || 'Unknown DJ',
+            username,
+            userId: docSnap.id,
+          });
+        });
+        colSnap.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (!data.slug) return; // collective pages match on slug
+          owners.push({
+            key: `col:${data.slug}`,
+            kind: 'collective',
+            label: `${data.name || data.slug} (collective)`,
+            name: data.name || data.slug,
+            username: data.slug, // collective page matches dj.username === slug
+          });
+        });
+
+        djs.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+        owners.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+        if (!cancelled) {
+          setDjOptions(djs);
+          setOwnerOptions(owners);
+        }
+      } catch (err) {
+        console.error('[ArchivesTab] failed to load DJ/collective options:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Fetch venues once for the edit-form dropdown. Public read; no auth needed.
   useEffect(() => {
@@ -419,6 +500,8 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
                 archive={archive}
                 scenes={scenes}
                 venues={venues}
+                djOptions={djOptions}
+                ownerOptions={ownerOptions}
                 inheritedSceneIds={inheritedScenes}
                 onToggleScene={(sceneId) => handleToggleScene(archive.id, sceneId, inheritedScenes)}
                 onResetSceneOverride={() => handleResetSceneOverride(archive.id)}
@@ -537,6 +620,8 @@ function ArchiveCard({
   archive,
   scenes,
   venues,
+  djOptions,
+  ownerOptions,
   inheritedSceneIds,
   onToggleScene,
   onResetSceneOverride,
@@ -549,6 +634,8 @@ function ArchiveCard({
   archive: ArchiveSerialized;
   scenes: SceneSerialized[];
   venues: VenueOption[];
+  djOptions: DjOption[];
+  ownerOptions: OwnerOption[];
   inheritedSceneIds: string[];
   onToggleScene: (sceneId: string) => void;
   onResetSceneOverride: () => void;
@@ -573,9 +660,23 @@ function ArchiveCard({
   const [genreInput, setGenreInput] = useState(primaryDj?.genres?.join(', ') || '');
   const [locationInput, setLocationInput] = useState(primaryDj?.location || '');
   const [venueIdInput, setVenueIdInput] = useState(archive.venueId || '');
+  // Contributors (crossListUserIds) — DJ uids the archive is surfaced to on
+  // their own /dj page, WITHOUT touching djs[]/credit/scenes.
+  const [crossListInput, setCrossListInput] = useState<string[]>(archive.crossListUserIds || []);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Owner dropdown → fill the djs[0] name/username inputs from the picked DJ
+  // user or collective. (Collective → username = slug, which is how collective
+  // pages match.) Empty selection leaves the current free-text values alone.
+  const handleOwnerSelect = (key: string) => {
+    if (!key) return;
+    const opt = ownerOptions.find(o => o.key === key);
+    if (!opt) return;
+    setDjNameInput(opt.name);
+    setDjUsernameInput(opt.username);
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -589,6 +690,7 @@ function ArchiveCard({
       genres,
       location: locationInput.trim(),
       venueId: venueIdInput,
+      crossListUserIds: crossListInput,
     });
     setIsSaving(false);
     setIsEditing(false);
@@ -628,6 +730,7 @@ function ArchiveCard({
     setGenreInput(primaryDj?.genres?.join(', ') || '');
     setLocationInput(primaryDj?.location || '');
     setVenueIdInput(archive.venueId || '');
+    setCrossListInput(archive.crossListUserIds || []);
     setIsEditing(true);
   };
 
@@ -681,6 +784,23 @@ function ArchiveCard({
                   className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
                 />
               </div>
+              {/* Owner (djs[0]) — pick a DJ user or a collective to set the
+                  primary credit. Drives the credit line, hero, scenes, SEO,
+                  collective page, and who can delete. Fills the name/username
+                  below; you can still hand-edit for pending/manual DJs. */}
+              <div>
+                <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Owner (primary credit)</label>
+                <select
+                  value=""
+                  onChange={(e) => handleOwnerSelect(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                >
+                  <option value="">Set owner from DJ / collective…</option>
+                  {ownerOptions.map((o) => (
+                    <option key={o.key} value={o.key}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <input
                   value={djNameInput}
@@ -721,6 +841,48 @@ function ArchiveCard({
                       {v.name}
                     </option>
                   ))}
+                </select>
+              </div>
+              {/* Contributors (crossListUserIds) — surfaces this archive on
+                  these DJs' OWN /dj pages only. Does NOT change the credit,
+                  hero, scenes, SEO, or who can delete. */}
+              <div>
+                <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">
+                  Contributors (show on their profile, no credit change)
+                </label>
+                {crossListInput.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-1.5">
+                    {crossListInput.map((uid) => {
+                      const opt = djOptions.find((d) => d.uid === uid);
+                      return (
+                        <span key={uid} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-gray-800 border border-gray-700 text-gray-300">
+                          {opt?.label || uid}
+                          <button
+                            type="button"
+                            onClick={() => setCrossListInput(crossListInput.filter((u) => u !== uid))}
+                            className="text-gray-500 hover:text-red-400"
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const uid = e.target.value;
+                    if (uid && !crossListInput.includes(uid)) setCrossListInput([...crossListInput, uid]);
+                  }}
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                >
+                  <option value="">+ Tag a contributor DJ…</option>
+                  {djOptions
+                    .filter((d) => !crossListInput.includes(d.uid))
+                    .map((d) => (
+                      <option key={d.uid} value={d.uid}>{d.label}</option>
+                    ))}
                 </select>
               </div>
               <div className="flex items-center gap-2 justify-end">
