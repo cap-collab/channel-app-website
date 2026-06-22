@@ -15,7 +15,7 @@
  * candidates are returned in `dropped` (with excludedReason) for admin preview.
  */
 
-import { priorityIsHigh } from "@/lib/archive-priority";
+import { priorityIsHigh, priorityRank } from "@/lib/archive-priority";
 import type {
   RecommendationConfig,
   ScoredCandidate,
@@ -145,38 +145,25 @@ function collapseSection(sectionId: SectionId, items: ScoredCandidate[]): Scored
 
 const artistKey = (c: ScoredCandidate) => c.item.djUsernames[0] ?? c.item.id;
 
-// One archive per artist = their newest recording (pinned wins its artist
-// outright). Artists ordered by their kept archive's recording date, freshest
-// first. Deterministic (id tie-break).
+// Per-artist: keep ONE archive (highest priority, then latest; pinned wins).
+// Artists ordered by PRIORITY (featured > high > medium > …), recency as the
+// tie-break. Deterministic (id final tie-break).
 function latestPerArtist(items: ScoredCandidate[]): ScoredCandidate[] {
+  // Higher = better. featured/high > medium > low; pinned beats all.
+  const score = (c: ScoredCandidate) => -priorityRank(c.item.priority);
+  const better = (a: ScoredCandidate, b: ScoredCandidate) => {
+    if (!!a.pinned !== !!b.pinned) return a.pinned; // pin wins
+    if (score(a) !== score(b)) return score(a) > score(b); // higher priority
+    if (a.item.recordedAtMs !== b.item.recordedAtMs) return a.item.recordedAtMs > b.item.recordedAtMs;
+    return a.item.id < b.item.id;
+  };
   const byArtist = new Map<string, ScoredCandidate>();
   for (const c of items) {
     const k = artistKey(c);
     const cur = byArtist.get(k);
-    if (!cur) {
-      byArtist.set(k, c);
-      continue;
-    }
-    if (cur.pinned && !c.pinned) continue; // pin holds the slot
-    if (!cur.pinned && c.pinned) {
-      byArtist.set(k, c); // pin takes over
-      continue;
-    }
-    // Same pin status → keep the later recording (id tie-break).
-    if (
-      c.item.recordedAtMs > cur.item.recordedAtMs ||
-      (c.item.recordedAtMs === cur.item.recordedAtMs && c.item.id < cur.item.id)
-    ) {
-      byArtist.set(k, c);
-    }
+    if (!cur || better(c, cur)) byArtist.set(k, c);
   }
-  return Array.from(byArtist.values()).sort((a, b) => {
-    // Pinned artists float to the top (in feature order via the upstream sort);
-    // otherwise freshest-recording artist first.
-    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
-    if (b.item.recordedAtMs !== a.item.recordedAtMs) return b.item.recordedAtMs - a.item.recordedAtMs;
-    return a.item.id < b.item.id ? -1 : 1;
-  });
+  return Array.from(byArtist.values()).sort((a, b) => (better(a, b) ? -1 : better(b, a) ? 1 : 0));
 }
 
 function exclusionReason(

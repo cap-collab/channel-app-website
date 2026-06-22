@@ -31,8 +31,10 @@ export const DEFAULT_RECOMMENDATION_CONFIG: RecommendationConfig = {
   },
   caps: {
     website: {
+      // Show 4, pre-load 4 extra so removing a card reveals the next-best
+      // already-loaded item (the UI slices to 4).
       "favorite-artists": 8,
-      discovery: 4, // Suggestions capped at 4 archives
+      discovery: 8,
       "coming-up": 8,
       "start-here": 8,
     },

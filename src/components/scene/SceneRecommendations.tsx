@@ -13,6 +13,10 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
 
+// Archive sections show 4 cards; the API returns extras (cap 8) so removing a
+// card in edit mode reveals the next-best already-loaded item.
+const VISIBLE_PER_SECTION = 4;
+
 interface RecBand {
   glyphSlug?: string;
   tempo?: string;
@@ -168,7 +172,9 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
           onToggleEdit={() => setEditMode((v) => !v)}
         >
           <ArchiveGrid
-            archives={section.archives}
+            // Show 4; the API pre-loads extras so removing a card reveals the
+            // next-best already-loaded item.
+            archives={section.archives.slice(0, VISIBLE_PER_SECTION)}
             bandByArchiveId={section.bandByArchiveId}
             editMode={editMode}
             removing={removing}
