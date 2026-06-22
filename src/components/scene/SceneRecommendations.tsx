@@ -47,7 +47,15 @@ interface FeaturedResponse {
   comingUpTitle: string;
 }
 
-export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () => void }) {
+export function SceneRecommendations({
+  onAuthRequired,
+  editMode,
+  onCanEditChange,
+}: {
+  onAuthRequired: () => void;
+  editMode: boolean; // owned by SceneClient (button lives in the search row)
+  onCanEditChange: (canEdit: boolean) => void;
+}) {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const [sections, setSections] = useState<RecSection[]>([]);
   const [startHere, setStartHere] = useState<ArchiveSerialized[] | null>(null);
@@ -103,28 +111,15 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
     };
   }, [authLoading, isAuthenticated, user]);
 
-  // Edit mode: remove an archive from a personalized section. Permanently hides
-  // that archive + drops the artist from the watchlist via /api/recommendations/dismiss.
-  const [editMode, setEditMode] = useState(false);
+  // Removal in-flight set (editMode is owned by SceneClient; the toggle lives in
+  // the search row so it aligns with the search bar).
   const [removing, setRemoving] = useState<Set<string>>(new Set());
 
-  // In edit mode, a click ANYWHERE exits edit mode — except the remove (X)
-  // buttons, which stopPropagation so a real removal doesn't also close edit.
-  // The Edit/Done toggle handles its own state, so ignore clicks on it too.
+  // Tell SceneClient whether there's anything editable (controls the toggle).
+  const canEdit = sections.some((s) => s.archives.length > 0) || diveBackIn.length > 0;
   useEffect(() => {
-    if (!editMode) return;
-    const handler = (e: Event) => {
-      const t = e.target as HTMLElement | null;
-      if (t && t.closest('[data-scene-edit-toggle]')) return; // toggle manages itself
-      setEditMode(false);
-    };
-    document.addEventListener('mousedown', handler);
-    document.addEventListener('touchstart', handler);
-    return () => {
-      document.removeEventListener('mousedown', handler);
-      document.removeEventListener('touchstart', handler);
-    };
-  }, [editMode]);
+    onCanEditChange(canEdit);
+  }, [canEdit, onCanEditChange]);
 
   if (loading) {
     return (
@@ -161,15 +156,10 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
     }
   };
 
-  const hasArchiveSections = sections.some((s) => s.archives.length > 0);
-  // The Edit toggle lives on the first editable section header (sections first,
-  // else "Dive back in" if that's all the user has). One toggle controls all.
-  const canEdit = hasArchiveSections || diveBackIn.length > 0;
-
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-10" data-scene-edit-boundary>
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-10">
       {startHere && startHere.length > 0 && (
-        <Section title="Start here">
+        <Section title="Explore The Scene">
           <ArchiveGrid archives={startHere} />
         </Section>
       )}
@@ -181,6 +171,9 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
             // next-best already-loaded item.
             archives={section.archives.slice(0, VISIBLE_PER_SECTION)}
             bandByArchiveId={section.bandByArchiveId}
+            // §1 "Your Scene" → a "New Show" black bar on every card (these are
+            // not-yet-streamed archives from your favorite artists).
+            fixedBandLabel={section.id === 'favorite-artists' ? 'New Show' : undefined}
             editMode={editMode}
             removing={removing}
             onRemove={handleRemove}
@@ -214,30 +207,6 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
           )}
         </Section>
       )}
-
-      {/* Sticky top-right Edit/Done toggle. Previous LED-dot design, but glass +
-          thin + squared (matches the card overlay buttons). One control for all. */}
-      {canEdit && (
-        <button
-          data-scene-edit-toggle
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          onClick={() => setEditMode((v) => !v)}
-          aria-pressed={editMode}
-          className="fixed top-20 right-4 z-40 flex items-center gap-2 px-3 py-1.5
-                     text-[11px] font-mono uppercase tracking-[0.2em] text-white
-                     bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md
-                     transition-colors"
-        >
-          <span
-            aria-hidden
-            className={`inline-block w-[6px] h-[6px] rounded-full transition-all ${
-              editMode ? 'bg-green-400 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]' : 'bg-zinc-400'
-            }`}
-          />
-          {editMode ? 'Done' : 'Edit'}
-        </button>
-      )}
     </div>
   );
 }
@@ -257,12 +226,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function ArchiveGrid({
   archives,
   bandByArchiveId,
+  fixedBandLabel,
   editMode,
   removing,
   onRemove,
 }: {
   archives: ArchiveSerialized[];
   bandByArchiveId?: Record<string, RecBand>;
+  fixedBandLabel?: string; // same label on every card's black bar (e.g. §1 "New Show")
   editMode?: boolean;
   removing?: Set<string>;
   onRemove?: (archive: ArchiveSerialized) => void;
@@ -287,11 +258,17 @@ function ArchiveGrid({
         const tempoText = band?.tempo ? tempoLabel(band.tempo) : null;
         return (
           <div key={archive.id} className="relative">
-            {band && (band.glyphSlug || tempoText) && (
-              <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center gap-1.5">
-                {band.glyphSlug && <SceneGlyph slug={band.glyphSlug} className="!w-3 !h-3" />}
-                {tempoText && <span className="lowercase tracking-normal">{tempoText.toLowerCase()}</span>}
+            {fixedBandLabel ? (
+              <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center">
+                {fixedBandLabel}
               </div>
+            ) : (
+              band && (band.glyphSlug || tempoText) && (
+                <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center gap-1.5">
+                  {band.glyphSlug && <SceneGlyph slug={band.glyphSlug} className="!w-3 !h-3" />}
+                  {tempoText && <span className="lowercase tracking-normal">{tempoText.toLowerCase()}</span>}
+                </div>
+              )
             )}
             <ArchiveGridCard
               archive={archive}
