@@ -1319,7 +1319,11 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
         const matchedCollectives: Collective[] = [];
         collectivesSnapshot.forEach((doc) => {
           const data = doc.data();
-          if (matchesDJ(data.residentDJs)) {
+          // Match if the DJ is a resident OR an OWNER of the collective. Owners
+          // are channel-user UIDs (e.g. a b2b collective lists its members as
+          // owners, not residents), so owner-only members were being missed.
+          const isOwner = !!(djUserId && Array.isArray(data.owners) && data.owners.includes(djUserId));
+          if (matchesDJ(data.residentDJs) || isOwner) {
             matchedCollectives.push({
               id: doc.id,
               name: data.name,
