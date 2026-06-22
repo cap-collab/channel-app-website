@@ -43,8 +43,8 @@ export interface RecSectionOut {
 }
 
 const SECTION_TITLE: Record<string, string> = {
-  "favorite-artists": "From your favorites",
-  discovery: "Suggestions",
+  "favorite-artists": "Your Scene",
+  discovery: "Beyond Your Scene",
 };
 
 export async function POST(request: NextRequest) {

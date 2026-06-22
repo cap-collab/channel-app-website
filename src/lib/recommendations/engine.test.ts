@@ -77,20 +77,28 @@ describe("generateRecommendations — sections", () => {
     expect(disc).not.toContain("a-maria-new");
   });
 
-  it("scene+tempo discovery is high/featured only (medium excluded)", () => {
+  it("discovery tier 1 (exact scene+tempo) allows medium, excludes low/hidden", () => {
     const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
     const disc = ids(r, "discovery");
-    // a-stranger-scene (high, spiral+uptempo) qualifies via scene+tempo...
-    expect(disc).toContain("a-stranger-scene");
-    // ...but the MEDIUM spiral+uptempo archive must NOT (weak signal → best only).
-    expect(disc).not.toContain("a-stranger-scene-med");
+    // Both high AND medium spiral+uptempo qualify for tier 1 (excl low/hidden).
+    expect(disc).toContain("a-stranger-scene"); // high
+    expect(disc).toContain("a-stranger-scene-med"); // medium — now allowed
+    // hidden is never shown anywhere.
+    expect(disc).not.toContain("a-hidden");
   });
 
-  it("discovery shows at most one archive per (scene+tempo) combo", () => {
+  it("discovery is ordered by scene+tempo affinity (dominant taste first)", () => {
     const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
     const disc = section(r, "discovery").items;
-    const combos = disc.map((i) => `${i.item.sceneSlugs[0] ?? ""}|${i.item.tempo ?? ""}`);
-    expect(new Set(combos).size).toBe(combos.length); // every combo unique
+    // sceneTempoAffinity contribution should be non-increasing down the list
+    // (higher-affinity = user's dominant taste ranks first). Pinned/editorial
+    // aside, scores are sorted desc, and affinity is a major weight.
+    const affinity = (c: typeof disc[number]) =>
+      c.scoreBreakdown.find((x) => x.name === "sceneTempoAffinity")?.rawValue ?? 0;
+    // The top discovery item's affinity >= the last item's affinity.
+    if (disc.length >= 2) {
+      expect(affinity(disc[0])).toBeGreaterThanOrEqual(affinity(disc[disc.length - 1]));
+    }
   });
 
   it("watchlist-only user: watchlisted artist lands in favorite-artists", () => {

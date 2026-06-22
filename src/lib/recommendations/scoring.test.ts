@@ -16,6 +16,8 @@ function candidate(over: Partial<CandidateInput> & { item: ContentItem }): Candi
     sceneTempoMatch: false,
     matchedScenes: [],
     matchedTempo: null,
+    sceneTempoAffinity: 0,
+    discoveryTier: null,
     matchesSelfTaste: false,
     ...over,
   };
@@ -91,6 +93,7 @@ describe("scoreCandidate", () => {
         sceneTempoMatch: true,
         matchedScenes: ["spiral"],
         matchedTempo: "uptempo",
+        discoveryTier: 1, // exact scene+tempo → discovery tier 1
       }),
       cfg,
       NOW_MS,

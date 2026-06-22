@@ -90,6 +90,15 @@ export function scoreCandidate(
     },
   ];
 
+  // Scene+tempo affinity: rank by how strongly the user engaged with this
+  // candidate's scene+tempo, so their dominant taste surfaces first in discovery.
+  components.push({
+    name: "sceneTempoAffinity",
+    rawValue: input.sceneTempoAffinity,
+    weight: config.weights.sceneTempoAffinity,
+    contribution: input.sceneTempoAffinity * config.weights.sceneTempoAffinity,
+  });
+
   // DJ self-taste boost: a DJ user's own scene/tempo lifts matching discovery
   // picks above other discovery candidates.
   const selfRawVal = input.matchesSelfTaste ? 1 : 0;
@@ -116,6 +125,7 @@ export function scoreCandidate(
   return {
     item,
     section,
+    discoveryTier: input.discoveryTier,
     score: dampedScore,
     scoreBreakdown: components,
     reasons: buildReasons(input, section),

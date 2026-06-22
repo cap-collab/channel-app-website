@@ -86,6 +86,18 @@ export interface CandidateInput {
   sceneTempoMatch: boolean; // scene ∈ engagedScenes AND tempo ∈ engagedTempos
   matchedScenes: string[];
   matchedTempo: Tempo | null;
+  // 0..1: how strongly the user engaged with THIS archive's scene+tempo,
+  // relative to their most-engaged scene+tempo. Drives discovery ranking so a
+  // user's dominant taste (e.g. spiral+uptempo) surfaces first.
+  sceneTempoAffinity: number;
+  // Strict discovery tier (Suggestions section). Lower = higher priority; null =
+  // not a discovery candidate. Tiers fill in order up to the section cap:
+  //   1 = engaged this EXACT scene+tempo combo        (featured/high/medium)
+  //   2 = affiliated / same crew / same audience      (featured/high/medium)
+  //   3 = featured/high archive in the user's TOP scene
+  //   4 = featured/high archive in the user's TOP tempo
+  // Tiers 1-2 exclude low/hidden; tiers 3-4 are featured/high only.
+  discoveryTier: 1 | 2 | 3 | 4 | null;
   // DJ self-taste: archive matches one of the DJ's OWN archives' scene/tempo →
   // gets a discovery rank boost.
   matchesSelfTaste: boolean;
@@ -96,6 +108,7 @@ export type ScoreComponentName =
   | "priority"
   | "recency"
   | "sectionBonus"
+  | "sceneTempoAffinity"
   | "selfTasteBoost"
   | "editorialBoost"
   | "alreadyHeardPenalty";
@@ -110,6 +123,7 @@ export interface ScoreComponent {
 export interface ScoredCandidate {
   item: ContentItem;
   section: SectionId | null; // null = only eligible as fallback-fill
+  discoveryTier: 1 | 2 | 3 | 4 | null; // strict discovery ordering (Suggestions)
   score: number;
   scoreBreakdown: ScoreComponent[];
   reasons: string[]; // never empty for a delivered item
@@ -136,6 +150,7 @@ export interface RecommendationConfig {
     priority: number;
     recency: number;
     sectionBonus: number; // flat bonus for landing in a personalized section
+    sceneTempoAffinity: number; // weight on engagement strength for the scene+tempo
     selfTasteBoost: number; // boost for a DJ user's own scene/tempo (discovery)
   };
   recency: {

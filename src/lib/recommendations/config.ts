@@ -16,6 +16,7 @@ export const DEFAULT_RECOMMENDATION_CONFIG: RecommendationConfig = {
     priority: 3, // editorial priority tier dominates ordering within a section
     recency: 1.2,
     sectionBonus: 1,
+    sceneTempoAffinity: 4, // dominant taste (e.g. spiral+uptempo) ranks first in discovery
     selfTasteBoost: 2, // DJ user's own scene/tempo lifts matching discovery picks
   },
   recency: {
@@ -31,7 +32,7 @@ export const DEFAULT_RECOMMENDATION_CONFIG: RecommendationConfig = {
   caps: {
     website: {
       "favorite-artists": 8,
-      discovery: 8,
+      discovery: 4, // Suggestions capped at 4 archives
       "coming-up": 8,
       "start-here": 8,
     },

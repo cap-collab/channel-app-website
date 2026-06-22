@@ -16,16 +16,15 @@
  * scheduled shows from the go-live matcher, handled in the I/O layer.
  */
 
-import { priorityIsHigh } from "@/lib/archive-priority";
 import type { CandidateInput, SectionId } from "./types";
 
 export function assignSection(input: CandidateInput): SectionId | null {
   if (input.matchedEngagedDjs.length > 0 || input.matchedWatchlistDjs.length > 0) {
     return "favorite-artists";
   }
-  // scene+tempo discovery: high/featured only. crew/affiliation: any priority.
-  const sceneTempoQualifies = input.sceneTempoMatch && priorityIsHigh(input.item.priority);
-  if (input.isAffiliated || sceneTempoQualifies) {
+  // Discovery membership is decided by the strict tier (computed in normalize):
+  // tier 1 exact scene+tempo, 2 affiliated/crew, 3 top-scene, 4 top-tempo.
+  if (input.discoveryTier !== null) {
     return "discovery";
   }
   return null;

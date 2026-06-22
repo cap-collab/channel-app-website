@@ -251,6 +251,23 @@ export function buildCandidateInputs(
   items: ContentItem[],
   affiliation: AffiliationLookup,
 ): CandidateInput[] {
+  // Per-user engagement strength by scene + tempo (from the taste summary), and
+  // the max combined strength, so each candidate's scene+tempo affinity can be
+  // normalized to 0..1. A user's most-engaged scene+tempo → affinity ~1.
+  const sceneCount = new Map(user.tasteSummary.sceneCounts.map((s) => [s.scene, s.count]));
+  const tempoCount = new Map(user.tasteSummary.tempoCounts.map((t) => [t.tempo, t.count]));
+  let maxAffinity = 0;
+  for (const item of items) {
+    const sc = Math.max(0, ...item.sceneSlugs.map((s) => sceneCount.get(s) ?? 0));
+    const tc = item.tempo ? tempoCount.get(item.tempo) ?? 0 : 0;
+    if (sc + tc > maxAffinity) maxAffinity = sc + tc;
+  }
+  // The user's single TOP engaged scene + tempo (for discovery tiers 3 & 4).
+  const topScene = user.tasteSummary.sceneCounts[0]?.scene;
+  const topTempo = user.tasteSummary.tempoCounts[0]?.tempo;
+  const notLowHidden = (p: ContentItem["priority"]) => p !== "low" && p !== "hidden";
+  const isHighFeatured = (p: ContentItem["priority"]) => p === "featured" || p === "high";
+
   return items.map((item) => {
     const matchedEngagedDjs = item.djUsernames.filter((u) => user.engagedDjs.has(u));
     const matchedWatchlistDjs = item.djUsernames.filter((u) => user.watchlistArtists.has(u));
@@ -275,6 +292,23 @@ export function buildCandidateInputs(
       item.sceneSlugs.some((s) => user.selfScenes.has(s)) ||
       (item.tempo != null && user.selfTempos.has(item.tempo));
 
+    // Engagement strength for this candidate's scene+tempo, normalized 0..1.
+    const sc = Math.max(0, ...item.sceneSlugs.map((s) => sceneCount.get(s) ?? 0));
+    const tc = item.tempo ? tempoCount.get(item.tempo) ?? 0 : 0;
+    const sceneTempoAffinity = maxAffinity > 0 ? (sc + tc) / maxAffinity : 0;
+
+    // Strict discovery tier (Suggestions). First matching tier wins.
+    let discoveryTier: 1 | 2 | 3 | 4 | null = null;
+    if (sceneTempoMatch && notLowHidden(item.priority)) {
+      discoveryTier = 1; // engaged this EXACT scene+tempo
+    } else if (isAffiliated && notLowHidden(item.priority)) {
+      discoveryTier = 2; // affiliated / same crew / same audience
+    } else if (isHighFeatured(item.priority) && topScene && item.sceneSlugs.includes(topScene)) {
+      discoveryTier = 3; // featured/high in the user's top scene
+    } else if (isHighFeatured(item.priority) && topTempo && item.tempo === topTempo) {
+      discoveryTier = 4; // featured/high in the user's top tempo
+    }
+
     return {
       item,
       alreadyStreamedCount: user.archiveStreamCount[item.id] ?? 0,
@@ -285,6 +319,8 @@ export function buildCandidateInputs(
       sceneTempoMatch,
       matchedScenes,
       matchedTempo: tempoEngaged ? item.tempo : null,
+      sceneTempoAffinity,
+      discoveryTier,
       matchesSelfTaste,
     };
   });
