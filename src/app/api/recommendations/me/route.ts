@@ -66,6 +66,10 @@ export async function POST(request: NextRequest) {
     (userData.irlCity as string | undefined) ||
     getCityFromTimezone((userData.timezone as string) || "") ||
     null;
+  // Archives the user explicitly removed on /scene — never re-show them.
+  const dismissedArchiveIds = new Set(
+    Object.keys((userData.dismissedArchiveIds as Record<string, unknown>) || {}),
+  );
 
   const [streamSnap, loveSnap] = await Promise.all([
     db.collection("users").doc(userId).collection("streamHistory").get(),
@@ -97,7 +101,8 @@ export async function POST(request: NextRequest) {
     .filter((s): s is SnapshotSection => s.id === "favorite-artists" || s.id === "discovery")
     .map((section): RecSectionOut => {
       const bandByArchiveId: Record<string, RecBand> = {};
-      let items = section.items;
+      // Drop anything the user explicitly removed on /scene.
+      let items = section.items.filter((it) => !dismissedArchiveIds.has(it.archiveId));
       // §1: not-yet-streamed only.
       if (section.id === "favorite-artists") {
         items = items.filter((it) => !streamedArchiveIds.has(it.archiveId));

@@ -6,6 +6,7 @@ import { IRLShowData } from '@/types';
 import { ArchiveGridCard } from '@/components/channel/ArchiveHero';
 import { IRLShowCard } from '@/components/channel/IRLShowCard';
 import { SceneGlyph } from '@/components/SceneGlyph';
+import { CardRemoveButton } from '@/components/CardRemoveButton';
 import { tempoLabel } from '@/lib/tempo';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -92,6 +93,27 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
     };
   }, [authLoading, isAuthenticated, user]);
 
+  // Edit mode: remove an archive from a personalized section. Permanently hides
+  // that archive + drops the artist from the watchlist via /api/recommendations/dismiss.
+  const [editMode, setEditMode] = useState(false);
+  const [removing, setRemoving] = useState<Set<string>>(new Set());
+
+  // Exit edit mode on outside click/tap.
+  useEffect(() => {
+    if (!editMode) return;
+    const handler = (e: Event) => {
+      const t = e.target as HTMLElement | null;
+      if (t && t.closest('[data-scene-edit-boundary]')) return;
+      setEditMode(false);
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [editMode]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -100,17 +122,58 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
     );
   }
 
+  const handleRemove = async (archive: ArchiveSerialized) => {
+    if (!user) return;
+    setRemoving((s) => new Set(s).add(archive.id));
+    // Optimistically drop from view.
+    setSections((prev) =>
+      prev.map((sec) => ({ ...sec, archives: sec.archives.filter((a) => a.id !== archive.id) })),
+    );
+    try {
+      const primary = archive.djs?.[0];
+      const token = await user.getIdToken();
+      await fetch('/api/recommendations/dismiss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ archiveId: archive.id, djUsername: primary?.username, djName: primary?.name }),
+      });
+    } catch {
+      // best-effort; the optimistic removal still hides it this session
+    } finally {
+      setRemoving((s) => {
+        const n = new Set(s);
+        n.delete(archive.id);
+        return n;
+      });
+    }
+  };
+
+  const hasArchiveSections = sections.some((s) => s.archives.length > 0);
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-10">
+    <div className="max-w-7xl mx-auto px-4 py-6 space-y-10" data-scene-edit-boundary>
       {startHere && startHere.length > 0 && (
         <Section title="Start here">
           <ArchiveGrid archives={startHere} />
         </Section>
       )}
 
-      {sections.map((section) => (
-        <Section key={section.id} title={section.title}>
-          <ArchiveGrid archives={section.archives} bandByArchiveId={section.bandByArchiveId} />
+      {sections.map((section, idx) => (
+        <Section
+          key={section.id}
+          title={section.title}
+          // Edit toggle only on the first archive section header (controls both).
+          editButton={idx === 0 && hasArchiveSections}
+          editMode={editMode}
+          onToggleEdit={() => setEditMode((v) => !v)}
+        >
+          <ArchiveGrid
+            archives={section.archives}
+            bandByArchiveId={section.bandByArchiveId}
+            editMode={editMode}
+            removing={removing}
+            onRemove={handleRemove}
+          />
         </Section>
       ))}
 
@@ -123,10 +186,39 @@ export function SceneRecommendations({ onAuthRequired }: { onAuthRequired: () =>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+  editButton,
+  editMode,
+  onToggleEdit,
+}: {
+  title: string;
+  children: React.ReactNode;
+  editButton?: boolean;
+  editMode?: boolean;
+  onToggleEdit?: () => void;
+}) {
   return (
     <section>
-      <h2 className="text-2xl md:text-3xl font-semibold mb-4">{title}</h2>
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <h2 className="text-2xl md:text-3xl font-semibold">{title}</h2>
+        {editButton && (
+          <button
+            onClick={onToggleEdit}
+            aria-pressed={editMode}
+            className="shrink-0 flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.2em] text-zinc-500 hover:text-zinc-300 transition-colors px-1 py-1"
+          >
+            <span
+              aria-hidden
+              className={`inline-block w-[6px] h-[6px] rounded-full transition-all ${
+                editMode ? 'bg-green-400 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]' : 'bg-zinc-700'
+              }`}
+            />
+            Edit
+          </button>
+        )}
+      </div>
       {children}
     </section>
   );
@@ -138,9 +230,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function ArchiveGrid({
   archives,
   bandByArchiveId,
+  editMode,
+  removing,
+  onRemove,
 }: {
   archives: ArchiveSerialized[];
   bandByArchiveId?: Record<string, RecBand>;
+  editMode?: boolean;
+  removing?: Set<string>;
+  onRemove?: (archive: ArchiveSerialized) => void;
 }) {
   const archivePlayer = useArchivePlayer();
   const { scenes, djSceneMap } = useScenesData();
@@ -161,7 +259,7 @@ function ArchiveGrid({
           .map((s) => ({ slug: s.id, name: s.name, emoji: s.emoji }));
         const tempoText = band?.tempo ? tempoLabel(band.tempo) : null;
         return (
-          <div key={archive.id}>
+          <div key={archive.id} className="relative">
             {band && (band.glyphSlug || tempoText) && (
               <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center gap-1.5">
                 {band.glyphSlug && <SceneGlyph slug={band.glyphSlug} className="!w-3 !h-3" />}
@@ -181,6 +279,13 @@ function ArchiveGrid({
                 }
               }}
             />
+            {editMode && onRemove && (
+              <CardRemoveButton
+                onRemove={() => onRemove(archive)}
+                isRemoving={removing?.has(archive.id)}
+                ariaLabel={`Remove ${archive.showName}`}
+              />
+            )}
           </div>
         );
       })}
