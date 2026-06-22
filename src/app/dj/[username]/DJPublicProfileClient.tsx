@@ -1136,6 +1136,18 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               return true;
             }
 
+            // Per-archive cross-listing by normalized USERNAME. Same as above
+            // but reaches PENDING DJ profiles (no real UID) and survives a
+            // later account claim (username is stable). Also djs[]-untouched.
+            // Normalize both sides with the canonical rule ([\s-]+) so a
+            // hyphenated username matches regardless of how it was typed.
+            const canonUsername = djProfile.chatUsername?.toLowerCase().replace(/[\s-]+/g, '');
+            if (canonUsername && Array.isArray(archive.crossListUsernames)
+                && archive.crossListUsernames.some(
+                    (u) => u.toLowerCase().replace(/[\s-]+/g, '') === canonUsername)) {
+              return true;
+            }
+
             // Also match live broadcasts by slot
             if (archive.sourceType === 'live' && archive.broadcastSlotId) {
               return pastSlotsMap.has(archive.broadcastSlotId);

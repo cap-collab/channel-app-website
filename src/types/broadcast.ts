@@ -366,6 +366,14 @@ export interface Archive {
   // and SEO are all unaffected. Used to surface a collective's show on a
   // member's individual profile. Empty/absent = no cross-listing.
   crossListUserIds?: string[];
+  // Same profile-page-only cross-listing, but keyed by NORMALIZED username
+  // instead of UID. Needed to tag PENDING DJ profiles as contributors — they
+  // have no real UID (their /dj page is served from pending-dj-profiles), so
+  // they can't be reached via crossListUserIds. Matched against the viewed
+  // profile's normalized username, so it also keeps working after the DJ
+  // claims a real account (the username is stable). djs[] untouched — no
+  // re-credit. Empty/absent = none.
+  crossListUsernames?: string[];
 }
 
 // Serialized version for API responses (same as Archive since all fields are already serialized)

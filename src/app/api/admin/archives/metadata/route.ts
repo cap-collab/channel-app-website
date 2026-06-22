@@ -70,6 +70,19 @@ export async function PATCH(request: NextRequest) {
         ? body.crossListUserIds.filter((v: unknown) => typeof v === 'string')
         : [];
     }
+    // Cross-listed usernames (for PENDING DJs, who have no real UID). Stored
+    // normalized ([\s-]+ stripped, lowercased) so the /dj page match is stable
+    // and survives a later account claim. Same profile-page-only isolation.
+    if (body.crossListUsernames !== undefined) {
+      updates.crossListUsernames = Array.isArray(body.crossListUsernames)
+        ? Array.from(new Set(
+            body.crossListUsernames
+              .filter((v: unknown): v is string => typeof v === 'string')
+              .map((v: string) => v.replace(/[\s-]+/g, '').toLowerCase())
+              .filter(Boolean)
+          ))
+        : [];
+    }
 
     // DJ-level updates (genres, location, name, username, photoUrl)
     if (body.djIndex !== undefined) {

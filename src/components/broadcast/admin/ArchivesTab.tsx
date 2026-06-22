@@ -18,12 +18,16 @@ interface VenueOption {
   slug: string;
 }
 
-// A real DJ user that can be cross-list-tagged (contributor) on an archive.
-// Only users with accounts (a real uid) qualify — cross-listing keys on uid.
+// A DJ that can be cross-list-tagged (contributor) on an archive. Real users
+// tag by uid (crossListUserIds); pending profiles have no uid so they tag by
+// normalized username (crossListUsernames). `value` is the stable token used
+// in the picker/chips: the uid for users, `name:<username>` for pending.
 interface DjOption {
-  uid: string;
+  value: string;
+  kind: 'user' | 'pending';
+  uid?: string;
+  username?: string; // normalized, for pending
   label: string;
-  username?: string;
 }
 
 // An option for the OWNER picker (djs[0]): a DJ user OR a collective. Carries
@@ -119,18 +123,23 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
     (async () => {
       try {
         const { query, where } = await import('firebase/firestore');
-        const [usersSnap, colSnap] = await Promise.all([
+        const [usersSnap, colSnap, pendingSnap] = await Promise.all([
           getDocs(query(collection(db, 'users'), where('role', 'in', ['dj', 'broadcaster', 'admin']))),
           getDocs(collection(db, 'collectives')),
+          getDocs(collection(db, 'pending-dj-profiles')),
         ]);
 
         const djs: DjOption[] = [];
         const owners: OwnerOption[] = [];
+        // Real users first; record their normalized usernames so a pending
+        // stub of the same name doesn't show as a duplicate (users win).
+        const seenUsernames = new Set<string>();
         usersSnap.forEach((docSnap) => {
           const data = docSnap.data();
           const label = data.chatUsername || data.displayName || data.email || 'Unknown';
           const username = data.chatUsernameNormalized || data.chatUsername || '';
-          djs.push({ uid: docSnap.id, label, username: username || undefined });
+          if (username) seenUsernames.add(username.replace(/[\s-]+/g, '').toLowerCase());
+          djs.push({ value: docSnap.id, kind: 'user', uid: docSnap.id, label, username: username || undefined });
           owners.push({
             key: docSnap.id,
             kind: 'user',
@@ -138,6 +147,21 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
             name: data.chatUsername || data.displayName || 'Unknown DJ',
             username,
             userId: docSnap.id,
+          });
+        });
+        // Pending DJ profiles — taggable as contributors by username only.
+        pendingSnap.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.status !== 'pending') return;
+          const raw = data.chatUsernameNormalized || data.chatUsername || '';
+          const username = raw.replace(/[\s-]+/g, '').toLowerCase();
+          if (!username || seenUsernames.has(username)) return; // real user wins
+          seenUsernames.add(username);
+          djs.push({
+            value: `name:${username}`,
+            kind: 'pending',
+            username,
+            label: `${data.chatUsername || username} (pending)`,
           });
         });
         colSnap.forEach((docSnap) => {
@@ -662,7 +686,14 @@ function ArchiveCard({
   const [venueIdInput, setVenueIdInput] = useState(archive.venueId || '');
   // Contributors (crossListUserIds) — DJ uids the archive is surfaced to on
   // their own /dj page, WITHOUT touching djs[]/credit/scenes.
-  const [crossListInput, setCrossListInput] = useState<string[]>(archive.crossListUserIds || []);
+  // Contributor tokens: a uid (real user) or `name:<username>` (pending DJ),
+  // matching DjOption.value. Split into crossListUserIds + crossListUsernames
+  // on save.
+  const initialContributors = [
+    ...(archive.crossListUserIds || []),
+    ...(archive.crossListUsernames || []).map((u) => `name:${u}`),
+  ];
+  const [crossListInput, setCrossListInput] = useState<string[]>(initialContributors);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -681,6 +712,12 @@ function ArchiveCard({
   const handleSave = async () => {
     setIsSaving(true);
     const genres = genreInput.split(',').map(g => g.trim()).filter(Boolean);
+    // Split contributor tokens: `name:<username>` → crossListUsernames (pending
+    // DJs), everything else → crossListUserIds (real-user uids).
+    const crossListUsernames = crossListInput
+      .filter((t) => t.startsWith('name:'))
+      .map((t) => t.slice('name:'.length));
+    const crossListUserIds = crossListInput.filter((t) => !t.startsWith('name:'));
     await onUpdate(archive.id, {
       showName: showNameInput,
       slug: slugInput,
@@ -690,7 +727,8 @@ function ArchiveCard({
       genres,
       location: locationInput.trim(),
       venueId: venueIdInput,
-      crossListUserIds: crossListInput,
+      crossListUserIds,
+      crossListUsernames,
     });
     setIsSaving(false);
     setIsEditing(false);
@@ -730,7 +768,10 @@ function ArchiveCard({
     setGenreInput(primaryDj?.genres?.join(', ') || '');
     setLocationInput(primaryDj?.location || '');
     setVenueIdInput(archive.venueId || '');
-    setCrossListInput(archive.crossListUserIds || []);
+    setCrossListInput([
+      ...(archive.crossListUserIds || []),
+      ...(archive.crossListUsernames || []).map((u) => `name:${u}`),
+    ]);
     setIsEditing(true);
   };
 
@@ -843,23 +884,25 @@ function ArchiveCard({
                   ))}
                 </select>
               </div>
-              {/* Contributors (crossListUserIds) — surfaces this archive on
-                  these DJs' OWN /dj pages only. Does NOT change the credit,
-                  hero, scenes, SEO, or who can delete. */}
+              {/* Contributors — surfaces this archive on these DJs' OWN /dj
+                  pages only (real users via crossListUserIds, pending DJs via
+                  crossListUsernames). Does NOT change the credit, hero, scenes,
+                  SEO, or who can delete. */}
               <div>
                 <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">
                   Contributors (show on their profile, no credit change)
                 </label>
                 {crossListInput.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-1.5">
-                    {crossListInput.map((uid) => {
-                      const opt = djOptions.find((d) => d.uid === uid);
+                    {crossListInput.map((token) => {
+                      const opt = djOptions.find((d) => d.value === token);
+                      const fallback = token.startsWith('name:') ? `${token.slice(5)} (pending)` : token;
                       return (
-                        <span key={uid} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-gray-800 border border-gray-700 text-gray-300">
-                          {opt?.label || uid}
+                        <span key={token} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-gray-800 border border-gray-700 text-gray-300">
+                          {opt?.label || fallback}
                           <button
                             type="button"
-                            onClick={() => setCrossListInput(crossListInput.filter((u) => u !== uid))}
+                            onClick={() => setCrossListInput(crossListInput.filter((t) => t !== token))}
                             className="text-gray-500 hover:text-red-400"
                           >
                             &times;
@@ -872,16 +915,16 @@ function ArchiveCard({
                 <select
                   value=""
                   onChange={(e) => {
-                    const uid = e.target.value;
-                    if (uid && !crossListInput.includes(uid)) setCrossListInput([...crossListInput, uid]);
+                    const token = e.target.value;
+                    if (token && !crossListInput.includes(token)) setCrossListInput([...crossListInput, token]);
                   }}
                   className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
                 >
                   <option value="">+ Tag a contributor DJ…</option>
                   {djOptions
-                    .filter((d) => !crossListInput.includes(d.uid))
+                    .filter((d) => !crossListInput.includes(d.value))
                     .map((d) => (
-                      <option key={d.uid} value={d.uid}>{d.label}</option>
+                      <option key={d.value} value={d.value}>{d.label}</option>
                     ))}
                 </select>
               </div>
