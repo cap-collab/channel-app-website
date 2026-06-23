@@ -171,10 +171,20 @@ async function processOnePending(
     };
   }
 
-  // Faststart done. Mark done and enqueue normalize (faststart MUST precede
-  // normalize). Normalize then runs via /api/cron/drain-normalize-queue.
-  await entryRef.update({ status: 'done', finishedAt: Date.now() });
-  try {
+  // Faststart succeeded. Enqueue normalize BEFORE marking this entry done, so a
+  // crash between the two writes leaves the faststart entry 'in-progress' and
+  // recoverStaleInProgress re-runs it (faststart is idempotent → re-runs safely
+  // and reaches the enqueue again). Marking 'done' first would orphan the
+  // recording: faststart drain never revisits a done entry, and no normalize
+  // entry exists for the normalize drain to pick up. (Observed 2026-06-23: the
+  // old order silently dropped normalize for the "David L invites" set.)
+  // Idempotency guard: if a retry already enqueued normalize for this r2Key,
+  // don't add a duplicate.
+  const existingNorm = await db.collection('normalize-queue')
+    .where('r2Key', '==', entry.r2Key)
+    .limit(1)
+    .get();
+  if (existingNorm.empty) {
     await db.collection('normalize-queue').add({
       r2Key: entry.r2Key,
       slotId: entry.slotId,
@@ -184,9 +194,10 @@ async function processOnePending(
       attempts: 0,
     });
     console.log(`[drain-faststart-queue] Faststarted ${entry.r2Key} (skipped=${!!result.body.skipped}) → normalize queued`);
-  } catch (qErr) {
-    console.error(`[drain-faststart-queue] Faststart done but normalize enqueue failed for ${entry.r2Key}:`, qErr);
+  } else {
+    console.log(`[drain-faststart-queue] Faststarted ${entry.r2Key} — normalize already queued (${existingNorm.docs[0].id}), skipping duplicate`);
   }
+  await entryRef.update({ status: 'done', finishedAt: Date.now() });
   return { r2Key: entry.r2Key, action: 'faststarted' };
 }
 
