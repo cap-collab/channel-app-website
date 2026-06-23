@@ -6,6 +6,7 @@ import { Recording, STATION_ID, ROOM_NAME } from '@/types/broadcast';
 import { extractDJs } from '@/lib/extract-djs';
 import { resolveSceneSlugsForArchive } from '@/lib/archive-scene-resolve';
 import { copyCollectiveChatToOwners } from '@/lib/copy-collective-chat';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 // Generate URL-friendly slug from show name
 function generateSlug(showName: string): string {
@@ -487,7 +488,13 @@ export async function POST(request: NextRequest) {
             // a failure here is a no-op for the rest of the system. No-op when
             // the slot's djUsername doesn't resolve to a collective.
             if (slotData?.broadcastType !== 'recording') {
-              const candidateSlug = (slotData?.djUsername || slotData?.liveDjUsername) as string | undefined;
+              // Canonicalize to the same key the live chat wrote to AND the
+              // collective slug — strips dots so "B. Rod b2b David L" →
+              // "brodb2bdavidl" (see computeDJChatRoom / normalizeUsername).
+              // Without this, a dotted collective name read the wrong chat
+              // room and copied nothing to owners.
+              const rawCandidate = (slotData?.djUsername || slotData?.liveDjUsername) as string | undefined;
+              const candidateSlug = rawCandidate ? normalizeUsername(rawCandidate) : undefined;
               const startTimeForChat = slotData?.startTime;
               const recordedAtMs: number = startTimeForChat?.toMillis ? startTimeForChat.toMillis() : Date.now();
               if (candidateSlug) {

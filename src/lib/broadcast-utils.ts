@@ -1,4 +1,5 @@
 import { BroadcastSlotSerialized } from '@/types/broadcast';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 /**
  * Delay (ms) applied to slot transitions in listener-facing UI so the old DJ's
@@ -17,9 +18,16 @@ export function findActiveDjSlot<T extends { startTime: number; endTime: number 
   return slots.find(s => s.startTime <= shifted && s.endTime > shifted);
 }
 
-/** Normalize a DJ username for chat room lookup */
+/** Normalize a DJ username for chat room lookup.
+ *  Must match `chatUsernameNormalized` / collective `slug` exactly, which strip
+ *  ALL non-alphanumerics including dots (see normalizeUsername / generateSlug).
+ *  Using the canonical helper keeps the live chat room aligned with the per-DJ
+ *  room and the collective slug — a dotted name like "B. Rod b2b David L"
+ *  resolves to "brodb2bdavidl", not "b.rodb2bdavidl". A narrower [\s-] strip
+ *  here is what split the collective chat into a phantom dotted room and broke
+ *  the post-show copy-to-owners fan-out. */
 function normalize(u: string): string {
-  return u.replace(/[\s-]+/g, '').toLowerCase();
+  return normalizeUsername(u);
 }
 
 /** Compute the current DJ's chat room from live broadcast data.

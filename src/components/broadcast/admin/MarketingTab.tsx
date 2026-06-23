@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
@@ -24,26 +24,48 @@ interface DJInfo {
   metaOptIn?: boolean;
 }
 
+// Resolved collective info for slots whose djUsername is a collective slug.
+// A "collective show" is broadcast under a collective (e.g. a residency night)
+// rather than a single DJ: slot.djUsername holds the collective slug, so the
+// per-DJ profile lookups above find nothing. We resolve the collective doc
+// (name/photo/IG) plus each owner's personal IG so the admin can tag both the
+// collective and the human(s) behind it in a post.
+interface CollectiveInfo {
+  name: string;
+  photo?: string;          // collective's own image/logo
+  instagram?: string;      // collective's own IG (raw URL or handle)
+  ownerHandles: string[];  // owners' personal IG handles (already extracted)
+}
+
 type DJInfoCache = Record<string, DJInfo>;
 // Per-slot IG lookups, keyed by slot id then by normalized DJ name — handles venue b2b
 type SlotInstagramCache = Record<string, Record<string, string>>;
+// Per-slot collective info, keyed by slot id. Absent = not a collective (or unresolved).
+type CollectiveInfoCache = Record<string, CollectiveInfo>;
 
 function normalizeName(name: string): string {
   return name.replace(/[\s-]+/g, '').toLowerCase();
 }
 
 // Returns [{ djName, handle }] for each DJ in the slot, preferring slot-level djSocialLinks.
+// For collective shows, the rows are the collective's own IG plus each owner's
+// personal IG (labelled), since there is no single DJ to resolve.
 function getInstagramHandles(
   slot: BroadcastSlotSerialized,
   slotIgCache: SlotInstagramCache,
   djInfoCache: DJInfoCache,
+  collectiveInfoCache: CollectiveInfoCache,
 ): Array<{ djName: string; handle: string }> {
   const perSlot = slotIgCache[slot.id] || {};
   const result: Array<{ djName: string; handle: string }> = [];
+  const seen = new Set<string>();
   const push = (djName: string, raw: string | undefined) => {
     if (!djName) return;
     const handle = raw ? extractInstagramHandle(raw) : '';
-    if (handle) result.push({ djName, handle });
+    if (handle && !seen.has(handle)) {
+      seen.add(handle);
+      result.push({ djName, handle });
+    }
   };
 
   if (slot.broadcastType === 'venue' && slot.djSlots?.length) {
@@ -62,16 +84,31 @@ function getInstagramHandles(
     const looked = djName ? perSlot[normalizeName(djName)] : undefined;
     push(djName, looked || djInfoCache[slot.id]?.instagram);
   }
+
+  // Collective shows: add the collective's own IG and each owner's IG.
+  // An empty-name entry is the "not a collective" marker (see lookup effect).
+  const coll = collectiveInfoCache[slot.id];
+  if (coll && coll.name) {
+    push(coll.name, coll.instagram);
+    coll.ownerHandles.forEach((h, i) =>
+      push(coll.ownerHandles.length > 1 ? `${coll.name} owner ${i + 1}` : `${coll.name} owner`, h),
+    );
+  }
   return result;
 }
 
-function getCardProps(slot: BroadcastSlotSerialized, djInfoCache: DJInfoCache) {
+function getCardProps(
+  slot: BroadcastSlotSerialized,
+  djInfoCache: DJInfoCache,
+  collectiveInfoCache: CollectiveInfoCache,
+) {
   let djName = '';
   let imageUrl = slot.showImageUrl;
   let genres = slot.liveDjGenres;
   let description = slot.liveDjDescription;
 
   const cached = djInfoCache[slot.id];
+  const coll = collectiveInfoCache[slot.id];
 
   if (slot.broadcastType === 'venue' && slot.djSlots?.length) {
     djName = slot.djSlots.length === 1
@@ -83,7 +120,9 @@ function getCardProps(slot: BroadcastSlotSerialized, djInfoCache: DJInfoCache) {
     if (!genres && cached?.genres) genres = cached.genres;
   } else {
     djName = slot.djName || '';
-    imageUrl = slot.showImageUrl || slot.liveDjPhotoUrl || cached?.photoUrl;
+    // Show image first, then DJ profile photo; for collective shows fall back
+    // to the collective's own photo when neither is set.
+    imageUrl = slot.showImageUrl || slot.liveDjPhotoUrl || cached?.photoUrl || coll?.photo;
     genres = slot.liveDjGenres || cached?.genres;
     description = slot.liveDjDescription || cached?.description;
   }
@@ -248,6 +287,7 @@ function getWeekRange(date: Date = new Date()): { start: Date; end: Date } {
 export function MarketingTab({ slots }: MarketingTabProps) {
   const [djInfoCache, setDjInfoCache] = useState<DJInfoCache>({});
   const [slotIgCache, setSlotIgCache] = useState<SlotInstagramCache>({});
+  const [collectiveInfoCache, setCollectiveInfoCache] = useState<CollectiveInfoCache>({});
 
   // Show today + next 2 days only
   const upcomingSlots = useMemo(() => {
@@ -420,6 +460,91 @@ export function MarketingTab({ slots }: MarketingTabProps) {
     })();
   }, [upcomingSlots, weekSlots, slotIgCache]);
 
+  // Collective lookup: for slots whose djUsername is a collective slug, resolve
+  // the collective doc (name/photo/own IG) and each owner's personal IG. Mirrors
+  // the show-starting-emails cron's slug→collective→owners path so the card
+  // surfaces the same entity the go-live pipeline targets.
+  useEffect(() => {
+    if (!db) return;
+    const firestore = db;
+
+    const lookupSlots = [...upcomingSlots];
+    const seen = new Set(upcomingSlots.map(s => s.id));
+    for (const s of weekSlots) {
+      if (!seen.has(s.id)) lookupSlots.push(s);
+    }
+
+    // slug -> slotIds that use it. Skip restreams, the test account, and slots
+    // already resolved.
+    const slugToSlotIds: Record<string, string[]> = {};
+    for (const s of lookupSlots) {
+      if (collectiveInfoCache[s.id] !== undefined) continue;
+      if (s.broadcastType === 'restream') continue;
+      const slug = s.djUsername;
+      if (!slug || slug === 'channelbroadcast') continue;
+      if (!slugToSlotIds[slug]) slugToSlotIds[slug] = [];
+      slugToSlotIds[slug].push(s.id);
+    }
+    const slugs = Object.keys(slugToSlotIds);
+    if (slugs.length === 0) return;
+
+    (async () => {
+      // Resolve collective docs by slug (Firestore `in` caps at 30 values).
+      const collBySlug: Record<string, { name: string; photo?: string; instagram?: string; ownerUids: string[] }> = {};
+      for (let i = 0; i < slugs.length; i += 30) {
+        const batch = slugs.slice(i, i + 30);
+        try {
+          const snap = await getDocs(query(collection(firestore, 'collectives'), where('slug', 'in', batch)));
+          snap.forEach(doc => {
+            const d = doc.data();
+            const slug = d?.slug as string | undefined;
+            if (!slug) return;
+            collBySlug[slug] = {
+              name: (d?.name as string) || slug,
+              photo: (d?.photo as string) || undefined,
+              instagram: d?.socialLinks?.instagram || undefined,
+              ownerUids: (d?.owners as string[] | undefined) || [],
+            };
+          });
+        } catch { /* ignore */ }
+      }
+
+      // Resolve owner IG handles in a single batched read by document id.
+      const ownerUids = Array.from(new Set(Object.values(collBySlug).flatMap(c => c.ownerUids)));
+      const ownerIgByUid: Record<string, string> = {};
+      for (let i = 0; i < ownerUids.length; i += 30) {
+        const batch = ownerUids.slice(i, i + 30);
+        try {
+          const snap = await getDocs(query(collection(firestore, 'users'), where(documentId(), 'in', batch)));
+          snap.forEach(doc => {
+            const ig = doc.data()?.djProfile?.socialLinks?.instagram;
+            if (ig) ownerIgByUid[doc.id] = extractInstagramHandle(ig);
+          });
+        } catch { /* ignore */ }
+      }
+
+      setCollectiveInfoCache(prev => {
+        const next: CollectiveInfoCache = { ...prev };
+        for (const slug of slugs) {
+          const coll = collBySlug[slug];
+          // Store an empty marker for non-collective slugs (individual DJs) so
+          // we don't re-query them; getInstagramHandles/getCardProps treat an
+          // empty-name entry as "no collective info".
+          const info: CollectiveInfo = coll
+            ? {
+                name: coll.name,
+                photo: coll.photo,
+                instagram: coll.instagram,
+                ownerHandles: coll.ownerUids.map(uid => ownerIgByUid[uid]).filter(Boolean),
+              }
+            : { name: '', ownerHandles: [] };
+          for (const slotId of slugToSlotIds[slug]) next[slotId] = info;
+        }
+        return next;
+      });
+    })();
+  }, [upcomingSlots, weekSlots, collectiveInfoCache]);
+
   // Build the week summary: one row per DJ per slot, in schedule order across the whole week.
   const weekSummary = useMemo(() => {
     const rows: Array<{
@@ -441,8 +566,9 @@ export function MarketingTab({ slots }: MarketingTabProps) {
         });
         continue;
       }
-      const handles = getInstagramHandles(s, slotIgCache, djInfoCache);
+      const handles = getInstagramHandles(s, slotIgCache, djInfoCache, collectiveInfoCache);
       const sharingEnabled = djInfoCache[s.id]?.metaOptIn !== false;
+      const coll = collectiveInfoCache[s.id];
       if (s.broadcastType === 'venue' && s.djSlots?.length) {
         for (const ds of s.djSlots) {
           const djName = ds.djName || '';
@@ -457,7 +583,9 @@ export function MarketingTab({ slots }: MarketingTabProps) {
           });
         }
       } else {
-        const djName = s.djName || '';
+        // Collective shows often have no single djName — fall back to the
+        // collective's name so the row still appears in the week summary.
+        const djName = s.djName || (coll?.name || '') || s.showName || '';
         if (!djName) continue;
         rows.push({
           key: s.id,
@@ -469,7 +597,7 @@ export function MarketingTab({ slots }: MarketingTabProps) {
       }
     }
     return rows;
-  }, [weekSlots, slotIgCache, djInfoCache]);
+  }, [weekSlots, slotIgCache, djInfoCache, collectiveInfoCache]);
 
   if (upcomingSlots.length === 0 && weekSlots.length === 0) {
     return (
@@ -560,14 +688,14 @@ export function MarketingTab({ slots }: MarketingTabProps) {
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {daySlots.map(slot => {
-              const cardProps = getCardProps(slot, djInfoCache);
+              const cardProps = getCardProps(slot, djInfoCache, collectiveInfoCache);
               const broadcastLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/broadcast/live?token=${slot.broadcastToken}`;
               const timeStr = new Date(slot.startTime).toLocaleTimeString('en-US', {
                 hour: 'numeric',
                 minute: '2-digit',
               });
               const isRestream = slot.broadcastType === 'restream';
-              const igHandles = isRestream ? [] : getInstagramHandles(slot, slotIgCache, djInfoCache);
+              const igHandles = isRestream ? [] : getInstagramHandles(slot, slotIgCache, djInfoCache, collectiveInfoCache);
               const djOptedOut = djInfoCache[slot.id]?.metaOptIn === false;
               return (
                 <div key={slot.id}>

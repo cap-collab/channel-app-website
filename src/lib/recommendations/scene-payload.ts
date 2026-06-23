@@ -38,8 +38,8 @@ export interface ScenePayload {
 }
 
 const SECTION_TITLE: Record<string, string> = {
-  "favorite-artists": "Your Scene",
-  discovery: "Beyond Your Scene",
+  "favorite-artists": "New Favorites",
+  discovery: "In Your Scene",
 };
 
 const normU = (u: string) => u.replace(/[\s-]+/g, "").toLowerCase();

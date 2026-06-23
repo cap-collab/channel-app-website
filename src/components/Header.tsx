@@ -48,8 +48,8 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
       });
     }
 
-    // Scene - always shown (route renamed from /explore → /scene)
-    items.push({ label: "Scene", href: "/scene", active: currentPage === "explore" });
+    // "For You" tab → the /scene recommendations page.
+    items.push({ label: "For You", href: "/scene", active: currentPage === "explore" });
 
     // Studio - shown when signed out or when user is a DJ
     if (!isAuthenticated || isDJ(role)) {
