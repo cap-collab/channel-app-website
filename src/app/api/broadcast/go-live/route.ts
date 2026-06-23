@@ -181,8 +181,10 @@ export async function POST(request: NextRequest) {
                   socialLinks: cData.socialLinks || {},
                   genres: cData.genres || [],
                 };
-                slotDjChatUsername = slotDjChatUsername || cData.slug || null;
-                console.log('[go-live] Resolved DJ by chatUsername (collective):', { candidateUsername, slug: cData.slug });
+                // Display name = the collective's real name ("B. Rod b2b David L"),
+                // NOT the slug ("brodb2bdavidl"). The slug is only an identifier.
+                slotDjChatUsername = slotDjChatUsername || cData.name || cData.slug || null;
+                console.log('[go-live] Resolved DJ by chatUsername (collective):', { candidateUsername, name: cData.name, slug: cData.slug });
               }
             }
           }
@@ -345,7 +347,8 @@ export async function POST(request: NextRequest) {
               if (!collectiveSnap.empty) {
                 const cData = collectiveSnap.docs[0].data();
                 userProfileData = {
-                  chatUsername: cData.slug,
+                  // Display name = collective's real name, NOT the slug.
+                  chatUsername: cData.name || cData.slug,
                   djProfile: {
                     bio: cData.description || null,
                     photoUrl: cData.photo || null,
