@@ -162,7 +162,7 @@ function signInReminderHtml(method?: string, email?: string): string {
       line = `You sign in with your <strong>email &amp; password</strong>${email ? ` (${email})` : ""} ${at}.`;
       break;
     case "emailLink":
-      line = `You sign in with a one-time link we email${email ? ` to <strong>${email}</strong>` : ""} — enter that email ${at} and we'll send it.`;
+      line = `You sign in with a <strong>magic link</strong> — enter your email ${at} and we'll send it on that email address.`;
       break;
     default:
       return "";
