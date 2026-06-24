@@ -505,7 +505,9 @@ async function resolveLoopPlan(
   // Anchor: the SOONEST upcoming (still-in-the-future) live block within the loop's
   // reachable span. `endTimeMs > nowMs` so we never "catch" an anchor that already passed.
   const anchorHorizonMs = selBase + 72 * 3600 * 1000;
-  const anchors = await loadAnchors(db, selBase);
+  // Load slots out to the SAME horizon the selector below uses (anchorHorizonMs),
+  // not loadAnchors' old 48h default — otherwise an in-window anchor gets dropped.
+  const anchors = await loadAnchors(db, selBase, anchorHorizonMs - selBase);
   const firstAnchor = anchors.find(
     (a) => a.endTimeMs > nowMs && a.endTimeMs > selBase && a.endTimeMs <= anchorHorizonMs,
   ) ?? null;
@@ -754,11 +756,19 @@ function reorderForTimeOfDayDiversity(
 // one Firestore range filter (endTime > start) is used; startTime is filtered
 // client-side — mirrors hasActiveOrImminentBroadcastSlot in
 // useBroadcastLiveStatus.ts.
+// `horizonAheadMs` is how far past `loopStartTimeMs` to load slots. It MUST be
+// >= the anchor-SELECTION horizon used by callers (anchorHorizonMs, 72h) —
+// otherwise a real upcoming anchor that the selector would accept gets silently
+// dropped here at load time. (Bug 2026-06-24: loader capped 48h while the
+// selector looked 72h; a show 65h past selBase fell in the dead zone, so
+// loop-0030 was built with no anchor for the 6-7pm Dewpoint slot.) Default
+// matches the selection horizon so the two can never drift apart again.
 async function loadAnchors(
   db: FirebaseFirestore.Firestore,
   loopStartTimeMs: number,
+  horizonAheadMs: number = 72 * 3600 * 1000,
 ): Promise<LiveBlockBoundary[]> {
-  const horizonMs = loopStartTimeMs + 48 * 3600 * 1000;
+  const horizonMs = loopStartTimeMs + horizonAheadMs;
   // Use >= so a slot whose endTime EXACTLY equals loopStartTimeMs is still
   // included — that's the "anchor at offset 0" case where the loop's first
   // item lands at the moment this slot's block ends.
@@ -1011,7 +1021,7 @@ export async function ensureNextLoop(args: { generatedBy?: 'cron' | 'admin' } = 
         const storedAligned = Number(data.catalogStats?.alignedAnchorCount ?? 0);
         if (!locked && storedReason !== 'anchor' && storedAligned === 0) {
           const anchorHorizonMs = startTimeMs + 72 * 3600 * 1000;
-          const anchors = await loadAnchors(db, startTimeMs);
+          const anchors = await loadAnchors(db, startTimeMs, anchorHorizonMs - startTimeMs);
           const newAnchor = anchors.find(
             (a) => a.endTimeMs > startTimeMs && a.endTimeMs <= anchorHorizonMs,
           );
