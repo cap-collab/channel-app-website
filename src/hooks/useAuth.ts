@@ -111,6 +111,7 @@ export function useAuth() {
                 photoURL: null,
                 createdAt: serverTimestamp(),
                 lastSeenAt: serverTimestamp(),
+                signInMethod: "emailLink",
                 timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 irlCity: getDefaultCity(),
                 emailNotifications: {
@@ -136,6 +137,7 @@ export function useAuth() {
             } else {
               const updateData: Record<string, unknown> = {
                 lastSeenAt: serverTimestamp(),
+                signInMethod: "emailLink",
               };
               if (enableNotifications) {
                 updateData.emailNotifications = {
@@ -243,6 +245,7 @@ export function useAuth() {
           photoURL: user.photoURL,
           createdAt: serverTimestamp(),
           lastSeenAt: serverTimestamp(),
+          signInMethod: "google",
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           irlCity: getDefaultCity(),
           emailNotifications: {
@@ -272,6 +275,7 @@ export function useAuth() {
         // If they opted in during this sign-in, enable notifications
         const updateData: Record<string, unknown> = {
           lastSeenAt: serverTimestamp(),
+          signInMethod: "google",
         };
         if (enableNotifications) {
           updateData.emailNotifications = {
@@ -342,6 +346,7 @@ export function useAuth() {
           photoURL: user.photoURL,
           createdAt: serverTimestamp(),
           lastSeenAt: serverTimestamp(),
+          signInMethod: "apple",
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           irlCity: getDefaultCity(),
           emailNotifications: {
@@ -370,6 +375,7 @@ export function useAuth() {
         // Existing user - update last seen
         const updateData: Record<string, unknown> = {
           lastSeenAt: serverTimestamp(),
+          signInMethod: "apple",
         };
         if (enableNotifications) {
           updateData.emailNotifications = {
@@ -488,6 +494,7 @@ export function useAuth() {
 
       const updateData: Record<string, unknown> = {
         lastSeenAt: serverTimestamp(),
+        signInMethod: "password",
       };
       if (enableNotifications) {
         updateData.emailNotifications = {
@@ -505,6 +512,7 @@ export function useAuth() {
           photoURL: null,
           createdAt: serverTimestamp(),
           lastSeenAt: serverTimestamp(),
+          signInMethod: "password",
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           irlCity: getDefaultCity(),
           emailNotifications: {
@@ -563,6 +571,7 @@ export function useAuth() {
         photoURL: null,
         createdAt: serverTimestamp(),
         lastSeenAt: serverTimestamp(),
+        signInMethod: "password",
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         irlCity: getDefaultCity(),
         emailNotifications: {
@@ -632,6 +641,7 @@ export function useAuth() {
         photoURL: null,
         createdAt: serverTimestamp(),
         lastSeenAt: serverTimestamp(),
+        signInMethod: "password",
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         irlCity: getDefaultCity(),
         emailNotifications: {
@@ -671,6 +681,7 @@ export function useAuth() {
           const userSnap = await getDoc(userRef);
           const updateData: Record<string, unknown> = {
             lastSeenAt: serverTimestamp(),
+            signInMethod: "password",
           };
           if (enableNotifications) {
             updateData.emailNotifications = {

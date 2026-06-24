@@ -32,6 +32,7 @@ interface Resident {
   userId: string;
   email: string;
   firstName: string;
+  signInMethod?: string; // recorded sign-in method → personalized footer reminder
   usernames: Set<string>; // normalized usernames this resident may appear under
   hasUpcoming: boolean; // a non-cancelled slot in (now, now + 60d]
   playedRecently: boolean; // a slot that ended within the last 31 days
@@ -53,8 +54,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required ?to=<email>' }, { status: 400 });
     }
     const djName = url.searchParams.get('name') || 'Cap';
-    const ok = await sendResidentRescheduleEmail({ to, djName });
-    return NextResponse.json({ preview: true, sent: ok, to, djName });
+    // Optional footer-reminder preview: ?method=google|apple|password|emailLink&email=...
+    const signInMethod = url.searchParams.get('method') || undefined;
+    const signInEmail = url.searchParams.get('email') || to;
+    const ok = await sendResidentRescheduleEmail({ to, djName, signInMethod, signInEmail });
+    return NextResponse.json({ preview: true, sent: ok, to, djName, signInMethod });
   }
 
   // Dry-run mode: run the full eligibility logic and return who WOULD be
@@ -101,6 +105,7 @@ export async function GET(request: NextRequest) {
       userId: doc.id,
       email,
       firstName: resolveFirstName(email, data.name, data.chatUsername, data.displayName),
+      signInMethod: typeof data.signInMethod === 'string' ? data.signInMethod : undefined,
       usernames,
       hasUpcoming: false,
       playedRecently: false,
@@ -217,6 +222,8 @@ export async function GET(request: NextRequest) {
     const ok = await sendResidentRescheduleEmail({
       to: r.email,
       djName: r.firstName,
+      signInMethod: r.signInMethod,
+      signInEmail: r.email,
     });
 
     if (ok) {

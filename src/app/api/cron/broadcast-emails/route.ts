@@ -130,6 +130,8 @@ interface DjInfo {
   hasLocation: boolean;
   hasGenres: boolean;
   isResident: boolean; // monthly or quarterly resident
+  signInMethod?: string; // recorded sign-in method → personalized footer reminder
+  email: string; // the recipient email, shown in that reminder (omitted for Apple)
 }
 
 const DEFAULT_TIMEZONE = 'America/Los_Angeles';
@@ -151,6 +153,8 @@ async function lookupDjInfo(db: FirebaseFirestore.Firestore, email: string): Pro
       hasLocation: !!djProfile.location,
       hasGenres: Array.isArray(djProfile.genres) && djProfile.genres.length > 0,
       isResident: cadence === 'monthly' || cadence === 'quarterly',
+      signInMethod: typeof user.signInMethod === 'string' ? user.signInMethod : undefined,
+      email,
     };
   }
   // Check pending-dj-profiles
@@ -166,9 +170,10 @@ async function lookupDjInfo(db: FirebaseFirestore.Firestore, email: string): Pro
       hasLocation: false,
       hasGenres: false,
       isResident: false,
+      email,
     };
   }
-  return { username: null, name: null, timezone: DEFAULT_TIMEZONE, hasPhoto: false, hasTipLink: false, hasLocation: false, hasGenres: false, isResident: false };
+  return { username: null, name: null, timezone: DEFAULT_TIMEZONE, hasPhoto: false, hasTipLink: false, hasLocation: false, hasGenres: false, isResident: false, email };
 }
 
 // Build a natural-language string of missing profile items
@@ -346,6 +351,8 @@ async function run1WeekReminders(db: FirebaseFirestore.Firestore, now: number): 
           profileUrl: null,
           startTime: formatDate(target.startTime, djTimezone),
           timeRange: formatTimeRange(target.startTime, target.endTime, djTimezone),
+          signInMethod: djInfo.signInMethod,
+          signInEmail: djInfo.email,
         });
 
         if (success) { result.sent++; } else { result.errors.push(`Failed to send 1-week reminder to ${target.email}`); }
@@ -408,6 +415,8 @@ async function run48hReminders(db: FirebaseFirestore.Firestore, now: number): Pr
           startTime: formatDate(target.startTime, djTimezone),
           timeRange: formatTimeRange(target.startTime, target.endTime, djTimezone),
           isResident: djInfo.isResident,
+          signInMethod: djInfo.signInMethod,
+          signInEmail: djInfo.email,
         });
 
         if (success) { result.sent++; } else { result.errors.push(`Failed to send 48h reminder to ${target.email}`); }
@@ -489,6 +498,8 @@ async function run2hReminders(db: FirebaseFirestore.Firestore, now: number): Pro
           profileUrl: null,
           startTime: formatDate(target.startTime, djTimezone),
           timeRange: formatTimeRange(target.startTime, target.endTime, djTimezone),
+          signInMethod: djInfo.signInMethod,
+          signInEmail: djInfo.email,
         });
 
         if (success) { result.sent++; } else { result.errors.push(`Failed to send 2h reminder to ${target.email}`); }

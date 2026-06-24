@@ -139,6 +139,37 @@ function wrapEmailContent(
   return _wrapEmailContent(content, footerText, unsubUrl, unsubLabel, aboveContentHtml);
 }
 
+// How a DJ signs in, recorded on their user doc at login (see useAuth.ts) and
+// backfilled for existing DJs. Used only to remind a DJ of their own method in
+// the footer of DJ-facing emails, so they don't create a duplicate account.
+export type SignInMethod = "google" | "apple" | "emailLink" | "password";
+
+// Build the personalized "how you sign in" sentence appended to a DJ email
+// footer. Returns "" (no line) when the method is unknown — the footer then
+// renders exactly as it does today. Apple deliberately omits the email because
+// Hide-My-Email relays it to a useless address.
+function signInReminderHtml(method?: string, email?: string): string {
+  const at = "at <a href=\"https://channel-app.com\" style=\"color: #999; text-decoration: underline;\">channel-app.com</a>";
+  let line: string;
+  switch (method) {
+    case "google":
+      line = `You sign in with <strong>Google</strong>${email ? ` (${email})` : ""} ${at}.`;
+      break;
+    case "apple":
+      line = `You sign in with <strong>Apple</strong> ${at}.`;
+      break;
+    case "password":
+      line = `You sign in with your <strong>email &amp; password</strong>${email ? ` (${email})` : ""} ${at}.`;
+      break;
+    case "emailLink":
+      line = `You sign in with a one-time link we email${email ? ` to <strong>${email}</strong>` : ""} — enter that email ${at} and we'll send it.`;
+      break;
+    default:
+      return "";
+  }
+  return `<br><br>${line}`;
+}
+
 function _wrapEmailContent(
   content: string,
   footerText: string,
@@ -986,6 +1017,8 @@ interface BroadcastReminderEmailParams {
   startTime: string; // e.g. "Tuesday, March 31"
   timeRange: string; // e.g. "8:00 PM – 10:00 PM EST"
   isResident?: boolean; // monthly/quarterly resident — softer, warmer reminder
+  signInMethod?: string; // DJ's recorded sign-in method → personalized footer reminder
+  signInEmail?: string; // email to show in that reminder (omitted for Apple)
 }
 
 export async function sendBroadcast48HourReminderEmail({
@@ -995,6 +1028,8 @@ export async function sendBroadcast48HourReminderEmail({
   startTime,
   timeRange,
   isResident = false,
+  signInMethod,
+  signInEmail,
 }: BroadcastReminderEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -1062,7 +1097,7 @@ export async function sendBroadcast48HourReminderEmail({
       from: FROM_EMAIL_DJ,
       to,
       subject: isResident ? `Looking forward to your show` : `Test your audio set up, please`,
-      html: wrapEmailContent(content, "You're receiving this because you have a scheduled show on Channel Radio."),
+      html: wrapEmailContent(content, "You're receiving this because you have a scheduled show on Channel Radio." + signInReminderHtml(signInMethod, signInEmail)),
       headers: getUnsubscribeHeaders("dj"),
     });
 
@@ -1086,6 +1121,8 @@ export async function sendBroadcast1WeekReminderEmail({
   showName,
   startTime,
   timeRange,
+  signInMethod,
+  signInEmail,
 }: BroadcastReminderEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -1130,7 +1167,7 @@ export async function sendBroadcast1WeekReminderEmail({
       from: FROM_EMAIL_DJ,
       to,
       subject: `Your show is in 1 week`,
-      html: wrapEmailContent(content, "You're receiving this because you have a scheduled show on Channel Radio."),
+      html: wrapEmailContent(content, "You're receiving this because you have a scheduled show on Channel Radio." + signInReminderHtml(signInMethod, signInEmail)),
       headers: getUnsubscribeHeaders("dj"),
     });
 
@@ -1153,9 +1190,13 @@ export async function sendBroadcast1WeekReminderEmail({
 export async function sendResidentRescheduleEmail({
   to,
   djName,
+  signInMethod,
+  signInEmail,
 }: {
   to: string;
   djName: string;
+  signInMethod?: string;
+  signInEmail?: string;
 }) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -1196,7 +1237,7 @@ export async function sendResidentRescheduleEmail({
       from: FROM_EMAIL_DJ,
       to,
       subject: `Ready for your next show?`,
-      html: wrapEmailContent(content, "You're receiving this as a resident on Channel."),
+      html: wrapEmailContent(content, "You're receiving this as a resident on Channel." + signInReminderHtml(signInMethod, signInEmail)),
       headers: getUnsubscribeHeaders("dj"),
     });
 
@@ -1219,6 +1260,8 @@ export async function sendBroadcast2HourReminderEmail({
   broadcastUrl,
   startTime,
   timeRange,
+  signInMethod,
+  signInEmail,
 }: BroadcastReminderEmailParams) {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -1284,7 +1327,7 @@ export async function sendBroadcast2HourReminderEmail({
       from: FROM_EMAIL_DJ,
       to,
       subject: `You're live soon on Channel`,
-      html: wrapEmailContent(content, "You're receiving this because you have a scheduled show on Channel Radio."),
+      html: wrapEmailContent(content, "You're receiving this because you have a scheduled show on Channel Radio." + signInReminderHtml(signInMethod, signInEmail)),
       headers: getUnsubscribeHeaders("dj"),
     });
 
