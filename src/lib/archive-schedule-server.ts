@@ -646,13 +646,27 @@ async function resolveLoopPlan(
 
   // Split the shuffled pool at the live-block end: fill up to the block, rest
   // go after. Whole archives only (one that would straddle the block goes after).
+  //
+  // GAP FIX: the loop's *actual* start is recomputed in generateLoop as
+  // (blockEnd − preAnchorSpan) so the hand-back lands on the block end. If the
+  // pre-anchor pour stops as soon as an archive won't fit before the block, the
+  // pre-anchor span can be too SHORT, pushing that recomputed start LATER than
+  // the previous loop's end → a gap (dead air) between loops. So we keep pouring
+  // pre-anchor archives until the span reaches at least (blockEnd − prevEnd),
+  // which is exactly enough to pull the recomputed start back to ≤ prevEnd (no
+  // gap). This only ever ADDS archives to the front, so loops that already had
+  // no gap are unaffected. (Loop 31, 2026-06-25: poured 11.7h, needed 12.5h →
+  // 47-min gap; this adds the one missing archive.) Overshoot by part of one
+  // archive = a little extra overlap with the previous loop, which is fine.
+  const minPreSpanMs = Math.max(0, blockEndMs - prevNaturalEnd);
   const preItems: EligibleArchive[] = [];
   const postPool: EligibleArchive[] = [];
   let running = startTimeMs;
   let blockReached = false;
   for (const a of pool) {
     const span = effectiveSpanMs(a.durationSec, avgInterludeSec);
-    if (!blockReached && running + span <= blockEndMs) {
+    const preSpan = running - startTimeMs;
+    if (!blockReached && (running + span <= blockEndMs || preSpan < minPreSpanMs)) {
       preItems.push(a);
       running += span;
     } else {
