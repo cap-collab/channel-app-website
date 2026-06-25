@@ -164,21 +164,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if username is already taken
-    const usernameDoc = await db.collection('usernames').doc(normalizedUsername).get();
-    if (usernameDoc.exists) {
-      const existingData = usernameDoc.data();
-      // Only allow if it's already a pending reservation for the same email
-      if (!existingData?.isPending || !normalizedEmail || existingData?.reservedForEmail?.toLowerCase() !== normalizedEmail) {
-        return NextResponse.json({
-          error: 'Username is already taken. Try another one.'
-        }, { status: 409 });
-      }
-    }
+    // Note: we intentionally do NOT reserve the chat username in the `usernames`
+    // collection anymore. The slug is still derived from the DJ name and stored on
+    // the pending profile (drives the /dj/<slug> URL and DJ matching), but the handle
+    // stays un-booked until the real user claims it on signup via register-username.
 
-    // Create the pending DJ profile and reserve the username in a transaction
+    // Create the pending DJ profile (and pending DJ role) in a transaction
     const pendingProfileRef = db.collection('pending-dj-profiles').doc();
-    const usernameRef = db.collection('usernames').doc(normalizedUsername);
     const pendingDJRoleRef = db.collection('pending-dj-roles').doc();
 
     await db.runTransaction(async (transaction) => {
@@ -203,16 +195,6 @@ export async function POST(request: NextRequest) {
         status: 'pending',
         createdAt: FieldValue.serverTimestamp(),
         createdBy: adminUserId,
-      });
-
-      // Reserve the username with a pending marker
-      transaction.set(usernameRef, {
-        displayName: trimmedUsername,
-        usernameHandle: normalizedUsername,
-        uid: normalizedEmail ? `pending:${normalizedEmail}` : `pending:${pendingProfileRef.id}`,
-        ...(normalizedEmail ? { reservedForEmail: normalizedEmail } : {}),
-        isPending: true,
-        claimedAt: FieldValue.serverTimestamp(),
       });
 
       // Create a pending DJ role entry so they get DJ role on signup (only if email provided)
