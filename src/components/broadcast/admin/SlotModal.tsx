@@ -594,10 +594,13 @@ export function SlotModal({
   const fetchArchives = async () => {
     if (archivesLoaded) return;
     try {
-      // includeHidden so admins can schedule a hidden archive as a restream
-      // (and pick it for post-live) without first un-hiding it. The picker
-      // lists are admin-only; public surfaces still call /api/archives plain.
-      const res = await fetch('/api/archives?includeHidden=true');
+      // includeHidden + includePrivate so admins can schedule ANY archive as a
+      // restream/anchor (and pick it for post-live) without first un-hiding or
+      // publishing it. A private (isPublic:false) or hidden archive otherwise
+      // vanishes from the picker — which is why a scheduled anchor whose archive
+      // was later unpublished couldn't be re-selected. The picker lists are
+      // admin-only; public surfaces still call /api/archives plain.
+      const res = await fetch('/api/archives?includeHidden=true&includePrivate=true');
       const data = await res.json();
       if (data.archives) {
         setArchives(data.archives);
