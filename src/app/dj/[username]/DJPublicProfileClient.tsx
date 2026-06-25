@@ -1931,11 +1931,16 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             const photoFirst = (a: GridItem, b: GridItem) =>
               Number(Boolean(b.photoUrl)) - Number(Boolean(a.photoUrl));
 
-            // Owners first. Track their UIDs so residents who are also owners
-            // aren't listed twice.
+            // Owners first. Track their UIDs AND normalized usernames so a
+            // resident who is also an owner isn't listed twice. residentDJs[]
+            // entries often carry only djUsername/djName (no djUserId), so a
+            // UID-only check missed them — e.g. m50 showing up as both owner
+            // and resident on /dj/etcradio. Match on either key.
             const ownerUids = new Set<string>();
+            const ownerUsernames = new Set<string>();
             const ownerItems: GridItem[] = ownersResolved.map((o, i) => {
               if (o.uid) ownerUids.add(o.uid);
+              if (o.chatUsername) ownerUsernames.add(normalizeUsername(o.chatUsername));
               return {
                 key: `owner-${o.uid}-${i}`,
                 href: `/dj/${normalizeUsername(o.chatUsername)}`,
@@ -1948,7 +1953,14 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             ownerItems.sort(photoFirst);
 
             const residentItems: GridItem[] = residentsResolved
-              .filter((r) => !r.djUserId || !ownerUids.has(r.djUserId))
+              .filter((r) => {
+                if (r.djUserId && ownerUids.has(r.djUserId)) return false;
+                // Cross-key on normalized username/name for residents that have
+                // no djUserId but are the same person as an owner.
+                const uname = r.djUsername || r.djName;
+                if (uname && ownerUsernames.has(normalizeUsername(uname))) return false;
+                return true;
+              })
               .map((r, i) => ({
                 key: `dj-${r.djUsername || r.djName}-${i}`,
                 href: r.djUsername ? `/dj/${normalizeUsername(r.djUsername)}` : null,
