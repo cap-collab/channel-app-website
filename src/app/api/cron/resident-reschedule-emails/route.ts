@@ -10,10 +10,10 @@ import { normalizeUsername } from '@/lib/dj-matching';
 export const maxDuration = 120;
 
 // Eligibility windows.
-const RECENT_WINDOW_MS = 31 * 24 * 60 * 60 * 1000; // played OR uploaded in last 31 days
+const RECENT_WINDOW_MS = 45 * 24 * 60 * 60 * 1000; // played OR uploaded in last 45 days
 const UPCOMING_WINDOW_MS = 60 * 24 * 60 * 60 * 1000; // nothing booked in next 60 days
-// Don't re-nudge the same DJ more than once every 30 days.
-const RENUDGE_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000;
+// Don't re-nudge the same DJ more than once every 90 days.
+const RENUDGE_INTERVAL_MS = 90 * 24 * 60 * 60 * 1000;
 
 function verifyCronRequest(request: NextRequest): boolean {
   const isVercelCron = request.headers.get('x-vercel-cron') === '1';
@@ -34,9 +34,10 @@ interface Resident {
   firstName: string;
   signInMethod?: string; // recorded sign-in method → personalized footer reminder
   usernames: Set<string>; // normalized usernames this resident may appear under
+  // All of the following also credit a resident via any collective they OWN.
   hasUpcoming: boolean; // a non-cancelled slot in (now, now + 60d]
-  playedRecently: boolean; // a slot that ended within the last 31 days
-  uploadedRecently: boolean; // an archive recording uploaded within the last 31 days
+  playedRecently: boolean; // a slot that ended (or is live now) within the last 45 days
+  uploadedRecently: boolean; // an archive recording uploaded within the last 45 days
 }
 
 export async function GET(request: NextRequest) {
@@ -121,14 +122,42 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true, residents: 0, sent: 0 });
   }
 
+  // ── Collective ownership map ─────────────────────────────────────────
+  // A resident who OWNS a collective (collective.owners[] includes their uid)
+  // gets credit for that collective's shows + uploads. Collective slots/archives
+  // are tagged with the collective SLUG as djUsername (djUserId is usually null,
+  // since a collective isn't a user) — so we resolve slug → owner uids → resident.
+  // Map: normalized collective slug → resident objects for any owner who is a
+  // monthly resident in our roster.
+  const slugToOwnerResidents = new Map<string, Resident[]>();
+  const collsSnap = await db.collection('collectives').get();
+  for (const doc of collsSnap.docs) {
+    const c = doc.data();
+    const slug = typeof c.slug === 'string' ? normalizeUsername(c.slug) : '';
+    if (!slug) continue;
+    const owners = Array.isArray(c.owners) ? c.owners : [];
+    const ownerResidents: Resident[] = [];
+    for (const uid of owners) {
+      if (typeof uid === 'string' && byUserId.has(uid)) ownerResidents.push(byUserId.get(uid)!);
+    }
+    if (ownerResidents.length > 0) slugToOwnerResidents.set(slug, ownerResidents);
+  }
+
+  // Resolve residents named by a slot/archive: the individual DJ (by userId or
+  // username) AND — when the username is a collective slug — that collective's
+  // owner-residents. Returns a deduped list.
   const resolveResidents = (djUserId?: unknown, djUsername?: unknown): Resident[] => {
     const hits: Resident[] = [];
+    const add = (r: Resident) => { if (!hits.includes(r)) hits.push(r); };
     if (typeof djUserId === 'string' && byUserId.has(djUserId)) {
-      hits.push(byUserId.get(djUserId)!);
+      add(byUserId.get(djUserId)!);
     }
     if (typeof djUsername === 'string' && djUsername.trim()) {
-      const r = byUsername.get(normalizeUsername(djUsername));
-      if (r && !hits.includes(r)) hits.push(r);
+      const norm = normalizeUsername(djUsername);
+      const r = byUsername.get(norm);
+      if (r) add(r);
+      // djUsername may be a collective slug — credit its owner-residents.
+      for (const owner of slugToOwnerResidents.get(norm) || []) add(owner);
     }
     return hits;
   };
@@ -136,19 +165,22 @@ export async function GET(request: NextRequest) {
   // ── 2. Single sweep of broadcast-slots ───────────────────────────────
   // Each slot may name a DJ at the slot level (djUserId / djUsername) and/or
   // inside djSlots[] for multi-DJ venue shows. Per resident we flag whether
-  // they have an upcoming slot (next 60d) or played one recently (last 31 days).
+  // they have an upcoming slot (next 60d) or played one recently (last 45 days).
   const markSlot = (r: Resident, startMs: number, endMs: number | null) => {
     if (startMs > now && startMs <= upcomingCutoff) r.hasUpcoming = true;
-    // Count a show as "played" once it has ended.
+    // Count a show as "played" once it has ended...
     if (endMs !== null && endMs <= now && endMs >= recentCutoff) r.playedRecently = true;
+    // ...and also count one that's live right now (started, not yet ended), so
+    // a show in progress isn't a blind spot between hasUpcoming and playedRecently.
+    if (startMs <= now && startMs >= recentCutoff && (endMs === null || endMs > now)) r.playedRecently = true;
   };
 
   const slotsSnap = await db.collection('broadcast-slots').get();
   for (const doc of slotsSnap.docs) {
     const slot = doc.data();
     if (slot.status === 'cancelled' || slot.broadcastType === 'recording') continue;
-    // Anchors aren't a resident's live slot — never count them as "booked".
-    if (slot.broadcastType === 'anchor') continue;
+    // Anchors, restreams, venue, remote and live shows all count toward a
+    // resident's activity / upcoming bookings (recordings excluded above).
 
     const slotStart = toMillis(slot.startTime);
     const slotEnd = toMillis(slot.endTime);
@@ -173,7 +205,7 @@ export async function GET(request: NextRequest) {
   }
 
   // ── 3. Sweep archives for recent uploads ─────────────────────────────
-  // A recording uploaded in the last 31 days counts as recent activity even
+  // A recording uploaded in the last 45 days counts as recent activity even
   // if the DJ never did a live slot. createdAt is the upload moment — but it's
   // stored inconsistently across creation paths (millis number from uploads,
   // Firestore Timestamp from live-recorded/published shows), so we can't use a
@@ -202,16 +234,16 @@ export async function GET(request: NextRequest) {
   const skipped: Array<{ email: string; reason: string }> = [];
 
   for (const r of residents) {
-    if (r.hasUpcoming) { skipped.push({ email: r.email, reason: 'has upcoming show (next 60d)' }); continue; }
-    if (r.playedRecently) { skipped.push({ email: r.email, reason: 'played a slot in last 31 days' }); continue; }
-    if (r.uploadedRecently) { skipped.push({ email: r.email, reason: 'uploaded a recording in last 31 days' }); continue; }
+    if (r.hasUpcoming) { skipped.push({ email: r.email, reason: 'has upcoming show (next 60d, incl. anchors + owned collectives)' }); continue; }
+    if (r.playedRecently) { skipped.push({ email: r.email, reason: 'played a slot in last 45 days (incl. anchors + owned collectives)' }); continue; }
+    if (r.uploadedRecently) { skipped.push({ email: r.email, reason: 'uploaded a recording in last 45 days (incl. owned collectives)' }); continue; }
 
-    // 30-day re-nudge guard.
+    // 90-day re-nudge guard.
     const data = byUserIdData.get(r.userId);
     const lastNudge = toMillis(data?.lastResidentNudgeAt);
     if (lastNudge !== null && now - lastNudge < RENUDGE_INTERVAL_MS) {
       skippedRenudge++;
-      skipped.push({ email: r.email, reason: 'nudged within last 30 days' });
+      skipped.push({ email: r.email, reason: 'nudged within last 90 days' });
       continue;
     }
 
