@@ -1597,9 +1597,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         const heroFirstId = secondHeroArchive?.id ?? heroArchives[0]?.id;
         // Rank by priority tier first (featured above high above medium),
         // recency as the tiebreaker within a tier — matching the grid order
-        // ChannelClient computes. 'low'/'hidden' are filtered out upstream but
-        // are ranked anyway so the order stays sane if any slip through.
+        // ChannelClient computes.
+        // Exclude hidden + private from the browsable grid. These normally never
+        // reach the client, but an archive pinned as a radio ANCHOR is now let
+        // through /api/archives (so the now-playing player can resolve it) even
+        // when hidden/private — it must NOT show up as a browsable card here.
         const prefiltered = archives
+          .filter((a) => a.priority !== 'hidden' && a.isPublic !== false)
           .slice()
           .sort((a, b) => {
             const rank = priorityRank(a.priority) - priorityRank(b.priority);
