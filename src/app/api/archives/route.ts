@@ -39,6 +39,32 @@ export async function GET(request: Request) {
     // Get all archives without orderBy to avoid index requirement
     const snapshot = await archivesRef.get();
 
+    // Anchored archives must resolve on the public player even when they're
+    // hidden/private — an admin can pin such an archive as a radio anchor, and
+    // the archive-radio loop force-includes it (see archive-schedule-server
+    // forceIncludeAnchorArchives). Without this allow-list the player's
+    // currentArchive lookup would be null → blank title/cover/scene/DJ. Build
+    // the set of archive IDs pinned as an upcoming/active anchor's curated
+    // archive. Scoped to anchor slots only — not a general hidden/private leak.
+    const anchorArchiveIds = new Set<string>();
+    try {
+      const nowMs = Date.now();
+      const anchorSlotsSnap = await db.collection('broadcast-slots')
+        .where('broadcastType', '==', 'anchor')
+        .get();
+      anchorSlotsSnap.forEach((slot) => {
+        const s = slot.data();
+        if (s.status !== 'scheduled' && s.status !== 'live') return;
+        // Keep until the anchor's block has passed (endTime in the future).
+        const endMs = s.endTime?.toMillis ? s.endTime.toMillis() : 0;
+        if (endMs && endMs < nowMs) return;
+        const id = typeof s.postLiveArchiveId === 'string' ? s.postLiveArchiveId : null;
+        if (id) anchorArchiveIds.add(id);
+      });
+    } catch (err) {
+      console.warn('[api/archives] anchor allow-list lookup failed:', err);
+    }
+
     // First pass: collect archives and identify which need slot lookups
     // Filter out unpublished recordings (isPublic === false means explicitly private)
     // Unless includePrivate=true (for DJ dashboard to see their own recordings)
@@ -48,6 +74,9 @@ export async function GET(request: Request) {
         const data = doc.data();
         // Skip archives still being uploaded
         if (data.uploadStatus === 'uploading') return false;
+        // Anchored archives always pass — the radio pins them by id and the
+        // player must be able to resolve their metadata.
+        if (anchorArchiveIds.has(doc.id)) return true;
         // Drop hidden-priority archives unless caller explicitly opted in
         // (admin Archives tab). Hidden is below 'low' — even admin views
         // that surface 'low' archives don't want them by default.

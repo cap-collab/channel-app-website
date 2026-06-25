@@ -237,10 +237,11 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
 // Shared eligibility loader used by both the daily generator (above) and the
 // loop generator. Returns the same shape buildQueue + buildLoop expect, with
 // scene slugs denormalized so the player doesn't need to re-resolve.
-async function loadEligibleArchives(): Promise<EligibleArchive[]> {
-  const db = getAdminDb();
-  if (!db) throw new Error('database not configured');
-
+// Build the userId/username → sceneIds maps used to derive an archive's scenes.
+async function loadSceneMaps(db: FirebaseFirestore.Firestore): Promise<{
+  sceneByUserId: Map<string, string[]>;
+  sceneByUsername: Map<string, string[]>;
+}> {
   const sceneByUserId = new Map<string, string[]>();
   const sceneByUsername = new Map<string, string[]>();
   try {
@@ -261,58 +262,123 @@ async function loadEligibleArchives(): Promise<EligibleArchive[]> {
   } catch (err) {
     console.warn('[archive-schedule-server] scene map fetch failed; items will have no sceneSlugs', err);
   }
+  return { sceneByUserId, sceneByUsername };
+}
 
+// Map a raw archive doc → EligibleArchive. `forced` skips the public/priority
+// gates (used ONLY for archives explicitly pinned as an anchor's curated
+// archive — see forceIncludeAnchorArchives). Returns null when the archive
+// can't actually play (no recordingUrl / too short) or fails the eligibility
+// gates and isn't forced.
+function mapArchiveDoc(
+  id: string,
+  d: FirebaseFirestore.DocumentData,
+  scenes: { sceneByUserId: Map<string, string[]>; sceneByUsername: Map<string, string[]> },
+  forced: boolean,
+): EligibleArchive | null {
+  if (d.uploadStatus === 'uploading') return null;
+  // Eligibility gates — bypassed for a forced (anchored) archive. A pinned
+  // anchor must play even when it's private/hidden, but a non-anchored archive
+  // with those flags must still be excluded from the general radio pool.
+  if (!forced) {
+    if (d.isPublic === false) return null;
+    const rawPriority = (d.priority || 'medium') as string;
+    if (rawPriority !== 'featured' && rawPriority !== 'high' && rawPriority !== 'medium') return null;
+  }
+  const rawPriority = (d.priority || 'medium') as string;
+  // Featured behaves exactly like high in the loop. A forced archive at any
+  // other tier (low/hidden) plays as 'medium' — tier only affects pool
+  // selection, which the anchor bypasses anyway.
+  const priority: 'high' | 'medium' =
+    rawPriority === 'featured' || rawPriority === 'high' ? 'high' : 'medium';
+  const recordingUrl: string | undefined = d.recordingUrl;
+  const durationSec: number = Number(d.duration || 0);
+  // A playable file is non-negotiable even when forced. The 30-min floor is a
+  // pool-quality rule, so a forced anchor is allowed to be shorter.
+  if (!recordingUrl || !durationSec) return null;
+  if (!forced && durationSec < 30 * 60) return null;
+  const djsRaw: Array<{ name?: string; username?: string; userId?: string; photoUrl?: string }> = Array.isArray(d.djs) ? d.djs : [];
+  const djs = djsRaw
+    .filter((dj): dj is { name: string; username?: string; userId?: string; photoUrl?: string } => typeof dj?.name === 'string' && dj.name.length > 0)
+    .map((dj) => ({ name: dj.name, username: dj.username, photoUrl: dj.photoUrl }));
+
+  let sceneSlugs: string[] | undefined;
+  if (Array.isArray(d.sceneIdsOverride)) {
+    sceneSlugs = d.sceneIdsOverride.length > 0 ? d.sceneIdsOverride : undefined;
+  } else if (Array.isArray(d.sceneSlugs) && d.sceneSlugs.length > 0) {
+    sceneSlugs = d.sceneSlugs as string[];
+  } else {
+    const set = new Set<string>();
+    for (const dj of djsRaw) {
+      if (dj.userId) {
+        const ids = scenes.sceneByUserId.get(dj.userId);
+        if (ids) ids.forEach((sid) => set.add(sid));
+      }
+      if (dj.username) {
+        const key = dj.username.toLowerCase().replace(/\s+/g, '');
+        const ids = scenes.sceneByUsername.get(key);
+        if (ids) ids.forEach((sid) => set.add(sid));
+      }
+    }
+    if (set.size > 0) sceneSlugs = Array.from(set);
+  }
+
+  return {
+    id,
+    recordingUrl,
+    durationSec,
+    priority,
+    title: (d.showName as string) || (d.slug as string) || 'Archive',
+    djs,
+    artworkUrl: d.showImageUrl,
+    sceneSlugs,
+  };
+}
+
+async function loadEligibleArchives(): Promise<EligibleArchive[]> {
+  const db = getAdminDb();
+  if (!db) throw new Error('database not configured');
+
+  const scenes = await loadSceneMaps(db);
   const archivesSnap = await db.collection('archives').get();
   const archives: EligibleArchive[] = [];
   for (const doc of archivesSnap.docs) {
-    const d = doc.data();
-    if (d.uploadStatus === 'uploading') continue;
-    if (d.isPublic === false) continue;
-    const rawPriority = (d.priority || 'medium') as string;
-    if (rawPriority !== 'featured' && rawPriority !== 'high' && rawPriority !== 'medium') continue;
-    // Featured behaves exactly like high in the loop.
-    const priority = rawPriority === 'featured' ? 'high' : rawPriority;
-    const recordingUrl: string | undefined = d.recordingUrl;
-    const durationSec: number = Number(d.duration || 0);
-    if (!recordingUrl || !durationSec || durationSec < 30 * 60) continue;
-    const djsRaw: Array<{ name?: string; username?: string; userId?: string; photoUrl?: string }> = Array.isArray(d.djs) ? d.djs : [];
-    const djs = djsRaw
-      .filter((dj): dj is { name: string; username?: string; userId?: string; photoUrl?: string } => typeof dj?.name === 'string' && dj.name.length > 0)
-      .map((dj) => ({ name: dj.name, username: dj.username, photoUrl: dj.photoUrl }));
-
-    let sceneSlugs: string[] | undefined;
-    if (Array.isArray(d.sceneIdsOverride)) {
-      sceneSlugs = d.sceneIdsOverride.length > 0 ? d.sceneIdsOverride : undefined;
-    } else if (Array.isArray(d.sceneSlugs) && d.sceneSlugs.length > 0) {
-      sceneSlugs = d.sceneSlugs as string[];
-    } else {
-      const set = new Set<string>();
-      for (const dj of djsRaw) {
-        if (dj.userId) {
-          const ids = sceneByUserId.get(dj.userId);
-          if (ids) ids.forEach((id) => set.add(id));
-        }
-        if (dj.username) {
-          const key = dj.username.toLowerCase().replace(/\s+/g, '');
-          const ids = sceneByUsername.get(key);
-          if (ids) ids.forEach((id) => set.add(id));
-        }
-      }
-      if (set.size > 0) sceneSlugs = Array.from(set);
-    }
-
-    archives.push({
-      id: doc.id,
-      recordingUrl,
-      durationSec,
-      priority: priority as 'high' | 'medium',
-      title: (d.showName as string) || (d.slug as string) || 'Archive',
-      djs,
-      artworkUrl: d.showImageUrl,
-      sceneSlugs,
-    });
+    const mapped = mapArchiveDoc(doc.id, doc.data(), scenes, false);
+    if (mapped) archives.push(mapped);
   }
+  return archives;
+}
 
+// Force-include archives that are pinned as an upcoming anchor's curated
+// archive but were filtered out of the general pool (private / hidden / below
+// the 30-min floor). SCOPED to anchored archives only — a hidden/private
+// archive that is NOT an anchor stays out of the radio. Without this, buildLoop
+// can't find the curated archive and substitutes a random one (wrong show at
+// the anchor's time), and the player can't resolve its metadata.
+async function forceIncludeAnchorArchives(
+  archives: EligibleArchive[],
+  anchorArchiveIds: string[],
+): Promise<EligibleArchive[]> {
+  const db = getAdminDb();
+  if (!db) return archives;
+  const have = new Set(archives.map((a) => a.id));
+  const missing = Array.from(new Set(anchorArchiveIds)).filter((id) => id && !have.has(id));
+  if (missing.length === 0) return archives;
+
+  const scenes = await loadSceneMaps(db);
+  for (const id of missing) {
+    try {
+      const snap = await db.collection('archives').doc(id).get();
+      if (!snap.exists) continue;
+      const mapped = mapArchiveDoc(snap.id, snap.data()!, scenes, true);
+      if (mapped) {
+        archives.push(mapped);
+        console.log(`[archive-schedule-server] force-included anchored archive ${id} (bypassed eligibility gates)`);
+      }
+    } catch (err) {
+      console.warn(`[archive-schedule-server] failed to force-include anchor archive ${id}:`, err);
+    }
+  }
   return archives;
 }
 
@@ -844,7 +910,22 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
   }
   // Resolve plan: startTimeMs + (optionally) the anchor + pre-anchor archive
   // subset that places the anchor interlude at the right cumulative offset.
-  const plan = await resolveLoopPlan(args, archives, interstitials);
+  let plan = await resolveLoopPlan(args, archives, interstitials);
+
+  // If this loop's chosen anchor pins an archive that the general pool filtered
+  // out (private / hidden / short), force-include JUST that one archive and
+  // re-resolve the plan so its duration + placement are correct. Scoped to the
+  // selected anchor only — a non-anchored hidden/private archive never enters
+  // the radio. Without this, buildLoop substitutes a random archive at the
+  // anchor's time and the player can't resolve the anchor's metadata.
+  const curatedId = plan.anchor?.curatedArchiveId ?? null;
+  if (curatedId && !archives.some((a) => a.id === curatedId)) {
+    await forceIncludeAnchorArchives(archives, [curatedId]);
+    if (archives.some((a) => a.id === curatedId)) {
+      plan = await resolveLoopPlan(args, archives, interstitials);
+    }
+  }
+
   const result = buildLoop({
     archives,
     interstitials,
