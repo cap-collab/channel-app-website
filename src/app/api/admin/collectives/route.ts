@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues, linkedCollectives, linkedEvents, sceneIds, owners, tipButtonLink } = body;
+    const { name, photo, location, description, genres, socialLinks, residentDJs, guestDJs, linkedVenues, linkedCollectives, linkedEvents, sceneIds, owners, tipButtonLink } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Collective name is required' }, { status: 400 });
@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
       genres: genres || [],
       socialLinks: socialLinks || {},
       residentDJs: residentDJs || [],
+      guestDJs: guestDJs || [],
       linkedVenues: linkedVenues || [],
       linkedCollectives: linkedCollectives || [],
       linkedEvents: linkedEvents || [],
@@ -140,7 +141,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { collectiveId, name, photo, location, description, genres, socialLinks, residentDJs, linkedVenues, linkedCollectives, linkedEvents, sceneIds, owners, tipButtonLink } = body;
+    const { collectiveId, name, photo, location, description, genres, socialLinks, residentDJs, guestDJs, linkedVenues, linkedCollectives, linkedEvents, sceneIds, owners, tipButtonLink } = body;
 
     if (!collectiveId) {
       return NextResponse.json({ error: 'collectiveId is required' }, { status: 400 });
@@ -162,6 +163,7 @@ export async function PATCH(request: NextRequest) {
     if (genres !== undefined) updateData.genres = genres;
     if (socialLinks !== undefined) updateData.socialLinks = socialLinks;
     if (residentDJs !== undefined) updateData.residentDJs = residentDJs;
+    if (guestDJs !== undefined) updateData.guestDJs = guestDJs;
     if (linkedVenues !== undefined) updateData.linkedVenues = linkedVenues;
     if (linkedCollectives !== undefined) updateData.linkedCollectives = linkedCollectives;
     if (linkedEvents !== undefined) updateData.linkedEvents = linkedEvents;

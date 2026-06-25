@@ -48,6 +48,7 @@ export function CollectivesAdmin() {
   const [residentAdvisor, setResidentAdvisor] = useState('');
   const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
   const [residentDJs, setResidentDJs] = useState<EventDJRef[]>([{ djName: '' }]);
+  const [guestDJs, setGuestDJs] = useState<EventDJRef[]>([{ djName: '' }]);
   const [linkedVenues, setLinkedVenues] = useState<CollectiveVenueRef[]>([]);
   const [linkedCollectives, setLinkedCollectives] = useState<CollectiveRef[]>([]);
   const [collectiveLinkedEvents, setCollectiveLinkedEvents] = useState<EventRef[]>([]);
@@ -260,6 +261,7 @@ export function CollectivesAdmin() {
     setResidentAdvisor('');
     setCustomLinks([]);
     setResidentDJs([{ djName: '' }]);
+    setGuestDJs([{ djName: '' }]);
     setLinkedVenues([]);
     setLinkedCollectives([]);
     setCollectiveLinkedEvents([]);
@@ -291,6 +293,11 @@ export function CollectivesAdmin() {
     setResidentDJs(
       collective.residentDJs && collective.residentDJs.length > 0
         ? collective.residentDJs
+        : [{ djName: '' }]
+    );
+    setGuestDJs(
+      collective.guestDJs && collective.guestDJs.length > 0
+        ? collective.guestDJs
         : [{ djName: '' }]
     );
     setLinkedVenues(collective.linkedVenues || []);
@@ -347,9 +354,15 @@ export function CollectivesAdmin() {
     }
   };
 
-  // Handle selecting a DJ from the dropdown
-  const handleDJSelect = (index: number, value: string) => {
-    const updated = [...residentDJs];
+  // Handle selecting a DJ from the dropdown. Generic over the target list so
+  // residents and guests share one implementation.
+  const handleDJSelectFor = (
+    list: EventDJRef[],
+    setList: React.Dispatch<React.SetStateAction<EventDJRef[]>>,
+    index: number,
+    value: string,
+  ) => {
+    const updated = [...list];
     if (value === '__manual__') {
       updated[index] = { djName: '' };
     } else {
@@ -363,8 +376,12 @@ export function CollectivesAdmin() {
         };
       }
     }
-    setResidentDJs(updated);
+    setList(updated);
   };
+  const handleDJSelect = (index: number, value: string) =>
+    handleDJSelectFor(residentDJs, setResidentDJs, index, value);
+  const handleGuestDJSelect = (index: number, value: string) =>
+    handleDJSelectFor(guestDJs, setGuestDJs, index, value);
 
   // Handle adding/removing linked venues
   const handleAddVenue = (venueId: string) => {
@@ -426,6 +443,7 @@ export function CollectivesAdmin() {
       if (filteredCustomLinks.length > 0) socialLinksData.customLinks = filteredCustomLinks.map(l => ({ label: l.label.trim(), url: normalizeUrl(l.url.trim()) }));
 
       const filteredDJs = residentDJs.filter(dj => dj.djName.trim());
+      const filteredGuestDJs = guestDJs.filter(dj => dj.djName.trim());
 
       const payload = {
         ...(editingCollective ? { collectiveId: editingCollective.id } : {}),
@@ -436,6 +454,7 @@ export function CollectivesAdmin() {
         genres: genres.trim() ? genres.split(',').map(g => g.trim()).filter(Boolean) : [],
         socialLinks: socialLinksData,
         residentDJs: filteredDJs,
+        guestDJs: filteredGuestDJs,
         linkedVenues,
         linkedCollectives,
         linkedEvents: collectiveLinkedEvents,
@@ -840,6 +859,66 @@ export function CollectivesAdmin() {
                 className="text-sm text-gray-400 hover:text-white mt-1"
               >
                 + Add DJ
+              </button>
+            </div>
+
+            {/* Guests — a separate category from residents (above). Mirrors the
+                DJs picker; shown in its own "Guests" grid on the collective page. */}
+            <div className="mb-6">
+              <label className="block text-sm text-gray-400 mb-3">Guests</label>
+              {guestDJs.map((dj, i) => {
+                const isManual = !djOptions.some(o => (o.djUsername || o.djName) === (dj.djUsername || dj.djName)) && dj.djName;
+                return (
+                  <div key={i} className="flex gap-2 mb-2">
+                    <select
+                      value={isManual ? '__manual__' : (dj.djUsername || dj.djName || '')}
+                      onChange={(e) => handleGuestDJSelect(i, e.target.value)}
+                      className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
+                    >
+                      <option value="">Select DJ...</option>
+                      {djOptions.map((option) => (
+                        <option key={option.djUsername || option.djName} value={option.djUsername || option.djName}>
+                          {option.label}
+                        </option>
+                      ))}
+                      <option value="__manual__">Other (type name)</option>
+                    </select>
+                    {isManual && (
+                      <input
+                        type="text"
+                        value={dj.djName}
+                        onChange={(e) => {
+                          const updated = [...guestDJs];
+                          updated[i] = { ...updated[i], djName: e.target.value };
+                          setGuestDJs(updated);
+                        }}
+                        className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                        placeholder="DJ Name"
+                      />
+                    )}
+                    {dj.djUsername && (
+                      <span className="flex items-center text-green-400 text-xs px-2">
+                        @{dj.djUsername}
+                      </span>
+                    )}
+                    {guestDJs.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setGuestDJs(guestDJs.filter((_, j) => j !== i))}
+                        className="text-red-400 hover:text-red-300 px-2"
+                      >
+                        &times;
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setGuestDJs([...guestDJs, { djName: '' }])}
+                className="text-sm text-gray-400 hover:text-white mt-1"
+              >
+                + Add Guest
               </button>
             </div>
 

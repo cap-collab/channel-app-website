@@ -89,6 +89,9 @@ export interface Collective {
     customLinks?: CustomLink[];
   };
   residentDJs?: EventDJRef[];
+  // Guest DJs — a separate category from residents, shown in its own grid on
+  // the collective page and surfaced on each guest's DJ page like residents.
+  guestDJs?: EventDJRef[];
   linkedVenues?: CollectiveVenueRef[];
   linkedCollectives?: CollectiveRef[];
   linkedEvents?: EventRef[];

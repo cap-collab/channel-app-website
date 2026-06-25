@@ -296,6 +296,8 @@ interface DJProfile {
   profileType?: 'user' | 'pending' | 'collective';
   owners?: string[];                  // channel-user UIDs
   residentDJs?: { djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[];
+  // Guest DJs — a separate category from residents, rendered in their own grid.
+  guestDJs?: { djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[];
   // Collectives that are also part of this collective's roster. Reused from the
   // existing admin "Linked Collectives" field and rendered alongside resident DJs.
   linkedCollectives?: { collectiveId: string; collectiveName: string; collectiveSlug?: string; collectivePhoto?: string | null }[];
@@ -419,6 +421,14 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   // Resolved resident display info — bios fetched from users / pending-dj-profiles
   // so the cards can show a truncated bio under each resident's name.
   const [residentsResolved, setResidentsResolved] = useState<{
+    djName: string;
+    djUserId?: string;
+    djUsername?: string;
+    djPhotoUrl?: string;
+    bio?: string;
+  }[]>([]);
+  // Resolved guest display info — same shape/resolution as residents.
+  const [guestsResolved, setGuestsResolved] = useState<{
     djName: string;
     djUserId?: string;
     djUsername?: string;
@@ -603,6 +613,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               profileType: 'collective',
               owners: Array.isArray(cData.owners) ? cData.owners : [],
               residentDJs: Array.isArray(cData.residentDJs) ? cData.residentDJs : [],
+              guestDJs: Array.isArray(cData.guestDJs) ? cData.guestDJs : [],
               linkedCollectives: Array.isArray(cData.linkedCollectives) ? cData.linkedCollectives : [],
               linkedVenues: Array.isArray(cData.linkedVenues) ? cData.linkedVenues : [],
               collectiveSlug: cData.slug,
@@ -703,6 +714,50 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
         resolved.push({ ...r, djPhotoUrl, bio });
       }
       if (!cancelled) setResidentsResolved(resolved);
+    })();
+    return () => { cancelled = true; };
+  }, [djProfile]);
+
+  // Resolve guest bios — same resolution as residents (users via djUserId,
+  // pending-dj-profiles via chatUsernameNormalized).
+  useEffect(() => {
+    if (!djProfile || djProfile.profileType !== 'collective' || !djProfile.guestDJs || djProfile.guestDJs.length === 0) {
+      setGuestsResolved([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      if (!db) return;
+      const resolved: typeof guestsResolved = [];
+      for (const g of djProfile.guestDJs || []) {
+        let bio: string | undefined;
+        let djPhotoUrl: string | undefined = g.djPhotoUrl;
+        try {
+          if (g.djUserId) {
+            const userSnap = await getDocs(query(collection(db, "users"), where("__name__", "in", [g.djUserId])));
+            userSnap.forEach(d => {
+              const data = d.data();
+              if (data.djProfile?.bio) bio = data.djProfile.bio;
+              if (!djPhotoUrl && data.djProfile?.photoUrl) djPhotoUrl = data.djProfile.photoUrl;
+            });
+          }
+          if ((!bio || !djPhotoUrl) && g.djUsername) {
+            const normalized = g.djUsername.replace(/[\s-]+/g, '').toLowerCase();
+            const pendingSnap = await getDocs(
+              query(collection(db, "pending-dj-profiles"), where("chatUsernameNormalized", "==", normalized))
+            );
+            pendingSnap.forEach(d => {
+              const data = d.data();
+              if (!bio && data.djProfile?.bio) bio = data.djProfile.bio;
+              if (!djPhotoUrl && data.djProfile?.photoUrl) djPhotoUrl = data.djProfile.photoUrl;
+            });
+          }
+        } catch (err) {
+          console.error("Error resolving guest bio:", err);
+        }
+        resolved.push({ ...g, djPhotoUrl, bio });
+      }
+      if (!cancelled) setGuestsResolved(resolved);
     })();
     return () => { cancelled = true; };
   }, [djProfile]);
@@ -1321,11 +1376,12 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
         const matchedCollectives: Collective[] = [];
         collectivesSnapshot.forEach((doc) => {
           const data = doc.data();
-          // Match if the DJ is a resident OR an OWNER of the collective. Owners
-          // are channel-user UIDs (e.g. a b2b collective lists its members as
-          // owners, not residents), so owner-only members were being missed.
+          // Match if the DJ is a resident, a GUEST, OR an OWNER of the
+          // collective. Owners are channel-user UIDs (e.g. a b2b collective
+          // lists its members as owners, not residents), so owner-only members
+          // were being missed. Guests get the same surfacing as residents.
           const isOwner = !!(djUserId && Array.isArray(data.owners) && data.owners.includes(djUserId));
-          if (matchesDJ(data.residentDJs) || isOwner) {
+          if (matchesDJ(data.residentDJs) || matchesDJ(data.guestDJs) || isOwner) {
             matchedCollectives.push({
               id: doc.id,
               name: data.name,
@@ -1336,6 +1392,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               genres: data.genres || [],
               socialLinks: data.socialLinks || {},
               residentDJs: data.residentDJs || [],
+              guestDJs: data.guestDJs || [],
               linkedVenues: data.linkedVenues || [],
               createdAt: data.createdAt?.toMillis?.() || Date.now(),
               createdBy: data.createdBy,
@@ -1921,12 +1978,14 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           </div>
         </section>
 
-        {/* COLLECTIVE RESIDENTS — owners and residents together in one grid, owners first.
-            2-row horizontally-scrollable grid with arrows + dots.
-            Desktop: 3 cards per row (6 visible). Mobile: 2 per row, bio hidden.
-            Photo-first sort runs within each group so owners stay ahead of residents. */}
+        {/* COLLECTIVE RESIDENTS + GUESTS — two separate grids that sit on the
+            same line on desktop (when both exist) and stack on mobile. The
+            Residents grid holds owners + residents + linked collectives, owners
+            first. Each grid is a 2-row horizontally-scrollable carousel with
+            arrows + dots (desktop 3/row, mobile 2/row, photo-first sort).
+            Guests dedup against owners + residents (owner/resident wins). */}
         {profile.profileType === 'collective' &&
-          (ownersResolved.length > 0 || residentsResolved.length > 0 || (profile.linkedCollectives && profile.linkedCollectives.length > 0)) && (() => {
+          (ownersResolved.length > 0 || residentsResolved.length > 0 || guestsResolved.length > 0 || (profile.linkedCollectives && profile.linkedCollectives.length > 0)) && (() => {
             type GridItem = { key: string; href: string | null; name: string; photoUrl?: string; bio?: string; badge?: string; isCollective: boolean };
             const photoFirst = (a: GridItem, b: GridItem) =>
               Number(Boolean(b.photoUrl)) - Number(Boolean(a.photoUrl));
@@ -1952,6 +2011,10 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             });
             ownerItems.sort(photoFirst);
 
+            // Track resident identity (uid + username) so guests who are also a
+            // resident/owner aren't shown twice (owner/resident wins).
+            const residentUids = new Set<string>(ownerUids);
+            const residentUsernames = new Set<string>(ownerUsernames);
             const residentItems: GridItem[] = residentsResolved
               .filter((r) => {
                 if (r.djUserId && ownerUids.has(r.djUserId)) return false;
@@ -1961,14 +2024,19 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                 if (uname && ownerUsernames.has(normalizeUsername(uname))) return false;
                 return true;
               })
-              .map((r, i) => ({
-                key: `dj-${r.djUsername || r.djName}-${i}`,
-                href: r.djUsername ? `/dj/${normalizeUsername(r.djUsername)}` : null,
-                name: r.djName,
-                photoUrl: r.djPhotoUrl,
-                bio: r.bio,
-                isCollective: false,
-              }));
+              .map((r, i) => {
+                if (r.djUserId) residentUids.add(r.djUserId);
+                const uname = r.djUsername || r.djName;
+                if (uname) residentUsernames.add(normalizeUsername(uname));
+                return {
+                  key: `dj-${r.djUsername || r.djName}-${i}`,
+                  href: r.djUsername ? `/dj/${normalizeUsername(r.djUsername)}` : null,
+                  name: r.djName,
+                  photoUrl: r.djPhotoUrl,
+                  bio: r.bio,
+                  isCollective: false,
+                };
+              });
             residentItems.sort(photoFirst);
 
             const collectiveItems: GridItem[] = (profile.linkedCollectives || []).map((lc, i) => ({
@@ -1981,14 +2049,43 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             }));
             collectiveItems.sort(photoFirst);
 
-            const items = [...ownerItems, ...residentItems, ...collectiveItems];
-            if (items.length === 0) return null;
+            const residentSectionItems = [...ownerItems, ...residentItems, ...collectiveItems];
+
+            // Guests — deduped against owners + residents.
+            const guestItems: GridItem[] = guestsResolved
+              .filter((g) => {
+                if (g.djUserId && residentUids.has(g.djUserId)) return false;
+                const uname = g.djUsername || g.djName;
+                if (uname && residentUsernames.has(normalizeUsername(uname))) return false;
+                return true;
+              })
+              .map((g, i) => ({
+                key: `guest-${g.djUsername || g.djName}-${i}`,
+                href: g.djUsername ? `/dj/${normalizeUsername(g.djUsername)}` : null,
+                name: g.djName,
+                photoUrl: g.djPhotoUrl,
+                bio: g.bio,
+                isCollective: false,
+              }));
+            guestItems.sort(photoFirst);
+
+            if (residentSectionItems.length === 0 && guestItems.length === 0) return null;
 
             return (
-              <section className="mb-6">
-                <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">Residents</h2>
-                <ResidentsGrid items={items} />
-              </section>
+              <div className="flex flex-col md:flex-row md:gap-8 mb-6">
+                {residentSectionItems.length > 0 && (
+                  <section className="flex-1 min-w-0 mb-6 md:mb-0">
+                    <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">Residents</h2>
+                    <ResidentsGrid items={residentSectionItems} />
+                  </section>
+                )}
+                {guestItems.length > 0 && (
+                  <section className="flex-1 min-w-0">
+                    <h2 className="text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2">Guests</h2>
+                    <ResidentsGrid items={guestItems} />
+                  </section>
+                )}
+              </div>
             );
           })()}
 
