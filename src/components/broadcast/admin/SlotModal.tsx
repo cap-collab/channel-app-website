@@ -353,6 +353,11 @@ export function SlotModal({
   // user clears it (without this, clearing sets null and the effect immediately
   // re-resolves it from the still-unsaved slot.postLiveArchiveId — "can't clear").
   const hydratedPostLiveSlotIdRef = useRef<string | null>(null);
+  // Same guard for the restream/anchor archive auto-select: hydrate ONCE per
+  // slot so clicking "Change" (which sets selectedArchive=null to reveal the
+  // picker) sticks. Without this, the effect re-selects the slot's archiveId the
+  // instant it's cleared, so the picker never appears — "Change does nothing".
+  const hydratedArchiveSlotIdRef = useRef<string | null>(null);
   // Curated post-live archive (radio-loop alignment). Optional.
   const [postLiveArchive, setPostLiveArchive] = useState<Archive | null>(null);
   const [postLivePickerOpen, setPostLivePickerOpen] = useState(false);
@@ -611,10 +616,15 @@ export function SlotModal({
     }
   };
 
-  // When editing a restream OR anchor, auto-select the matching archive once
-  // archives load. This also fills in showImageUrl if it was missing from the slot
+  // When editing a restream OR anchor, auto-select the matching archive ONCE
+  // per slot (guarded by hydratedArchiveSlotIdRef, not just !selectedArchive) so
+  // clicking "Change" to re-pick the archive isn't instantly undone. Also fills
+  // in showImageUrl if it was missing from the slot.
   useEffect(() => {
-    if ((slot?.broadcastType === 'restream' || slot?.broadcastType === 'anchor') && slot.archiveId && archives.length > 0 && !selectedArchive) {
+    if (!slot?.id || archives.length === 0) return;
+    if (hydratedArchiveSlotIdRef.current === slot.id) return;
+    if ((slot.broadcastType === 'restream' || slot.broadcastType === 'anchor') && slot.archiveId) {
+      hydratedArchiveSlotIdRef.current = slot.id;
       const match = archives.find(a => a.id === slot.archiveId);
       if (match) {
         setSelectedArchive(match);
@@ -804,6 +814,10 @@ export function SlotModal({
       // from slot.postLiveArchiveId in the effect below (once per slot).
       setPostLiveArchive(null);
       hydratedPostLiveSlotIdRef.current = null;
+      // Re-allow the restream/anchor archive auto-select for this fresh open
+      // (the ref guards against re-hydration AFTER a "Change" click, but a new
+      // modal open should hydrate the slot's saved archive again).
+      hydratedArchiveSlotIdRef.current = null;
       // Reset restream exact-time state; the edit branch below re-seeds it for
       // an existing restream.
       setRestreamExactStartMs(null);
