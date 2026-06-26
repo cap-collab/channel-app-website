@@ -426,6 +426,26 @@ export async function GET(request: NextRequest) {
     for (const slot of scheduledBroadcastSlots) {
       const startMs = slotStartMs(slot.data.startTime);
       if (typeof startMs !== "number") continue;
+      const bTypeSched = slot.data.broadcastType as string | undefined;
+
+      // Anchor go-live: an anchor never flips its slot status to 'live' (a
+      // passed anchor is completed, not live — see complete-expired-slots), so
+      // it can never enter the status=='live' broadcastSlots set above. To
+      // still notify when an emails-enabled anchor airs (e.g. a collective
+      // anchor → fan out to collective + owner fans), treat an anchor whose
+      // start falls in the SAME live window as a fresh primary go-live, pulled
+      // from the scheduled set. pushBroadcastSlot honors goLiveEmailsDisabled,
+      // so an anchor only fires here if the admin unchecked "disable go-live
+      // emails" (anchors default that flag to true).
+      if (
+        bTypeSched === "anchor" &&
+        startMs >= windowStart.getTime() &&
+        startMs <= windowEnd.getTime()
+      ) {
+        pushBroadcastSlot(slot, liveShows);
+        continue;
+      }
+
       if (startMs <= windowEnd.getTime()) continue;
       if (startMs > bundleHorizon.getTime()) continue; // 8-day outer bound
       // Weekly "coming up this week" bundle: EVERY scheduled Channel Radio slot
