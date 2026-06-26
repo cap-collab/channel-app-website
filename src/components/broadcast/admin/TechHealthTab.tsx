@@ -149,6 +149,8 @@ export function TechHealthTab() {
                   <Row label="Active egresses" value={
                     <span className={data.livekit.staleEgressCount > 0 ? 'text-yellow-400' : ''}>
                       {data.livekit.egressCount}
+                      {data.livekit.egressTotalCount > data.livekit.egressCount &&
+                        ` (${data.livekit.egressTotalCount - data.livekit.egressCount} completed, retained)`}
                       {data.livekit.staleEgressCount > 0 && ` (${data.livekit.staleEgressCount} stale >12h)`}
                     </span>
                   } />

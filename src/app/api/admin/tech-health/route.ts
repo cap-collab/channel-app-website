@@ -43,7 +43,8 @@ export interface LivekitHealth {
   isLive: boolean;
   currentDJ: string | null;
   participantCount: number;
-  egressCount: number;
+  egressCount: number;      // ACTIVE only (STARTING/ACTIVE) — what's genuinely running
+  egressTotalCount: number; // raw list length incl. COMPLETE/FAILED records LiveKit retains
   ingressCount: number;
   staleEgressCount: number; // egresses older than 12h
   // Real listener count from Firebase RTDB presence (presence/broadcast). Covers
@@ -245,6 +246,7 @@ async function probeLivekit(): Promise<LivekitHealth> {
       currentDJ: null,
       participantCount: 0,
       egressCount: 0,
+      egressTotalCount: 0,
       ingressCount: 0,
       staleEgressCount: 0,
       listenerCount,
@@ -288,7 +290,8 @@ async function probeLivekit(): Promise<LivekitHealth> {
       isLive: publishing.length > 0,
       currentDJ: publishing[0]?.identity ?? null,
       participantCount: participants.length,
-      egressCount: egresses.length,
+      egressCount: activeEgresses.length,
+      egressTotalCount: egresses.length,
       ingressCount: ingresses.length,
       staleEgressCount,
       listenerCount,
@@ -305,6 +308,7 @@ async function probeLivekit(): Promise<LivekitHealth> {
       currentDJ: null,
       participantCount: 0,
       egressCount: 0,
+      egressTotalCount: 0,
       ingressCount: 0,
       staleEgressCount: 0,
       listenerCount,
