@@ -79,6 +79,9 @@ interface LiveShow {
   // filter and the bundled-row time label can read it. Currently-live shows
   // don't need it.
   startTime?: string;
+  // ISO end time — bundle rows render "start – end". Populated on scheduled
+  // (bundle) rows from the slot's endTime.
+  endTime?: string;
   // Broadcast type for Channel Radio slots. Restreams say "airing" instead
   // of "is live" in the email subject + headline.
   broadcastType?: string;
@@ -399,6 +402,7 @@ export async function GET(request: NextRequest) {
       const slug = data.djUsername as string | undefined;
       const collectiveInfo = slug ? collectiveOwnerInfoBySlug.get(slug) : undefined;
       const startMs = slotStartMs(data.startTime);
+      const endMs = slotStartMs(data.endTime);
       target.push({
         name: data.showName as string,
         dj: data.djName as string | undefined,
@@ -416,6 +420,7 @@ export async function GET(request: NextRequest) {
           ? collectiveInfo.ownerUids
           : undefined,
         startTime: typeof startMs === "number" ? new Date(startMs).toISOString() : undefined,
+        endTime: typeof endMs === "number" ? new Date(endMs).toISOString() : undefined,
         broadcastType: data.broadcastType as string | undefined,
       });
     };
@@ -1207,6 +1212,7 @@ export async function GET(request: NextRequest) {
         stationName: string;
         stationId: string;
         startTime: string;
+        endTime?: string;
         startTimeMs: number;
       };
       const bundled: BundledRow[] = [];
@@ -1239,6 +1245,7 @@ export async function GET(request: NextRequest) {
           stationName: show.stationName,
           stationId: show.stationId,
           startTime: show.startTime,
+          endTime: show.endTime,
           startTimeMs: startMs,
         });
       }
@@ -1253,6 +1260,7 @@ export async function GET(request: NextRequest) {
         stationName: b.stationName,
         stationId: b.stationId,
         startTime: b.startTime,
+        endTime: b.endTime,
       }));
 
       // ── Dry-run: record what WOULD be sent, then skip send + stamp ──────

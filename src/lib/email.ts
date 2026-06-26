@@ -280,6 +280,7 @@ export interface LaterTodayShowRow {
   stationName: string;
   stationId: string;
   startTime: string; // ISO 8601
+  endTime?: string; // ISO 8601 — used to render "start – end" on the row
 }
 
 interface ShowStartingEmailParams {
@@ -618,11 +619,18 @@ function buildShowCardHtml(
 // DJ profile. No CTA button — tighter than buildShowCardHtml.
 function buildLaterTodayRowHtml(row: LaterTodayShowRow, timezone: string): string {
   const djDisplayName = row.djName || row.djUsername || row.showName;
-  // The bundle spans the whole week, so each row leads with its weekday
-  // ("Wed 7:00 PM") — a bare time would be ambiguous across days.
-  const timeStr = new Date(row.startTime).toLocaleString("en-US", {
+  // The bundle spans the whole week, so each row leads with its weekday and
+  // a start–end range ("Wed 7:00 – 9:00 PM"). Only the start carries the
+  // weekday; the end is time-only (same day — we never span days).
+  const startStr = new Date(row.startTime).toLocaleString("en-US", {
     timeZone: timezone, weekday: "short", hour: "numeric", minute: "2-digit",
   });
+  const endStr = row.endTime
+    ? new Date(row.endTime).toLocaleString("en-US", {
+        timeZone: timezone, hour: "numeric", minute: "2-digit",
+      })
+    : null;
+  const timeStr = endStr ? `${startStr} – ${endStr}` : startStr;
   const djProfileUrl = row.djUsername
     ? `https://channel-app.com/dj/${normalizeDjUsername(row.djUsername)}`
     : row.djName
@@ -653,7 +661,7 @@ function buildLaterTodayRowHtml(row: LaterTodayShowRow, timezone: string): strin
               ${row.showName}
             </div>
             <div style="font-size: 12px; color: #999;">
-              ${djDisplayName} · ${row.stationId === "broadcast" ? "channel" : row.stationName} · ${timeStr}
+              ${djDisplayName} · ${timeStr}
             </div>
           </td>
         </tr>
@@ -662,18 +670,43 @@ function buildLaterTodayRowHtml(row: LaterTodayShowRow, timezone: string): strin
   `;
 }
 
-// Build the full "Coming up this week" section, including heading and top
-// divider. Caller already filtered rows + sorted by startTime. This lists the
-// week's full Channel Radio schedule (live shows, restreams, anchors), not a
-// personalized crew bundle.
-function buildLaterTodaySection(rows: LaterTodayShowRow[], timezone: string): string {
+// YYYY-MM-DD for a timestamp in the given timezone (local-day key).
+function localDayKey(ms: number, timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date(ms));
+}
+
+// One labelled block of bundle rows. Shared by the "today" + "this week"
+// sections so they look identical apart from the heading.
+function buildBundleBlock(label: string, rows: LaterTodayShowRow[], timezone: string): string {
   if (rows.length === 0) return "";
   return `
     <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e5e5;">
-      <p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">Coming up this week</p>
+      <p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">${label}</p>
       ${rows.map((r) => buildLaterTodayRowHtml(r, timezone)).join("")}
     </div>
   `;
+}
+
+// Build the bundle, split into two blocks: shows airing later TODAY (same
+// local day as the email) under "Also coming up today", and the rest of the
+// week under "Coming up this week". Caller already filtered + sorted rows by
+// startTime. Either block renders nothing when empty.
+function buildLaterTodaySection(rows: LaterTodayShowRow[], timezone: string): string {
+  if (rows.length === 0) return "";
+  const todayKey = localDayKey(Date.now(), timezone);
+  const today: LaterTodayShowRow[] = [];
+  const thisWeek: LaterTodayShowRow[] = [];
+  for (const r of rows) {
+    const ms = Date.parse(r.startTime);
+    if (Number.isFinite(ms) && localDayKey(ms, timezone) === todayKey) today.push(r);
+    else thisWeek.push(r);
+  }
+  return (
+    buildBundleBlock("Also coming up today", today, timezone) +
+    buildBundleBlock("Coming up this week", thisWeek, timezone)
+  );
 }
 
 // Build a curator rec card HTML block (matches show card layout)
