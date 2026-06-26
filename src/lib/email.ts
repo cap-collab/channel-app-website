@@ -695,6 +695,9 @@ function buildBundleBlock(label: string, rows: LaterTodayShowRow[], timezone: st
 // startTime. Either block renders nothing when empty.
 function buildLaterTodaySection(rows: LaterTodayShowRow[], timezone: string): string {
   if (rows.length === 0) return "";
+  // "Today" = the day the email is SENT (the wall clock), in the recipient's
+  // TZ. A show whose start is later on the same calendar day goes under "Also
+  // coming up today"; everything else under "Coming up this week".
   const todayKey = localDayKey(Date.now(), timezone);
   const today: LaterTodayShowRow[] = [];
   const thisWeek: LaterTodayShowRow[] = [];
