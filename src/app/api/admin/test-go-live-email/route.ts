@@ -121,7 +121,6 @@ export async function GET(request: NextRequest) {
     stationId,
     engagementReason,
     savedReason,
-    isAffiliated: !!bridge,
     affiliationBridgeDj: bridge,
     bridgeKind,
     isRestream,

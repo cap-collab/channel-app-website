@@ -295,14 +295,9 @@ interface ShowStartingEmailParams {
   stationName: string;
   stationId: string;
   streamingUrl?: string; // For dj-radio shows: the external station's URL
-  // Recipient is on the live DJ's affiliation list (not a watchlist match).
-  // Changes the footer copy; subject + body stay the same.
-  isAffiliated?: boolean;
-  // Listener-side affiliation match (Audience or crew) — the "bridge" DJ
-  // R that connected the recipient to the live DJ X. When set, renders a
-  // small grey "From the same world as {R}." caption above the hero card
-  // and replaces the footer line with a neutral message. When undefined
-  // alongside `isAffiliated`, falls back to the existing DJ-side wording.
+  // Audience-borrow bridge: the DJ {X} the live entity borrows from
+  // (audienceDjUids). When set, the footer reads "you like {X}." Drives the
+  // borrow "why" line. (The old crew/affiliation caption was removed.)
   affiliationBridgeDj?: string;
   // Which listener-side bridge connected the recipient: "crew" (same
   // affiliation group) renders "From the same world as {R}."; "borrow"
@@ -341,7 +336,6 @@ export async function sendShowStartingEmail({
   stationName,
   stationId,
   streamingUrl,
-  isAffiliated,
   affiliationBridgeDj,
   bridgeKind,
   engagementReason,
@@ -446,42 +440,29 @@ export async function sendShowStartingEmail({
     ? { url: muteUrl, label: `Unsubscribe from ${djDisplayName}` }
     : undefined;
 
-  // Small grey caption above the hero card explaining the match. The
-  // affiliation-bridge path names the bridge DJ: crew bridges read "From the
-  // same world as {R}.", audience-borrow bridges read "If you like {R}." (the
-  // live DJ borrows {R}'s fans — similar, not same crew). The save-based paths
-  // use a short generic line. Engagement / affiliated-artist matches render no
-  // caption.
-  const captionStyle = "margin: 0; font-size: 13px; color: #999; letter-spacing: 0.02em;";
-  const bridgeName = affiliationBridgeDj
-    ? `<span style="color: #1a1a1a; font-weight: 600;">${affiliationBridgeDj}</span>`
-    : "";
-  const aboveContentHtml = affiliationBridgeDj
-    ? bridgeKind === "borrow"
-      ? `<p style="${captionStyle}">If you like ${bridgeName}.</p>`
-      : `<p style="${captionStyle}">From the same world as ${bridgeName}.</p>`
-    : savedReason === "watchlist"
-    ? `<p style="${captionStyle}">On your watchlist.</p>`
-    : savedReason === "favorite"
-    ? `<p style="${captionStyle}">A show you saved.</p>`
-    : undefined;
+  // No caption above the hero card — the match reason lives ONLY in the footer
+  // line at the bottom of the email (avoids repeating it in two places).
 
-  const footerText = affiliationBridgeDj
-    ? "You're getting this from Channel."
-    : engagementReason
-    ? "You're receiving this because you engaged with that DJ in the past."
-    : isAffiliated
-    ? "You're receiving this because you're an affiliated artist."
-    : savedReason === "watchlist"
+  // Footer = the single "why you're receiving this" line (no caption above the
+  // card). Priority: favorite → watchlist → engaged → borrow. A borrow match
+  // also carries engagementReason, so it's checked AFTER the direct-engaged
+  // case but identified by affiliationBridgeDj.
+  const footerText = (savedReason === "favorite" || savedReason === "watchlist")
     ? "You're receiving this because it matches a show on your watchlist."
-    : "You're receiving this because you saved this show.";
+    : engagementReason && !affiliationBridgeDj
+    ? "You're receiving this because you engaged with that DJ in the past."
+    : affiliationBridgeDj
+    ? bridgeKind === "borrow"
+      ? `You're receiving this because you like ${affiliationBridgeDj}.`
+      : `You're receiving this because you follow ${affiliationBridgeDj}.`
+    : "You're receiving this because it matches a show on your watchlist.";
 
   try {
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
       subject,
-      html: wrapEmailContent(content, footerText, muteOverride, aboveContentHtml),
+      html: wrapEmailContent(content, footerText, muteOverride),
       headers: muteUrl
         ? {
             "List-Unsubscribe": `<${muteUrl}>`,

@@ -1080,10 +1080,20 @@ export async function GET(request: NextRequest) {
       const matchShow = (show: LiveShow): {
         engagementReason?: "engaged";
         savedReason?: "favorite" | "watchlist";
+        // When the match came through the audience-borrow bridge (the live
+        // entity borrows DJ Y's fans), this is Y's display name → the email
+        // renders the "If you like Y." caption. Undefined for direct matches.
+        borrowBridgeDj?: string;
       } | null => {
         let matched = false;
         let engagementReason: "engaged" | undefined;
         let savedReason: "favorite" | "watchlist" | undefined;
+        let borrowBridgeDj: string | undefined;
+
+        // Resolve a borrowed-from username (normalized) to its display name for
+        // the "If you like X." caption. Falls back to the normalized form.
+        const borrowDisplay = (norm: string) =>
+          normalizedUsernameToDisplay.get(norm) || norm;
 
         // Channel Radio only. Go-live emails never fire for external-station
         // shows (nts, subtle, dublab, rinse, sutro, …), for ANY recipient or
@@ -1134,6 +1144,22 @@ export async function GET(request: NextRequest) {
             if (!optOut) {
               matched = true;
               engagementReason = "engaged";
+              // engagedByShowId unions the live DJ/collective/owner fans with
+              // fans of every borrowed-from DJ. If this recipient is NOT a
+              // direct fan of the live DJ (or an owner), the love/stream match
+              // came through the borrow — caption it "If you like Y." Find the
+              // first borrowed-from Y they're actually engaged with.
+              const directNorms = [
+                show.djUsername ? normalizeForLookup(show.djUsername) : null,
+                ...(show.collectiveOwnerUsernames || []).map((u) => normalizeForLookup(u)),
+              ].filter((n): n is string => !!n);
+              const isDirect = directNorms.some((n) => engagedByDjUsername.get(n)?.has(userId));
+              if (!isDirect) {
+                const y = (show.borrowedFromUsernames || []).find(
+                  (n) => engagedByDjUsername.get(n)?.has(userId),
+                );
+                if (y) borrowBridgeDj = borrowDisplay(y);
+              }
             }
           }
         }
@@ -1149,9 +1175,11 @@ export async function GET(request: NextRequest) {
           const borrowedFrom = show.borrowedFromUsernames;
           if (borrowedFrom && borrowedFrom.length > 0) {
             for (const term of searchTerms) {
-              if (borrowedFrom.some((y) => wordBoundaryMatch(y, term))) {
+              const y = borrowedFrom.find((n) => wordBoundaryMatch(n, term));
+              if (y) {
                 matched = true;
                 engagementReason = "engaged";
+                borrowBridgeDj = borrowDisplay(y);
                 break;
               }
             }
@@ -1166,7 +1194,7 @@ export async function GET(request: NextRequest) {
         // audienceDjUids). No crew / affiliation / sibling fan-out.
         // (Narrowed 2026-06-25; audience-borrow re-added per Cap.)
 
-        return matched ? { engagementReason, savedReason } : null;
+        return matched ? { engagementReason, savedReason, borrowBridgeDj } : null;
       };
 
       // Shared universal gates that must hold for ANY show going into the
@@ -1267,7 +1295,9 @@ export async function GET(request: NextRequest) {
       if (dryRun) {
         if (!traceTo || userEmail.toLowerCase() === traceTo) {
           if (dryRunTrace.length < traceLimit) {
-            const reason = primaryMatch.engagementReason
+            const reason = primaryMatch.borrowBridgeDj
+              ? `borrow(${primaryMatch.borrowBridgeDj})`
+              : primaryMatch.engagementReason
               ? "engaged"
               : primaryMatch.savedReason ?? "favorite";
             dryRunTrace.push({
@@ -1298,6 +1328,8 @@ export async function GET(request: NextRequest) {
             isRestream: primary.broadcastType === "restream",
             engagementReason: primaryMatch.engagementReason,
             savedReason: primaryMatch.savedReason,
+            affiliationBridgeDj: primaryMatch.borrowBridgeDj,
+            bridgeKind: primaryMatch.borrowBridgeDj ? "borrow" : undefined,
             laterToday: laterToday.length > 0 ? laterToday : undefined,
             userTimezone: userTz,
           });
@@ -1323,6 +1355,8 @@ export async function GET(request: NextRequest) {
         isRestream: primary.broadcastType === "restream",
         engagementReason: primaryMatch.engagementReason,
         savedReason: primaryMatch.savedReason,
+        affiliationBridgeDj: primaryMatch.borrowBridgeDj,
+        bridgeKind: primaryMatch.borrowBridgeDj ? "borrow" : undefined,
         laterToday: laterToday.length > 0 ? laterToday : undefined,
         userTimezone: userTz,
       });
