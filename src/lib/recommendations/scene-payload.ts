@@ -102,9 +102,10 @@ export async function buildScenePayload(db: Firestore, uid: string): Promise<Sce
     .map((section): RecSectionOut => {
       const bandByArchiveId: Record<string, RecBand> = {};
       let items = section.items.filter((it) => !dismissedArchiveIds.has(it.archiveId));
-      if (section.id === "favorite-artists") {
-        items = items.filter((it) => !streamedArchiveIds.has(it.archiveId));
-      }
+      // Already-streamed archives belong in "Dive back in", not in the
+      // recommendation sections — drop them from both favorite-artists and
+      // discovery so a just-listened archive doesn't appear in two places.
+      items = items.filter((it) => !streamedArchiveIds.has(it.archiveId));
       const archives: ArchiveSerialized[] = [];
       for (const it of items) {
         const full = archiveById.get(it.archiveId);

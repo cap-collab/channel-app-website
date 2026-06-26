@@ -204,6 +204,8 @@ export function SceneRecommendations({
           {!diveExpanded && diveBackIn.length > VISIBLE_PER_SECTION && (
             <button
               onClick={() => setDiveExpanded(true)}
+              // Not an exit-edit-mode click — see SceneClient's handler.
+              data-scene-keep-edit
               className="mt-4 mx-auto block px-4 py-2 text-[11px] font-mono uppercase tracking-[0.2em]
                          text-white bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md
                          transition-colors"

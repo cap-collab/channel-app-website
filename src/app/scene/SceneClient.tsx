@@ -42,6 +42,7 @@ export function SceneClient() {
       const t = e.target as HTMLElement | null;
       if (t && t.closest('[data-scene-edit-toggle]')) return;
       if (t && t.closest('[data-card-remove]')) return;
+      if (t && t.closest('[data-scene-keep-edit]')) return;
       setEditMode(false);
     };
     document.addEventListener('mousedown', handler);
