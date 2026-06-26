@@ -5,6 +5,10 @@
       "schedule": "*/30 * * * *"
     },
     {
+      "path": "/api/cron/signup-affinity",
+      "schedule": "0 10 * * *"
+    },
+    {
       "path": "/api/cron/complete-expired-slots",
       "schedule": "*/5 * * * *"
     },
