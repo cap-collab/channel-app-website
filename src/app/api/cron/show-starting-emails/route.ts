@@ -69,6 +69,12 @@ interface LiveShow {
   // any of them about their own collective's broadcast.
   collectiveOwnerUsernames?: string[];
   collectiveOwnerUserIds?: string[];
+  // Normalized usernames of the DJs this show's live entity "borrows from"
+  // (audienceDjUids). Z.audienceDjUids = [Y] means "notify fans of Y when Z is
+  // live." Spans the live DJ's own audienceDjUids ∪ every collective owner's.
+  // Fans of these (love/stream OR watchlist) are notified. Excludes the live
+  // DJ / owners themselves.
+  borrowedFromUsernames?: string[];
   // ISO start time, populated for upcoming-today shows so the per-user TZ
   // filter and the bundled-row time label can read it. Currently-live shows
   // don't need it.
@@ -741,6 +747,48 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Per-show "borrows from" audience. Z.audienceDjUids = [Y] means "when Z
+    // goes live, notify fans of Y." The live entity Z is the DJ (solo show) OR
+    // the collective — and since collectives have no audienceDjUids field of
+    // their own, a collective's borrow list is the union of EVERY owner's
+    // audienceDjUids. We resolve the borrowed-from uids (Y) to normalized
+    // usernames; fans of those (love/stream OR watchlist) are notified.
+    // Excludes the live DJ + owners themselves (they're handled by direct
+    // paths and must never get their own show's email). This is the ONLY
+    // listener-side bridge kept after the 2026-06-25 narrowing — the crew /
+    // affiliation bridge stays removed.
+    const borrowedFromUsernamesByShowId = new Map<string, Set<string>>();
+    for (const show of allMatchableShows) {
+      if (show.stationId !== "broadcast") continue;
+      if (!show.djUsername) continue;
+      // Source uids whose audienceDjUids we read: the live DJ + every owner.
+      const sourceUids = new Set<string>();
+      if (show.djUserId) sourceUids.add(show.djUserId);
+      if (show.collectiveOwnerUserIds) {
+        show.collectiveOwnerUserIds.forEach((uid) => sourceUids.add(uid));
+      }
+      const borrowedFrom = new Set<string>();
+      for (const srcUid of Array.from(sourceUids)) {
+        const audUids = audienceUidsByLiveDjUid.get(srcUid);
+        if (!audUids) continue;
+        for (const yUid of audUids) {
+          const yName = uidToUsername.get(yUid);
+          if (yName) borrowedFrom.add(yName);
+        }
+      }
+      // Never bridge back to the live DJ or an owner.
+      borrowedFrom.delete(normalizeForLookup(show.djUsername));
+      if (show.collectiveOwnerUsernames) {
+        show.collectiveOwnerUsernames.forEach((u) =>
+          borrowedFrom.delete(normalizeForLookup(u)),
+        );
+      }
+      if (borrowedFrom.size > 0) {
+        borrowedFromUsernamesByShowId.set(show.showId, borrowedFrom);
+        show.borrowedFromUsernames = Array.from(borrowedFrom);
+      }
+    }
+
     // Build the listener-side "related DJs" map. The listener-side bridge in
     // matchShow() uses this to extend listener engagement (heart / stream / search
     // favorite) from one DJ to a related DJ — i.e. "you've engaged with one
@@ -855,6 +903,10 @@ export async function GET(request: NextRequest) {
           allRelatedUsernames.add(normalizeForLookup(u)),
         );
       }
+      // Borrowed-from DJs (audienceDjUids of the live DJ + owners) — their
+      // love/stream fans are notified, so query them too. Already normalized.
+      const borrowedFrom = borrowedFromUsernamesByShowId.get(show.showId);
+      if (borrowedFrom) borrowedFrom.forEach((u) => allRelatedUsernames.add(u));
       const related = relatedUsernamesByShowId.get(show.showId);
       if (related) related.forEach((u) => allRelatedUsernames.add(u));
     }
@@ -908,6 +960,17 @@ export async function GET(request: NextRequest) {
         for (const ownerName of show.collectiveOwnerUsernames) {
           const ownerEngaged = engagedByDjUsername.get(normalizeForLookup(ownerName));
           if (ownerEngaged) ownerEngaged.forEach((uid) => xEngaged.add(uid));
+        }
+      }
+      // Borrowed-from audience: fold in love/stream fans of every DJ the live
+      // entity borrows from (audienceDjUids of the DJ + owners). "Z borrows
+      // from Y → notify fans of Y." Watchlisters of Y are handled separately in
+      // the matcher via show.borrowedFromUsernames.
+      const borrowedFrom = borrowedFromUsernamesByShowId.get(show.showId);
+      if (borrowedFrom) {
+        for (const yName of Array.from(borrowedFrom)) {
+          const yEngaged = engagedByDjUsername.get(yName);
+          if (yEngaged) yEngaged.forEach((uid) => xEngaged.add(uid));
         }
       }
       if (show.djUserId) xEngaged.delete(show.djUserId);
@@ -1070,12 +1133,33 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // NOTE: the affiliation / crew / audience-borrow bridge tier (the old
-        // tier 4) is intentionally REMOVED. Go-live emails now go ONLY to
-        // recipients with a DIRECT signal on the live artist: a "show"
-        // favorite, a watchlist/search term that matches the show/dj, or
-        // love/stream history for that exact DJ. We never fan out to fans of a
-        // related/crew DJ or borrowed audience. (Narrowed 2026-06-25.)
+        // Borrowed-from audience — WATCHLIST path. The live entity (DJ +/or
+        // collective owners) borrows from DJ Y (audienceDjUids); a user who
+        // watchlisted/favorited Y is bridged to this show. Y's love/stream fans
+        // are already folded into engagedByShowId above (caught by the
+        // engagement tier), so only the watchlist-of-Y case needs handling here.
+        // A borrow is an engagement-grade fan-out, so it honors the SAME
+        // engagementGoLive opt-out — not the watchlist tier (which has none).
+        if (!matched && show.stationId === "broadcast" && emailNotificationsData?.engagementGoLive !== false) {
+          const borrowedFrom = show.borrowedFromUsernames;
+          if (borrowedFrom && borrowedFrom.length > 0) {
+            for (const term of searchTerms) {
+              if (borrowedFrom.some((y) => wordBoundaryMatch(y, term))) {
+                matched = true;
+                engagementReason = "engaged";
+                break;
+              }
+            }
+          }
+        }
+
+        // NOTE: the crew / affiliation bridge tier (the old tier 4) is
+        // intentionally REMOVED. Go-live emails go to recipients with a DIRECT
+        // signal on the live artist (favorite / watchlist / love-stream of the
+        // DJ, collective, or any collective owner) PLUS the audience-borrow
+        // bridge above (fans of a DJ the live entity borrows from via
+        // audienceDjUids). No crew / affiliation / sibling fan-out.
+        // (Narrowed 2026-06-25; audience-borrow re-added per Cap.)
 
         return matched ? { engagementReason, savedReason } : null;
       };
