@@ -969,16 +969,10 @@ export async function GET(request: NextRequest) {
       // same matching rules govern both so a bundled row honors the same
       // engagement / affiliation / mute logic.
       const matchShow = (show: LiveShow): {
-        matchedViaAffiliation: boolean;
-        affiliationBridgeDj?: string;
-        bridgeKind?: "crew" | "borrow";
         engagementReason?: "engaged";
         savedReason?: "favorite" | "watchlist";
       } | null => {
         let matched = false;
-        let matchedViaAffiliation = false;
-        let affiliationBridgeDj: string | undefined;
-        let bridgeKind: "crew" | "borrow" | undefined;
         let engagementReason: "engaged" | undefined;
         let savedReason: "favorite" | "watchlist" | undefined;
 
@@ -1042,7 +1036,7 @@ export async function GET(request: NextRequest) {
         // love/stream history for that exact DJ. We never fan out to fans of a
         // related/crew DJ or borrowed audience. (Narrowed 2026-06-25.)
 
-        return matched ? { matchedViaAffiliation, affiliationBridgeDj, bridgeKind, engagementReason, savedReason } : null;
+        return matched ? { engagementReason, savedReason } : null;
       };
 
       // Shared universal gates that must hold for ANY show going into the
@@ -1140,12 +1134,8 @@ export async function GET(request: NextRequest) {
       if (dryRun) {
         if (!traceTo || userEmail.toLowerCase() === traceTo) {
           if (dryRunTrace.length < traceLimit) {
-            const reason = primaryMatch.affiliationBridgeDj
-              ? `bridge-${primaryMatch.bridgeKind ?? "crew"}(${primaryMatch.affiliationBridgeDj})`
-              : primaryMatch.engagementReason
+            const reason = primaryMatch.engagementReason
               ? "engaged"
-              : primaryMatch.matchedViaAffiliation
-              ? "affiliated-artist"
               : primaryMatch.savedReason ?? "favorite";
             dryRunTrace.push({
               email: userEmail,
@@ -1173,9 +1163,6 @@ export async function GET(request: NextRequest) {
             stationId: primary.stationId,
             streamingUrl: primary.streamingUrl,
             isRestream: primary.broadcastType === "restream",
-            isAffiliated: primaryMatch.matchedViaAffiliation,
-            affiliationBridgeDj: primaryMatch.affiliationBridgeDj,
-            bridgeKind: primaryMatch.bridgeKind,
             engagementReason: primaryMatch.engagementReason,
             savedReason: primaryMatch.savedReason,
             laterToday: laterToday.length > 0 ? laterToday : undefined,
@@ -1201,9 +1188,6 @@ export async function GET(request: NextRequest) {
         stationId: primary.stationId,
         streamingUrl: primary.streamingUrl,
         isRestream: primary.broadcastType === "restream",
-        isAffiliated: primaryMatch.matchedViaAffiliation,
-        affiliationBridgeDj: primaryMatch.affiliationBridgeDj,
-        bridgeKind: primaryMatch.bridgeKind,
         engagementReason: primaryMatch.engagementReason,
         savedReason: primaryMatch.savedReason,
         laterToday: laterToday.length > 0 ? laterToday : undefined,
