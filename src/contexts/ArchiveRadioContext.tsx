@@ -180,6 +180,7 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
       // <audio> element directly so the listener doesn't hear lingering
       // audio while we hand them off to radio. Auto-resume is gated on
       // statusIsLive too, so this pause sticks.
+      console.log('[radio-debug] HANDOFF live→radio: pausing live, resuming radio (Rule B, +2s debounce)');
       pauseSource('live');
       radioPlayRef.current();
     }, 2000);

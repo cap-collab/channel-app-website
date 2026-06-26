@@ -348,6 +348,20 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
     const key = itemKey(current.loop, current.index, current.item);
     const needsLoad = playingKeyRef.current !== key || active.src !== current.item.recordingUrl;
 
+    // Resume/handoff instrumentation (once per transition — not a hot path).
+    // Captures the cold-resume state we can't see from the crossfade logs:
+    // which item radio lands on, its kind, and whether the element was loaded.
+    console.log(
+      '[radio-debug] PLAY-CURRENT activeKey=' + activeKeyRef.current,
+      'kind=' + current.item.kind,
+      'title=' + (current.item.title ?? '?'),
+      'needsLoad=' + needsLoad,
+      'el.rs=' + active.readyState,
+      'el.vol=' + active.volume,
+      'el.muted=' + active.muted,
+      'el.ct=' + active.currentTime.toFixed(2),
+    );
+
     if (needsLoad) {
       setIsLoading(true);
       active.src = current.item.recordingUrl;
@@ -381,7 +395,18 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
       playingKeyRef.current = key;
       setIsPlaying(true);
       setError(null);
+      // Post-play state: confirms whether the landed item is actually audible
+      // (playing, not paused, vol=1, rs>=3) vs. silently advancing currentTime.
+      console.log(
+        '[radio-debug] PLAY-CURRENT started kind=' + current.item.kind,
+        'seekSec=' + (live?.seekSec.toFixed(2) ?? '?'),
+        'el.ct=' + active.currentTime.toFixed(2),
+        'el.vol=' + active.volume,
+        'el.paused=' + active.paused,
+        'el.rs=' + active.readyState,
+      );
     } catch (err) {
+      console.log('[radio-debug] PLAY-CURRENT play() FAILED kind=' + current.item.kind, err instanceof Error ? err.message : err);
       setIsPlaying(false);
       setError(err instanceof Error ? err.message : 'Playback failed.');
     } finally {
