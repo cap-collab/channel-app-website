@@ -6,6 +6,8 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { getDefaultCity, DEFAULT_CITY_FALLBACK } from '@/lib/city-detection';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import type { Tempo } from '@/types/broadcast';
+import { TEMPO_URL_SLUG_TO_ID, tempoFromUrlSlug } from '@/lib/tempo';
 
 // Scene slugs accepted via the `?scene=` URL param (shareable filter links).
 // Kept in sync with SceneGlyph's rendered slugs and Firestore scene doc IDs.
@@ -18,15 +20,18 @@ function migrateSceneSlugs(ids: string[]): string[] {
   return ids.map((id) => LEGACY_SCENE_SLUG_MAP[id] ?? id);
 }
 
-// Reads `?scene=` (or bare `?spiral` / `?star` / `?grid`) and pushes the
-// override into FilterProvider state. Isolated so we can wrap it in <Suspense>
-// — useSearchParams() otherwise opts every page using <FilterProvider> out of
-// static prerendering.
+// Reads scene (`?scene=` or bare `?spiral`/`?star`/`?grid`) and tempo (`?tempo=`
+// or bare `?very-chill`/`?downtempo`/`?uptempo`/`?intense`, raw ids accepted as
+// aliases) params and pushes the overrides into FilterProvider state. Isolated
+// so we can wrap it in <Suspense> — useSearchParams() otherwise opts every page
+// using <FilterProvider> out of static prerendering.
 function URLSceneSync({
   onScene,
+  onTempo,
   onRegisterClear,
 }: {
   onScene: (scene: string | null) => void;
+  onTempo: (tempos: Tempo[] | null) => void;
   onRegisterClear: (fn: () => void) => void;
 }) {
   const searchParams = useSearchParams();
@@ -41,11 +46,36 @@ function URLSceneSync({
       if (!override && searchParams.has(slug)) override = slug;
     });
   }
+
+  // Tempo override: explicit `?tempo=uptempo,intense` and/or bare `?uptempo`
+  // params. Collect into an ordered, de-duped list; null = no tempo in URL.
+  let tempoOverride: Tempo[] | null = null;
+  if (searchParams) {
+    const found = new Set<Tempo>();
+    const tempoParam = searchParams.get('tempo');
+    if (tempoParam) {
+      tempoParam.split(',').forEach((part) => {
+        const t = tempoFromUrlSlug(part.trim());
+        if (t) found.add(t);
+      });
+    }
+    Object.keys(TEMPO_URL_SLUG_TO_ID).forEach((slug) => {
+      if (searchParams.has(slug)) found.add(TEMPO_URL_SLUG_TO_ID[slug]);
+    });
+    if (found.size > 0) tempoOverride = Array.from(found);
+  }
+  // Stable string key so the effect doesn't refire on every render (arrays are
+  // new identities each pass).
+  const tempoKey = tempoOverride ? tempoOverride.join(',') : '';
+
   useEffect(() => {
     onScene(override);
   }, [override, onScene]);
-  // Expose a "strip scene params from the URL" callback to the provider so
-  // a manual chip toggle on /?star cleans the URL back to /.
+  useEffect(() => {
+    onTempo(tempoKey ? (tempoKey.split(',') as Tempo[]) : null);
+  }, [tempoKey, onTempo]);
+  // Expose a "strip scene + tempo params from the URL" callback to the provider
+  // so a manual chip toggle on /?star or /?uptempo cleans the URL back to /.
   useEffect(() => {
     onRegisterClear(() => {
       if (!searchParams) return;
@@ -53,6 +83,10 @@ function URLSceneSync({
       let changed = false;
       if (next.has('scene')) { next.delete('scene'); changed = true; }
       URL_SCENE_SLUGS.forEach((slug) => {
+        if (next.has(slug)) { next.delete(slug); changed = true; }
+      });
+      if (next.has('tempo')) { next.delete('tempo'); changed = true; }
+      Object.keys(TEMPO_URL_SLUG_TO_ID).forEach((slug) => {
         if (next.has(slug)) { next.delete(slug); changed = true; }
       });
       if (!changed) return;
@@ -75,6 +109,14 @@ interface FilterContextValue {
   // until scenes are loaded and the chip row seeds the set.
   selectedSceneIds: string[] | null;
   handleSceneIdsChange: (ids: string[]) => void;
+  // Raw URL filter overrides (session-only). The homepage `/` seeds its local
+  // scene/tempo state from these — non-homepage routes use selectedSceneIds.
+  // `null` = no such param in the URL.
+  urlSceneOverride: string | null;
+  urlTempoOverride: Tempo[] | null;
+  // Strips scene + tempo params from the current URL. Called when the user
+  // manually toggles a chip, so a shared `/?star` link cleans back to `/`.
+  clearUrlFilters: () => void;
   // Optional display hints set by pages that have schedule data
   cityResultCount?: number;
   genreResultCount?: number;
@@ -107,6 +149,9 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   // so FilterProvider itself stays free of useSearchParams() — otherwise every
   // page under <Providers> would be forced out of static prerendering.
   const [urlSceneOverride, setUrlSceneOverride] = useState<string | null>(null);
+  // `?uptempo` / `?very-chill` etc. — surfaced for the homepage to seed its
+  // local tempo state. Session-only, no persistence (matches the tempo chips).
+  const [urlTempoOverride, setUrlTempoOverride] = useState<Tempo[] | null>(null);
   const hasUrlSceneOverride = urlSceneOverride !== null;
   // Ref mirror of hasUrlSceneOverride so the async Firestore callback below
   // sees the latest value — otherwise an in-flight getDoc() that started
@@ -118,6 +163,9 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   const registerClearUrlScene = useCallback((fn: () => void) => {
     clearUrlSceneRef.current = fn;
   }, []);
+  // Stable wrapper exposed via context so consumers (ArchiveHero's homepage
+  // chips) can strip URL filter params on a manual toggle.
+  const clearUrlFilters = useCallback(() => { clearUrlSceneRef.current(); }, []);
 
   // Seed with the constant fallback, NOT getDefaultCity(): the latter reads
   // Intl.DateTimeFormat().resolvedOptions().timeZone, which resolves to the
@@ -309,6 +357,9 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       setSelectedGenres,
       selectedSceneIds,
       handleSceneIdsChange,
+      urlSceneOverride,
+      urlTempoOverride,
+      clearUrlFilters,
       handleCityChange,
       handleGenresChange,
       cityResultCount: tunerHints.cityResultCount,
@@ -319,7 +370,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       setTunerHints,
     }}>
       <Suspense fallback={null}>
-        <URLSceneSync onScene={setUrlSceneOverride} onRegisterClear={registerClearUrlScene} />
+        <URLSceneSync onScene={setUrlSceneOverride} onTempo={setUrlTempoOverride} onRegisterClear={registerClearUrlScene} />
       </Suspense>
       {children}
     </FilterContext.Provider>

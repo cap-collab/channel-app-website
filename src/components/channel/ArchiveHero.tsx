@@ -276,18 +276,28 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         : [...current, sceneId];
       if (homepage) {
         // Local-only state, no persistence (no Firebase, no localStorage).
+        // A manual toggle exits the shared-link session: strip the scene/tempo
+        // params from the URL so /?spiral cleans back to /.
+        if (urlSceneOverride) clearUrlFilters();
         setHomepageSceneIds(next);
       } else {
         handleSceneIdsChange(next);
       }
     },
-    [homepage, effectiveSelectedSceneIds, scenes, handleSceneIdsChange]
+    [homepage, effectiveSelectedSceneIds, scenes, handleSceneIdsChange, urlSceneOverride, clearUrlFilters]
   );
 
   // Tempo filter (Past-shows grid). Same local-only, non-persisted model as the
   // homepage scene chips: null = "all tempos" (every chip active); the user can
   // uncheck individual tempos. Tempo lives on the archive doc (admin-set).
   const [selectedTempos, setSelectedTempos] = useState<Tempo[] | null>(null);
+  // Seed from a shared `/?uptempo` / `/?very-chill` link (combos with scene,
+  // e.g. /?spiral&uptempo). Session-only — mirrors the scene seed above. The
+  // join() key keeps the effect from refiring on every render.
+  const urlTempoKey = urlTempoOverride ? urlTempoOverride.join(',') : '';
+  useEffect(() => {
+    if (urlTempoKey) setSelectedTempos(urlTempoKey.split(',') as Tempo[]);
+  }, [urlTempoKey]);
   const tempoFilter = useMemo(() => {
     if (selectedTempos === null) return new Set<Tempo>(TEMPOS.map((t) => t.id));
     return new Set<Tempo>(selectedTempos);
@@ -303,9 +313,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       const next = current.includes(tempo)
         ? current.filter((id) => id !== tempo)
         : [...current, tempo];
+      // Manual toggle exits the shared-link session: strip URL filter params.
+      if (urlTempoOverride) clearUrlFilters();
       setSelectedTempos(next);
     },
-    [selectedTempos]
+    [selectedTempos, urlTempoOverride, clearUrlFilters]
   );
 
   // Track player bar visibility — GlobalBroadcastBar shows when this scrolls out of view
