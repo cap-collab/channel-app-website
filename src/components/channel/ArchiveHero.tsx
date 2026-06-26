@@ -457,10 +457,21 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         for (const id of s) if (id !== 'grid' && endedScenes.has(id)) return true;
         return false;
       };
-      const primary = all.filter(
+      // Prefer same scene AND same tempo; fall back to same scene; then anything.
+      // Tempo match requires the ended archive to be tagged — an untagged
+      // archive has no tempo to match, so it skips straight to scene-only.
+      const sceneMatches = all.filter(
         (a) => a.id !== ended.id && priorityIsHigh(a.priority) && sharesScene(a)
       );
-      const pool = primary.length > 0 ? primary : all.filter((a) => a.id !== ended.id);
+      const sceneAndTempo = ended.tempo
+        ? sceneMatches.filter((a) => a.tempo === ended.tempo)
+        : [];
+      const pool =
+        sceneAndTempo.length > 0
+          ? sceneAndTempo
+          : sceneMatches.length > 0
+            ? sceneMatches
+            : all.filter((a) => a.id !== ended.id);
       if (pool.length === 0) return;
       const next = pool[Math.floor(Math.random() * pool.length)];
       playArchive(next);
