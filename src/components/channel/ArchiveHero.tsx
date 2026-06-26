@@ -704,18 +704,44 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     if (!slug) return;
     if (!archives || archives.length === 0) return; // wait for archives to load
     archiveDeepLinkConsumedRef.current = true;
-    const target = archives.find((a) => a.slug === slug);
-    if (target) {
+
+    const stripParam = () => {
+      const params = new URLSearchParams(Array.from(searchParams.entries()));
+      params.delete('archive');
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    };
+
+    const start = (target: ArchiveSerialized) => {
       setUserSelectedMode('archive');
       setHeroIndex(1); // archive slide
       playArchive(target);
+    };
+
+    // The homepage `archives` list is capped (top 100), so a deep-linked
+    // medium/older archive often isn't in it. Try the loaded list first, then
+    // fall back to fetching the single archive by slug so ANY archive opens.
+    const inList = archives.find((a) => a.slug === slug);
+    if (inList) {
+      start(inList);
+      stripParam();
+      return;
     }
-    // Strip the param once archives are loaded (don't re-fire; don't leave a
-    // dangling param when the slug isn't found).
-    const params = new URLSearchParams(Array.from(searchParams.entries()));
-    params.delete('archive');
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/archives/${encodeURIComponent(slug)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && data?.archive) start(data.archive as ArchiveSerialized);
+        }
+      } catch {
+        // ignore — fall back to the normal homepage
+      } finally {
+        if (!cancelled) stripParam();
+      }
+    })();
+    return () => { cancelled = true; };
   }, [searchParams, archives, playArchive, router, pathname]);
 
   // When the filter pool shifts (user toggles a chip), clamp heroIndex so we

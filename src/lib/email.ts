@@ -1107,11 +1107,16 @@ function buildWeeklyComingUpRowHtml(row: WeeklyRecComingUpRow, timezone: string)
 }
 
 // One labelled block (heading + top divider + stacked rows). Mirrors the
-// go-live email's buildBundleBlock. Empty rows → renders nothing.
-function buildWeeklyBlock(label: string, rowsHtml: string[]): string {
+// go-live email's buildBundleBlock. Empty rows → renders nothing. The FIRST
+// rendered block omits the top divider/margin so it sits flush at the top of
+// the email (there's no title/subtitle above it).
+function buildWeeklyBlock(label: string, rowsHtml: string[], first = false): string {
   if (rowsHtml.length === 0) return "";
+  const wrapStyle = first
+    ? ""
+    : "margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e5e5;";
   return `
-    <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e5e5;">
+    <div style="${wrapStyle}">
       <p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">${label}</p>
       ${rowsHtml.join("")}
     </div>
@@ -1132,25 +1137,30 @@ export async function sendWeeklyRecommendationsEmail({
   }
   const tz = userTimezone || "America/Los_Angeles";
 
+  // Build each block's rows, then render in order — the first NON-EMPTY block
+  // omits the top divider (no title/subtitle above it now).
   const section1Label = isFallback ? "Featured this week" : "New from your favorites";
-  const block1 = buildWeeklyBlock(section1Label, section1.map(buildWeeklyArchiveRowHtml));
-  const block2 = isFallback
-    ? "" // fallback fills section 1 only; don't duplicate the featured grid
-    : buildWeeklyBlock("In your scene", section2.map(buildWeeklyArchiveRowHtml));
-  const block3 = buildWeeklyBlock(
-    "Coming up this week",
-    comingUp.map((r) => buildWeeklyComingUpRowHtml(r, tz)),
-  );
+  const rows1 = section1.map(buildWeeklyArchiveRowHtml);
+  const rows2 = isFallback ? [] : section2.map(buildWeeklyArchiveRowHtml);
+  const rows3 = comingUp.map((r) => buildWeeklyComingUpRowHtml(r, tz));
+  let firstUsed = false;
+  const renderBlock = (label: string, rows: string[]): string => {
+    if (rows.length === 0) return "";
+    const html = buildWeeklyBlock(label, rows, !firstUsed);
+    firstUsed = true;
+    return html;
+  };
+  const block1 = renderBlock(section1Label, rows1);
+  const block2 = renderBlock("In your scene", rows2);
+  const block3 = renderBlock("Coming up this week", rows3);
 
   const ctaHtml = `
     <div style="margin-top: 28px; text-align: center;">
-      <a href="https://channel-app.com/scene" style="${BUTTON_STYLE}">See your full scene</a>
+      <a href="https://channel-app.com/scene" style="${BUTTON_STYLE}">Explore the scene</a>
     </div>
   `;
 
   const content = `
-    <h1 style="margin: 0 0 4px; font-size: 22px; font-weight: 700; color: #1a1a1a; line-height: 1.3; text-align: center;">Your week on Channel</h1>
-    <p style="margin: 0 0 8px; font-size: 12px; color: #999; line-height: 1.4; text-align: center;">Shows picked for you and what's coming up</p>
     ${block1}
     ${block2}
     ${block3}
@@ -1162,7 +1172,7 @@ export async function sendWeeklyRecommendationsEmail({
       from: FROM_EMAIL,
       to,
       subject: "Your week on Channel",
-      html: wrapEmailContent(content, "Your weekly recommendations from Channel."),
+      html: wrapEmailContent(content, ""),
       headers: getUnsubscribeHeaders("marketing"),
     });
     if (error) {
