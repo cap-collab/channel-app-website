@@ -406,35 +406,15 @@ export async function sendShowStartingEmail({
     ? buildLaterTodaySection(laterToday, userTimezone || "America/Los_Angeles")
     : "";
 
-  // Subject line. Single show → "{DJ} is live on channel". When there's a
-  // bundle ("also later today"), list the whole crew with plural phrasing:
-  // "Jane Margarette, Ninka & Luke Mele are live on channel". Name
-  // resolution mirrors the bundled-row body (djName → djUsername → showName).
-  // Cap the listed names then "+N more" so the subject stays readable.
+  // Subject line is always about the PRIMARY live show only — "{DJ} is live on
+  // channel" (or "airing" for a restream). The bundle below is the week's full
+  // schedule, not a crew who are also live right now, so it must NOT inflate
+  // the subject with a week of names.
   const primarySubjectName = (djUsername || djName) ? djDisplayName : displayName;
   const stationSuffix = isChannelRadio ? "channel" : stationName;
-  let subject: string;
-  if (laterToday && laterToday.length > 0) {
-    const bundleNames = laterToday.map((r) => r.djName || r.djUsername || r.showName);
-    const allNames = [primarySubjectName, ...bundleNames];
-    const shown = allNames.slice(0, 4);
-    const extra = allNames.length - shown.length;
-    let nameList: string;
-    if (shown.length === 2) {
-      nameList = `${shown[0]} & ${shown[1]}`;
-    } else {
-      nameList = `${shown.slice(0, -1).join(", ")} & ${shown[shown.length - 1]}`;
-    }
-    if (extra > 0) nameList += ` +${extra} more`;
-    // A restream primary uses "airing" rather than the live "are live".
-    subject = isRestream
-      ? `${nameList} airing on ${stationSuffix}`
-      : `${nameList} are live on ${stationSuffix}`;
-  } else {
-    subject = isRestream
-      ? `${primarySubjectName} airing on ${stationSuffix}`
-      : `${primarySubjectName} is live on ${stationSuffix}`;
-  }
+  const subject = isRestream
+    ? `${primarySubjectName} airing on ${stationSuffix}`
+    : `${primarySubjectName} is live on ${stationSuffix}`;
 
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
@@ -638,8 +618,10 @@ function buildShowCardHtml(
 // DJ profile. No CTA button — tighter than buildShowCardHtml.
 function buildLaterTodayRowHtml(row: LaterTodayShowRow, timezone: string): string {
   const djDisplayName = row.djName || row.djUsername || row.showName;
-  const timeStr = new Date(row.startTime).toLocaleTimeString("en-US", {
-    timeZone: timezone, hour: "numeric", minute: "2-digit",
+  // The bundle spans the whole week, so each row leads with its weekday
+  // ("Wed 7:00 PM") — a bare time would be ambiguous across days.
+  const timeStr = new Date(row.startTime).toLocaleString("en-US", {
+    timeZone: timezone, weekday: "short", hour: "numeric", minute: "2-digit",
   });
   const djProfileUrl = row.djUsername
     ? `https://channel-app.com/dj/${normalizeDjUsername(row.djUsername)}`
@@ -680,13 +662,15 @@ function buildLaterTodayRowHtml(row: LaterTodayShowRow, timezone: string): strin
   `;
 }
 
-// Build the full "Also coming up later today" section, including heading
-// and top divider. Caller already filtered rows + sorted by startTime.
+// Build the full "Coming up this week" section, including heading and top
+// divider. Caller already filtered rows + sorted by startTime. This lists the
+// week's full Channel Radio schedule (live shows, restreams, anchors), not a
+// personalized crew bundle.
 function buildLaterTodaySection(rows: LaterTodayShowRow[], timezone: string): string {
   if (rows.length === 0) return "";
   return `
     <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e5e5;">
-      <p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">Also coming up later today</p>
+      <p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">Coming up this week</p>
       ${rows.map((r) => buildLaterTodayRowHtml(r, timezone)).join("")}
     </div>
   `;

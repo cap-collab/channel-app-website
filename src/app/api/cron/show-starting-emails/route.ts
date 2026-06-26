@@ -148,6 +148,31 @@ function endOfDayMsForUser(nowMs: number, timezone: string): number {
   return t - 1; // last millisecond of today in user's TZ
 }
 
+// Weekday (0=Sun..6=Sat) of a timestamp in the given timezone.
+function weekdayInTz(timestampMs: number, timezone: string): number {
+  const wd = new Intl.DateTimeFormat("en-US", {
+    weekday: "short", timeZone: timezone,
+  }).format(new Date(timestampMs));
+  return { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd] ?? 0;
+}
+
+// Last millisecond of the CURRENT week (week ends Sunday) in the user's TZ.
+// Walks forward day-by-day from today's end until we reach the end of the
+// Sunday on/after today. DST-safe (reuses endOfDayMsForUser per day rather
+// than +24h math). If today IS Sunday, returns the end of today.
+function endOfWeekMsForUser(nowMs: number, timezone: string): number {
+  let endOfDay = endOfDayMsForUser(nowMs, timezone);
+  // endOfDay is the last ms of `nowMs`'s local day. Keep advancing one local
+  // day until that day is a Sunday.
+  let guard = 0;
+  while (weekdayInTz(endOfDay, timezone) !== 0 && guard < 8) {
+    // Step just past the current day's end, then take that next day's end.
+    endOfDay = endOfDayMsForUser(endOfDay + 1, timezone);
+    guard++;
+  }
+  return endOfDay;
+}
+
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -171,19 +196,6 @@ export async function GET(request: NextRequest) {
   // primary + real bundle — to this one recipient, while still stamping
   // nothing. Lets an admin see the exact email a given user would receive.
   const previewTo = params.get("previewTo")?.toLowerCase() || undefined;
-
-  // PAUSED: the automated hourly "Show is going live" send is disabled. Admin
-  // escape hatches still run so we can pre-flight before un-pausing: dry-run
-  // traces (?dryRun=1), single-recipient previews (?previewTo=), and
-  // simulate-live (?simulateLive=) all stamp/send nothing or only the one
-  // preview recipient. A plain cron tick (none of those set) returns early.
-  // To resume: delete this block.
-  if (!dryRun && !previewTo) {
-    return NextResponse.json({
-      paused: true,
-      message: "Show-starting (go-live) emails are temporarily paused",
-    });
-  }
 
   if (!isRestApiConfigured()) {
     return NextResponse.json(
@@ -220,11 +232,23 @@ export async function GET(request: NextRequest) {
     const windowStart = new Date(now.getTime() - LIVE_START_LOOKBACK_MS);
     const windowEnd = new Date(now.getTime() + 5 * 60 * 1000);
     const liveShows: LiveShow[] = [];
-    // "Later today" bundling: capture every show starting after the live
-    // window and up to 36h ahead. 36h is wide enough to cover any user TZ's
-    // local end-of-day; per-user filtering narrows below.
-    const bundleHorizon = new Date(now.getTime() + 36 * 60 * 60 * 1000);
+    // Bundling horizon. The "coming up" bundle now lists every scheduled
+    // Channel Radio show through the end of the CURRENT week (Sunday) in the
+    // recipient's timezone — not just later today. 8 days is wide enough to
+    // cover end-of-Sunday in any user TZ from any day of the week; the
+    // per-user filter (endOfWeekMsForUser) narrows to the real week boundary.
+    const bundleHorizon = new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000);
+    // External-station + dj-radio upcoming capture stays at the old 36h. Those
+    // paths only fed the legacy per-row "later today" matcher (now removed for
+    // them) and pre-building engagement over a full week of external shows
+    // would be wasted work — the weekly bundle is Channel-Radio-only.
+    const bundleHorizon36h = new Date(now.getTime() + 36 * 60 * 60 * 1000);
     const upcomingTodayShows: LiveShow[] = [];
+    // Weekly bundle source: every scheduled Channel Radio (broadcast) slot in
+    // the 8-day window AS IT APPEARS IN THE ADMIN SCHEDULE — live shows,
+    // restreams, AND anchors. Listed unconditionally for any recipient who
+    // gets a primary email; no per-row engagement filter.
+    const weeklyBroadcastShows: LiveShow[] = [];
 
     // Fetch DJ users early — reused for DJ radio show extraction and profile lookup
     const djUsers = await queryUsersWhere("role", "EQUAL", "dj");
@@ -247,7 +271,7 @@ export async function GET(request: NextRequest) {
             showId: `${stationKey}-${show.s}`,
             startTime: show.s,
           });
-        } else if (start > windowEnd && start <= bundleHorizon) {
+        } else if (start > windowEnd && start <= bundleHorizon36h) {
           upcomingTodayShows.push({
             name: show.n,
             dj: show.j || undefined,
@@ -355,6 +379,41 @@ export async function GET(request: NextRequest) {
       });
     };
 
+    // Schedule-row variant for the weekly "coming up this week" bundle. Unlike
+    // pushBroadcastSlot (which gates the matched-recipient go-live), this just
+    // mirrors the admin schedule, so it does NOT honor goLiveEmailsDisabled —
+    // anchors (which carry that flag by default) still belong in the schedule
+    // list. It DOES still skip the hidden channelbroadcast test account.
+    const pushScheduleRow = (
+      slot: { id: string; data: Record<string, unknown> },
+      target: LiveShow[],
+    ): void => {
+      const data = slot.data;
+      if (data.djUsername === "channelbroadcast") return;
+      const slug = data.djUsername as string | undefined;
+      const collectiveInfo = slug ? collectiveOwnerInfoBySlug.get(slug) : undefined;
+      const startMs = slotStartMs(data.startTime);
+      target.push({
+        name: data.showName as string,
+        dj: data.djName as string | undefined,
+        profileUsername: undefined,
+        stationId: "broadcast",
+        stationName: "Channel Radio",
+        showId: `broadcast-${slot.id}`,
+        djUsername: data.djUsername as string | undefined,
+        showImageUrl: (data.showImageUrl as string) || undefined,
+        djUserId: (data.liveDjUserId as string) || (data.djUserId as string) || undefined,
+        collectiveOwnerUsernames: collectiveInfo?.ownerUsernames.length
+          ? collectiveInfo.ownerUsernames
+          : undefined,
+        collectiveOwnerUserIds: collectiveInfo?.ownerUids.length
+          ? collectiveInfo.ownerUids
+          : undefined,
+        startTime: typeof startMs === "number" ? new Date(startMs).toISOString() : undefined,
+        broadcastType: data.broadcastType as string | undefined,
+      });
+    };
+
     for (const slot of broadcastSlots) {
       // status === 'live' stays true for the whole show, so a long slot would
       // otherwise re-trigger go-live emails every hourly tick for anyone newly
@@ -368,8 +427,26 @@ export async function GET(request: NextRequest) {
       const startMs = slotStartMs(slot.data.startTime);
       if (typeof startMs !== "number") continue;
       if (startMs <= windowEnd.getTime()) continue;
-      if (startMs > bundleHorizon.getTime()) continue;
-      pushBroadcastSlot(slot, upcomingTodayShows);
+      if (startMs > bundleHorizon.getTime()) continue; // 8-day outer bound
+      // Weekly "coming up this week" bundle: EVERY scheduled Channel Radio slot
+      // exactly as it appears in the admin schedule — live shows, restreams,
+      // AND anchors. Listed unconditionally (no per-recipient engagement
+      // filter) for anyone who gets a primary email. This is just the schedule,
+      // not a personalized list. (channelbroadcast + goLiveEmailsDisabled slots
+      // are still filtered inside pushBroadcastSlot.)
+      //
+      // NOTE: pushBroadcastSlot drops goLiveEmailsDisabled slots, and anchors
+      // default that flag to true — so anchors that should appear in the
+      // schedule are added directly here, bypassing that filter, while still
+      // honoring channelbroadcast + the per-slot disable for non-anchors.
+      const bType = slot.data.broadcastType as string | undefined;
+      pushScheduleRow(slot, weeklyBroadcastShows);
+      // Keep the 36h upcoming set populated for the engagement pre-build below
+      // (unchanged behavior for anything still reading upcomingTodayShows).
+      // Restreams/anchors never matched the primary tiers anyway.
+      if (startMs <= bundleHorizon36h.getTime() && bType !== "restream" && bType !== "anchor") {
+        pushBroadcastSlot(slot, upcomingTodayShows);
+      }
     }
 
     // Also check DJ radio shows (manually added via /studio) starting within the window
@@ -407,7 +484,7 @@ export async function GET(request: NextRequest) {
         const startTime = new Date(startTimeMs);
 
         const inLiveWindow = startTime >= windowStart && startTime <= windowEnd;
-        const inBundleWindow = startTime > windowEnd && startTime <= bundleHorizon;
+        const inBundleWindow = startTime > windowEnd && startTime <= bundleHorizon36h;
         if (inLiveWindow || inBundleWindow) {
           const showNameSlug = (show.name || "").replace(/\s+/g, "-").toLowerCase().slice(0, 20);
           const radioNameSlug = (show.radioName || "radio").replace(/\s+/g, "-").toLowerCase();
@@ -857,7 +934,9 @@ export async function GET(request: NextRequest) {
       const todayKey = startDayKey(now.getTime(), userTz);
       const lastDate = userData.lastShowStartingEmailDate as string | undefined;
       if (lastDate === todayKey) { skipped++; continue; }
-      const endOfTodayMs = endOfDayMsForUser(now.getTime(), userTz);
+      // End of the CURRENT week (through Sunday) in the user's TZ — the outer
+      // bound for the "coming up this week" schedule bundle.
+      const endOfWeekMs = endOfWeekMsForUser(now.getTime(), userTz);
 
       // Dedup: track which show occurrences we've already emailed about
       // Key: showId (e.g. "nts1-2026-02-05T22:00:00Z") → timestamp
@@ -956,44 +1035,12 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        if (!matched) {
-          const affOptOut = emailNotificationsData?.affiliatedGoLive === false;
-          if (!affOptOut) {
-            const affiliatedRecipients = affiliatedRecipientsByShowId.get(show.showId);
-            if (affiliatedRecipients?.has(userId)) {
-              matched = true;
-              matchedViaAffiliation = true;
-            } else if (show.stationId === "broadcast") {
-              const related = relatedUsernamesByShowId.get(show.showId);
-              const borrowed = borrowedUsernamesByShowId.get(show.showId);
-              const engagedByR = engagedByRelatedDjByShowId.get(show.showId);
-              if (related) {
-                for (const r of Array.from(related)) {
-                  let bridged = false;
-                  for (const term of searchTerms) {
-                    if (wordBoundaryMatch(r, term)) {
-                      bridged = true;
-                      break;
-                    }
-                  }
-                  if (!bridged && engagedByR?.get(r)?.has(userId)) bridged = true;
-                  if (bridged) {
-                    matched = true;
-                    matchedViaAffiliation = true;
-                    // r is the normalized username; show the DJ's raw
-                    // chatUsername in the caption (e.g. "Naomi Green", not
-                    // "naomigreen"). Falls back to r if no display is found.
-                    affiliationBridgeDj = normalizedUsernameToDisplay.get(r) || r;
-                    // borrowed[] already excludes any crew member, so
-                    // membership here means audience-borrow; otherwise crew.
-                    bridgeKind = borrowed?.has(r) ? "borrow" : "crew";
-                    break;
-                  }
-                }
-              }
-            }
-          }
-        }
+        // NOTE: the affiliation / crew / audience-borrow bridge tier (the old
+        // tier 4) is intentionally REMOVED. Go-live emails now go ONLY to
+        // recipients with a DIRECT signal on the live artist: a "show"
+        // favorite, a watchlist/search term that matches the show/dj, or
+        // love/stream history for that exact DJ. We never fan out to fans of a
+        // related/crew DJ or borrowed audience. (Narrowed 2026-06-25.)
 
         return matched ? { matchedViaAffiliation, affiliationBridgeDj, bridgeKind, engagementReason, savedReason } : null;
       };
@@ -1024,45 +1071,13 @@ export async function GET(request: NextRequest) {
 
       if (!primary || !primaryMatch) continue;
 
-      // Normalized username of the DJ whose live show this recipient matched.
-      // Used by the bundle pass to propagate a primary match across the crew:
-      // if this DJ appears in an upcoming show's related-crew set, that show is
-      // a crew sibling of the primary and should bundle for this recipient even
-      // without an independent engagement edge on the sibling DJ (see below).
-      const primaryDjUsernameNorm = primary.djUsername
-        ? normalizeForLookup(primary.djUsername)
-        : undefined;
-
-      // Crew propagation: if this recipient matched the PRIMARY live DJ, every
-      // upcoming show in the primary's crew bundles for them — regardless of
-      // HOW they reached the primary (favorite / watchlist / engagement /
-      // affiliation / audience-borrow). The product rule is "everyone who gets
-      // the go-live gets the crew shows airing right after," so we follow the
-      // primary, not the recipient's match path.
-      //
-      // "show X is in the primary's crew" == X's related-crew set contains the
-      // primary DJ's username. That set is the affiliation/audience graph for
-      // X's own DJ, so a crew sibling (e.g. Luke/Ninka affiliated to Jane) has
-      // the primary (Jane) in its related set. This catches the cases the
-      // per-crew-member engagement bridge missed: brand-new crew DJs with no
-      // love/stream history, AND recipients (incl. DJ recipients like an
-      // audience-source DJ) who matched the primary via a non-crew edge.
-      //
-      // Applies to listeners AND DJ recipients — the earlier listener-only
-      // restriction wrongly assumed DJ recipients were always covered by the
-      // affiliated-recipients UID set, which only contains the crew itself and
-      // misses an audience-source DJ who matched the primary via the borrow.
-      const bundlesViaCrewPropagation = (show: LiveShow): boolean => {
-        if (!primaryDjUsernameNorm) return false;
-        if (show.stationId !== "broadcast") return false;
-        if (emailNotificationsData?.affiliatedGoLive === false) return false;
-        const related = relatedUsernamesByShowId.get(show.showId);
-        return !!related?.has(primaryDjUsernameNorm);
-      };
-
-      // ── Bundle pass: scan upcoming-today shows for additional matches ─
-      // Same matcher, same gates. Filtered to the user's local end-of-day
-      // and deduped against shows we've already emailed this user about.
+      // ── Bundle pass: "coming up this week" schedule ──────────────────
+      // Unconditional: every scheduled Channel Radio slot (live shows,
+      // restreams, anchors) from now through the end of the user's current
+      // week. NOT personalized — it mirrors the admin schedule. We only apply
+      // structural gates: drop the primary itself, drop slots already stamped
+      // for this user, and drop the recipient's own / their collective's slots
+      // and muted DJs. No favorite/love/stream match required.
       type BundledRow = {
         showId: string;
         showName: string;
@@ -1077,27 +1092,24 @@ export async function GET(request: NextRequest) {
       };
       const bundled: BundledRow[] = [];
       const bundleTrace: string[] = [];
-      for (const show of upcomingTodayShows) {
+      for (const show of weeklyBroadcastShows) {
         const reject = (reason: string) => bundleTrace.push(`${show.djUsername || show.name}:${reason}`);
         if (!show.startTime) { reject("no-startTime"); continue; }
         const startMs = Date.parse(show.startTime);
         if (!Number.isFinite(startMs)) { reject("bad-startMs"); continue; }
         if (startMs <= now.getTime()) { reject("past"); continue; }
-        if (startMs > endOfTodayMs) { reject("after-today"); continue; }
+        if (startMs > endOfWeekMs) { reject("after-week"); continue; }
         if (show.showId === primary.showId) { reject("is-primary"); continue; }
         if (lastShowStartingEmailAt[show.showId]) { reject("already-stamped"); continue; }
-        if (failsUniversalGates(show)) { reject("gates"); continue; }
-        let bundleVia = "match";
-        if (!matchShow(show)) {
-          if (bundlesViaCrewPropagation(show)) {
-            bundleVia = "crew-prop";
-          } else {
-            const affSize = affiliatedRecipientsByShowId.get(show.showId)?.size ?? -1;
-            reject(`no-match(affSetSize=${affSize})`);
-            continue;
-          }
-        }
-        bundleTrace.push(`${show.djUsername || show.name}:MATCHED(${bundleVia})`);
+        // Lighter gate than the primary's failsUniversalGates: a schedule row
+        // is identified by its showName/showImageUrl, so it does NOT require a
+        // resolved djUserId (restreams/anchors often lack one until they go
+        // live). Still skip muted DJs and the recipient's own / their
+        // collective's slots.
+        if (show.djUsername && goLiveMutes.has(show.djUsername)) { reject("muted"); continue; }
+        if (show.djUserId && show.djUserId === userId) { reject("own-slot"); continue; }
+        if (show.collectiveOwnerUserIds?.includes(userId)) { reject("own-collective"); continue; }
+        bundleTrace.push(`${show.djUsername || show.name}:MATCHED(schedule)`);
         bundled.push({
           showId: show.showId,
           showName: show.name,
@@ -1199,15 +1211,12 @@ export async function GET(request: NextRequest) {
       });
 
       if (success) {
-        // Stamp the primary + every bundled show. Stamping bundled rows is
-        // belt-and-suspenders: the daily-cap field is the primary guard,
-        // but if it ever resets (manual admin action, etc.), the per-show
-        // dedup still blocks a duplicate for any bundled show that later
-        // goes live.
+        // Stamp ONLY the primary show. The bundle is now the week's full
+        // schedule (not a crew who are also live now), so a bundled row WILL
+        // have its own go-live moment later this week — stamping it here would
+        // suppress that real go-live email for this user via the per-show
+        // dedup check. The daily cap is the only guard the bundle needs.
         lastShowStartingEmailAt[primary.showId] = now.toISOString();
-        for (const row of laterToday) {
-          lastShowStartingEmailAt[row.showId] = now.toISOString();
-        }
         await updateUser(userId, {
           lastShowStartingEmailAt,
           lastShowStartingEmailDate: todayKey,
