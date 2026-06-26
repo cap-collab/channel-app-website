@@ -203,6 +203,12 @@ async function processOnePending(
 
 // Re-queue entries stuck in-progress from a prior tick (worker hang / lambda kill).
 const STALE_IN_PROGRESS_MS = 30 * 60 * 1000;
+// Cap recoveries: an entry that keeps getting stranded is "poison" — it kills the
+// tick before completing and, since it's always the oldest pending, blocks every
+// recording queued behind it. After MAX_RECOVERIES strandings, fail it instead of
+// resurrecting it forever so the queue can drain. (2026-06-26: a poison entry
+// stranded an M0LLY live recording behind it.)
+const MAX_RECOVERIES = 2;
 async function recoverStaleInProgress(db: FirebaseFirestore.Firestore): Promise<number> {
   const snap = await db.collection('faststart-queue')
     .where('status', '==', 'in-progress')
@@ -210,16 +216,29 @@ async function recoverStaleInProgress(db: FirebaseFirestore.Firestore): Promise<
   const cutoff = Date.now() - STALE_IN_PROGRESS_MS;
   let recovered = 0;
   for (const doc of snap.docs) {
-    const startedAt = Number(doc.data().startedAt || 0);
-    if (startedAt > 0 && startedAt < cutoff) {
+    const data = doc.data();
+    const startedAt = Number(data.startedAt || 0);
+    if (startedAt === 0 || startedAt >= cutoff) continue;
+
+    const recoveries = Number(data.recoveries || 0) + 1;
+    if (recoveries > MAX_RECOVERIES) {
       await doc.ref.update({
-        status: 'pending',
-        lastError: `recovered from stale in-progress (startedAt ${new Date(startedAt).toISOString()})`,
+        status: 'failed',
+        recoveries,
+        lastError: `poison — failed after ${recoveries} strandings (last startedAt ${new Date(startedAt).toISOString()})`,
         lastAttemptAt: Date.now(),
       });
-      recovered++;
-      console.log(`[drain-faststart-queue] Recovered stale in-progress: ${doc.id}`);
+      console.error(`[drain-faststart-queue] Poison entry failed after ${recoveries} strandings: ${doc.id} (${data.r2Key})`);
+      continue;
     }
+    await doc.ref.update({
+      status: 'pending',
+      recoveries,
+      lastError: `recovered from stale in-progress (startedAt ${new Date(startedAt).toISOString()})`,
+      lastAttemptAt: Date.now(),
+    });
+    recovered++;
+    console.log(`[drain-faststart-queue] Recovered stale in-progress: ${doc.id} (recovery ${recoveries}/${MAX_RECOVERIES})`);
   }
   return recovered;
 }

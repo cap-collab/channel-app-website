@@ -77,6 +77,22 @@ export interface NormalizeQueueHealth {
   pendingItems: NormalizeQueuePendingItem[];
 }
 
+export interface FaststartQueueHealth {
+  pending: number;
+  inProgress: number;
+  // Entries stuck in-progress beyond STALE threshold — the red flag. Faststart
+  // is a ~6s operation, so any long-lived in-progress means the drain lambda
+  // died mid-completion (crash between worker-success and the done/enqueue
+  // writes) and the recording's normalize never got enqueued. These block
+  // every recording queued behind them until recovered.
+  staleInProgress: number;
+  oldestPendingAgeMin: number | null;
+  failedLast24h: number;
+  // Stuck (stale in-progress) and failed entries with show name, so the console
+  // names the specific recording, not just a count.
+  stuckItems: NormalizeQueuePendingItem[];
+}
+
 export interface R2Stats {
   generatedAt: number;
   totalObjects: number;
@@ -112,6 +128,7 @@ export interface TechHealthResponse {
   workers: WorkerHealth[];
   livekit: LivekitHealth;
   normalizeQueue: NormalizeQueueHealth;
+  faststartQueue: FaststartQueueHealth;
   upcomingSlots: { slotId: string; djName: string; startMs: number; type: string }[];
   r2Stats: R2Stats | null;
   r2Backup: R2BackupStatus | null;
@@ -370,6 +387,86 @@ async function probeNormalizeQueue(): Promise<NormalizeQueueHealth> {
   };
 }
 
+// Faststart runs BEFORE normalize (moves the moov atom to the front so mobile can
+// stream). It had no Tech Health visibility, so an entry stranded in-progress —
+// which blocks normalize for that recording AND every recording queued behind it —
+// was invisible (observed 2026-06-26: a stranded faststart silently delayed two
+// live recordings). This probe surfaces stale in-progress + failed entries.
+const FASTSTART_STALE_MS = 30 * 60 * 1000; // mirrors drain-faststart's STALE_IN_PROGRESS_MS
+async function probeFaststartQueue(): Promise<FaststartQueueHealth> {
+  const db = getAdminDb();
+  if (!db) {
+    return { pending: 0, inProgress: 0, staleInProgress: 0, oldestPendingAgeMin: null, failedLast24h: 0, stuckItems: [] };
+  }
+  const snap = await db.collection('faststart-queue').get();
+  const now = Date.now();
+  const dayAgo = now - 24 * 60 * 60 * 1000;
+  let pending = 0;
+  let inProgress = 0;
+  let staleInProgress = 0;
+  let oldestPendingMs = Infinity;
+  let failedLast24h = 0;
+  // Stuck = stale in-progress; also surface recently failed. Both name a recording.
+  const stuckDocs: Array<{ id: string; slotId?: string; archiveId?: string; refMs: number }> = [];
+  for (const d of snap.docs) {
+    const data = d.data();
+    if (data.status === 'pending') {
+      pending++;
+      const ts = Number(data.queuedAt || 0);
+      if (ts > 0 && ts < oldestPendingMs) oldestPendingMs = ts;
+    } else if (data.status === 'in-progress') {
+      inProgress++;
+      const startedAt = Number(data.startedAt || 0);
+      if (startedAt > 0 && now - startedAt > FASTSTART_STALE_MS) {
+        staleInProgress++;
+        stuckDocs.push({ id: d.id, slotId: data.slotId, archiveId: data.archiveId, refMs: startedAt });
+      }
+    } else if (data.status === 'failed') {
+      const ts = Number(data.lastAttemptAt || 0);
+      if (ts >= dayAgo) {
+        failedLast24h++;
+        stuckDocs.push({ id: d.id, slotId: data.slotId, archiveId: data.archiveId, refMs: ts });
+      }
+    }
+  }
+
+  // Resolve a show name for each stuck/failed entry (slotId → broadcast-slots,
+  // archiveId → archives), oldest-first, capped so a flood can't blow up the join.
+  const stuckItems: NormalizeQueuePendingItem[] = await Promise.all(
+    stuckDocs
+      .sort((a, b) => a.refMs - b.refMs)
+      .slice(0, 20)
+      .map(async (entry) => {
+        let showName = '';
+        try {
+          if (entry.archiveId) {
+            const doc = await db.collection('archives').doc(entry.archiveId).get();
+            showName = (doc.data()?.showName as string) || '';
+          } else if (entry.slotId) {
+            const doc = await db.collection('broadcast-slots').doc(entry.slotId).get();
+            showName = (doc.data()?.showName as string) || '';
+          }
+        } catch {
+          // leave empty; fall back below
+        }
+        return {
+          id: entry.id,
+          showName: showName || `(unknown — ${entry.id})`,
+          ageMin: entry.refMs > 0 ? Math.round((now - entry.refMs) / 60000) : 0,
+        };
+      })
+  );
+
+  return {
+    pending,
+    inProgress,
+    staleInProgress,
+    oldestPendingAgeMin: oldestPendingMs === Infinity ? null : Math.round((now - oldestPendingMs) / 60000),
+    failedLast24h,
+    stuckItems,
+  };
+}
+
 async function probeR2Stats(): Promise<R2Stats | null> {
   const db = getAdminDb();
   if (!db) return null;
@@ -427,11 +524,12 @@ export async function GET(request: NextRequest) {
 
   // Probes run in parallel; each one swallows its own errors so the dashboard
   // shows partial data when a probe fails rather than a 500.
-  const [workersRestream, workersYoutube, livekit, normalizeQueue, upcomingSlots, r2Stats, r2Backup, reconcileLiveStreams] = await Promise.all([
+  const [workersRestream, workersYoutube, livekit, normalizeQueue, faststartQueue, upcomingSlots, r2Stats, r2Backup, reconcileLiveStreams] = await Promise.all([
     probeWorker('Restream + normalize', restreamWorkerUrl),
     probeWorker('YouTube render', youtubeWorkerUrl),
     probeLivekit(),
     probeNormalizeQueue().catch(() => ({ pending: 0, inProgress: 0, oldestPendingAgeMin: null, doneLast24h: 0, failedLast24h: 0, pendingItems: [] })),
+    probeFaststartQueue().catch(() => ({ pending: 0, inProgress: 0, staleInProgress: 0, oldestPendingAgeMin: null, failedLast24h: 0, stuckItems: [] })),
     probeUpcomingSlots().catch(() => []),
     probeR2Stats().catch(() => null),
     probeR2Backup().catch(() => null),
@@ -443,6 +541,7 @@ export async function GET(request: NextRequest) {
     workers: [workersRestream, workersYoutube],
     livekit,
     normalizeQueue,
+    faststartQueue,
     upcomingSlots,
     r2Stats,
     r2Backup,

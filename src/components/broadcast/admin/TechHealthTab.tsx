@@ -33,6 +33,8 @@ export function TechHealthTab() {
   const [data, setData] = useState<TechHealthResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recovering, setRecovering] = useState(false);
+  const [recoverMsg, setRecoverMsg] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -52,6 +54,33 @@ export function TechHealthTab() {
       setLoading(false);
     }
   }, [user]);
+
+  // Self-heal both recording queues: reset stale in-progress entries + enqueue
+  // any normalize that a crashed faststart drain failed to enqueue. Then refresh.
+  const recoverQueues = useCallback(async () => {
+    if (!user) return;
+    setRecovering(true);
+    setRecoverMsg(null);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/admin/recover-recording-queues', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = (await res.json()) as { fixed: number };
+      setRecoverMsg(
+        json.fixed > 0
+          ? `Recovered ${json.fixed} stuck entr${json.fixed === 1 ? 'y' : 'ies'} — they'll process on the next drain tick.`
+          : 'Nothing stuck — queues are healthy.',
+      );
+      await refresh();
+    } catch (e) {
+      setRecoverMsg(`Recover failed: ${(e as Error).message}`);
+    } finally {
+      setRecovering(false);
+    }
+  }, [user, refresh]);
 
   useEffect(() => {
     void refresh();
@@ -183,6 +212,56 @@ export function TechHealthTab() {
                   )}
                 </div>
               ))}
+            </div>
+          </section>
+
+          {/* Faststart queue */}
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm uppercase tracking-wide text-gray-400">Faststart queue</h3>
+              <button
+                onClick={() => void recoverQueues()}
+                disabled={recovering}
+                className="px-3 py-1 border border-white/20 text-white hover:bg-white/10 disabled:opacity-50 text-xs"
+                title="Reset stale in-progress entries and enqueue any missing normalize jobs in both queues"
+              >
+                {recovering ? 'Recovering…' : 'Recover stuck queues'}
+              </button>
+            </div>
+            {recoverMsg && (
+              <p className="text-xs text-gray-400 mb-2">{recoverMsg}</p>
+            )}
+            <div className="bg-[#1e1e1e] border border-white/10 p-4 space-y-2 text-sm">
+              <Row label="Pending" value={
+                <span className={data.faststartQueue.pending > 5 ? 'text-yellow-400' : ''}>
+                  {data.faststartQueue.pending}
+                </span>
+              } />
+              <Row label="In progress" value={String(data.faststartQueue.inProgress)} />
+              <Row label="Stuck (stale in-progress)" value={
+                <span className={data.faststartQueue.staleInProgress > 0 ? 'text-red-400 font-semibold' : ''}>
+                  {data.faststartQueue.staleInProgress}
+                </span>
+              } />
+              <Row label="Failed last 24h" value={
+                <span className={data.faststartQueue.failedLast24h > 0 ? 'text-red-400' : ''}>
+                  {data.faststartQueue.failedLast24h}
+                </span>
+              } />
+              {data.faststartQueue.stuckItems && data.faststartQueue.stuckItems.length > 0 && (
+                <ul className="pl-3 border-l border-red-500/40 space-y-1">
+                  {data.faststartQueue.stuckItems.map((item) => (
+                    <li key={item.id} className="flex items-center justify-between gap-2">
+                      <span className="text-red-300 truncate">{item.showName}</span>
+                      <span className="text-gray-500 text-xs flex-shrink-0">
+                        {item.ageMin >= 60
+                          ? `${Math.floor(item.ageMin / 60)}h ${item.ageMin % 60}m`
+                          : `${item.ageMin}m`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </section>
 
