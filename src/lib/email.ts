@@ -1171,7 +1171,7 @@ export async function sendWeeklyRecommendationsEmail({
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
-      subject: "Your week on Channel",
+      subject: "Your Weekly Listening",
       html: wrapEmailContent(content, ""),
       headers: getUnsubscribeHeaders("marketing"),
     });
