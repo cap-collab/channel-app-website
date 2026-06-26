@@ -32,13 +32,16 @@ export function SceneClient() {
     };
   }, [canEdit]);
 
-  // In edit mode, a click anywhere exits — except the remove (X) buttons (which
-  // stopPropagation) and the Edit toggle itself.
+  // In edit mode, a click anywhere exits — except the remove (X) buttons and
+  // the Edit toggle itself. These listeners are native on `document`, so a
+  // React stopPropagation on the X button does NOT reach here; we must skip
+  // the remove control explicitly via its data attribute.
   useEffect(() => {
     if (!editMode) return;
     const handler = (e: Event) => {
       const t = e.target as HTMLElement | null;
       if (t && t.closest('[data-scene-edit-toggle]')) return;
+      if (t && t.closest('[data-card-remove]')) return;
       setEditMode(false);
     };
     document.addEventListener('mousedown', handler);

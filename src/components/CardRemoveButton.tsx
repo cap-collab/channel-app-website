@@ -53,6 +53,10 @@ export function CardRemoveButton({
       className="absolute -top-2 -right-2 z-20 p-2 disabled:opacity-50 touch-manipulation cursor-pointer"
       aria-label={ariaLabel}
       type="button"
+      // Marks this as a remove control so document-level edit-mode handlers
+      // (e.g. SceneClient's click-outside-to-exit) can skip it. React's
+      // stopPropagation does NOT block native document listeners.
+      data-card-remove
     >
       {/* Subtle green glow matches the lit Edit LED in the YOUR SCENE header. */}
       <span
