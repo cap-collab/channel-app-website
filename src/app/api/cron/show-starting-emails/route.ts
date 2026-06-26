@@ -820,12 +820,21 @@ export async function GET(request: NextRequest) {
     const engagedByDjUsername = new Map<string, Set<string>>();
 
     // Collect the full set of DJ usernames we need to query: live DJ +
-    // upcoming-today DJ + related DJs for every Channel Radio show.
+    // upcoming-today DJ + collective owners + related DJs for every Channel
+    // Radio show. Collective owners are included so that a collective go-live
+    // fans out to fans (love/stream history) of each owner — not just fans of
+    // the collective slug itself. (Watchlist/favorite of an owner already
+    // matches via collectiveOwnerUsernames in the matcher.)
     const allRelatedUsernames = new Set<string>();
     for (const show of allMatchableShows) {
       if (show.stationId !== "broadcast") continue;
       if (!show.djUsername) continue;
       allRelatedUsernames.add(normalizeForLookup(show.djUsername));
+      if (show.collectiveOwnerUsernames) {
+        show.collectiveOwnerUsernames.forEach((u) =>
+          allRelatedUsernames.add(normalizeForLookup(u)),
+        );
+      }
       const related = relatedUsernamesByShowId.get(show.showId);
       if (related) related.forEach((u) => allRelatedUsernames.add(u));
     }
@@ -867,8 +876,20 @@ export async function GET(request: NextRequest) {
       if (!show.djUsername) continue;
       const xUsername = normalizeForLookup(show.djUsername);
 
-      // Direct (X only)
+      // Direct engaged set for this show = fans (love/stream) of the live
+      // DJ/collective slug. For a COLLECTIVE show we also union in fans of
+      // every owner, so a collective go-live reaches people who engaged an
+      // individual owner (e.g. m50) even if they never engaged the "etc radio"
+      // collective itself. Owner usernames were queried into engagedByDjUsername
+      // above. Owners + the live DJ are then removed so nobody gets their own
+      // collective's email.
       const xEngaged = new Set(engagedByDjUsername.get(xUsername) ?? []);
+      if (show.collectiveOwnerUsernames) {
+        for (const ownerName of show.collectiveOwnerUsernames) {
+          const ownerEngaged = engagedByDjUsername.get(normalizeForLookup(ownerName));
+          if (ownerEngaged) ownerEngaged.forEach((uid) => xEngaged.add(uid));
+        }
+      }
       if (show.djUserId) xEngaged.delete(show.djUserId);
       if (show.collectiveOwnerUserIds) {
         show.collectiveOwnerUserIds.forEach((uid) => xEngaged.delete(uid));
