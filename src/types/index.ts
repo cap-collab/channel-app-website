@@ -93,6 +93,9 @@ export interface UserDocument {
     djInsiders?: boolean;
     affiliatedGoLive?: boolean;
     engagementGoLive?: boolean;
+    // Weekly recommendation email (Tue 10am PT). Default on — undefined is
+    // treated as enabled by the cron so existing users get it without a migration.
+    weeklyRecommendations?: boolean;
   };
   // chatUsernameNormalized values the user has muted from any go-live email
   // (watchlist, favorite, affiliated, or engagement). Written by the per-DJ

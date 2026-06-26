@@ -237,12 +237,18 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
   // Scenes data (scene emoji chips on archive cards + Past-shows filter).
   const { scenes, djSceneMap } = useScenesData();
-  const { selectedSceneIds, handleSceneIdsChange } = useFilterContext();
+  const { selectedSceneIds, handleSceneIdsChange, urlSceneOverride, urlTempoOverride, clearUrlFilters } = useFilterContext();
   // Homepage `/` uses purely local state — chips are still interactive but
   // the choice is NOT persisted (no Firebase write, no localStorage). Every
   // page load starts with all scenes selected. Other routes (scene page)
   // continue to use the persisted FilterContext selection.
   const [homepageSceneIds, setHomepageSceneIds] = useState<string[] | null>(null);
+  // Seed the homepage scene filter from a shared `/?spiral` (or `?star`) link.
+  // On non-homepage routes the override already flows through selectedSceneIds,
+  // but the homepage uses local state — so seed it here. Session-only.
+  useEffect(() => {
+    if (homepage && urlSceneOverride) setHomepageSceneIds([urlSceneOverride]);
+  }, [homepage, urlSceneOverride]);
   // Derived view: the persisted selection as a Set, defaulting to all scenes
   // until the user makes a choice (selectedSceneIds === null).
   const effectiveSelectedSceneIds = homepage ? homepageSceneIds : selectedSceneIds;
@@ -672,6 +678,33 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     return 0;
   });
   const heroTouchRef = useRef<{ startX: number; startY: number } | null>(null);
+
+  // Honor `?archive=<slug>` (e.g. weekly recommendation email links): load that
+  // specific archive into the main player AND snap the carousel to the archive
+  // slide (index 1). Best-effort autoplay — on mobile the browser may block
+  // audio until a tap, but the archive is still loaded + selected so a single
+  // tap plays it. Fires once per visit; unknown slugs are ignored (falls back
+  // to the normal homepage). Placed after heroIndex so it can snap the slide.
+  const archiveDeepLinkConsumedRef = useRef(false);
+  useEffect(() => {
+    if (archiveDeepLinkConsumedRef.current) return;
+    const slug = searchParams?.get('archive');
+    if (!slug) return;
+    if (!archives || archives.length === 0) return; // wait for archives to load
+    archiveDeepLinkConsumedRef.current = true;
+    const target = archives.find((a) => a.slug === slug);
+    if (target) {
+      setUserSelectedMode('archive');
+      setHeroIndex(1); // archive slide
+      playArchive(target);
+    }
+    // Strip the param once archives are loaded (don't re-fire; don't leave a
+    // dangling param when the slug isn't found).
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    params.delete('archive');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, archives, playArchive, router, pathname]);
 
   // When the filter pool shifts (user toggles a chip), clamp heroIndex so we
   // never land past the new array length — otherwise the hero shows

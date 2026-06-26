@@ -118,6 +118,7 @@ export function useAuth() {
                   showStarting: enableNotifications,
                   watchlistMatch: enableNotifications,
                   engagementGoLive: true,
+                  weeklyRecommendations: true,
                 },
               });
 
@@ -252,6 +253,7 @@ export function useAuth() {
             showStarting: enableNotifications,
             watchlistMatch: enableNotifications,
             engagementGoLive: true,
+            weeklyRecommendations: true,
           },
           // Set chatUsername from DJ broadcast flow if provided (matches iOS app field name)
           ...(djUsername && chatUsernameFields(djUsername)),
@@ -353,6 +355,7 @@ export function useAuth() {
             showStarting: enableNotifications,
             watchlistMatch: enableNotifications,
             engagementGoLive: true,
+            weeklyRecommendations: true,
           },
           // Set chatUsername from DJ broadcast flow if provided (matches iOS app field name)
           ...(djUsername && chatUsernameFields(djUsername)),
@@ -519,6 +522,7 @@ export function useAuth() {
             showStarting: enableNotifications,
             watchlistMatch: enableNotifications,
             engagementGoLive: true,
+            weeklyRecommendations: true,
           },
         });
       } else {
@@ -578,6 +582,7 @@ export function useAuth() {
           showStarting: enableNotifications,
           watchlistMatch: enableNotifications,
           engagementGoLive: true,
+          weeklyRecommendations: true,
         },
       });
 
@@ -648,6 +653,7 @@ export function useAuth() {
           showStarting: enableNotifications,
           watchlistMatch: enableNotifications,
           engagementGoLive: true,
+          weeklyRecommendations: true,
         },
       });
 

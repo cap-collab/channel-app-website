@@ -9,6 +9,10 @@
       "schedule": "0 10 * * *"
     },
     {
+      "path": "/api/cron/weekly-recommendations",
+      "schedule": "0 17 * * 2"
+    },
+    {
       "path": "/api/cron/complete-expired-slots",
       "schedule": "*/5 * * * *"
     },

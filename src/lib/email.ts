@@ -1007,6 +1007,175 @@ export async function sendWatchlistDigestEmail({
   }
 }
 
+// ── Weekly Recommendation Email (Tue 10am PT) ───────────────────────────────
+// Mirrors /scene over email: new shows from favorites, in-your-scene picks, and
+// everything coming up this week. Reuses the go-live bundle-row look
+// (buildBundleBlock / 48×48 stacked rows) so it's visually consistent.
+
+// An archive row (sections 1 & 2). No upcoming time — meta line is "DJ · scene".
+export interface WeeklyRecArchiveRow {
+  slug: string;
+  showName: string;
+  djName?: string;
+  djUsername?: string;
+  djPhotoUrl?: string;
+  showImageUrl?: string;
+  sceneLabel?: string; // e.g. a scene name; optional secondary meta
+}
+
+// A coming-up row (section 3). Online OR IRL; carries a start (+optional end).
+export interface WeeklyRecComingUpRow {
+  showName: string;
+  djName?: string;
+  djUsername?: string;
+  djPhotoUrl?: string;
+  showImageUrl?: string;
+  stationId: string;
+  startTime: string; // ISO
+  endTime?: string; // ISO
+  isIRL: boolean;
+  linkUrl?: string; // ticket URL (IRL) or DJ/show page (online); falls back to DJ page
+}
+
+interface WeeklyRecommendationsEmailParams {
+  to: string;
+  userTimezone?: string;
+  section1: WeeklyRecArchiveRow[]; // new from favorites (max 2)
+  section2: WeeklyRecArchiveRow[]; // in your scene (max 2)
+  comingUp: WeeklyRecComingUpRow[]; // everything this week
+  isFallback?: boolean; // section1/2 came from the featured matrix
+}
+
+// Archive row → bundle-style row. Links to the homepage main player
+// (/?archive=<slug>) so the archive preloads on the archive slide.
+function buildWeeklyArchiveRowHtml(row: WeeklyRecArchiveRow): string {
+  const djDisplayName = row.djName || row.djUsername || row.showName;
+  const meta = row.sceneLabel ? `${djDisplayName} · ${row.sceneLabel}` : djDisplayName;
+  const url = `https://channel-app.com/?archive=${encodeURIComponent(row.slug)}`;
+  const fallbackColor = "#DC9B50";
+  const emailPhotoUrl = getEmailPhotoUrl(row.djUsername, row.djPhotoUrl, row.showImageUrl);
+  const photoHtml = emailPhotoUrl
+    ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="48" height="48" style="width: 48px; height: 48px; border-radius: 0; object-fit: cover; border: 1px solid #e5e5e5; display: block;" />`
+    : `<table width="48" height="48" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #e5e5e5; background-color: ${fallbackColor};"><tr><td align="center" valign="middle" style="font-size: 20px; font-weight: bold; color: #fff;">${djDisplayName.charAt(0).toUpperCase()}</td></tr></table>`;
+  return `
+    <a href="${url}" style="text-decoration: none; color: inherit; display: block;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
+        <tr>
+          <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
+          <td valign="middle">
+            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; line-height: 1.3;">${row.showName}</div>
+            <div style="font-size: 12px; color: #999;">${meta}</div>
+          </td>
+        </tr>
+      </table>
+    </a>
+  `;
+}
+
+// Coming-up row → bundle-style row with an Online/IRL badge + weekday start–end.
+function buildWeeklyComingUpRowHtml(row: WeeklyRecComingUpRow, timezone: string): string {
+  const djDisplayName = row.djName || row.djUsername || row.showName;
+  const startStr = new Date(row.startTime).toLocaleString("en-US", {
+    timeZone: timezone, weekday: "short", hour: "numeric", minute: "2-digit",
+  });
+  const endStr = row.endTime
+    ? new Date(row.endTime).toLocaleString("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" })
+    : null;
+  const timeStr = endStr ? `${startStr} – ${endStr}` : startStr;
+  const badge = row.isIRL ? "🌲 IRL" : "☁️ Online";
+  const url = row.linkUrl
+    || (row.djUsername ? `https://channel-app.com/dj/${normalizeDjUsername(row.djUsername)}`
+      : `https://channel-app.com/dj/${normalizeDjUsername(row.djName || row.showName)}`);
+  const fallbackColor = row.isIRL ? "#22c55e" : (STATION_ACCENT_COLORS[row.stationId] || "#DC9B50");
+  const emailPhotoUrl = getEmailPhotoUrl(row.djUsername, row.djPhotoUrl, row.showImageUrl);
+  const photoHtml = emailPhotoUrl
+    ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="48" height="48" style="width: 48px; height: 48px; border-radius: 0; object-fit: cover; border: 1px solid #e5e5e5; display: block;" />`
+    : `<table width="48" height="48" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #e5e5e5; background-color: ${fallbackColor};"><tr><td align="center" valign="middle" style="font-size: 20px; font-weight: bold; color: #fff;">${djDisplayName.charAt(0).toUpperCase()}</td></tr></table>`;
+  return `
+    <a href="${url}" style="text-decoration: none; color: inherit; display: block;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
+        <tr>
+          <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
+          <td valign="middle">
+            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; line-height: 1.3;">${row.showName}</div>
+            <div style="font-size: 12px; color: #999;">${djDisplayName} · ${timeStr} · ${badge}</div>
+          </td>
+        </tr>
+      </table>
+    </a>
+  `;
+}
+
+// One labelled block (heading + top divider + stacked rows). Mirrors the
+// go-live email's buildBundleBlock. Empty rows → renders nothing.
+function buildWeeklyBlock(label: string, rowsHtml: string[]): string {
+  if (rowsHtml.length === 0) return "";
+  return `
+    <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e5e5;">
+      <p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">${label}</p>
+      ${rowsHtml.join("")}
+    </div>
+  `;
+}
+
+export async function sendWeeklyRecommendationsEmail({
+  to,
+  userTimezone,
+  section1,
+  section2,
+  comingUp,
+  isFallback,
+}: WeeklyRecommendationsEmailParams): Promise<boolean> {
+  if (!resend) {
+    console.warn("Email service not configured - skipping email");
+    return false;
+  }
+  const tz = userTimezone || "America/Los_Angeles";
+
+  const section1Label = isFallback ? "Featured this week" : "New from your favorites";
+  const block1 = buildWeeklyBlock(section1Label, section1.map(buildWeeklyArchiveRowHtml));
+  const block2 = isFallback
+    ? "" // fallback fills section 1 only; don't duplicate the featured grid
+    : buildWeeklyBlock("In your scene", section2.map(buildWeeklyArchiveRowHtml));
+  const block3 = buildWeeklyBlock(
+    "Coming up this week",
+    comingUp.map((r) => buildWeeklyComingUpRowHtml(r, tz)),
+  );
+
+  const ctaHtml = `
+    <div style="margin-top: 28px; text-align: center;">
+      <a href="https://channel-app.com/scene" style="${BUTTON_STYLE}">See your full scene</a>
+    </div>
+  `;
+
+  const content = `
+    <h1 style="margin: 0 0 4px; font-size: 22px; font-weight: 700; color: #1a1a1a; line-height: 1.3; text-align: center;">Your week on Channel</h1>
+    <p style="margin: 0 0 8px; font-size: 12px; color: #999; line-height: 1.4; text-align: center;">Shows picked for you and what's coming up</p>
+    ${block1}
+    ${block2}
+    ${block3}
+    ${ctaHtml}
+  `;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: "Your week on Channel",
+      html: wrapEmailContent(content, "Your weekly recommendations from Channel."),
+      headers: getUnsubscribeHeaders("marketing"),
+    });
+    if (error) {
+      console.error("Error sending weekly recommendations email:", error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Error sending weekly recommendations email:", error);
+    return false;
+  }
+}
+
 // ── Broadcast Reminder Email (24h before show) ──────────────────────
 
 interface BroadcastReminderEmailParams {

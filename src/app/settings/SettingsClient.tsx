@@ -27,6 +27,7 @@ interface NotificationSettings {
   djInsiders: boolean;
   affiliatedGoLive: boolean;
   engagementGoLive: boolean;
+  weeklyRecommendations: boolean;
 }
 
 interface ActivityMessageSettings {
@@ -44,6 +45,7 @@ export function SettingsClient() {
     djInsiders: false,
     affiliatedGoLive: true,
     engagementGoLive: true,
+    weeklyRecommendations: true,
   });
   const [activityMessages, setActivityMessages] = useState<ActivityMessageSettings>({
     showLockedInMessages: true,
@@ -75,6 +77,7 @@ export function SettingsClient() {
           djInsiders: data.emailNotifications.djInsiders || false,
           affiliatedGoLive: data.emailNotifications.affiliatedGoLive !== false,
           engagementGoLive: data.emailNotifications.engagementGoLive !== false,
+          weeklyRecommendations: data.emailNotifications.weeklyRecommendations !== false,
         });
       }
       // Activity messages default to true if not set
@@ -520,6 +523,36 @@ export function SettingsClient() {
               <p className="text-gray-600 text-xs mt-2 px-1">
                 These alerts are triggered by your favorites and follows
               </p>
+            </section>
+
+            {/* Weekly recommendations section */}
+            <section>
+              <h2 className="text-gray-500 text-xs uppercase tracking-wide mb-3">
+                Weekly Digest
+              </h2>
+              <div className="bg-[#1a1a1a] rounded divide-y divide-gray-800">
+                <div className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">Weekly recommendations</p>
+                    <p className="text-gray-500 text-sm">
+                      A weekly email with shows picked for you and what&apos;s coming up
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleToggle("weeklyRecommendations")}
+                    disabled={saving}
+                    className={`w-14 h-8 min-w-[3.5rem] min-h-[2rem] shrink-0 rounded-full transition-colors flex items-center px-1 ${
+                      notifications.weeklyRecommendations ? "bg-white" : "bg-gray-700"
+                    }`}
+                  >
+                    <div
+                      className={`w-6 h-6 min-w-[1.5rem] min-h-[1.5rem] rounded-full transition-transform ${
+                        notifications.weeklyRecommendations ? "bg-black translate-x-6" : "bg-gray-400"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
             </section>
 
             {/* Newsletter & Updates section (marketing) */}
