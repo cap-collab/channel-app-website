@@ -47,9 +47,18 @@ const normU = (u: string) => u.replace(/[\s-]+/g, "").toLowerCase();
 export async function buildScenePayload(db: Firestore, uid: string): Promise<ScenePayload> {
   const nowMs = Date.now();
 
-  const snapshot = await getOrGenerateWebsiteSnapshot(db, uid);
+  // Stage A — these three are independent of each other (the snapshot read does
+  // NOT depend on the user doc or the history subcollections), so fetch them
+  // concurrently instead of in series.
+  const [snapshot, userDoc, [streamSnap, loveSnap]] = await Promise.all([
+    getOrGenerateWebsiteSnapshot(db, uid),
+    db.collection("users").doc(uid).get(),
+    Promise.all([
+      db.collection("users").doc(uid).collection("streamHistory").get(),
+      db.collection("users").doc(uid).collection("loveHistory").get(),
+    ]),
+  ]);
 
-  const userDoc = await db.collection("users").doc(uid).get();
   const userData = userDoc.data() || {};
   const userCity =
     (userData.irlCity as string | undefined) ||
@@ -65,10 +74,6 @@ export async function buildScenePayload(db: Firestore, uid: string): Promise<Sce
       ? normU(userData.chatUsername as string)
       : undefined;
 
-  const [streamSnap, loveSnap] = await Promise.all([
-    db.collection("users").doc(uid).collection("streamHistory").get(),
-    db.collection("users").doc(uid).collection("loveHistory").get(),
-  ]);
   const streamedArchiveIds = new Set<string>();
   const engagedDjUsernames = new Set<string>();
   const streamedAtMs = new Map<string, number>();
@@ -91,10 +96,42 @@ export async function buildScenePayload(db: Firestore, uid: string): Promise<Sce
     if (norm) engagedDjUsernames.add(norm);
   }
 
-  const archivesSnap = await db.collection("archives").get();
+  // Collect ONLY the archive IDs we'll actually render — the snapshot section
+  // items + the dive-back-in candidates (streamed, not dismissed) — and fetch
+  // just those via getAll, instead of scanning the entire archives collection.
+  // The snapshot lacks the full card fields (djs[], tempo, priority), so we do
+  // need the full docs, but only for referenced IDs (≤ ~16 section + N streamed).
+  const refIds = new Set<string>();
+  for (const section of snapshot?.sections ?? []) {
+    if (section.id !== "favorite-artists" && section.id !== "discovery") continue;
+    for (const it of section.items) refIds.add(it.archiveId);
+  }
+  for (const id of Array.from(streamedArchiveIds)) {
+    if (!dismissedArchiveIds.has(id)) refIds.add(id);
+  }
+
+  // getAll (a new pattern in this repo) is variadic and returns snapshots in ref
+  // order with exists=false for missing/deleted docs (not omitted). Chunk
+  // defensively to stay well within the gRPC message size. Run concurrently with
+  // the coming-up fetch — they're independent.
   const archiveById = new Map<string, ArchiveSerialized>();
-  for (const doc of archivesSnap.docs) {
-    archiveById.set(doc.id, { id: doc.id, ...(doc.data() as Omit<Archive, "id">) });
+  const idList = Array.from(refIds);
+  const CHUNK = 300;
+  const archiveSnapsByChunk: Promise<FirebaseFirestore.DocumentSnapshot[]>[] = [];
+  for (let i = 0; i < idList.length; i += CHUNK) {
+    const refs = idList.slice(i, i + CHUNK).map((id) => db.collection("archives").doc(id));
+    if (refs.length > 0) archiveSnapsByChunk.push(db.getAll(...refs));
+  }
+
+  const [archiveChunks, comingUp] = await Promise.all([
+    Promise.all(archiveSnapsByChunk),
+    fetchComingUp({ db, nowMs, userCity, engagedDjUsernames, goLiveMutes, ownDjUsername }),
+  ]);
+  for (const chunk of archiveChunks) {
+    for (const snap of chunk) {
+      if (!snap.exists) continue;
+      archiveById.set(snap.id, { id: snap.id, ...(snap.data() as Omit<Archive, "id">) });
+    }
   }
 
   const sections = (snapshot?.sections ?? [])
@@ -123,15 +160,6 @@ export async function buildScenePayload(db: Firestore, uid: string): Promise<Sce
       return { id: section.id, title: SECTION_TITLE[section.id] ?? section.title, archives, bandByArchiveId };
     })
     .filter((s) => s.archives.length > 0);
-
-  const comingUp = await fetchComingUp({
-    db,
-    nowMs,
-    userCity,
-    engagedDjUsernames,
-    goLiveMutes,
-    ownDjUsername,
-  });
 
   const diveBackIn = Array.from(streamedArchiveIds)
     .filter((id) => !dismissedArchiveIds.has(id))

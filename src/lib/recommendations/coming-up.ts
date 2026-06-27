@@ -79,16 +79,50 @@ interface FetchComingUpArgs {
 const ptDate = (ms: number) =>
   new Date(ms).toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
 
-export async function fetchComingUp(args: FetchComingUpArgs): Promise<ComingUpRow[]> {
-  const { db, nowMs, userCity, engagedDjUsernames, goLiveMutes, ownDjUsername } = args;
+// ── Shared (user-agnostic) coming-up data ─────────────────────────────────────
+// The slot/event/photo fetches below are identical for every user (only the city
+// gate, mutes, and reason labels are per-user). They're the expensive part — the
+// DJ/collective photo fan-out is several batched round-trips. We resolve them
+// ONCE per ~5-min window and memoize in-process (mirrors the featured route), so
+// concurrent /scene loads and the weekly-recs cron's per-user loop reuse it.
+
+// An online slot, with its display name + photo already resolved (user-agnostic).
+interface SharedOnlineCand {
+  djUsername: string;
+  norm: string; // normUser(djUsername), precomputed for the per-user mute/own gate
+  displayName: string;
+  photo?: string;
+  showName: string;
+  startMs: number;
+}
+// A raw IRL event row carried through to the per-user filter (which applies the
+// city gate, mute/own gate, and engaged-DJ reason label).
+interface SharedEvent {
+  location: string;
+  date: number;
+  name: string;
+  ticketLink?: string;
+  photo?: string;
+  venueName?: string;
+  djs: Array<{ djName?: string; djUsername?: string; djPhotoUrl?: string }>;
+}
+export interface ComingUpShared {
+  online: SharedOnlineCand[];
+  events: SharedEvent[];
+}
+
+const SHARED_TTL_MS = 5 * 60 * 1000; // 5 min — covers the UTC-midnight + Sun-7am-PT rollovers
+let sharedCache: { at: number; data: ComingUpShared } | null = null;
+
+export async function loadComingUpShared(db: Firestore, nowMs: number): Promise<ComingUpShared> {
+  if (sharedCache && nowMs - sharedCache.at < SHARED_TTL_MS) return sharedCache.data;
+
   const windowEnd = nextSunday7amPtMs(nowMs);
   const floor = nowMs - 12 * 60 * 60 * 1000; // small back-look so "today" shows
-  const muted = goLiveMutes ?? new Set<string>();
-  const rows: ComingUpRow[] = [];
 
   // ── Online shows (broadcast-slots) ──────────────────────────────────────
-  // Show ALL upcoming online shows, EXCEPT muted DJs, the user's own shows, or
-  // the channelbroadcast test account. (No engagement gate.)
+  // All upcoming online shows except the channelbroadcast test account. Mute /
+  // own-show exclusion is per-user → applied later in filterComingUpForUser.
   const slotSnap = await db.collection("broadcast-slots").where("status", "==", "scheduled").get();
   type SlotCand = { djUsername: string; djName: string; showName: string; showImageUrl?: string; startMs: number };
   const slotCands: SlotCand[] = [];
@@ -97,9 +131,6 @@ export async function fetchComingUp(args: FetchComingUpArgs): Promise<ComingUpRo
     const djUsername = x.djUsername as string | undefined;
     const djName = (x.djName as string | undefined) || djUsername;
     if (!djUsername || djUsername === "channelbroadcast") continue; // no DJ / test acct
-    const norm = normUser(djUsername);
-    if (muted.has(norm)) continue; // user muted this DJ
-    if (ownDjUsername && norm === ownDjUsername) continue; // user's own show
     const startMs = slotStartMs(x.startTime);
     if (typeof startMs !== "number" || startMs < floor || startMs > windowEnd) continue;
     slotCands.push({
@@ -157,28 +188,20 @@ export async function fetchComingUp(args: FetchComingUpArgs): Promise<ComingUpRo
     }
   }
 
-  for (const s of slotCands) {
+  const online: SharedOnlineCand[] = slotCands.map((s) => {
     const collective = collectiveBySlug.get(s.djUsername);
     const displayName = collective?.name || s.djName;
     // Image fallback chain: show image → collective photo → DJ profile photo.
     const photo = s.showImageUrl || collective?.photoUrl || djPhotoByNorm.get(normUser(s.djUsername));
-    rows.push({
+    return {
       djUsername: s.djUsername,
-      djName: displayName,
-      djPhotoUrl: photo,
-      eventName: s.showName,
-      location: "Online",
-      ticketUrl: "",
-      date: ptDate(s.startMs),
-      eventPhotoUrl: photo,
-      venueName: undefined,
-      allDjs: [{ djUsername: s.djUsername, djName: displayName }],
-      reason: `New · ${displayName}`,
-      isIRL: false,
+      norm: normUser(s.djUsername),
+      displayName,
+      photo,
+      showName: s.showName,
       startMs: s.startMs,
-      station: "Channel",
-    });
-  }
+    };
+  });
 
   // ── IRL events ──────────────────────────────────────────────────────────
   const startOfToday = new Date(nowMs);
@@ -188,40 +211,97 @@ export async function fetchComingUp(args: FetchComingUpArgs): Promise<ComingUpRo
     .where("date", ">=", startOfToday.getTime())
     .where("date", "<=", windowEnd)
     .get();
+  const events: SharedEvent[] = [];
   for (const doc of evSnap.docs) {
     const data = doc.data();
     const location = data.location as string | undefined;
     if (!location) continue;
     if (typeof data.date !== "number" || data.date > windowEnd) continue;
+    events.push({
+      location,
+      date: data.date,
+      name: (data.name as string) || "",
+      ticketLink: (data.ticketLink as string) || undefined,
+      photo: (data.photo as string) || undefined,
+      venueName: (data.venueName as string) || undefined,
+      djs: (data.djs as SharedEvent["djs"]) || [],
+    });
+  }
 
+  const data: ComingUpShared = { online, events };
+  sharedCache = { at: nowMs, data };
+  return data;
+}
+
+// Pure per-user filter over the shared data: mute/own-show exclusion, IRL city
+// gate, and engaged-DJ reason label. Returns a fresh sorted array — never
+// mutates the shared arrays (safe to call repeatedly in the cron loop).
+export function filterComingUpForUser(
+  shared: ComingUpShared,
+  args: Omit<FetchComingUpArgs, "db" | "nowMs">,
+): ComingUpRow[] {
+  const { userCity, engagedDjUsernames, goLiveMutes, ownDjUsername } = args;
+  const muted = goLiveMutes ?? new Set<string>();
+  const rows: ComingUpRow[] = [];
+
+  for (const s of shared.online) {
+    if (muted.has(s.norm)) continue; // user muted this DJ
+    if (ownDjUsername && s.norm === ownDjUsername) continue; // user's own show
+    rows.push({
+      djUsername: s.djUsername,
+      djName: s.displayName,
+      djPhotoUrl: s.photo,
+      eventName: s.showName,
+      location: "Online",
+      ticketUrl: "",
+      date: ptDate(s.startMs),
+      eventPhotoUrl: s.photo,
+      venueName: undefined,
+      allDjs: [{ djUsername: s.djUsername, djName: s.displayName }],
+      reason: `New · ${s.displayName}`,
+      isIRL: false,
+      startMs: s.startMs,
+      station: "Channel",
+    });
+  }
+
+  for (const ev of shared.events) {
     // City gate (logged-in). Logged-out (userCity null) shows everything.
-    if (userCity && !matchesCity(location, userCity)) continue;
+    if (userCity && !matchesCity(ev.location, userCity)) continue;
 
-    const djs = (data.djs as Array<{ djName?: string; djUsername?: string; djPhotoUrl?: string }>) || [];
+    const djs = ev.djs;
     // Hide if ANY lineup DJ is muted or is the user's own.
     const lineupNorms = djs.map((d) => normUser(d.djUsername)).filter(Boolean);
     if (lineupNorms.some((n) => muted.has(n) || n === ownDjUsername)) continue;
     const firstDj = djs[0];
     const engagedDj = djs.find((d) => normUser(d.djUsername) && engagedDjUsernames.has(normUser(d.djUsername)));
-    const reason = engagedDj?.djName ? `${engagedDj.djName} · ${location}` : `In ${location}`;
+    const reason = engagedDj?.djName ? `${engagedDj.djName} · ${ev.location}` : `In ${ev.location}`;
 
     rows.push({
       djUsername: firstDj?.djUsername || "",
-      djName: firstDj?.djName || (data.name as string) || "",
+      djName: firstDj?.djName || ev.name,
       djPhotoUrl: firstDj?.djPhotoUrl,
-      eventName: (data.name as string) || "",
-      location,
-      ticketUrl: (data.ticketLink as string) || "",
-      date: ptDate(data.date),
-      eventPhotoUrl: (data.photo as string) || undefined,
-      venueName: (data.venueName as string) || undefined,
+      eventName: ev.name,
+      location: ev.location,
+      ticketUrl: ev.ticketLink || "",
+      date: ptDate(ev.date),
+      eventPhotoUrl: ev.photo,
+      venueName: ev.venueName,
       allDjs: djs.filter((d) => d.djUsername && d.djName).map((d) => ({ djUsername: d.djUsername!, djName: d.djName! })),
       reason,
       isIRL: true,
-      startMs: data.date,
+      startMs: ev.date,
     });
   }
 
   rows.sort((a, b) => a.startMs - b.startMs);
   return rows;
+}
+
+// Thin wrapper: load (cached) shared data + apply the per-user filter. Existing
+// call sites (scene-payload, featured route) keep their signature unchanged.
+export async function fetchComingUp(args: FetchComingUpArgs): Promise<ComingUpRow[]> {
+  const { db, nowMs, ...userArgs } = args;
+  const shared = await loadComingUpShared(db, nowMs);
+  return filterComingUpForUser(shared, userArgs);
 }
