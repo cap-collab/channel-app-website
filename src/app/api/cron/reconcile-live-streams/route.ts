@@ -24,7 +24,11 @@ function verifyCronRequest(request: NextRequest): boolean {
   return isVercelCron || hasValidSecret;
 }
 
-const ACTIVE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+// Runs DAILY (vercel.json). 25h window = the last day's live listens + 1h overlap
+// so a listen right at the run boundary is never missed between consecutive runs.
+// Idempotent (archive-keyed doc existence guard), so the overlap can't
+// double-count. Narrow window keeps the per-run collection-group scan cheap.
+const ACTIVE_WINDOW_MS = 25 * 60 * 60 * 1000;
 
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
@@ -34,6 +38,43 @@ export async function GET(request: NextRequest) {
   if (!db) return NextResponse.json({ error: "Database not configured" }, { status: 500 });
 
   const cutoff = new Date(Date.now() - ACTIVE_WINDOW_MS);
+
+  // Cheap pre-check FIRST: the only thing that can need reconciling is a LIVE
+  // listen within the window. If there were none (a day with no live listens),
+  // bail before the expensive archives + slots scans. This is also the correct
+  // trigger for restreams (whose archive may be old but whose listen is new) —
+  // gating on "recently-archived shows" would miss those.
+  const liveSnap = await db
+    .collectionGroup("streamHistory")
+    .where("sourceType", "==", "live")
+    .where("lastStreamedAt", ">=", cutoff)
+    .get();
+
+  if (liveSnap.empty) {
+    try {
+      await db.collection("system").doc("reconcile-live-streams-status").set({
+        lastRunAt: Date.now(),
+        liveDocsChecked: 0,
+        linksCreated: 0,
+        streamCountAdded: 0,
+        skippedExisting: 0,
+        skippedNoArchive: 0,
+        errorCount: 0,
+        skippedNoLiveActivity: true,
+      });
+    } catch {
+      // non-fatal
+    }
+    return NextResponse.json({
+      liveDocsChecked: 0,
+      linksCreated: 0,
+      streamCountAdded: 0,
+      skippedExisting: 0,
+      skippedNoArchive: 0,
+      errors: [],
+      skippedNoLiveActivity: true,
+    });
+  }
 
   // One archives scan → two lookups:
   //   archiveBySlot: broadcastSlotId → archive  (the show's ORIGINAL live slot)
@@ -60,14 +101,8 @@ export async function GET(request: NextRequest) {
     if (aId) archiveIdBySlot.set(doc.id, aId);
   }
 
-  // Active LIVE stream docs across all users (collection-group; admin SDK
-  // bypasses security rules). Scoped to lastStreamedAt within the active window.
-  const liveSnap = await db
-    .collectionGroup("streamHistory")
-    .where("sourceType", "==", "live")
-    .where("lastStreamedAt", ">=", cutoff)
-    .get();
-
+  // liveSnap (active LIVE stream docs in the window) was fetched in the
+  // pre-check above and is non-empty here.
   const result = { liveDocsChecked: liveSnap.size, linksCreated: 0, streamCountAdded: 0, skippedExisting: 0, skippedNoArchive: 0, errors: [] as string[] };
 
   for (const liveDoc of liveSnap.docs) {
