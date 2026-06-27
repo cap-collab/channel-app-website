@@ -175,12 +175,22 @@ describe("generateRecommendations — latest-per-artist & already-heard", () => 
     expect(mariaCount).toBe(1);
   });
 
-  it("favorite-artists keeps the LATEST recording per artist (not the less-heard)", () => {
-    // a-maria-new recorded 2d ago, a-maria-old 20d ago. Latest wins regardless
-    // of the already-heard penalty (which only affects scoring/ordering).
+  it("favorite-artists EXCLUDES already-streamed archives (heard → Dive back in)", () => {
+    // USER_HEAVY streamed BOTH Maria archives → Maria is fully heard, so she
+    // contributes NOTHING to New Favorites (heard shows belong in Dive back in).
     const r = run(USER_HEAVY, MARIA_CREW_AFFILIATION);
     const maria = ids(r, "favorite-artists").filter((id) => id.startsWith("a-maria"));
-    expect(maria).toEqual(["a-maria-new"]);
+    expect(maria).toEqual([]);
+  });
+
+  it("New Favorites shows an UNSTREAMED archive from an artist whose other show was streamed", () => {
+    // The Naomi Green case: USER_MARIA_FAN streamed a-maria-new (the newest) but
+    // NOT a-maria-old. Even though the streamed one is newer, New Favorites must
+    // still surface the unstreamed a-maria-old — an already-streamed archive must
+    // never consume the artist's single slot.
+    const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
+    const maria = ids(r, "favorite-artists").filter((id) => id.startsWith("a-maria"));
+    expect(maria).toEqual(["a-maria-old"]); // the UNSTREAMED one
   });
 });
 

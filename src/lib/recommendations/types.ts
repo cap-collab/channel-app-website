@@ -125,6 +125,7 @@ export interface ScoredCandidate {
   item: ContentItem;
   section: SectionId | null; // null = only eligible as fallback-fill
   discoveryTier: 1 | 2 | 3 | 4 | null; // strict discovery ordering (Suggestions)
+  alreadyStreamedCount: number; // >0 = user already streamed this archive
   score: number;
   scoreBreakdown: ScoreComponent[];
   reasons: string[]; // never empty for a delivered item

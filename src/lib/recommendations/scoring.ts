@@ -126,6 +126,7 @@ export function scoreCandidate(
     item,
     section,
     discoveryTier: input.discoveryTier,
+    alreadyStreamedCount: input.alreadyStreamedCount,
     score: dampedScore,
     scoreBreakdown: components,
     reasons: buildReasons(input, section),

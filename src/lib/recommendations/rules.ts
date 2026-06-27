@@ -62,10 +62,17 @@ export function applyRules(
   const boosted = kept.map((c) => applyEditorialBoost(c, config));
 
   // Split into the personalized sections vs the fallback pool (section === null).
+  // Already-streamed archives are EXCLUDED from the rec sections here — before the
+  // per-artist/per-combo collapse — so they never consume an artist's single slot.
+  // (They belong in "Dive back in", surfaced separately.) Without this, a DJ whose
+  // highest-priority archive you've already heard would lose their OTHER unheard
+  // archive from New Favorites: collapse picks the heard one, then it's dropped at
+  // render time, leaving the artist empty.
   const bySection = new Map<SectionId, ScoredCandidate[]>();
   for (const s of ARCHIVE_SECTIONS) bySection.set(s, []);
   const fallbackPool: ScoredCandidate[] = [];
   for (const c of boosted) {
+    if (c.alreadyStreamedCount > 0) continue; // streamed → Dive back in, not rec sections
     if (c.section && bySection.has(c.section)) bySection.get(c.section)!.push(c);
     else fallbackPool.push(c);
   }
