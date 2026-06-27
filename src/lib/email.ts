@@ -1,9 +1,17 @@
 import { Resend } from "resend";
+import { tempoLabel } from "@/lib/tempo";
 
 // Initialize Resend only if API key is available
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
+
+// Scene glyph + label for the weekly fallback "featured by scene" blocks. The
+// featured grid only ever uses spiral/star.
+const SCENE_GLYPH: Record<string, { glyph: string; name: string }> = {
+  spiral: { glyph: "🌀", name: "Spiral" },
+  star: { glyph: "✳", name: "Star" },
+};
 
 const FROM_EMAIL = "Channel <djshows@channel-app.com>";
 const FROM_EMAIL_DJ = "Cap from Channel <cap@channel-app.com>";
@@ -133,10 +141,11 @@ function wrapEmailContent(
   footerText: string,
   unsubscribeOverride?: { url: string; label: string },
   aboveContentHtml?: string,
+  sidePaddingPx?: number,
 ): string {
   const unsubUrl = unsubscribeOverride?.url ?? SETTINGS_DEEP_LINK;
   const unsubLabel = unsubscribeOverride?.label ?? "Unsubscribe";
-  return _wrapEmailContent(content, footerText, unsubUrl, unsubLabel, aboveContentHtml);
+  return _wrapEmailContent(content, footerText, unsubUrl, unsubLabel, aboveContentHtml, sidePaddingPx);
 }
 
 // How a DJ signs in, recorded on their user doc at login (see useAuth.ts) and
@@ -176,6 +185,9 @@ function _wrapEmailContent(
   unsubUrl: string,
   unsubLabel: string,
   aboveContentHtml?: string,
+  // Horizontal padding around the content (px). Default 20; the weekly rec email
+  // passes a smaller value (matching the Monday newsletter) for more width.
+  sidePaddingPx: number = 20,
 ): string {
   const aboveBlock = aboveContentHtml
     ? `<tr>
@@ -206,7 +218,7 @@ function _wrapEmailContent(
     <body class="body-bg" bgcolor="#ffffff" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #ffffff; color: #1a1a1a; margin: 0; padding: 0;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background-color: #ffffff;">
         <tr>
-          <td align="center" style="padding: 40px 20px;" bgcolor="#ffffff">
+          <td align="center" style="padding: 40px ${sidePaddingPx}px;" bgcolor="#ffffff">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
               ${aboveBlock}
               <tr>
@@ -1021,6 +1033,11 @@ export interface WeeklyRecArchiveRow {
   djPhotoUrl?: string;
   showImageUrl?: string;
   sceneLabel?: string; // e.g. a scene name; optional secondary meta
+  // For the fallback "featured" grid grouped by scene: the scene slug (e.g.
+  // "spiral" / "star") to group + label by, and the tempo for the bold
+  // "Scene · Tempo" line.
+  sceneSlug?: string;
+  tempo?: string | null;
 }
 
 // A coming-up row (section 3). Online OR IRL; carries a start (+optional end).
@@ -1035,6 +1052,9 @@ export interface WeeklyRecComingUpRow {
   endTime?: string; // ISO
   isIRL: boolean;
   linkUrl?: string; // ticket URL (IRL) or DJ/show page (online); falls back to DJ page
+  // IRL events often have a full lineup — the sub-line lists these (capped with
+  // "+N more" so the row height never grows). Online shows: omit / single DJ.
+  allDjArtists?: string[];
 }
 
 interface WeeklyRecommendationsEmailParams {
@@ -1073,6 +1093,36 @@ function buildWeeklyArchiveRowHtml(row: WeeklyRecArchiveRow): string {
   `;
 }
 
+// Fallback "featured by scene" row: bold "{Scene} · {Tempo}" headline, with
+// "{DJ} · {show}" beneath. Same 48px photo + link as the standard archive row.
+function buildWeeklyFeaturedRowHtml(row: WeeklyRecArchiveRow): string {
+  const djDisplayName = row.djName || row.djUsername || row.showName;
+  const sceneInfo = row.sceneSlug ? SCENE_GLYPH[row.sceneSlug] : undefined;
+  const sceneName = sceneInfo ? `${sceneInfo.glyph} ${sceneInfo.name}` : "";
+  const tempo = row.tempo ? tempoLabel(row.tempo) : null;
+  const headline = [sceneName, tempo].filter(Boolean).join(" · ") || row.showName;
+  const sub = `${djDisplayName} · ${row.showName}`;
+  const url = `https://channel-app.com/?archive=${encodeURIComponent(row.slug)}`;
+  const fallbackColor = "#DC9B50";
+  const emailPhotoUrl = getEmailPhotoUrl(row.djUsername, row.djPhotoUrl, row.showImageUrl);
+  const photoHtml = emailPhotoUrl
+    ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="48" height="48" style="width: 48px; height: 48px; border-radius: 0; object-fit: cover; border: 1px solid #e5e5e5; display: block;" />`
+    : `<table width="48" height="48" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #e5e5e5; background-color: ${fallbackColor};"><tr><td align="center" valign="middle" style="font-size: 20px; font-weight: bold; color: #fff;">${djDisplayName.charAt(0).toUpperCase()}</td></tr></table>`;
+  return `
+    <a href="${url}" style="text-decoration: none; color: inherit; display: block;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
+        <tr>
+          <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
+          <td valign="middle">
+            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; line-height: 1.3;">${headline}</div>
+            <div style="font-size: 12px; color: #999;">${sub}</div>
+          </td>
+        </tr>
+      </table>
+    </a>
+  `;
+}
+
 // Coming-up row → bundle-style row with an Online/IRL badge + weekday start–end.
 function buildWeeklyComingUpRowHtml(row: WeeklyRecComingUpRow, timezone: string): string {
   const djDisplayName = row.djName || row.djUsername || row.showName;
@@ -1084,6 +1134,16 @@ function buildWeeklyComingUpRowHtml(row: WeeklyRecComingUpRow, timezone: string)
     : null;
   const timeStr = endStr ? `${startStr} – ${endStr}` : startStr;
   const badge = row.isIRL ? "🌲 IRL" : "☁️ Online";
+  // IRL events list their lineup (capped so the row never grows): first 3 names,
+  // then "+N more". Online shows keep the single DJ display name.
+  let artistStr = djDisplayName;
+  if (row.isIRL && row.allDjArtists && row.allDjArtists.length > 0) {
+    const names = Array.from(new Set(row.allDjArtists));
+    const CAP = 3;
+    artistStr = names.length <= CAP
+      ? names.join(", ")
+      : `${names.slice(0, CAP).join(", ")} +${names.length - CAP} more`;
+  }
   const url = row.linkUrl
     || (row.djUsername ? `https://channel-app.com/dj/${normalizeDjUsername(row.djUsername)}`
       : `https://channel-app.com/dj/${normalizeDjUsername(row.djName || row.showName)}`);
@@ -1099,7 +1159,7 @@ function buildWeeklyComingUpRowHtml(row: WeeklyRecComingUpRow, timezone: string)
           <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
           <td valign="middle">
             <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; line-height: 1.3;">${row.showName}</div>
-            <div style="font-size: 12px; color: #999;">${djDisplayName} · ${timeStr} · ${badge}</div>
+            <div style="font-size: 12px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${artistStr} · ${timeStr} · ${badge}</div>
           </td>
         </tr>
       </table>
@@ -1139,13 +1199,7 @@ export async function sendWeeklyRecommendationsEmail({
   }
   const tz = userTimezone || "America/Los_Angeles";
 
-  // Build each block's rows, then render in order — the first NON-EMPTY block
-  // omits the top divider (no title/subtitle above it now). For no-history
-  // (fallback) users the featured grid IS the scene, so it's headed "Explore the
-  // scene" (and the bottom CTA button is dropped — see below).
-  const section1Label = isFallback ? "Explore the scene" : "New from your favorites";
-  const rows1 = section1.map(buildWeeklyArchiveRowHtml);
-  const rows2 = isFallback ? [] : section2.map(buildWeeklyArchiveRowHtml);
+  // Render blocks in order — the first NON-EMPTY block omits the top divider.
   const rows3 = comingUp.map((r) => buildWeeklyComingUpRowHtml(r, tz));
   let firstUsed = false;
   const renderBlock = (label: string, rows: string[]): string => {
@@ -1154,8 +1208,26 @@ export async function sendWeeklyRecommendationsEmail({
     firstUsed = true;
     return html;
   };
-  const block1 = renderBlock(section1Label, rows1);
-  const block2 = renderBlock("In your scene", rows2);
+
+  let topBlocks: string;
+  if (isFallback) {
+    // No-history: NO "Explore the scene" title. Group the featured archives into
+    // scene blocks ("🌀 Spiral", "✳ Star") in featured order; each row is a bold
+    // "{Scene} · {Tempo}" headline with "{DJ} · {show}" beneath.
+    const SCENE_ORDER = ["spiral", "star"];
+    const sceneBlocks = SCENE_ORDER.map((slug) => {
+      const rows = section1
+        .filter((r) => r.sceneSlug === slug)
+        .map(buildWeeklyFeaturedRowHtml);
+      const info = SCENE_GLYPH[slug];
+      return renderBlock(`${info.glyph} ${info.name}`, rows);
+    });
+    topBlocks = sceneBlocks.join("");
+  } else {
+    const block1 = renderBlock("New from your favorites", section1.map(buildWeeklyArchiveRowHtml));
+    const block2 = renderBlock("In your scene", section2.map(buildWeeklyArchiveRowHtml));
+    topBlocks = block1 + block2;
+  }
   const block3 = renderBlock("Coming up this week", rows3);
 
   // We know who this recipient is, so deep-link their OWN /scene via a
@@ -1177,8 +1249,7 @@ export async function sendWeeklyRecommendationsEmail({
   `;
 
   const content = `
-    ${block1}
-    ${block2}
+    ${topBlocks}
     ${block3}
     ${ctaHtml}
   `;
@@ -1192,7 +1263,8 @@ export async function sendWeeklyRecommendationsEmail({
       from: FROM_EMAIL,
       to,
       subject,
-      html: wrapEmailContent(content, ""),
+      // Tighter side margins (matches the Monday newsletter) for more card width.
+      html: wrapEmailContent(content, "", undefined, undefined, 6),
       headers: getUnsubscribeHeaders("marketing"),
     });
     if (error) {

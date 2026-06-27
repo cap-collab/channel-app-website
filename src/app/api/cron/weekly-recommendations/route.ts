@@ -48,6 +48,11 @@ function uidInShard(uid: string, shard: number, shardCount: number): boolean {
 
 function archiveToRow(a: ArchiveSerialized, sceneLabel?: string): WeeklyRecArchiveRow {
   const dj = a.djs?.[0];
+  // Effective scene slugs: override (if set) else denormalized slugs.
+  const scenes =
+    a.sceneIdsOverride && a.sceneIdsOverride.length ? a.sceneIdsOverride : a.sceneSlugs || [];
+  // The fallback featured grid groups by spiral/star; prefer one of those.
+  const sceneSlug = scenes.find((s) => s === "spiral" || s === "star") || scenes.find((s) => s !== "grid");
   return {
     slug: a.slug,
     showName: a.showName,
@@ -56,6 +61,8 @@ function archiveToRow(a: ArchiveSerialized, sceneLabel?: string): WeeklyRecArchi
     djPhotoUrl: dj?.photoUrl,
     showImageUrl: a.showImageUrl,
     sceneLabel,
+    sceneSlug,
+    tempo: a.tempo ?? null,
   };
 }
 
@@ -168,6 +175,10 @@ export async function GET(request: NextRequest) {
           startTime: new Date(r.startMs).toISOString(),
           isIRL: r.isIRL,
           linkUrl: r.isIRL ? (r.ticketUrl || r.linkUrl) : r.linkUrl,
+          // IRL lineups: full artist list for the sub-line (capped in the row builder).
+          allDjArtists: r.isIRL
+            ? (r.allDjs || []).map((d) => d.djName).filter((n): n is string => !!n)
+            : undefined,
         }));
 
         if (dryRun && !previewTo) {
