@@ -275,6 +275,9 @@ function TasteHeader({ summary }: { summary: TasteSummary }) {
           <div className="text-gray-500">
             {summary.archivesStreamed} archive{summary.archivesStreamed === 1 ? '' : 's'} streamed
           </div>
+          {summary.streamedArchives && summary.streamedArchives.length > 0 && (
+            <Row label="Streamed" values={summary.streamedArchives} />
+          )}
           {summary.sceneCounts.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
               <span className="text-gray-500 mr-1">Scenes engaged:</span>

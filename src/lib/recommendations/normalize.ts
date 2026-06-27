@@ -138,6 +138,7 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
   // Display-name + count collectors for the taste summary.
   const lovedDjNames = new Set<string>();
   const streamedDjNames = new Set<string>();
+  const streamedArchiveNames = new Map<string, string>(); // archiveId → showName
   const watchlistTerms: string[] = [];
   const sceneCount = new Map<string, number>();
   const tempoCount = new Map<Tempo, number>();
@@ -166,6 +167,7 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
       archiveStreamCount[d.archiveId] = streams;
       const item = args.archiveById.get(d.archiveId);
       if (item) {
+        if (item.showName) streamedArchiveNames.set(d.archiveId, item.showName);
         for (const s of item.sceneSlugs) {
           engagedScenes.add(s);
           sceneCount.set(s, (sceneCount.get(s) ?? 0) + 1);
@@ -187,18 +189,24 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
   }
 
   // DJ self-taste: a DJ's OWN archives' scenes/tempos count as taste (a
-  // priority). Folded into the engaged sets so they drive matching, and kept
-  // separately (selfScenes/selfTempos) so the scorer can boost matching picks.
+  // priority). Folded into the engaged sets so they drive matching, kept
+  // separately (selfScenes/selfTempos) so the scorer can boost matching picks,
+  // AND merged into the scene/tempo counts so they (a) show in the admin taste
+  // summary and (b) feed the affinity ranking just like streamed archives do.
+  // Each distinct own archive contributes +1 per its scene/tempo (same weight as
+  // a streamed archive). Merged silently — indistinguishable from streamed taste.
   const selfScenes = new Set<string>();
   const selfTempos = new Set<Tempo>();
   for (const own of args.ownArchives ?? []) {
     for (const s of own.sceneSlugs) {
       selfScenes.add(s);
       engagedScenes.add(s);
+      sceneCount.set(s, (sceneCount.get(s) ?? 0) + 1);
     }
     if (own.tempo) {
       selfTempos.add(own.tempo);
       engagedTempos.add(own.tempo);
+      tempoCount.set(own.tempo, (tempoCount.get(own.tempo) ?? 0) + 1);
     }
   }
 
@@ -207,6 +215,7 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
     streamedDjs: Array.from(streamedDjNames),
     watchlistDjs: watchlistTerms,
     archivesStreamed: streamedArchiveIds.size,
+    streamedArchives: Array.from(streamedArchiveNames.values()).sort((a, b) => a.localeCompare(b)),
     sceneCounts: Array.from(sceneCount.entries())
       .map(([scene, count]) => ({ scene, count }))
       .sort((a, b) => b.count - a.count || a.scene.localeCompare(b.scene)),

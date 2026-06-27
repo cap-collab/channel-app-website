@@ -70,6 +70,8 @@ describe("normalizeUser — taste profile from engagement", () => {
     });
     expect(u.tasteSummary.lovedDjs).toContain("Maria");
     expect(u.tasteSummary.archivesStreamed).toBe(1);
+    // Streamed archives are NAMED by show name (for the admin tab).
+    expect(u.tasteSummary.streamedArchives).toContain(archiveById("a-maria-new").showName);
     // Streamed a-maria-new → scene spiral ×1, tempo uptempo ×1.
     expect(u.tasteSummary.sceneCounts).toEqual([{ scene: "spiral", count: 1 }]);
     expect(u.tasteSummary.tempoCounts).toEqual([{ tempo: "uptempo", count: 1 }]);
@@ -92,6 +94,10 @@ describe("normalizeUser — taste profile from engagement", () => {
     // Folded into engaged sets too, so they drive matching.
     expect(u.engagedScenes.has("star")).toBe(true);
     expect(u.engagedTempos.has("uptempo")).toBe(true);
+    // AND merged into the taste counts (so they show in the admin tab + feed
+    // affinity ranking) — even with zero stream history.
+    expect(u.tasteSummary.sceneCounts).toContainEqual({ scene: "star", count: 1 });
+    expect(u.tasteSummary.tempoCounts).toContainEqual({ tempo: "uptempo", count: 1 });
   });
 
   it("brand-new user has empty taste", () => {

@@ -40,6 +40,7 @@ export interface TasteSummary {
   streamedDjs: string[]; // DJ display names the user streamed
   watchlistDjs: string[]; // search-favorite terms (watchlist)
   archivesStreamed: number; // distinct archives streamed
+  streamedArchives: string[]; // show names of the distinct archives streamed
   sceneCounts: Array<{ scene: string; count: number }>; // streams per scene, desc
   tempoCounts: Array<{ tempo: Tempo; count: number }>; // streams per tempo, desc
 }
