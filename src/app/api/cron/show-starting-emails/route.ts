@@ -138,25 +138,6 @@ function startDayKey(timestampMs: number, timezone: string): string {
   return `${y}-${m}-${d}`;
 }
 
-// Walk forward from now until the day key changes — DST-safe, never relies
-// on `+24h`. Step coarse first (1h) then fine (1min) to keep the loop
-// cheap. Caller passes user's timezone.
-function endOfDayMsForUser(nowMs: number, timezone: string): number {
-  const todayKey = startDayKey(nowMs, timezone);
-  let t = nowMs;
-  // Coarse: bump by 1 hour until we cross the day boundary
-  while (startDayKey(t, timezone) === todayKey) {
-    t += 60 * 60 * 1000;
-    if (t > nowMs + 48 * 60 * 60 * 1000) return nowMs + 24 * 60 * 60 * 1000; // safety
-  }
-  // Fine: back off in 1-minute steps until we're back inside today
-  while (startDayKey(t - 60 * 1000, timezone) !== todayKey) {
-    t -= 60 * 1000;
-    if (t < nowMs) return nowMs + 24 * 60 * 60 * 1000;
-  }
-  return t - 1; // last millisecond of today in user's TZ
-}
-
 // Weekday (0=Sun..6=Sat) of a timestamp in the given timezone.
 function weekdayInTz(timestampMs: number, timezone: string): number {
   const wd = new Intl.DateTimeFormat("en-US", {
@@ -165,21 +146,52 @@ function weekdayInTz(timestampMs: number, timezone: string): number {
   return { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd] ?? 0;
 }
 
-// Last millisecond of the CURRENT week (week ends Sunday) in the user's TZ.
-// Walks forward day-by-day from today's end until we reach the end of the
-// Sunday on/after today. DST-safe (reuses endOfDayMsForUser per day rather
-// than +24h math). If today IS Sunday, returns the end of today.
-function endOfWeekMsForUser(nowMs: number, timezone: string): number {
-  let endOfDay = endOfDayMsForUser(nowMs, timezone);
-  // endOfDay is the last ms of `nowMs`'s local day. Keep advancing one local
-  // day until that day is a Sunday.
+// Hour-of-day (0..23) of a timestamp in the given timezone.
+function hourInTz(timestampMs: number, timezone: string): number {
+  const h = new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit", hour12: false, timeZone: timezone,
+  }).format(new Date(timestampMs));
+  // "24" can appear for midnight in some locales/Node versions — normalize.
+  const n = parseInt(h, 10);
+  return Number.isFinite(n) ? n % 24 : 0;
+}
+
+// End of the CURRENT broadcast week, defined as the next instant of
+// Sunday 07:00 America/Los_Angeles strictly AFTER nowMs. Weeks run
+// Sunday-7am-PT → Sunday-7am-PT for EVERY recipient (a fixed Pacific anchor,
+// not per-user TZ), so the "coming up this week" bundle covers a clean rolling
+// 7-day window. Walks forward coarse (1h) then fine (1min) to stay DST-safe
+// rather than doing +Nh arithmetic across a Pacific DST transition.
+const WEEK_ANCHOR_TZ = "America/Los_Angeles";
+const WEEK_ANCHOR_HOUR = 7; // 7:00 AM Pacific
+function nextSunday7amPT(nowMs: number): number {
+  // Step strictly forward so a tick exactly at Sunday 07:00 PT rolls to the
+  // NEXT week (the show starting right now belongs to the new week).
+  let t = nowMs + 60 * 1000;
   let guard = 0;
-  while (weekdayInTz(endOfDay, timezone) !== 0 && guard < 8) {
-    // Step just past the current day's end, then take that next day's end.
-    endOfDay = endOfDayMsForUser(endOfDay + 1, timezone);
+  // Coarse: advance by 1h until we're on a Sunday in the 07:00 hour (PT).
+  while (
+    !(weekdayInTz(t, WEEK_ANCHOR_TZ) === 0 && hourInTz(t, WEEK_ANCHOR_TZ) === WEEK_ANCHOR_HOUR) &&
+    guard < 24 * 8
+  ) {
+    t += 60 * 60 * 1000;
     guard++;
   }
-  return endOfDay;
+  // Snap off any sub-minute residue carried from nowMs, then fine-step: the
+  // coarse loop landed somewhere inside the Sunday 07:00 PT hour (minutes
+  // 00..59). Walk back in 1-min steps while the PREVIOUS minute is still in
+  // that same Sunday 07:00 hour, so we stop at minute 00 — the top of the hour.
+  t -= t % (60 * 1000);
+  while (
+    weekdayInTz(t - 60 * 1000, WEEK_ANCHOR_TZ) === 0 &&
+    hourInTz(t - 60 * 1000, WEEK_ANCHOR_TZ) === WEEK_ANCHOR_HOUR
+  ) {
+    t -= 60 * 1000;
+  }
+  // t is exactly Sunday 07:00:00.000 PT. The bundle filter uses
+  // `start <= endOfWeek`, and a show starting exactly at Sunday 07:00 PT is the
+  // FIRST show of the NEXT week — so return one ms before 07:00 to exclude it.
+  return t - 1;
 }
 
 export async function GET(request: NextRequest) {
@@ -241,11 +253,15 @@ export async function GET(request: NextRequest) {
     const windowStart = new Date(now.getTime() - LIVE_START_LOOKBACK_MS);
     const windowEnd = new Date(now.getTime() + 5 * 60 * 1000);
     const liveShows: LiveShow[] = [];
-    // Bundling horizon. The "coming up" bundle now lists every scheduled
-    // Channel Radio show through the end of the CURRENT week (Sunday) in the
-    // recipient's timezone — not just later today. 8 days is wide enough to
-    // cover end-of-Sunday in any user TZ from any day of the week; the
-    // per-user filter (endOfWeekMsForUser) narrows to the real week boundary.
+    // End of the CURRENT broadcast week = next Sunday 07:00 Pacific, strictly
+    // after now. FIXED anchor (same instant for every recipient, not per-user
+    // TZ) so the "coming up this week" bundle is a clean rolling 7-day window
+    // Sun-7am-PT → Sun-7am-PT. Computed once per tick.
+    const endOfWeekMsForTick = nextSunday7amPT(now.getTime());
+    // Bundling horizon. The "coming up" bundle lists every scheduled Channel
+    // Radio show through endOfWeekMsForTick. 8 days is wide enough to cover the
+    // furthest the next Sunday-7am-PT boundary can sit from any tick; the
+    // per-tick filter (endOfWeekMsForTick) narrows to the real week boundary.
     const bundleHorizon = new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000);
     // External-station + dj-radio upcoming capture stays at the old 36h. Those
     // paths only fed the legacy per-row "later today" matcher (now removed for
@@ -1043,9 +1059,6 @@ export async function GET(request: NextRequest) {
       const todayKey = startDayKey(now.getTime(), userTz);
       const lastDate = userData.lastShowStartingEmailDate as string | undefined;
       if (lastDate === todayKey) { skipped++; continue; }
-      // End of the CURRENT week (through Sunday) in the user's TZ — the outer
-      // bound for the "coming up this week" schedule bundle.
-      const endOfWeekMs = endOfWeekMsForUser(now.getTime(), userTz);
 
       // Dedup: track which show occurrences we've already emailed about
       // Key: showId (e.g. "nts1-2026-02-05T22:00:00Z") → timestamp
@@ -1251,7 +1264,7 @@ export async function GET(request: NextRequest) {
         const startMs = Date.parse(show.startTime);
         if (!Number.isFinite(startMs)) { reject("bad-startMs"); continue; }
         if (startMs <= now.getTime()) { reject("past"); continue; }
-        if (startMs > endOfWeekMs) { reject("after-week"); continue; }
+        if (startMs > endOfWeekMsForTick) { reject("after-week"); continue; }
         if (show.showId === primary.showId) { reject("is-primary"); continue; }
         if (lastShowStartingEmailAt[show.showId]) { reject("already-stamped"); continue; }
         // Lighter gate than the primary's failsUniversalGates: a schedule row
