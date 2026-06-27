@@ -570,9 +570,23 @@ async function resolveLoopPlan(
 
   // Anchor: the SOONEST upcoming (still-in-the-future) live block within the loop's
   // reachable span. `endTimeMs > nowMs` so we never "catch" an anchor that already passed.
-  const anchorHorizonMs = selBase + 72 * 3600 * 1000;
-  // Load slots out to the SAME horizon the selector below uses (anchorHorizonMs),
-  // not loadAnchors' old 48h default — otherwise an in-window anchor gets dropped.
+  //
+  // The horizon has two jobs that must NOT share the same base:
+  //   • LOOK-BACK  — catch an anchor that falls inside the still-playing previous
+  //     loop (so the next loop can cover it without regenerating the playing one).
+  //     That floor is `selBase` (prev loop's start window), enforced by the
+  //     `endTimeMs > selBase` filter and loadAnchors' Firestore floor.
+  //   • LOOK-AHEAD — cover anchors during THIS loop's own ~48-50h playtime. The
+  //     forward reach must be measured from where this loop actually starts
+  //     (≈ prevNaturalEnd), NOT from selBase. With long prev loops, selBase sits
+  //     ~50h before this loop even begins, so `selBase + 72h` ended BEFORE this
+  //     loop's playtime — silently dropping every anchor during the loop (e.g.
+  //     loop 32 missed the Jun-28 8am PT show: selBase+72h landed 2h before the
+  //     loop started). Anchor the forward reach to the loop's start instead.
+  const anchorHorizonMs = Math.max(earliestStartMs, selBase) + 72 * 3600 * 1000;
+  // Load slots from selBase (the look-back floor) out to the full look-ahead
+  // horizon the selector below uses — same window for loader and selector, else
+  // an in-window anchor gets dropped (loadAnchors' old 48h default did exactly that).
   const anchors = await loadAnchors(db, selBase, anchorHorizonMs - selBase);
   const firstAnchor = anchors.find(
     (a) => a.endTimeMs > nowMs && a.endTimeMs > selBase && a.endTimeMs <= anchorHorizonMs,
