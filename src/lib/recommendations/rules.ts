@@ -150,19 +150,53 @@ export function applyRules(
   return { sections, dropped };
 }
 
+// Max archives sharing the same (scene+tempo) combo in discovery — for variety,
+// so one dominant combo can't monopolize the section.
+const MAX_PER_SCENE_TEMPO = 2;
+
 // Collapse a section to one representative per group. Pinned (editorially
 // featured) items ALWAYS survive and occupy their group, so an admin pin can't
 // be collapsed away by a newer/higher sibling.
 //  - favorite-artists: one per artist = the artist's LATEST recording (by
 //    recordedAtMs, not score); artists ordered by latest-recording date.
-//  - discovery: NO per-combo collapse — ordered by score (scene+tempo affinity
-//    dominates), so the user's most-engaged combo can contribute more than one.
-//    The per-DJ cap + the section cap keep it from being monotonous.
+//  - discovery: keep at most MAX_PER_SCENE_TEMPO archives per (scene+tempo) combo
+//    (greedy over the already-sorted list, so the best survive) for diversity.
+//    Pinned items bypass the cap. Per-DJ cap + section cap still apply too.
 function collapseSection(sectionId: SectionId, items: ScoredCandidate[]): ScoredCandidate[] {
   if (sectionId === "favorite-artists") {
     return latestPerArtist(items);
   }
+  if (sectionId === "discovery") {
+    return capPerSceneTempo(items, MAX_PER_SCENE_TEMPO);
+  }
   return items;
+}
+
+// The (scene+tempo) grouping key for diversity. Scene = first non-grid effective
+// scene (matches how the band glyph is derived); tempo as-is. Untagged → "".
+function sceneTempoKey(c: ScoredCandidate): string {
+  const scene = c.item.sceneSlugs.find((s) => s !== "grid") ?? "";
+  const tempo = c.item.tempo ?? "";
+  return `${scene}__${tempo}`;
+}
+
+// Greedy per-(scene+tempo) cap. Input must be pre-sorted (best first). Pinned
+// items always survive and don't consume a slot, so a pin can't be capped out.
+function capPerSceneTempo(items: ScoredCandidate[], max: number): ScoredCandidate[] {
+  const counts = new Map<string, number>();
+  const out: ScoredCandidate[] = [];
+  for (const c of items) {
+    if (c.pinned) {
+      out.push(c);
+      continue;
+    }
+    const k = sceneTempoKey(c);
+    const n = counts.get(k) ?? 0;
+    if (n >= max) continue;
+    counts.set(k, n + 1);
+    out.push(c);
+  }
+  return out;
 }
 
 const artistKey = (c: ScoredCandidate) => c.item.djUsernames[0] ?? c.item.id;

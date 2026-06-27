@@ -104,6 +104,18 @@ describe("generateRecommendations — sections", () => {
     expect(high).toBeLessThan(med); // Featured/High band leads
   });
 
+  it("discovery shows at most 2 archives per (scene+tempo) combo (diversity)", () => {
+    const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
+    const disc = section(r, "discovery").items;
+    const counts = new Map<string, number>();
+    for (const c of disc) {
+      const scene = c.item.sceneSlugs.find((s) => s !== "grid") ?? "";
+      const key = `${scene}__${c.item.tempo ?? ""}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    for (const [, n] of counts) expect(n).toBeLessThanOrEqual(2);
+  });
+
   it("discovery is ordered by scene+tempo affinity (dominant taste first)", () => {
     const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
     const disc = section(r, "discovery").items;
