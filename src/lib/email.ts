@@ -1098,9 +1098,10 @@ function buildWeeklyArchiveRowHtml(row: WeeklyRecArchiveRow): string {
 function buildWeeklyFeaturedRowHtml(row: WeeklyRecArchiveRow): string {
   const djDisplayName = row.djName || row.djUsername || row.showName;
   const sceneInfo = row.sceneSlug ? SCENE_GLYPH[row.sceneSlug] : undefined;
-  const sceneName = sceneInfo ? `${sceneInfo.glyph} ${sceneInfo.name}` : "";
+  // Headline = scene GLYPH only (no plain "Spiral"/"Star" word) + tempo.
+  const sceneGlyph = sceneInfo ? sceneInfo.glyph : "";
   const tempo = row.tempo ? tempoLabel(row.tempo) : null;
-  const headline = [sceneName, tempo].filter(Boolean).join(" · ") || row.showName;
+  const headline = [sceneGlyph, tempo].filter(Boolean).join(" · ") || row.showName;
   const sub = `${djDisplayName} · ${row.showName}`;
   const url = `https://channel-app.com/?archive=${encodeURIComponent(row.slug)}`;
   const fallbackColor = "#DC9B50";
@@ -1176,9 +1177,14 @@ function buildWeeklyBlock(label: string, rowsHtml: string[], first = false): str
   const wrapStyle = first
     ? ""
     : "margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e5e5;";
+  // Empty label → no heading paragraph (e.g. the fallback featured rows, where
+  // the scene is conveyed by each row's glyph).
+  const labelHtml = label
+    ? `<p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">${label}</p>`
+    : "";
   return `
     <div style="${wrapStyle}">
-      <p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">${label}</p>
+      ${labelHtml}
       ${rowsHtml.join("")}
     </div>
   `;
@@ -1211,21 +1217,27 @@ export async function sendWeeklyRecommendationsEmail({
 
   let topBlocks: string;
   if (isFallback) {
-    // No-history: NO "Explore the scene" title. Group the featured archives into
-    // scene blocks ("🌀 Spiral", "✳ Star") in featured order; each row is a bold
-    // "{Scene} · {Tempo}" headline with "{DJ} · {show}" beneath.
+    // No-history: NO title and NO scene headers — just the featured rows, ordered
+    // by scene (spiral then star). Each row's bold headline carries the scene
+    // GLYPH + tempo ("🌀 · Uptempo") with "{DJ} · {show}" beneath, so the scene
+    // is conveyed by the glyph alone.
     const SCENE_ORDER = ["spiral", "star"];
-    const sceneBlocks = SCENE_ORDER.map((slug) => {
-      const rows = section1
-        .filter((r) => r.sceneSlug === slug)
-        .map(buildWeeklyFeaturedRowHtml);
-      const info = SCENE_GLYPH[slug];
-      return renderBlock(`${info.glyph} ${info.name}`, rows);
-    });
-    topBlocks = sceneBlocks.join("");
+    const rowsHtml = SCENE_ORDER.flatMap((slug) =>
+      section1.filter((r) => r.sceneSlug === slug).map(buildWeeklyFeaturedRowHtml),
+    );
+    // Include any featured archive that didn't match spiral/star, so nothing is
+    // silently dropped.
+    const matched = new Set(["spiral", "star"]);
+    rowsHtml.push(
+      ...section1.filter((r) => !r.sceneSlug || !matched.has(r.sceneSlug)).map(buildWeeklyFeaturedRowHtml),
+    );
+    topBlocks = renderBlock("", rowsHtml);
   } else {
+    // "New from your favorites" = DJ-centric rows (show name / DJ · scene).
+    // "In your scene" (discovery) reuses the featured row format (scene glyph +
+    // tempo / DJ · show), since those picks carry scene+tempo like the fallback.
     const block1 = renderBlock("New from your favorites", section1.map(buildWeeklyArchiveRowHtml));
-    const block2 = renderBlock("In your scene", section2.map(buildWeeklyArchiveRowHtml));
+    const block2 = renderBlock("In your scene", section2.map(buildWeeklyFeaturedRowHtml));
     topBlocks = block1 + block2;
   }
   const block3 = renderBlock("Coming up this week", rows3);
