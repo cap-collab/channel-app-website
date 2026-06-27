@@ -1140,8 +1140,10 @@ export async function sendWeeklyRecommendationsEmail({
   const tz = userTimezone || "America/Los_Angeles";
 
   // Build each block's rows, then render in order — the first NON-EMPTY block
-  // omits the top divider (no title/subtitle above it now).
-  const section1Label = isFallback ? "Featured this week" : "New from your favorites";
+  // omits the top divider (no title/subtitle above it now). For no-history
+  // (fallback) users the featured grid IS the scene, so it's headed "Explore the
+  // scene" (and the bottom CTA button is dropped — see below).
+  const section1Label = isFallback ? "Explore the scene" : "New from your favorites";
   const rows1 = section1.map(buildWeeklyArchiveRowHtml);
   const rows2 = isFallback ? [] : section2.map(buildWeeklyArchiveRowHtml);
   const rows3 = comingUp.map((r) => buildWeeklyComingUpRowHtml(r, tz));
@@ -1164,7 +1166,11 @@ export async function sendWeeklyRecommendationsEmail({
   const ctaUrl = recipientUid
     ? `https://channel-app.com/scene?u=${encodeURIComponent(Buffer.from(recipientUid).toString("base64url"))}`
     : "https://channel-app.com/scene";
-  const ctaHtml = `
+  // No-history (fallback) emails are HEADED "Explore the scene" (the featured
+  // grid), so the redundant bottom "Explore the scene" button is dropped there.
+  const ctaHtml = isFallback
+    ? ""
+    : `
     <div style="margin-top: 28px; text-align: center;">
       <a href="${ctaUrl}" style="${BUTTON_STYLE}">Explore the scene</a>
     </div>
@@ -1178,10 +1184,14 @@ export async function sendWeeklyRecommendationsEmail({
   `;
 
   try {
+    // No-history (fallback) users haven't listened yet, so "Your Weekly Listening"
+    // reads wrong — use the discovery-framed subject that mirrors their section
+    // heading ("Featured this week").
+    const subject = isFallback ? "Featured this week" : "Your Weekly Listening";
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
-      subject: "Your Weekly Listening",
+      subject,
       html: wrapEmailContent(content, ""),
       headers: getUnsubscribeHeaders("marketing"),
     });
