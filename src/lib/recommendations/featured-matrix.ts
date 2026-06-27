@@ -9,6 +9,7 @@
 
 import type { Archive, ArchiveSerialized, Tempo } from "@/types/broadcast";
 import { normalizeArchive } from "./normalize";
+import { priorityRank } from "@/lib/archive-priority";
 import { DEFAULT_RECOMMENDATION_CONFIG } from "./config";
 
 // Full tempo + scene order (the logged-out grid uses all of these).
@@ -40,11 +41,18 @@ export function buildFeaturedMatrix(
   });
 
   const minDur = DEFAULT_RECOMMENDATION_CONFIG.eligibility.minDurationSec;
+  // Highest PRIORITY first (featured > high > medium > low), recency as the
+  // tiebreaker — so each scene×tempo cell shows our best archive, not merely the
+  // most recent. id is the final deterministic tie-break.
   const eligible = items
     .filter((it) => it.isPublic && it.durationSec >= minDur && it.priority !== "hidden")
-    .sort((a, b) =>
-      b.recordedAtMs !== a.recordedAtMs ? b.recordedAtMs - a.recordedAtMs : a.id < b.id ? -1 : 1,
-    );
+    .sort((a, b) => {
+      const pa = priorityRank(a.priority);
+      const pb = priorityRank(b.priority);
+      if (pa !== pb) return pa - pb;
+      if (b.recordedAtMs !== a.recordedAtMs) return b.recordedAtMs - a.recordedAtMs;
+      return a.id < b.id ? -1 : 1;
+    });
 
   const pickLatest = (scene: string, tempo: Tempo) =>
     eligible.find((it) => it.tempo === tempo && it.sceneSlugs.includes(scene));

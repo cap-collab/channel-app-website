@@ -87,6 +87,19 @@ describe("generateRecommendations — sections", () => {
     expect(disc).not.toContain("a-hidden");
   });
 
+  it("discovery prioritizes Featured/High: a high tier-1 ranks above a medium tier-1", () => {
+    // a-stranger-scene (high) and a-stranger-scene-med (medium) are BOTH tier 1
+    // (exact spiral+uptempo). Priority-band ordering must put the high first,
+    // even though score/tier alone would interleave them.
+    const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
+    const disc = ids(r, "discovery");
+    const high = disc.indexOf("a-stranger-scene");
+    const med = disc.indexOf("a-stranger-scene-med");
+    expect(high).toBeGreaterThanOrEqual(0);
+    expect(med).toBeGreaterThanOrEqual(0);
+    expect(high).toBeLessThan(med); // Featured/High band leads
+  });
+
   it("discovery is ordered by scene+tempo affinity (dominant taste first)", () => {
     const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
     const disc = section(r, "discovery").items;

@@ -76,10 +76,20 @@ export function applyRules(
   const sections: RecommendationSection[] = ARCHIVE_SECTIONS.map((sectionId) => {
     const candidates = bySection.get(sectionId)!;
 
-    // 3. Sort. Discovery uses STRICT tiers (1→4); within a tier, score desc.
-    //    Other sections: score desc with id tie-break.
+    // 3. Sort. Discovery: PRIORITY BAND first (Featured/High before Medium/Low),
+    //    THEN strict tiers (1→4), THEN score desc, then id. So Featured/High
+    //    archives always lead the section across all tiers, and Medium only
+    //    appears as a second round once Featured/High are exhausted — while still
+    //    respecting tier order within each band. Other sections: score desc.
     if (sectionId === "discovery") {
+      // Band 0 = Featured/High (or editorially boosted — an admin boost should
+      // still be able to lift a Medium); band 1 = everything else.
+      const band = (c: ScoredCandidate) =>
+        priorityIsHigh(c.item.priority) || (c.editorialMultiplier ?? 1) > 1 ? 0 : 1;
       candidates.sort((a, b) => {
+        const ba = band(a);
+        const bb = band(b);
+        if (ba !== bb) return ba - bb;
         const ta = a.discoveryTier ?? 99;
         const tb = b.discoveryTier ?? 99;
         if (ta !== tb) return ta - tb;
