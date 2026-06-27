@@ -113,7 +113,7 @@ describe("generateRecommendations — sections", () => {
       const key = `${scene}__${c.item.tempo ?? ""}`;
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
-    for (const [, n] of counts) expect(n).toBeLessThanOrEqual(2);
+    for (const n of Array.from(counts.values())) expect(n).toBeLessThanOrEqual(2);
   });
 
   it("discovery is ordered by scene+tempo affinity (dominant taste first)", () => {

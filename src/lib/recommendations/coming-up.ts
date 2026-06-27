@@ -272,7 +272,13 @@ export function filterComingUpForUser(
     });
   }
 
+  const todayPt = ptDate(nowMs); // YYYY-MM-DD in PT
   for (const ev of shared.events) {
+    // Hide events whose DAY (in PT) is already past — keep an event through the
+    // end of its calendar day, drop it the next day. Checked per-request against
+    // the live now (shared data is cached up to ~5 min). YYYY-MM-DD string
+    // compare is chronological.
+    if (ptDate(ev.date) < todayPt) continue;
     // City gate (logged-in). Logged-out (userCity null) shows everything.
     if (userCity && !matchesCity(ev.location, userCity)) continue;
 
