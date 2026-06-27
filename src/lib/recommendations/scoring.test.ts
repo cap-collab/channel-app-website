@@ -12,6 +12,7 @@ function candidate(over: Partial<CandidateInput> & { item: ContentItem }): Candi
     alreadyStreamedCount: 0,
     matchedEngagedDjs: [],
     matchedWatchlistDjs: [],
+    matchesOwnCrew: false,
     isAffiliated: false,
     sceneTempoMatch: false,
     matchedScenes: [],

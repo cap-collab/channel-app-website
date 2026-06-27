@@ -35,6 +35,7 @@ function run(
   configOverride: unknown = {},
   ownArchiveIds: string[] = [],
   ownedCollectiveSlugs: string[] = [],
+  ownCrewDjUsernames: string[] = [],
 ): RecommendationResult {
   const signals = normalizeUser({
     uid: user.uid,
@@ -46,6 +47,7 @@ function run(
     goLiveMutes: user.goLiveMutes,
     ownDjUsername: user.ownDjUsername,
     ownedCollectiveSlugs,
+    ownCrewDjUsernames,
     ownArchives: ownArchiveIds.map((id) => normalizeArchive(archiveById(id))),
   });
   const config = mergeConfig(DEFAULT_RECOMMENDATION_CONFIG, configOverride);
@@ -244,6 +246,29 @@ describe("generateRecommendations — own/collective exclusion", () => {
     // ("stranger"), luke's archive still surfaces in discovery.
     const r = run({ ...USER_MARIA_FAN, ownDjUsername: "stranger" }, MARIA_CREW_AFFILIATION);
     expect(ids(r, "discovery")).toContain("a-luke-new");
+  });
+});
+
+describe("generateRecommendations — DJ own-crew → New Favorites", () => {
+  it("a DJ user's NON-engaged own-crew archive lands in New Favorites (not Discovery)", () => {
+    // USER_MARIA_FAN engaged Maria but NOT luke. Treat the viewer as a DJ whose
+    // own crew includes luke → luke's archive moves to New Favorites.
+    const r = run(
+      USER_MARIA_FAN,
+      { relatedDisplayByDjUsername: new Map() }, // no engagement-affiliation
+      {},
+      [],
+      [],
+      ["luke"], // viewing DJ's own crew
+    );
+    expect(ids(r, "favorite-artists")).toContain("a-luke-new");
+    expect(ids(r, "discovery")).not.toContain("a-luke-new");
+  });
+
+  it("own-crew promotion does NOT apply to non-DJ users (empty own-crew)", () => {
+    // Same user, no own-crew set → luke is NOT promoted to favorite-artists.
+    const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
+    expect(ids(r, "favorite-artists")).not.toContain("a-luke-new");
   });
 });
 

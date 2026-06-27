@@ -360,6 +360,29 @@ async function buildUserResultAndComingUp(
       ? shared.items.filter((it) => it.djUsernames.includes(ownDjUsernameNorm))
       : [];
 
+  // DJ users only: the viewing DJ's OWN crew (their affiliation-graph neighbors —
+  // crew lead, fellow affiliates/siblings, and, if they own a collective, the
+  // collective + co-owners). A non-engaged crew DJ's archives go to New Favorites
+  // (not Discovery). Empty for non-DJ users.
+  const ownCrewDjUsernames = new Set<string>();
+  if (isDj && ownDjUsernameNorm) {
+    const fakeShow: MatchableShow = {
+      name: "",
+      stationId: "broadcast",
+      showId: `self-${uid}`,
+      djUsername: ownChatUsername,
+      djUserId: uid,
+    };
+    const rel = buildRelatedUsernames(fakeShow, shared.affiliationGraph);
+    if (rel) for (const r of Array.from(rel.related)) ownCrewDjUsernames.add(r);
+    // If they own a collective, also include co-owners (relatedByDj keyed by slug
+    // = the collective's owner usernames).
+    for (const slug of shared.ownedCollectiveSlugsByUid.get(uid) ?? []) {
+      for (const r of Array.from(shared.relatedByDj.get(slug) ?? [])) ownCrewDjUsernames.add(r);
+    }
+    ownCrewDjUsernames.delete(ownDjUsernameNorm);
+  }
+
   const signals = normalizeUser({
     uid,
     email: (user.data.email as string) || "",
@@ -370,6 +393,7 @@ async function buildUserResultAndComingUp(
     goLiveMutes: (user.data.goLiveMutes as string[] | undefined) || [],
     ownDjUsername: ownChatUsername,
     ownedCollectiveSlugs: shared.ownedCollectiveSlugsByUid.get(uid) ?? [],
+    ownCrewDjUsernames: Array.from(ownCrewDjUsernames),
     ownArchives,
   });
 

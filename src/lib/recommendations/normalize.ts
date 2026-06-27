@@ -121,6 +121,9 @@ export interface NormalizeUserArgs {
   // Normalized slugs of collectives the user owns. Their archives are excluded
   // from New Favorites / Discovery alongside the user's own shows.
   ownedCollectiveSlugs?: string[];
+  // DJ users only: normalized usernames of the viewing DJ's OWN crew. A
+  // non-engaged crew DJ's archives land in New Favorites (not Discovery).
+  ownCrewDjUsernames?: string[];
   // DJ users only: the user's OWN archives (already normalized). Their scenes
   // and tempos are folded into the taste profile AND drive the discovery boost.
   ownArchives?: ContentItem[];
@@ -249,6 +252,7 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
     goLiveMutes: new Set((args.goLiveMutes ?? []).map((m) => normalizeForLookup(m))),
     ownDjUsername,
     excludedDjUsernames,
+    ownCrewDjUsernames: new Set((args.ownCrewDjUsernames ?? []).map((u) => normalizeForLookup(u))),
     selfScenes,
     selfTempos,
     tasteSummary,
@@ -306,6 +310,14 @@ export function buildCandidateInputs(
       }
     }
 
+    // DJ-user own-crew tie: archive is by a DJ in the viewing DJ's own crew.
+    // (Engaged archives already match Section 1 above; this promotes NON-engaged
+    // crew archives to New Favorites for DJ users.)
+    const matchesOwnCrew =
+      matchedEngagedDjs.length === 0 &&
+      matchedWatchlistDjs.length === 0 &&
+      item.djUsernames.some((u) => user.ownCrewDjUsernames.has(u));
+
     const matchedScenes = item.sceneSlugs.filter((s) => user.engagedScenes.has(s));
     const tempoEngaged = item.tempo != null && user.engagedTempos.has(item.tempo);
     const sceneTempoMatch = matchedScenes.length > 0 && tempoEngaged;
@@ -337,6 +349,7 @@ export function buildCandidateInputs(
       alreadyStreamedCount: user.archiveStreamCount[item.id] ?? 0,
       matchedEngagedDjs,
       matchedWatchlistDjs,
+      matchesOwnCrew,
       isAffiliated,
       affiliatedTo,
       sceneTempoMatch,

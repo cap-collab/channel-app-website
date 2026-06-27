@@ -22,6 +22,11 @@ export function assignSection(input: CandidateInput): SectionId | null {
   if (input.matchedEngagedDjs.length > 0 || input.matchedWatchlistDjs.length > 0) {
     return "favorite-artists";
   }
+  // DJ users: a NON-engaged archive by the viewing DJ's OWN crew belongs in New
+  // Favorites (not Discovery) — surface your crew's new shows like favorites.
+  if (input.matchesOwnCrew) {
+    return "favorite-artists";
+  }
   // Discovery membership is decided by the strict tier (computed in normalize):
   // tier 1 exact scene+tempo, 2 affiliated/crew, 3 top-scene, 4 top-tempo.
   if (input.discoveryTier !== null) {

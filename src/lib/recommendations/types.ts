@@ -69,6 +69,10 @@ export interface UserSignals {
   // own. An archive is dropped if ANY of its credited DJs is in this set.
   // (Affiliated DJs are NOT excluded — those archives are wanted.)
   excludedDjUsernames: Set<string>;
+  // DJ users only: normalized usernames of the viewing DJ's OWN crew. A
+  // non-engaged crew DJ's archives are routed to New Favorites (not Discovery).
+  // Empty for non-DJ users.
+  ownCrewDjUsernames: Set<string>;
   // Scenes/tempos from the user's OWN archives (DJ users only). Folded into
   // engagedScenes/engagedTempos for matching, AND used to rank-boost discovery
   // picks that match the DJ's own scene/tempo. Empty for non-DJ users.
@@ -86,6 +90,9 @@ export interface CandidateInput {
   // Section-1 ties:
   matchedEngagedDjs: string[]; // intersection(item.djUsernames, engagedDjs)
   matchedWatchlistDjs: string[]; // intersection(item.djUsernames, watchlistArtists)
+  // DJ-user tie: archive is by the viewing DJ's OWN crew (and not engaged) →
+  // routed to New Favorites. Empty/false for non-DJ users.
+  matchesOwnCrew: boolean;
   // Section-2 ties:
   isAffiliated: boolean; // DJ is affiliated / same crew (from the go-live graph)
   affiliatedTo?: string; // display name of the related DJ, for the reason
