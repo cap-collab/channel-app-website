@@ -17,7 +17,7 @@ import type { Archive, ArchiveSerialized } from "@/types/broadcast";
 import { getOrGenerateWebsiteSnapshot } from "./delivery";
 import { fetchComingUp, type ComingUpRow } from "./coming-up";
 import { getCityFromTimezone } from "@/lib/city-detection";
-import type { SnapshotSection } from "./types";
+import type { SnapshotSection, RecommendationSnapshot } from "./types";
 
 export interface RecBand {
   glyphSlug?: string;
@@ -44,14 +44,24 @@ const SECTION_TITLE: Record<string, string> = {
 
 const normU = (u: string) => u.replace(/[\s-]+/g, "").toLowerCase();
 
-export async function buildScenePayload(db: Firestore, uid: string): Promise<ScenePayload> {
+export async function buildScenePayload(
+  db: Firestore,
+  uid: string,
+  // Optional: a snapshot the caller already generated (e.g. the admin preview,
+  // which runs generateForUser first). Passing it skips a second full
+  // generation inside getOrGenerateWebsiteSnapshot — the main cost on a cold
+  // (uncached) preview.
+  prebuiltSnapshot?: RecommendationSnapshot | null,
+): Promise<ScenePayload> {
   const nowMs = Date.now();
 
   // Stage A — these three are independent of each other (the snapshot read does
   // NOT depend on the user doc or the history subcollections), so fetch them
   // concurrently instead of in series.
   const [snapshot, userDoc, [streamSnap, loveSnap]] = await Promise.all([
-    getOrGenerateWebsiteSnapshot(db, uid),
+    prebuiltSnapshot !== undefined
+      ? Promise.resolve(prebuiltSnapshot)
+      : getOrGenerateWebsiteSnapshot(db, uid),
     db.collection("users").doc(uid).get(),
     Promise.all([
       db.collection("users").doc(uid).collection("streamHistory").get(),

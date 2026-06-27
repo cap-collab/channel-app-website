@@ -63,8 +63,10 @@ export async function POST(request: NextRequest) {
   }
 
   // The exact /scene payload for this user (same builder as the live page), so
-  // the dashboard mirrors /scene order + rules across all sections.
-  const scene = await buildScenePayload(db, uid);
+  // the dashboard mirrors /scene order + rules across all sections. Reuse the
+  // snapshot generateForUser just produced so buildScenePayload doesn't run a
+  // SECOND full generation (the main cost on a cold/uncached preview).
+  const scene = await buildScenePayload(db, uid, outcome.snapshot);
 
   return NextResponse.json({
     snapshot: outcome.snapshot,
