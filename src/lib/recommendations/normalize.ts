@@ -118,6 +118,9 @@ export interface NormalizeUserArgs {
   archiveById: Map<string, ContentItem>;
   goLiveMutes?: string[];
   ownDjUsername?: string;
+  // Normalized slugs of collectives the user owns. Their archives are excluded
+  // from New Favorites / Discovery alongside the user's own shows.
+  ownedCollectiveSlugs?: string[];
   // DJ users only: the user's OWN archives (already normalized). Their scenes
   // and tempos are folded into the taste profile AND drive the discovery boost.
   ownArchives?: ContentItem[];
@@ -227,6 +230,13 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
       .sort((a, b) => b.count - a.count),
   };
 
+  const ownDjUsername = args.ownDjUsername ? normalizeForLookup(args.ownDjUsername) : undefined;
+  // Never show the user their OWN archives or their OWN collective's archives in
+  // New Favorites / Discovery. (Affiliated DJs are NOT excluded.)
+  const excludedDjUsernames = new Set<string>();
+  if (ownDjUsername) excludedDjUsernames.add(ownDjUsername);
+  for (const slug of args.ownedCollectiveSlugs ?? []) excludedDjUsernames.add(normalizeForLookup(slug));
+
   return {
     uid: args.uid,
     email: args.email,
@@ -237,7 +247,8 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
     streamedArchiveIds,
     archiveStreamCount,
     goLiveMutes: new Set((args.goLiveMutes ?? []).map((m) => normalizeForLookup(m))),
-    ownDjUsername: args.ownDjUsername ? normalizeForLookup(args.ownDjUsername) : undefined,
+    ownDjUsername,
+    excludedDjUsernames,
     selfScenes,
     selfTempos,
     tasteSummary,

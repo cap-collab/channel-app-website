@@ -70,6 +70,7 @@ export function generateRecommendations(
   const { sections, dropped } = applyRules(scored, config, ctx.context, {
     goLiveMutes: user.goLiveMutes,
     ownDjUsername: user.ownDjUsername,
+    excludedDjUsernames: user.excludedDjUsernames,
     fallbackSections,
   });
 

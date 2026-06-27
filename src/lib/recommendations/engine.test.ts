@@ -34,6 +34,7 @@ function run(
   affiliation: AffiliationLookup = { relatedDisplayByDjUsername: new Map() },
   configOverride: unknown = {},
   ownArchiveIds: string[] = [],
+  ownedCollectiveSlugs: string[] = [],
 ): RecommendationResult {
   const signals = normalizeUser({
     uid: user.uid,
@@ -44,6 +45,7 @@ function run(
     archiveById: itemMap(),
     goLiveMutes: user.goLiveMutes,
     ownDjUsername: user.ownDjUsername,
+    ownedCollectiveSlugs,
     ownArchives: ownArchiveIds.map((id) => normalizeArchive(archiveById(id))),
   });
   const config = mergeConfig(DEFAULT_RECOMMENDATION_CONFIG, configOverride);
@@ -210,6 +212,38 @@ describe("generateRecommendations — DJ self-taste", () => {
     }
     // At least something surfaced.
     expect(disc.length).toBeGreaterThan(0);
+  });
+});
+
+describe("generateRecommendations — own/collective exclusion", () => {
+  it("excludes the user's OWN archives from discovery (any credited DJ)", () => {
+    // Baseline: a Maria fan sees stranger spiral+uptempo in discovery (tier 1).
+    const base = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
+    expect(ids(base, "discovery")).toContain("a-stranger-scene");
+    // Now treat the viewer AS "stranger" → their own archives must disappear.
+    const asStranger = run(
+      { ...USER_MARIA_FAN, ownDjUsername: "stranger" },
+      MARIA_CREW_AFFILIATION,
+    );
+    const disc = ids(asStranger, "discovery");
+    expect(disc).not.toContain("a-stranger-scene");
+    expect(disc).not.toContain("a-stranger-scene-med");
+    expect(asStranger.dropped.some((d) => d.item.id === "a-stranger-scene" && d.excludedReason === "your own show")).toBe(true);
+  });
+
+  it("excludes the user's OWNED COLLECTIVE archives (slug credited on the archive)", () => {
+    // "stranger" stands in for a collective slug the viewing DJ owns.
+    const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION, {}, [], ["stranger"]);
+    const disc = ids(r, "discovery");
+    expect(disc).not.toContain("a-stranger-scene");
+    expect(disc).not.toContain("a-stranger-scene-med");
+  });
+
+  it("does NOT exclude affiliated DJs' archives", () => {
+    // luke is Maria's crew (affiliated). Even when excluding the viewer's own
+    // ("stranger"), luke's archive still surfaces in discovery.
+    const r = run({ ...USER_MARIA_FAN, ownDjUsername: "stranger" }, MARIA_CREW_AFFILIATION);
+    expect(ids(r, "discovery")).toContain("a-luke-new");
   });
 });
 

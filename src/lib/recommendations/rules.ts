@@ -38,6 +38,8 @@ export function applyRules(
   user: {
     goLiveMutes: Set<string>;
     ownDjUsername?: string;
+    // Usernames whose archives are excluded everywhere (own + owned collectives).
+    excludedDjUsernames?: Set<string>;
     // Sections that may be fallback-filled when short. favorite-artists is
     // only included when the user actually has favorites/engagement — a user
     // with no taste gets an EMPTY favorite-artists section, not padding.
@@ -190,7 +192,7 @@ function exclusionReason(
   c: ScoredCandidate,
   config: RecommendationConfig,
   suppress: Set<string>,
-  user: { goLiveMutes: Set<string>; ownDjUsername?: string },
+  user: { goLiveMutes: Set<string>; ownDjUsername?: string; excludedDjUsernames?: Set<string> },
 ): string | null {
   const { item } = c;
   if (item.priority === "hidden") return "hidden priority";
@@ -198,7 +200,13 @@ function exclusionReason(
   if (item.durationSec < config.eligibility.minDurationSec) return "too short";
   if (suppress.has(item.id)) return "editorially suppressed";
   if (item.djUsernames.some((u) => user.goLiveMutes.has(u))) return "muted DJ";
-  if (user.ownDjUsername && item.djUsernames.includes(user.ownDjUsername)) return "your own show";
+  // Own shows + own collective's shows: dropped if the user is any credited DJ
+  // (e.g. a B3B set) or it's credited to a collective they own. Affiliated DJs
+  // are NOT excluded.
+  const excluded = user.excludedDjUsernames;
+  if (excluded && item.djUsernames.some((u) => excluded.has(u))) return "your own show";
+  // Back-compat: ownDjUsername alone (when excludedDjUsernames isn't supplied).
+  if (!excluded && user.ownDjUsername && item.djUsernames.includes(user.ownDjUsername)) return "your own show";
   return null;
 }
 

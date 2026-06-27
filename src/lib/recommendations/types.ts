@@ -64,6 +64,11 @@ export interface UserSignals {
   // goLiveMutes (normalized) + opt-outs, for exclusion + Section 3 matching.
   goLiveMutes: Set<string>;
   ownDjUsername?: string;
+  // Normalized DJ usernames whose archives must NEVER appear in the user's New
+  // Favorites / Discovery: the user's own username + any collective slugs they
+  // own. An archive is dropped if ANY of its credited DJs is in this set.
+  // (Affiliated DJs are NOT excluded — those archives are wanted.)
+  excludedDjUsernames: Set<string>;
   // Scenes/tempos from the user's OWN archives (DJ users only). Folded into
   // engagedScenes/engagedTempos for matching, AND used to rank-boost discovery
   // picks that match the DJ's own scene/tempo. Empty for non-DJ users.

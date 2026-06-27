@@ -91,6 +91,10 @@ export interface SharedData {
   // Effective scenes per upcoming show (override, else the DJ's archive scenes)
   // — used to surface slots from the user's most-engaged scene.
   upcomingScenesByShowId: Map<string, string[]>;
+  // owner uid → normalized slugs of collectives they own. A DJ never sees their
+  // OWN collective's archives in New Favorites / Discovery (same as their own
+  // shows).
+  ownedCollectiveSlugsByUid: Map<string, string[]>;
 }
 
 function slotStartMs(value: unknown): number | undefined {
@@ -156,6 +160,19 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
   // slot's owners in the coming-up matcher.
   const collectiveBySlug = new Map<string, CollectiveForGraph>();
   for (const c of collectives) if (c.slug) collectiveBySlug.set(normalizeForLookup(c.slug), c);
+
+  // owner uid → normalized slugs of the collectives they own (to exclude a DJ's
+  // OWN collective from their New Favorites / Discovery).
+  const ownedCollectiveSlugsByUid = new Map<string, string[]>();
+  for (const c of collectives) {
+    if (!c.slug) continue;
+    const slugNorm = normalizeForLookup(c.slug);
+    for (const owner of c.owners) {
+      const list = ownedCollectiveSlugsByUid.get(owner) ?? [];
+      list.push(slugNorm);
+      ownedCollectiveSlugsByUid.set(owner, list);
+    }
+  }
 
   const affiliationGraph = buildAffiliationGraph(djUsers, collectives);
 
@@ -258,6 +275,7 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
     upcomingStartMsByShowId,
     upcomingDjNameByShowId,
     upcomingScenesByShowId,
+    ownedCollectiveSlugsByUid,
   };
 }
 
@@ -351,6 +369,7 @@ async function buildUserResultAndComingUp(
     archiveById: shared.archiveById,
     goLiveMutes: (user.data.goLiveMutes as string[] | undefined) || [],
     ownDjUsername: ownChatUsername,
+    ownedCollectiveSlugs: shared.ownedCollectiveSlugsByUid.get(uid) ?? [],
     ownArchives,
   });
 
