@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { buildScenePayload } from "@/lib/recommendations/scene-payload";
+import { getFeaturedPayload } from "@/lib/recommendations/featured-payload";
 
 // Per-user /scene recommendations. All section rules live in buildScenePayload
 // (shared with the admin preview so the dashboard mirrors /scene exactly).
@@ -29,6 +30,31 @@ export async function POST(request: NextRequest) {
 
   const db = getAdminDb();
   if (!db) return NextResponse.json({ error: "Database not configured" }, { status: 500 });
+
+  // No-history users get the cached featured grid (like logged-out) instead of a
+  // full snapshot generation — a brand-new user pays ~0ms, not ~2s, and still
+  // upgrades to personalized recs once they engage. Cheap check: any one of
+  // stream / love / search-favorite docs present = "has history".
+  const [streamOne, loveOne, favOne] = await Promise.all([
+    db.collection("users").doc(userId).collection("streamHistory").limit(1).get(),
+    db.collection("users").doc(userId).collection("loveHistory").limit(1).get(),
+    db.collection("users").doc(userId).collection("favorites").where("type", "==", "search").limit(1).get(),
+  ]);
+  const hasHistory = !streamOne.empty || !loveOne.empty || !favOne.empty;
+
+  if (!hasHistory) {
+    const featured = await getFeaturedPayload(db, Date.now());
+    // MeResponse shape: featured archives surface via `startHere`; no personalized
+    // sections / dive-back-in yet.
+    return NextResponse.json({
+      sections: [],
+      startHere: featured.archives,
+      comingUp: featured.comingUp,
+      comingUpTitle: featured.comingUpTitle,
+      diveBackIn: [],
+      diveBackInTitle: "Dive back in",
+    });
+  }
 
   const payload = await buildScenePayload(db, userId);
   return NextResponse.json(payload);

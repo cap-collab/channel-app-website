@@ -39,6 +39,9 @@ interface MeResponse {
   comingUpTitle: string;
   diveBackIn: ArchiveSerialized[];
   diveBackInTitle: string;
+  // Present for no-history users → the featured "Start here" grid (server returns
+  // featured instead of generating an empty personalized snapshot).
+  startHere?: ArchiveSerialized[];
 }
 interface FeaturedResponse {
   archives: ArchiveSerialized[];
@@ -83,7 +86,8 @@ export function SceneRecommendations({
         // Apply a personalized payload (own /scene or email-deep-linked recipient).
         const applyPersonalized = (data: MeResponse) => {
           setSections(data.sections || []);
-          setStartHere(null);
+          // No-history users get a featured grid via startHere; otherwise null.
+          setStartHere(data.startHere && data.startHere.length > 0 ? data.startHere : null);
           setComingUp(data.comingUp || []);
           setComingUpTitle(data.comingUpTitle || 'Coming up this week');
           setDiveBackIn(data.diveBackIn || []);
