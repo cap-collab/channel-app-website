@@ -13,7 +13,8 @@
  */
 
 import type { Firestore } from "firebase-admin/firestore";
-import { readSnapshot, generateForUser, loadConfig } from "./server";
+import { readSnapshot, generateForUser } from "./server";
+import { DEFAULT_RECOMMENDATION_CONFIG } from "./config";
 import type { RecommendationSnapshot } from "./types";
 
 /**
@@ -42,9 +43,11 @@ export async function getOrGenerateWebsiteSnapshot(
 ): Promise<RecommendationSnapshot | null> {
   const existing = await readSnapshot(db, uid, "website");
   if (existing) {
-    const cfg = await loadConfig(db);
+    // Use the default floor for the staleness check (no per-request config read
+    // on the fast warm path). generateForUser re-checks the real (possibly
+    // admin-overridden) floor before it writes, so an override still holds.
     const ageMs = Date.now() - existing.generatedAtMs;
-    if (ageMs < cfg.minRegenIntervalMs) return existing; // still fresh
+    if (ageMs < DEFAULT_RECOMMENDATION_CONFIG.minRegenIntervalMs) return existing; // still fresh
     // Stale → regenerate (generateForUser re-checks the floor before writing).
     const outcome = await generateForUser(db, uid, "website", {
       persist: true,

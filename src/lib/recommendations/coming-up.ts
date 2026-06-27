@@ -118,7 +118,10 @@ export async function loadComingUpShared(db: Firestore, nowMs: number): Promise<
   if (sharedCache && nowMs - sharedCache.at < SHARED_TTL_MS) return sharedCache.data;
 
   const windowEnd = nextSunday7amPtMs(nowMs);
-  const floor = nowMs - 12 * 60 * 60 * 1000; // small back-look so "today" shows
+  // Cache-time floor keeps a small back-look so a slot near "now" is captured in
+  // the shared snapshot; the actual "already started" hide happens per-request in
+  // filterComingUpForUser against the LIVE now (the cache is up to 5 min stale).
+  const floor = nowMs - 12 * 60 * 60 * 1000;
 
   // ── Online shows (broadcast-slots) ──────────────────────────────────────
   // All upcoming online shows except the channelbroadcast test account. Mute /
@@ -238,13 +241,17 @@ export async function loadComingUpShared(db: Firestore, nowMs: number): Promise<
 // mutates the shared arrays (safe to call repeatedly in the cron loop).
 export function filterComingUpForUser(
   shared: ComingUpShared,
-  args: Omit<FetchComingUpArgs, "db" | "nowMs">,
+  args: Omit<FetchComingUpArgs, "db">,
 ): ComingUpRow[] {
-  const { userCity, engagedDjUsernames, goLiveMutes, ownDjUsername } = args;
+  const { nowMs, userCity, engagedDjUsernames, goLiveMutes, ownDjUsername } = args;
   const muted = goLiveMutes ?? new Set<string>();
   const rows: ComingUpRow[] = [];
 
   for (const s of shared.online) {
+    // "Upcoming" = hasn't started yet. The shared data is cached up to ~5 min, so
+    // hide already-started ONLINE shows here against the live now (IRL events are
+    // left as-is — today's IRL events still show).
+    if (s.startMs < nowMs) continue;
     if (muted.has(s.norm)) continue; // user muted this DJ
     if (ownDjUsername && s.norm === ownDjUsername) continue; // user's own show
     rows.push({
@@ -301,7 +308,7 @@ export function filterComingUpForUser(
 // Thin wrapper: load (cached) shared data + apply the per-user filter. Existing
 // call sites (scene-payload, featured route) keep their signature unchanged.
 export async function fetchComingUp(args: FetchComingUpArgs): Promise<ComingUpRow[]> {
-  const { db, nowMs, ...userArgs } = args;
-  const shared = await loadComingUpShared(db, nowMs);
+  const { db, ...userArgs } = args;
+  const shared = await loadComingUpShared(db, args.nowMs);
   return filterComingUpForUser(shared, userArgs);
 }
