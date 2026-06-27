@@ -141,6 +141,43 @@ describe("buildAffiliationGraph + builders", () => {
   });
 });
 
+describe("buildAffiliationGraph — collective crew leads", () => {
+  // pip (uid p) + quincy (uid q) own collective "deep-coll". owning a collective
+  // makes IT their crew lead, overriding any explicit affiliatedWithUid.
+  const cDjUsers: DjUserDoc[] = [
+    { id: "p", data: { chatUsername: "Pip", chatUsernameNormalized: "pip", djProfile: { affiliatedWithUid: "m" } } },
+    { id: "q", data: { chatUsername: "Quincy", chatUsernameNormalized: "quincy", djProfile: {} } },
+    { id: "m", data: { chatUsername: "Maria", chatUsernameNormalized: "maria", djProfile: {} } },
+  ];
+  const collectives = [{ id: "cid", slug: "deep-coll", name: "Deep Collective", owners: ["p", "q"] }];
+  const cGraph = buildAffiliationGraph(cDjUsers, collectives);
+  const leadKey = "collective:cid";
+
+  it("owning a collective makes it the crew lead, overriding explicit affiliation", () => {
+    expect(cGraph.affiliatedByLiveDjUid.get("p")).toBe(leadKey); // was "m", now collective
+    expect(cGraph.affiliatedByLiveDjUid.get("q")).toBe(leadKey);
+    // pip removed from maria's affiliate bucket (override un-buckets the old lead).
+    expect(cGraph.affiliatesByUid.get("m")?.has("p")).toBeFalsy();
+    expect(cGraph.affiliatesByUid.get(leadKey)).toEqual(new Set(["p", "q"]));
+  });
+
+  it("the collective lead resolves to its slug + name", () => {
+    expect(cGraph.uidToUsername.get(leadKey)).toBe("deepcoll"); // normalizeForLookup strips dash
+    expect(cGraph.normalizedUsernameToDisplay.get("deepcoll")).toBe("Deep Collective");
+  });
+
+  it("an owner's show relates to the collective + sibling owner (crew bridge)", () => {
+    const pipShow: MatchableShow = {
+      name: "Pip Live", stationId: "broadcast", showId: "broadcast-pip1",
+      djUsername: "pip", djUserId: "p",
+    };
+    const rel = buildRelatedUsernames(pipShow, cGraph)!;
+    // pip's crew = the collective (lead) + quincy (sibling owner).
+    expect(rel.related.has("deepcoll")).toBe(true);
+    expect(rel.related.has("quincy")).toBe(true);
+  });
+});
+
 describe("matchUserToShow — tiers", () => {
   it("Tier 1: favorite show matches by exact name", () => {
     const sets = buildSets({});

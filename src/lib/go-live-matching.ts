@@ -214,6 +214,22 @@ export interface DjUserDoc {
   data: Record<string, unknown>;
 }
 
+// A collective for the affiliation graph: its owners form a crew whose LEAD is
+// the collective itself (a synthetic "collective:<id>" node). Owning a collective
+// makes it the owner's crew lead, overriding any explicit affiliatedWithUid.
+export interface CollectiveForGraph {
+  id: string;
+  slug: string;
+  name: string;
+  owners: string[]; // owner user uids
+}
+
+// Synthetic lead-node key for a collective in the affiliation maps. Namespaced so
+// it never collides with a real user uid.
+export function collectiveLeadKey(collectiveId: string): string {
+  return `collective:${collectiveId}`;
+}
+
 export interface AffiliationGraph {
   affiliatedByLiveDjUid: Map<string, string>;
   affiliatesByUid: Map<string, Set<string>>;
@@ -225,7 +241,10 @@ export interface AffiliationGraph {
 /**
  * Build the affiliation / audience graph from DJ-role user docs. Pure.
  */
-export function buildAffiliationGraph(djUsers: DjUserDoc[]): AffiliationGraph {
+export function buildAffiliationGraph(
+  djUsers: DjUserDoc[],
+  collectives: CollectiveForGraph[] = [],
+): AffiliationGraph {
   const affiliatedByLiveDjUid = new Map<string, string>();
   const affiliatesByUid = new Map<string, Set<string>>();
   for (const djUser of djUsers) {
@@ -238,6 +257,24 @@ export function buildAffiliationGraph(djUsers: DjUserDoc[]): AffiliationGraph {
     affiliatesByUid.set(aff, bucket);
   }
 
+  // Collective crew: an owner's crew lead is the collective (a synthetic
+  // "collective:<id>" node), OVERRIDING any explicit affiliatedWithUid set above
+  // — owning a collective makes the collective the crew lead, full stop. Applied
+  // after the DJ pass so the override is clean (un-bucket the owner from any prior
+  // lead first).
+  for (const collective of collectives) {
+    const leadKey = collectiveLeadKey(collective.id);
+    const leadBucket = affiliatesByUid.get(leadKey) ?? new Set<string>();
+    for (const owner of collective.owners) {
+      if (!owner) continue;
+      const prevLead = affiliatedByLiveDjUid.get(owner);
+      if (prevLead && prevLead !== leadKey) affiliatesByUid.get(prevLead)?.delete(owner);
+      affiliatedByLiveDjUid.set(owner, leadKey);
+      leadBucket.add(owner);
+    }
+    if (leadBucket.size > 0) affiliatesByUid.set(leadKey, leadBucket);
+  }
+
   const uidToUsername = new Map<string, string>();
   const normalizedUsernameToDisplay = new Map<string, string>();
   for (const djUser of djUsers) {
@@ -248,6 +285,17 @@ export function buildAffiliationGraph(djUsers: DjUserDoc[]): AffiliationGraph {
       uidToUsername.set(djUser.id, normalized);
       if (rawChatUsername) normalizedUsernameToDisplay.set(normalized, rawChatUsername);
     }
+  }
+
+  // Resolve each collective lead node to its slug (for matching) + name (for the
+  // "In {collective}'s world" reason), so an owner's show relates to the
+  // collective and a collective's slug-credited show relates back to its owners.
+  for (const collective of collectives) {
+    if (!collective.slug) continue;
+    const leadKey = collectiveLeadKey(collective.id);
+    const normSlug = normalizeForLookup(collective.slug);
+    uidToUsername.set(leadKey, normSlug);
+    if (collective.name) normalizedUsernameToDisplay.set(normSlug, collective.name);
   }
 
   const audienceUidsByLiveDjUid = new Map<string, string[]>();

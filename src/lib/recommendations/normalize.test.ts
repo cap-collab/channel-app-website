@@ -169,4 +169,33 @@ describe("buildCandidateInputs", () => {
     expect(luke.isAffiliated).toBe(true);
     expect(luke.affiliatedTo).toBe("Maria");
   });
+
+  it("bridges a COLLECTIVE-credited archive to an owner-fan via the lookup", () => {
+    // A collective archive credits the collective SLUG in djs[] (owners are not
+    // re-credited). The server maps slug → engaged-owner display in the lookup,
+    // so the collective archive surfaces as discovery/crew for an owner's fan.
+    const collectiveArchive = normalizeArchive({
+      ...archiveById("a-luke-new"),
+      id: "a-coll-show",
+      showName: "Deep Collective Night",
+      djs: [{ name: "Deep Collective", username: "deep-coll" }],
+    });
+    const items = [collectiveArchive];
+    const u = normalizeUser({
+      uid: USER_MARIA_FAN.uid,
+      email: USER_MARIA_FAN.email,
+      loveHistory: USER_MARIA_FAN.loveHistory,
+      streamHistory: USER_MARIA_FAN.streamHistory,
+      searchFavorites: USER_MARIA_FAN.searchFavorites,
+      archiveById: itemMap(),
+    });
+    // normalizeArchive normalizes "deep-coll" → "deepcoll" (dash stripped).
+    const affiliation: AffiliationLookup = {
+      relatedDisplayByDjUsername: new Map([["deepcoll", "Maria"]]),
+    };
+    const inputs = buildCandidateInputs(u, items, affiliation);
+    const coll = inputs.find((i) => i.item.id === "a-coll-show")!;
+    expect(coll.isAffiliated).toBe(true); // engaged an owner → collective archive bridges
+    expect(coll.discoveryTier).toBe(2); // crew/affiliated tier
+  });
 });

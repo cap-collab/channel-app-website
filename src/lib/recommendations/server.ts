@@ -21,9 +21,11 @@ import {
   buildAffiliationGraph,
   buildAffiliatedRecipients,
   buildRelatedUsernames,
+  collectiveLeadKey,
   matchUserToShow,
   failsUniversalGates,
   type AffiliationGraph,
+  type CollectiveForGraph,
   type DjUserDoc,
   type MatchableShow,
   type RelationshipSets,
@@ -128,10 +130,29 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
     }
   }
 
-  // DJ-role users → affiliation graph.
-  const djSnap = await db.collection("users").where("role", "==", "dj").get();
+  // DJ-role users + collectives → affiliation graph. A collective's owners form a
+  // crew led by the collective itself, so engaging an owner bridges to the
+  // collective's content and vice-versa (the existing crew/affiliation tier).
+  const [djSnap, collectiveSnap] = await Promise.all([
+    db.collection("users").where("role", "==", "dj").get(),
+    db.collection("collectives").get(),
+  ]);
   const djUsers: DjUserDoc[] = djSnap.docs.map((d) => ({ id: d.id, data: d.data() }));
-  const affiliationGraph = buildAffiliationGraph(djUsers);
+  const collectives: CollectiveForGraph[] = collectiveSnap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      slug: (data.slug as string) || "",
+      name: (data.name as string) || "",
+      owners: Array.isArray(data.owners) ? (data.owners as string[]).filter(Boolean) : [],
+    };
+  });
+  // slug (normalized) → owner usernames (normalized), for expanding a collective
+  // slot's owners in the coming-up matcher.
+  const collectiveBySlug = new Map<string, CollectiveForGraph>();
+  for (const c of collectives) if (c.slug) collectiveBySlug.set(normalizeForLookup(c.slug), c);
+
+  const affiliationGraph = buildAffiliationGraph(djUsers, collectives);
 
   // Per-DJ related map, built ONCE: normalized DJ username → its related
   // (crew + audience-borrow) normalized usernames. Per-user Section-2
@@ -151,6 +172,27 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
     if (rel && rel.related.size > 0) relatedByDj.set(username, rel.related);
   }
 
+  // Collective slug nodes: a collective archive/slot credits the slug (no
+  // djUserId), so buildRelatedUsernames can't build its related set. Add it
+  // directly = the collective's owner usernames. This is what makes "engage the
+  // collective → its owners' content" surface (and the slug appears in a user's
+  // engagedDjs when they engaged the collective itself).
+  for (const c of collectives) {
+    if (!c.slug) continue;
+    const slugNorm = normalizeForLookup(c.slug);
+    const ownerUsernames = new Set<string>();
+    for (const owner of c.owners) {
+      const name = affiliationGraph.uidToUsername.get(owner);
+      if (name) ownerUsernames.add(name);
+    }
+    ownerUsernames.delete(slugNorm);
+    if (ownerUsernames.size > 0) {
+      const existing = relatedByDj.get(slugNorm) ?? new Set<string>();
+      for (const n of Array.from(ownerUsernames)) existing.add(n);
+      relatedByDj.set(slugNorm, existing);
+    }
+  }
+
   // Next-week scheduled shows (broadcast slots).
   const upcomingShows: MatchableShow[] = [];
   const upcomingStartMsByShowId = new Map<string, number>();
@@ -166,6 +208,14 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
     if (startMs < nowMs || startMs > nowMs + NEXT_WEEK_MS) continue;
     const showId = `broadcast-${doc.id}`;
     const djUsername = data.djUsername as string | undefined;
+    // If the slot's djUsername is a collective slug, expand its owners so the
+    // matcher can bridge the slot to fans of any owner.
+    const collectiveForSlot = djUsername ? collectiveBySlug.get(normalizeForLookup(djUsername)) : undefined;
+    const ownerUsernamesForSlot = collectiveForSlot
+      ? collectiveForSlot.owners
+          .map((o) => affiliationGraph.uidToUsername.get(o))
+          .filter((n): n is string => !!n)
+      : undefined;
     upcomingShows.push({
       name: data.showName as string,
       dj: data.djName as string | undefined,
@@ -173,8 +223,8 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
       showId,
       djUsername,
       djUserId: (data.liveDjUserId as string) || (data.djUserId as string) || undefined,
-      collectiveOwnerUserIds: undefined,
-      collectiveOwnerUsernames: undefined,
+      collectiveOwnerUserIds: collectiveForSlot?.owners.length ? collectiveForSlot.owners : undefined,
+      collectiveOwnerUsernames: ownerUsernamesForSlot?.length ? ownerUsernamesForSlot : undefined,
     });
     upcomingStartMsByShowId.set(showId, startMs);
     upcomingDjNameByShowId.set(showId, data.djName as string | undefined);
@@ -220,6 +270,16 @@ function buildUpcomingRelationshipSets(
     if (rel) {
       if (rel.related.size > 0) relatedUsernamesByShowId.set(show.showId, rel.related);
       if (rel.borrowed.size > 0) borrowedUsernamesByShowId.set(show.showId, rel.borrowed);
+    }
+    // Collective slots have no djUserId so buildRelatedUsernames returns null —
+    // their crew = the collective's owners, which we pre-built in relatedByDj
+    // keyed by the slug. Surface it so fans of an owner match the slot (tier-4
+    // affiliation bridge in the matcher).
+    if (!relatedUsernamesByShowId.has(show.showId) && show.djUsername) {
+      const ownersRelated = shared.relatedByDj.get(normalizeForLookup(show.djUsername));
+      if (ownersRelated && ownersRelated.size > 0) {
+        relatedUsernamesByShowId.set(show.showId, ownersRelated);
+      }
     }
   }
   return { affiliatedRecipientsByShowId, relatedUsernamesByShowId, borrowedUsernamesByShowId };
