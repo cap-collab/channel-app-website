@@ -298,35 +298,62 @@ export function tallyRecentPlays(days: ArchiveScheduleDay[]): Map<string, number
 // handoff lands cleanly on an interlude + a fresh archive at offset 0.
 export interface LiveBlockBoundary {
   endTimeMs: number;
+  startTimeMs: number;              // block start (= scheduled anchor's audible target)
   curatedArchiveId: string | null;  // optional admin pick for the post-block archive
+  // true  = a radio-only SCHEDULED anchor (broadcastType:'anchor'): the curated
+  //         archive IS the anchor recording and plays IN the loop, audible at
+  //         startTimeMs (no warmup). false = a LIVE/RESTREAM block: the curated
+  //         archive plays AFTER the block, audible at endTimeMs + warmup.
+  isScheduledAnchor: boolean;
 }
 
 // Group contiguous live broadcast-slots into blocks (consecutive slots whose
 // gap is < joinGapMs). Emits one boundary per block — at the endTime of the
 // final slot — carrying that slot's postLiveArchiveId so the builder can
-// honour the admin's curation choice.
+// honour the admin's curation choice. A SCHEDULED anchor (isScheduledAnchor)
+// is atomic: it carries its own start + recording and never merges with a
+// neighbour, so the generator can align it to its scheduled start.
 export function computeLiveBlocks(
-  slots: Array<{ startTimeMs: number; endTimeMs: number; postLiveArchiveId: string | null }>,
+  slots: Array<{ startTimeMs: number; endTimeMs: number; postLiveArchiveId: string | null; isScheduledAnchor?: boolean }>,
   joinGapMs = 60_000,
 ): LiveBlockBoundary[] {
   if (slots.length === 0) return [];
   const sorted = slots.slice().sort((a, b) => a.startTimeMs - b.startTimeMs);
   const out: LiveBlockBoundary[] = [];
-  let curEnd = sorted[0].endTimeMs;
-  let curCurated = sorted[0].postLiveArchiveId;
-  for (let i = 1; i < sorted.length; i++) {
-    const next = sorted[i];
-    if (next.startTimeMs - curEnd < joinGapMs) {
+
+  // Open LIVE block accumulator (scheduled anchors never enter this).
+  let curStart: number | null = null;
+  let curEnd = -Infinity;
+  let curCurated: string | null = null;
+  const flushLive = () => {
+    if (curStart !== null) {
+      out.push({ endTimeMs: curEnd, startTimeMs: curStart, curatedArchiveId: curCurated, isScheduledAnchor: false });
+      curStart = null;
+    }
+  };
+
+  for (const s of sorted) {
+    if (s.isScheduledAnchor) {
+      // Atomic, unmergeable: flush any open live block, then emit the anchor as
+      // its own boundary carrying its start (audible target) + its recording.
+      flushLive();
+      out.push({ endTimeMs: s.endTimeMs, startTimeMs: s.startTimeMs, curatedArchiveId: s.postLiveArchiveId, isScheduledAnchor: true });
+      continue;
+    }
+    if (curStart === null) {
+      curStart = s.startTimeMs; curEnd = s.endTimeMs; curCurated = s.postLiveArchiveId;
+    } else if (s.startTimeMs - curEnd < joinGapMs) {
       // Same block — extend; the LAST slot's curated id wins.
-      curEnd = Math.max(curEnd, next.endTimeMs);
-      curCurated = next.postLiveArchiveId;
+      curEnd = Math.max(curEnd, s.endTimeMs); curCurated = s.postLiveArchiveId;
     } else {
-      out.push({ endTimeMs: curEnd, curatedArchiveId: curCurated });
-      curEnd = next.endTimeMs;
-      curCurated = next.postLiveArchiveId;
+      flushLive();
+      curStart = s.startTimeMs; curEnd = s.endTimeMs; curCurated = s.postLiveArchiveId;
     }
   }
-  out.push({ endTimeMs: curEnd, curatedArchiveId: curCurated });
+  flushLive();
+  // Anchors are emitted inline while live blocks flush lazily, so order can
+  // interleave; the selector wants the soonest end, so keep it sorted by end.
+  out.sort((a, b) => a.endTimeMs - b.endTimeMs);
   return out;
 }
 

@@ -430,6 +430,12 @@ interface LoopPlan {
 
 // ── Loop pool + windowing constants ──
 const CROSSFADE_SEC = 5;
+// Warmup for a LIVE/RESTREAM anchor hand-back: the listener-side audio source
+// switch (live → radio) takes a few seconds, so the post-block interlude is made
+// audible at endTimeMs + warmup. SCHEDULED anchors (broadcastType:'anchor') have
+// no source switch (radio is already playing) and use warmup 0, aligned to start.
+// History: 2s → 4s (2026-06-04 clipping) → 3s (2026-06-11 per Cap).
+const ANCHOR_WARMUP_MS = 3000;
 // Start window: 1-2am PT. End window: 3-4am PT. Both are wall-clock targets the
 // loop snaps to; loop length flexes (in whole days) to land start in one and end
 // in the other. Expressed as UTC hours-of-day (PDT = UTC-7; ±1h in PST months).
@@ -593,6 +599,18 @@ async function resolveLoopPlan(
   ) ?? null;
   const curatedId = firstAnchor?.curatedArchiveId ?? null;
 
+  // The single alignment TARGET: the wall-clock moment the anchor archive (well,
+  // the TT interlude → anchor archive hand-in) becomes audible. The ONLY thing
+  // that differs between the two anchor kinds:
+  //   • SCHEDULED anchor → the recording plays IN the loop at its slot startTime,
+  //     no warmup (radio is already playing).
+  //   • POST-LIVE anchor → the curated archive plays AFTER the live block, behind
+  //     an interlude that starts endTime + warmup (live→radio source switch).
+  // Everything downstream (back-fill, TT, post-fill, reflow) is identical.
+  const anchorTargetMs = firstAnchor
+    ? (firstAnchor.isScheduledAnchor ? firstAnchor.startTimeMs : firstAnchor.endTimeMs + ANCHOR_WARMUP_MS)
+    : 0;
+
   // ANCHOR start (Rule 2): the loop must start at a 1-2am PT window that is BEFORE BOTH
   // the anchor (so it can take over and hand off cleanly) AND prevEnd (so it overlaps the
   // still-playing previous loop — no gap). The anchor is often INSIDE the current loop's
@@ -600,7 +618,7 @@ async function resolveLoopPlan(
   // exact hand-off landing. (The no-anchor branch overrides this to prevEnd below.)
   if (firstAnchor) {
     startTimeMs = prevWindowMidMs(
-      Math.min(firstAnchor.endTimeMs, prevNaturalEnd),
+      Math.min(anchorTargetMs, prevNaturalEnd),
       START_WINDOW_UTC_H[0],
     );
   }
@@ -643,36 +661,49 @@ async function resolveLoopPlan(
     };
   }
 
-  // ── Anchor: pour the pool from the start; archives that fit before the live
-  // block's end are pre-anchor, the rest are post-anchor. The post-anchor tail
-  // is then truncated to end at the last 3-4am PT window before its natural end.
-  // Priority order stays random; both sides get a natural ~2:1 high/medium mix
-  // from the shuffle.
-  const blockEndMs = firstAnchor.endTimeMs;
+  // ── Anchor: pour the pool from the start; archives that fit before the anchor
+  // TARGET are pre-anchor, the rest are post-anchor. The post-anchor tail is then
+  // truncated to end at the last 3-4am PT window before its natural end. Priority
+  // order stays random; both sides get a natural ~2:1 high/medium mix from the
+  // shuffle. (anchorTargetMs = startTime for a scheduled anchor, endTime+warmup
+  // for a post-live anchor — see above.)
 
-  // Curated archive duration (plays right after the block, before post-anchor).
+  // Curated/anchor archive duration. Post-live: plays right after the block.
+  // Scheduled: this IS the anchor recording, plays at the target, in the loop.
   let curatedDurSec = 0;
   if (curatedId) {
     const curated = archives.find((a) => a.id === curatedId);
     if (curated) curatedDurSec = curated.durationSec;
   }
-  const postBlockStartMs = blockEndMs + (curatedDurSec - CROSSFADE_SEC) * 1000;
+  // Pre-anchor pour FILL target. Post-live keeps the exact prior value
+  // (blockEnd = endTimeMs) so live loops are byte-identical; the +warmup slack
+  // is absorbed by generateLoop's precise backwards-align. Scheduled fills up to
+  // the anchor's start (= anchorTargetMs).
+  const fillTargetMs = firstAnchor.isScheduledAnchor ? anchorTargetMs : firstAnchor.endTimeMs;
 
-  // Split the shuffled pool at the live-block end: fill up to the block, rest
-  // go after. Whole archives only (one that would straddle the block goes after).
+  // Where the post-anchor pour resumes = the anchor archive's audible end.
+  // Post-live keeps the exact prior formula (blockEnd + curatedDur - crossfade,
+  // no warmup); scheduled resumes after the in-loop anchor archive
+  // (target + curatedDur - crossfade).
+  const postBlockStartMs = firstAnchor.isScheduledAnchor
+    ? anchorTargetMs + (curatedDurSec - CROSSFADE_SEC) * 1000
+    : firstAnchor.endTimeMs + (curatedDurSec - CROSSFADE_SEC) * 1000;
+
+  // Split the shuffled pool at the fill target: fill up to it, rest go after.
+  // Whole archives only (one that would straddle the target goes after).
   //
   // GAP FIX: the loop's *actual* start is recomputed in generateLoop as
-  // (blockEnd − preAnchorSpan) so the hand-back lands on the block end. If the
-  // pre-anchor pour stops as soon as an archive won't fit before the block, the
+  // (target − preAnchorSpan) so the hand-in lands on the target. If the
+  // pre-anchor pour stops as soon as an archive won't fit before the target, the
   // pre-anchor span can be too SHORT, pushing that recomputed start LATER than
   // the previous loop's end → a gap (dead air) between loops. So we keep pouring
-  // pre-anchor archives until the span reaches at least (blockEnd − prevEnd),
+  // pre-anchor archives until the span reaches at least (target − prevEnd),
   // which is exactly enough to pull the recomputed start back to ≤ prevEnd (no
   // gap). This only ever ADDS archives to the front, so loops that already had
   // no gap are unaffected. (Loop 31, 2026-06-25: poured 11.7h, needed 12.5h →
   // 47-min gap; this adds the one missing archive.) Overshoot by part of one
   // archive = a little extra overlap with the previous loop, which is fine.
-  const minPreSpanMs = Math.max(0, blockEndMs - prevNaturalEnd);
+  const minPreSpanMs = Math.max(0, fillTargetMs - prevNaturalEnd);
   const preItems: EligibleArchive[] = [];
   const postPool: EligibleArchive[] = [];
   let running = startTimeMs;
@@ -680,7 +711,7 @@ async function resolveLoopPlan(
   for (const a of pool) {
     const span = effectiveSpanMs(a.durationSec, avgInterludeSec);
     const preSpan = running - startTimeMs;
-    if (!blockReached && (running + span <= blockEndMs || preSpan < minPreSpanMs)) {
+    if (!blockReached && (running + span <= fillTargetMs || preSpan < minPreSpanMs)) {
       preItems.push(a);
       running += span;
     } else {
@@ -869,7 +900,7 @@ async function loadAnchors(
   const snap = await db.collection('broadcast-slots')
     .where('endTime', '>=', Timestamp.fromMillis(loopStartTimeMs))
     .get();
-  const rawSlots: Array<{ startTimeMs: number; endTimeMs: number; postLiveArchiveId: string | null }> = [];
+  const rawSlots: Array<{ startTimeMs: number; endTimeMs: number; postLiveArchiveId: string | null; isScheduledAnchor: boolean }> = [];
   for (const doc of snap.docs) {
     const d = doc.data();
     if (d.status !== 'scheduled' && d.status !== 'live') continue;
@@ -878,10 +909,18 @@ async function loadAnchors(
     if (!startTs || !endTs) continue;
     const startMs = startTs.toMillis();
     if (startMs >= horizonMs) continue;
+    // A SCHEDULED anchor (broadcastType:'anchor') is radio-only: its recording
+    // plays IN the loop at startTime. The "curated" archive IS that recording —
+    // archiveId === postLiveArchiveId by contract; fall back to archiveId so the
+    // force-include + placement still resolve the right recording.
+    const isScheduledAnchor = d.broadcastType === 'anchor';
+    const postId = typeof d.postLiveArchiveId === 'string' ? d.postLiveArchiveId : null;
+    const archiveId = typeof d.archiveId === 'string' ? d.archiveId : null;
     rawSlots.push({
       startTimeMs: startMs,
       endTimeMs: endTs.toMillis(),
-      postLiveArchiveId: typeof d.postLiveArchiveId === 'string' ? d.postLiveArchiveId : null,
+      postLiveArchiveId: isScheduledAnchor ? (postId ?? archiveId) : postId,
+      isScheduledAnchor,
     });
   }
   return computeLiveBlocks(rawSlots);
@@ -993,17 +1032,22 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
       anchorArchiveIdx = 2 * preLen + 1;
     }
     if (anchorArchiveIdx > 0 && result.items[anchorArchiveIdx - 1].kind === 'interstitial') {
-      const anchorInterludeOffset = result.items[anchorArchiveIdx - 1].startOffsetSec;
-      // Warmup: the listener-side audio source switch (live → radio) takes a
-      // few seconds (Rule B's 2s debounce + audio element load + observed
-      // extra slack). Push the anchor interlude's audible start to
-      // anchor.endTimeMs + warmup so the listener lands at interlude offset 0
-      // after switching sources, hearing the full interlude before the
-      // normal 5s crossfade into the curated archive. History: 2s originally,
-      // bumped to 4s on 2026-06-04 after clipping reports (weed convo birds,
-      // bilaliwood handoff), tightened to 3s on 2026-06-11 per Cap.
-      const ANCHOR_WARMUP_MS = 3000;
-      startTimeMs = plan.anchor.endTimeMs + ANCHOR_WARMUP_MS - anchorInterludeOffset * 1000;
+      if (plan.anchor.isScheduledAnchor) {
+        // SCHEDULED anchor: the anchor RECORDING plays in the loop and must be
+        // audible at its slot startTime, with NO warmup (the radio is already
+        // playing — no live→radio source switch). Align the anchor ARCHIVE item's
+        // own audible offset to startTimeMs. (Same model as splice-loop-anchor.ts.)
+        const anchorArchiveOffset = result.items[anchorArchiveIdx].startOffsetSec;
+        startTimeMs = plan.anchor.startTimeMs - anchorArchiveOffset * 1000;
+      } else {
+        // POST-LIVE anchor (unchanged): the listener-side audio source switch
+        // (live → radio) takes a few seconds, so push the anchor interlude's
+        // audible start to anchor.endTimeMs + warmup so the listener lands at
+        // interlude offset 0 after switching sources, hearing the full interlude
+        // before the normal 5s crossfade into the curated archive.
+        const anchorInterludeOffset = result.items[anchorArchiveIdx - 1].startOffsetSec;
+        startTimeMs = plan.anchor.endTimeMs + ANCHOR_WARMUP_MS - anchorInterludeOffset * 1000;
+      }
     }
   }
   // Overlap with the previous loop is intentional and unbounded: useArchiveRadio picks
