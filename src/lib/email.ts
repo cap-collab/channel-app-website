@@ -1044,6 +1044,7 @@ interface WeeklyRecommendationsEmailParams {
   section2: WeeklyRecArchiveRow[]; // in your scene (max 2)
   comingUp: WeeklyRecComingUpRow[]; // everything this week
   isFallback?: boolean; // section1/2 came from the featured matrix
+  recipientUid?: string; // known recipient → CTA deep-links their own /scene
 }
 
 // Archive row → bundle-style row. Links to the homepage main player
@@ -1130,6 +1131,7 @@ export async function sendWeeklyRecommendationsEmail({
   section2,
   comingUp,
   isFallback,
+  recipientUid,
 }: WeeklyRecommendationsEmailParams): Promise<boolean> {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
@@ -1154,9 +1156,17 @@ export async function sendWeeklyRecommendationsEmail({
   const block2 = renderBlock("In your scene", rows2);
   const block3 = renderBlock("Coming up this week", rows3);
 
+  // We know who this recipient is, so deep-link their OWN /scene via a
+  // non-credential uid token (same base64 trust model as the unsubscribe /
+  // go-live-mute links above). The page renders their personalized scene
+  // read-only — no login, no session. Falls back to a bare /scene link if the
+  // uid is missing for any reason.
+  const ctaUrl = recipientUid
+    ? `https://channel-app.com/scene?u=${encodeURIComponent(Buffer.from(recipientUid).toString("base64url"))}`
+    : "https://channel-app.com/scene";
   const ctaHtml = `
     <div style="margin-top: 28px; text-align: center;">
-      <a href="https://channel-app.com/scene" style="${BUTTON_STYLE}">Explore the scene</a>
+      <a href="${ctaUrl}" style="${BUTTON_STYLE}">Explore the scene</a>
     </div>
   `;
 

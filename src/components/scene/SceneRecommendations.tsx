@@ -51,10 +51,14 @@ export function SceneRecommendations({
   onAuthRequired,
   editMode,
   onCanEditChange,
+  targetToken,
 }: {
   onAuthRequired: () => void;
   editMode: boolean; // owned by SceneClient (button lives in the search row)
   onCanEditChange: (canEdit: boolean) => void;
+  // Weekly-email deep-link token (?u=). When present, render THIS recipient's
+  // own scene read-only via the public by-uid endpoint — no login required.
+  targetToken?: string;
 }) {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const [sections, setSections] = useState<RecSection[]>([]);
@@ -72,12 +76,29 @@ export function SceneRecommendations({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (authLoading) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        if (isAuthenticated && user) {
+        // Apply a personalized payload (own /scene or email-deep-linked recipient).
+        const applyPersonalized = (data: MeResponse) => {
+          setSections(data.sections || []);
+          setStartHere(null);
+          setComingUp(data.comingUp || []);
+          setComingUpTitle(data.comingUpTitle || 'Coming up this week');
+          setDiveBackIn(data.diveBackIn || []);
+        };
+
+        if (targetToken) {
+          // Email deep-link: render the known recipient's scene read-only. No
+          // session needed, so this never waits on auth — fixes the in-app
+          // browser infinite-load.
+          const res = await fetch(`/api/recommendations/by-uid?u=${encodeURIComponent(targetToken)}`);
+          if (!res.ok) throw new Error('by-uid failed');
+          const data: MeResponse = await res.json();
+          if (cancelled) return;
+          applyPersonalized(data);
+        } else if (isAuthenticated && user) {
           const token = await user.getIdToken();
           const res = await fetch('/api/recommendations/me', {
             method: 'POST',
@@ -86,12 +107,12 @@ export function SceneRecommendations({
           if (!res.ok) throw new Error('me failed');
           const data: MeResponse = await res.json();
           if (cancelled) return;
-          setSections(data.sections || []);
-          setStartHere(null);
-          setComingUp(data.comingUp || []);
-          setComingUpTitle(data.comingUpTitle || 'Coming up this week');
-          setDiveBackIn(data.diveBackIn || []);
+          applyPersonalized(data);
         } else {
+          // Logged out OR auth not yet resolved → public featured scene. If auth
+          // later resolves to a real user, the effect re-runs (authLoading in
+          // deps) and upgrades to personalized; the cancelled guard prevents a
+          // stale featured response from clobbering it.
           const res = await fetch('/api/recommendations/featured');
           if (!res.ok) throw new Error('featured failed');
           const data: FeaturedResponse = await res.json();
@@ -115,7 +136,7 @@ export function SceneRecommendations({
     return () => {
       cancelled = true;
     };
-  }, [authLoading, isAuthenticated, user]);
+  }, [authLoading, isAuthenticated, user, targetToken]);
 
   // Removal in-flight set (editMode is owned by SceneClient; the toggle lives in
   // the search row so it aligns with the search bar).

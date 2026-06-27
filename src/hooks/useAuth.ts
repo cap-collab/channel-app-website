@@ -206,18 +206,32 @@ export function useAuth() {
       return;
     }
 
+    // Safety net: in some environments (email in-app browsers, private mode)
+    // Firebase persistence is blocked and onAuthStateChanged can NEVER fire,
+    // leaving `loading: true` forever — which deadlocks any UI gated on auth.
+    // After a short grace period, force-resolve as logged-out so the app always
+    // proceeds. The real callback (below) clears this and wins if it does fire.
+    const fallback = setTimeout(() => {
+      setState((prev) => (prev.loading ? { ...prev, loading: false } : prev));
+    }, 3500);
+
     const unsubscribe = onAuthStateChanged(
       auth,
       (user) => {
+        clearTimeout(fallback);
         setState((prev) => ({ ...prev, user, loading: false, error: null }));
       },
       (error) => {
+        clearTimeout(fallback);
         console.error("Auth state change error:", error);
         setState((prev) => ({ ...prev, user: null, loading: false, error: error.message }));
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(fallback);
+      unsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = useCallback(async (enableNotifications = false, djUsername?: string) => {

@@ -159,6 +159,7 @@ export async function GET(request: NextRequest) {
           section2: isFallback ? [] : section2,
           comingUp,
           isFallback,
+          recipientUid: userDoc.id, // CTA deep-links the recipient's own /scene
         });
 
         if (!ok) { failed++; continue; }

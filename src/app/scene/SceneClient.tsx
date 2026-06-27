@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { HeaderSearch } from '@/components/HeaderSearch';
 import { AuthModal } from '@/components/AuthModal';
@@ -8,6 +9,12 @@ import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { SceneRecommendations } from '@/components/scene/SceneRecommendations';
 
 export function SceneClient() {
+  // Weekly-email deep-link: ?u=<base64url uid> renders THAT recipient's own
+  // scene read-only (no login). The token is forwarded verbatim to the by-uid
+  // endpoint, which decodes + validates it server-side.
+  const searchParams = useSearchParams();
+  const targetToken = useMemo(() => searchParams?.get('u') || undefined, [searchParams]);
+
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
@@ -106,6 +113,7 @@ export function SceneClient() {
           onAuthRequired={() => setShowAuthModal(true)}
           editMode={editMode}
           onCanEditChange={setCanEdit}
+          targetToken={targetToken}
         />
       </main>
 
