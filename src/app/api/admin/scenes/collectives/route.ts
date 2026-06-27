@@ -33,7 +33,8 @@ export interface CollectiveForScenesAdmin {
   sceneIds: string[];
   // Owners = the collective's crew. Owning a collective makes IT the owner's
   // crew lead in the recommendation affiliation graph (see buildAffiliationGraph).
-  owners: CollectiveOwnerRef[];
+  // Optional so a partial/older payload can't break the render.
+  owners?: CollectiveOwnerRef[];
 }
 
 // GET - list all collectives with their scene assignments
@@ -59,19 +60,26 @@ export async function GET(request: NextRequest) {
       owners.forEach((uid) => allOwnerUids.add(uid));
     });
 
+    // Owner names are decorative (the Crew chips). Resolve them best-effort —
+    // never let a lookup failure take down the whole collectives list.
     const ownerNameByUid = new Map<string, string>();
-    const uidList = Array.from(allOwnerUids);
-    for (let i = 0; i < uidList.length; i += 300) {
-      const refs = uidList.slice(i, i + 300).map((uid) => db.collection('users').doc(uid));
-      const docs = await db.getAll(...refs);
-      for (const d of docs) {
-        if (!d.exists) continue;
-        const u = d.data() || {};
-        ownerNameByUid.set(
-          d.id,
-          (u.chatUsername as string) || (u.name as string) || (u.displayName as string) || d.id,
-        );
+    try {
+      const uidList = Array.from(allOwnerUids);
+      for (let i = 0; i < uidList.length; i += 300) {
+        const refs = uidList.slice(i, i + 300).map((uid) => db.collection('users').doc(uid));
+        if (refs.length === 0) continue;
+        const docs = await db.getAll(...refs);
+        for (const d of docs) {
+          if (!d.exists) continue;
+          const u = d.data() || {};
+          ownerNameByUid.set(
+            d.id,
+            (u.chatUsername as string) || (u.name as string) || (u.displayName as string) || d.id,
+          );
+        }
       }
+    } catch (err) {
+      console.error('[scenes/collectives GET] owner resolution failed', err);
     }
 
     const collectives: CollectiveForScenesAdmin[] = [];

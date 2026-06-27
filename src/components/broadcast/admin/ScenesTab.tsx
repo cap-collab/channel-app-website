@@ -896,10 +896,10 @@ function CollectiveRow({
         {/* Crew = the collective's owners. Owning a collective makes IT the crew
             lead in recommendations (engaging an owner surfaces the collective's
             content and vice-versa). Read-only here; managed via collective owners. */}
-        {collective.owners.length > 0 && (
+        {(collective.owners?.length ?? 0) > 0 && (
           <div className="mt-1 flex items-center gap-1 flex-wrap">
             <span className="text-[10px] text-gray-600 uppercase tracking-[0.15em] mr-0.5">Crew</span>
-            {collective.owners.map((o) => (
+            {collective.owners?.map((o) => (
               <span
                 key={o.userId}
                 className="inline-flex items-center bg-gray-800 text-gray-200 text-[10px] rounded border border-gray-700 px-1.5 py-0.5"
