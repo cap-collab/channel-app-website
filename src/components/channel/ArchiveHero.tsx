@@ -698,12 +698,19 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // tap plays it. Fires once per visit; unknown slugs are ignored (falls back
   // to the normal homepage). Placed after heroIndex so it can snap the slide.
   const archiveDeepLinkConsumedRef = useRef(false);
+  // Slug currently being resolved via the by-slug fallback. The homepage
+  // `archives` list loads/updates asynchronously, so this effect re-runs while
+  // a fetch is in flight; this ref dedups the fetch WITHOUT marking the
+  // deep-link consumed before we've actually applied it. (Previously the
+  // consumed-ref was set up-front, so an `archives` update mid-fetch cancelled
+  // the in-flight fetch yet left the deep-link permanently "consumed" — a
+  // not-in-list archive like a medium-priority show never opened.)
+  const archiveDeepLinkFetchingRef = useRef<string | null>(null);
   useEffect(() => {
     if (archiveDeepLinkConsumedRef.current) return;
     const slug = searchParams?.get('archive');
     if (!slug) return;
     if (!archives || archives.length === 0) return; // wait for archives to load
-    archiveDeepLinkConsumedRef.current = true;
 
     const stripParam = () => {
       const params = new URLSearchParams(Array.from(searchParams.entries()));
@@ -713,35 +720,47 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     };
 
     const start = (target: ArchiveSerialized) => {
+      archiveDeepLinkConsumedRef.current = true; // applied — now it's consumed
       setUserSelectedMode('archive');
       setHeroIndex(1); // archive slide
       playArchive(target);
+      stripParam();
     };
 
-    // The homepage `archives` list is capped (top 100), so a deep-linked
-    // medium/older archive often isn't in it. Try the loaded list first, then
-    // fall back to fetching the single archive by slug so ANY archive opens.
+    // The homepage `archives` list is capped, so a deep-linked medium/older
+    // archive often isn't in it. Try the loaded list first, then fall back to
+    // fetching the single archive by slug so ANY archive opens.
     const inList = archives.find((a) => a.slug === slug);
     if (inList) {
       start(inList);
-      stripParam();
       return;
     }
-    let cancelled = false;
+    // Not in the list → resolve by slug. Dedup concurrent/re-render launches by
+    // slug; do NOT abort on cleanup, since an `archives` update re-running this
+    // effect must not drop the in-flight fetch (the cause of the original bug).
+    if (archiveDeepLinkFetchingRef.current === slug) return;
+    archiveDeepLinkFetchingRef.current = slug;
     (async () => {
       try {
         const res = await fetch(`/api/archives/${encodeURIComponent(slug)}`);
         if (res.ok) {
           const data = await res.json();
-          if (!cancelled && data?.archive) start(data.archive as ArchiveSerialized);
+          // Guard against a stale fetch if the slug changed meanwhile.
+          if (!archiveDeepLinkConsumedRef.current && data?.archive
+              && archiveDeepLinkFetchingRef.current === slug) {
+            start(data.archive as ArchiveSerialized);
+          }
+        } else {
+          stripParam(); // unknown slug → clean the URL, fall back to homepage
         }
       } catch {
         // ignore — fall back to the normal homepage
       } finally {
-        if (!cancelled) stripParam();
+        if (archiveDeepLinkFetchingRef.current === slug) {
+          archiveDeepLinkFetchingRef.current = null;
+        }
       }
     })();
-    return () => { cancelled = true; };
   }, [searchParams, archives, playArchive, router, pathname]);
 
   // When the filter pool shifts (user toggles a chip), clamp heroIndex so we
