@@ -84,10 +84,9 @@ export function applyRules(
     const candidates = bySection.get(sectionId)!;
 
     // 3. Sort. Discovery: PRIORITY BAND first (Featured/High before Medium/Low),
-    //    THEN strict tiers (1→4), THEN score desc, then id. So Featured/High
-    //    archives always lead the section across all tiers, and Medium only
-    //    appears as a second round once Featured/High are exhausted — while still
-    //    respecting tier order within each band. Other sections: score desc.
+    //    THEN strict tiers (1→4), THEN within each tier a FEATURED archive beats
+    //    a HIGH one (priorityRank asc), THEN score desc, then id. Everything else
+    //    is unchanged — featured just edges out high at the same tier/score.
     if (sectionId === "discovery") {
       // Band 0 = Featured/High (or editorially boosted — an admin boost should
       // still be able to lift a Medium); band 1 = everything else.
@@ -100,6 +99,10 @@ export function applyRules(
         const ta = a.discoveryTier ?? 99;
         const tb = b.discoveryTier ?? 99;
         if (ta !== tb) return ta - tb;
+        // Within a tier: featured beats high (and high beats medium, etc).
+        const pa = priorityRank(a.item.priority);
+        const pb = priorityRank(b.item.priority);
+        if (pa !== pb) return pa - pb;
         if (b.score !== a.score) return b.score - a.score;
         return a.item.id < b.item.id ? -1 : 1;
       });
