@@ -812,18 +812,24 @@ function ArchiveCard({
             /* Edit mode */
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  value={showNameInput}
-                  onChange={(e) => setShowNameInput(e.target.value)}
-                  placeholder="Show name"
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
-                />
-                <input
-                  value={slugInput}
-                  onChange={(e) => setSlugInput(e.target.value)}
-                  placeholder="Slug"
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
-                />
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Show name (title)</label>
+                  <input
+                    value={showNameInput}
+                    onChange={(e) => setShowNameInput(e.target.value)}
+                    placeholder="Show name"
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Slug (URL: /archives/…)</label>
+                  <input
+                    value={slugInput}
+                    onChange={(e) => setSlugInput(e.target.value)}
+                    placeholder="Slug"
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                  />
+                </div>
               </div>
               {/* Owner (djs[0]) — pick a DJ user or a collective to set the
                   primary credit. Drives the credit line, hero, scenes, SEO,
@@ -842,35 +848,51 @@ function ArchiveCard({
                   ))}
                 </select>
               </div>
+              {/* DJ name / username — the credit text + profile link shown on
+                  this archive. The Owner dropdown above fills these for you;
+                  hand-edit only for pending/manual DJs not in the picker. */}
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  value={djNameInput}
-                  onChange={(e) => setDjNameInput(e.target.value)}
-                  placeholder="DJ name"
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
-                />
-                <input
-                  value={djUsernameInput}
-                  onChange={(e) => setDjUsernameInput(e.target.value)}
-                  placeholder="DJ username (profile link)"
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
-                />
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">DJ name (credit text)</label>
+                  <input
+                    value={djNameInput}
+                    onChange={(e) => setDjNameInput(e.target.value)}
+                    placeholder="DJ name"
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">DJ username (profile link)</label>
+                  <input
+                    value={djUsernameInput}
+                    onChange={(e) => setDjUsernameInput(e.target.value)}
+                    placeholder="DJ username (profile link)"
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  value={genreInput}
-                  onChange={(e) => setGenreInput(e.target.value)}
-                  placeholder="Genres (comma-separated)"
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
-                />
-                <input
-                  value={locationInput}
-                  onChange={(e) => setLocationInput(e.target.value)}
-                  placeholder="City / Location"
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
-                />
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Genres</label>
+                  <input
+                    value={genreInput}
+                    onChange={(e) => setGenreInput(e.target.value)}
+                    placeholder="Genres (comma-separated)"
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">City / Location</label>
+                  <input
+                    value={locationInput}
+                    onChange={(e) => setLocationInput(e.target.value)}
+                    placeholder="City / Location"
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
+                  />
+                </div>
               </div>
               <div>
+                <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Venue attribution</label>
                 <select
                   value={venueIdInput}
                   onChange={(e) => setVenueIdInput(e.target.value)}
