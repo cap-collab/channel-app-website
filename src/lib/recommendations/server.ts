@@ -40,7 +40,7 @@ import type {
   TasteSummary,
 } from "./types";
 import { DEFAULT_RECOMMENDATION_CONFIG, mergeConfig } from "./config";
-import { normalizeArchive, normalizeUser, type AffiliationLookup } from "./normalize";
+import { normalizeArchive, normalizeUser, buildDjSceneMap, type AffiliationLookup } from "./normalize";
 import { generateRecommendations } from "./engine";
 import { buildSnapshot, snapshotDocId } from "./snapshot";
 
@@ -137,6 +137,12 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
     db.collection("collectives").get(),
   ]);
   const djUsers: DjUserDoc[] = djSnap.docs.map((d) => ({ id: d.id, data: d.data() }));
+  // DJ profile scenes (normalized username → profile sceneIds). Used as the
+  // fallback when resolving an upcoming slot's effective scene: a DJ may have a
+  // scene set on their PROFILE but no scene-tagged archives, in which case
+  // scenesByDj (archive-derived) is empty and the slot would never surface in a
+  // user's top scene. Mirrors resolveArchiveScenes' DJ-inheritance.
+  const djProfileSceneMap = buildDjSceneMap(djUsers.map((d) => ({ data: d.data })));
   const collectives: CollectiveForGraph[] = collectiveSnap.docs.map((d) => {
     const data = d.data();
     return {
@@ -227,13 +233,18 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
     });
     upcomingStartMsByShowId.set(showId, startMs);
     upcomingDjNameByShowId.set(showId, data.djName as string | undefined);
-    // Effective scenes: slot override, else the DJ's archive scenes.
+    // Effective scenes: slot override, else the DJ's archive scenes, else the
+    // DJ's PROFILE scenes (a DJ may be scene-tagged on their profile but have no
+    // scene-tagged archives — without this fallback their slot never surfaces in
+    // a user's top scene).
     const override = data.sceneIdsOverride;
     let scenes: string[] = [];
     if (Array.isArray(override)) {
       scenes = override.filter((s): s is string => typeof s === "string");
     } else if (djUsername) {
-      scenes = Array.from(scenesByDj.get(normalizeForLookup(djUsername)) ?? []);
+      const norm = normalizeForLookup(djUsername);
+      const fromArchives = Array.from(scenesByDj.get(norm) ?? []);
+      scenes = fromArchives.length > 0 ? fromArchives : djProfileSceneMap.get(norm) ?? [];
     }
     upcomingScenesByShowId.set(showId, scenes);
   }

@@ -22,6 +22,12 @@ type UserRow = { uid: string; email: string; displayName: string; chatUsername?:
 // Picker label: chatUsername → displayName → email.
 const userLabel = (u: UserRow) => u.label || u.chatUsername || u.displayName || u.email;
 
+// base64url(uid) — matches the weekly email's /scene?u= deep-link token. Browser
+// btoa + URL-safe substitutions (no Node Buffer in client code).
+function sceneTokenForUid(uid: string): string {
+  return btoa(uid).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 // Mirror of the /scene payload (subset we render in the preview).
 type SceneArchive = { id: string; showName: string; djs?: { name: string }[] };
 type SceneSection = { id: string; title: string; archives: SceneArchive[] };
@@ -206,6 +212,19 @@ export function RecommendationsTab() {
         >
           Force regenerate & save
         </button>
+        {selectedUid && (
+          // Same deep-link the weekly "Explore the scene" email uses:
+          // /scene?u=base64url(uid) — renders this user's personalized /scene.
+          <a
+            href={`https://channel-app.com/scene?u=${sceneTokenForUid(selectedUid)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 rounded-lg font-medium border border-gray-600 text-gray-200 hover:bg-gray-800"
+            title="Open this user's personalized /scene (same link as their weekly email)"
+          >
+            Open /scene ↗
+          </a>
+        )}
       </div>
 
       {error && <div className="mb-4 text-red-400 text-sm">{error}</div>}
