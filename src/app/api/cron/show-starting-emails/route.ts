@@ -1267,6 +1267,10 @@ export async function GET(request: NextRequest) {
         if (startMs > endOfWeekMsForTick) { reject("after-week"); continue; }
         if (show.showId === primary.showId) { reject("is-primary"); continue; }
         if (lastShowStartingEmailAt[show.showId]) { reject("already-stamped"); continue; }
+        // Skip placeholder/no-DJ slots (e.g. "busy", "Joo Joo", "Nate") — a
+        // schedule row with no djUsername AND no djName has no artist to show,
+        // so it shouldn't appear in the "coming up this week" list.
+        if (!show.djUsername?.trim() && !show.dj?.trim()) { reject("no-dj"); continue; }
         // Lighter gate than the primary's failsUniversalGates: a schedule row
         // is identified by its showName/showImageUrl, so it does NOT require a
         // resolved djUserId (restreams/anchors often lack one until they go

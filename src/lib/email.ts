@@ -417,7 +417,10 @@ export async function sendShowStartingEmail({
   // channel" (or "airing" for a restream). The bundle below is the week's full
   // schedule, not a crew who are also live right now, so it must NOT inflate
   // the subject with a week of names.
-  const primarySubjectName = (djUsername || djName) ? djDisplayName : displayName;
+  // Prefer the human-readable djName ("etc radio") over the normalized
+  // djUsername slug ("etcradio") in the subject; fall back to the slug, then
+  // the show name.
+  const primarySubjectName = djName || djUsername || displayName;
   const stationSuffix = isChannelRadio ? "channel" : stationName;
   const subject = isRestream
     ? `${primarySubjectName} airing on ${stationSuffix}`
@@ -445,11 +448,15 @@ export async function sendShowStartingEmail({
   // adds this DJ to the user's goLiveMutes so they stop receiving go-live
   // notifications for this DJ regardless of how they got matched
   // (watchlist, favorite, affiliated, engagement).
+  // The mute URL keys on the normalized djUsername slug (the backend mute
+  // target — keep it), but the user-facing label must read the human name
+  // ("etc radio"), not the slug ("etcradio"). Same display preference as the
+  // subject: djName → djUsername → showName.
   const muteUrl = recipientUserId && djUsername
     ? getGoLiveMuteUrl(recipientUserId, djUsername)
     : undefined;
   const muteOverride = muteUrl
-    ? { url: muteUrl, label: `Unsubscribe from ${djDisplayName}` }
+    ? { url: muteUrl, label: `Unsubscribe from ${primarySubjectName}` }
     : undefined;
 
   // No caption above the hero card — the match reason lives ONLY in the footer
