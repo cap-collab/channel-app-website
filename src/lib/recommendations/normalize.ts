@@ -193,20 +193,23 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
   // separately (selfScenes/selfTempos) so the scorer can boost matching picks,
   // AND merged into the scene/tempo counts so they (a) show in the admin taste
   // summary and (b) feed the affinity ranking just like streamed archives do.
-  // Each distinct own archive contributes +1 per its scene/tempo (same weight as
-  // a streamed archive). Merged silently — indistinguishable from streamed taste.
+  // Each distinct own archive counts DOUBLE (+2 per scene/tempo vs. a streamed
+  // archive's +1) — a DJ's own catalog is the strongest taste signal, regardless
+  // of whether the archive was a live recording or a pre-recording (own = own).
+  // Merged silently — indistinguishable from streamed taste in the counts.
+  const SELF_WEIGHT = 2;
   const selfScenes = new Set<string>();
   const selfTempos = new Set<Tempo>();
   for (const own of args.ownArchives ?? []) {
     for (const s of own.sceneSlugs) {
       selfScenes.add(s);
       engagedScenes.add(s);
-      sceneCount.set(s, (sceneCount.get(s) ?? 0) + 1);
+      sceneCount.set(s, (sceneCount.get(s) ?? 0) + SELF_WEIGHT);
     }
     if (own.tempo) {
       selfTempos.add(own.tempo);
       engagedTempos.add(own.tempo);
-      tempoCount.set(own.tempo, (tempoCount.get(own.tempo) ?? 0) + 1);
+      tempoCount.set(own.tempo, (tempoCount.get(own.tempo) ?? 0) + SELF_WEIGHT);
     }
   }
 

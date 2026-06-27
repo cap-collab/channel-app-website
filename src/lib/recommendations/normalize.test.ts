@@ -95,9 +95,10 @@ describe("normalizeUser — taste profile from engagement", () => {
     expect(u.engagedScenes.has("star")).toBe(true);
     expect(u.engagedTempos.has("uptempo")).toBe(true);
     // AND merged into the taste counts (so they show in the admin tab + feed
-    // affinity ranking) — even with zero stream history.
-    expect(u.tasteSummary.sceneCounts).toContainEqual({ scene: "star", count: 1 });
-    expect(u.tasteSummary.tempoCounts).toContainEqual({ tempo: "uptempo", count: 1 });
+    // affinity ranking) — even with zero stream history. Own archives count
+    // DOUBLE (+2), so one own archive → count 2.
+    expect(u.tasteSummary.sceneCounts).toContainEqual({ scene: "star", count: 2 });
+    expect(u.tasteSummary.tempoCounts).toContainEqual({ tempo: "uptempo", count: 2 });
   });
 
   it("brand-new user has empty taste", () => {
