@@ -21,7 +21,6 @@ import {
   buildAffiliationGraph,
   buildAffiliatedRecipients,
   buildRelatedUsernames,
-  collectiveLeadKey,
   matchUserToShow,
   failsUniversalGates,
   type AffiliationGraph,
