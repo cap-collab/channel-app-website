@@ -27,3 +27,20 @@ export function captureEvent(event: string, properties?: Record<string, unknown>
   if (!initialized) initPostHog();
   posthog.capture(event, properties);
 }
+
+/**
+ * Tie the anonymous device session to a real user account so PostHog persons
+ * carry an email / chat username instead of just a random distinct_id.
+ * Safe to call repeatedly — PostHog dedupes once the distinct_id is set.
+ */
+export function identifyUser(
+  uid: string,
+  properties?: { email?: string | null; chatUsername?: string | null },
+) {
+  if (typeof window === 'undefined' || !uid) return;
+  if (!initialized) initPostHog();
+  const props: Record<string, unknown> = {};
+  if (properties?.email) props.email = properties.email;
+  if (properties?.chatUsername) props.chatUsername = properties.chatUsername;
+  posthog.identify(uid, props);
+}

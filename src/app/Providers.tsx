@@ -10,8 +10,26 @@ import { ArchivePlayerProvider } from "@/contexts/ArchivePlayerContext";
 import { ArchiveRadioProvider } from "@/contexts/ArchiveRadioContext";
 import { FilterProvider } from "@/contexts/FilterContext";
 import { HeartNudgeProvider } from "@/contexts/HeartNudgeContext";
-import { initPostHog } from "@/lib/posthog";
+import { initPostHog, identifyUser } from "@/lib/posthog";
 import { useChunkErrorReload } from "@/hooks/useChunkErrorReload";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { useUserProfile } from "@/hooks/useUserProfile";
+
+// Ties the anonymous PostHog session to the logged-in user (email + chat
+// username) so listener analytics can be attributed to real accounts. Lives
+// inside AuthProvider so it can read auth context.
+function PostHogIdentify() {
+  const { user } = useAuthContext();
+  const { chatUsername } = useUserProfile(user?.uid);
+
+  useEffect(() => {
+    if (user?.uid) {
+      identifyUser(user.uid, { email: user.email, chatUsername });
+    }
+  }, [user, chatUsername]);
+
+  return null;
+}
 
 export function Providers({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -33,6 +51,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <AuthProvider>
+      <PostHogIdentify />
       <BPMProvider>
         <ScheduleProvider>
           <BroadcastStreamProvider>
