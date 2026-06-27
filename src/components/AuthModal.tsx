@@ -152,6 +152,7 @@ export function AuthModal({
     onSignInStart?.();
     const user = await signInWithGoogle(enableNotifications);
     if (user) {
+      captureEvent('email_submitted', { source: 'auth_modal', method: 'google' });
       trackLeadConversion();
       if (includeDjTerms) {
         try {
@@ -183,6 +184,7 @@ export function AuthModal({
     onSignInStart?.();
     const user = await signInWithApple(enableNotifications);
     if (user) {
+      captureEvent('email_submitted', { source: 'auth_modal', method: 'apple' });
       trackLeadConversion();
       if (includeDjTerms) {
         try {
@@ -208,7 +210,7 @@ export function AuthModal({
 
   const handleEmailContinue = async () => {
     if (!email.trim()) return;
-    captureEvent('email_submitted', { source: 'auth_modal' });
+    captureEvent('email_submitted', { source: 'auth_modal', method: 'email' });
     // Note: fetchSignInMethodsForEmail returns [] when email enumeration protection
     // is enabled (Firebase default), so we can't reliably detect existing users.
     // Instead, always go to methodChoice and handle both cases in handlePasswordSubmit.

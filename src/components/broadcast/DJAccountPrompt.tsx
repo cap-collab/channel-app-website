@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { captureEvent } from '@/lib/posthog';
 
 interface DJAccountPromptProps {
   onComplete: (isLoggedIn: boolean) => void;
@@ -17,6 +18,7 @@ export function DJAccountPrompt({ onComplete, onSkip }: DJAccountPromptProps) {
     try {
       const user = await signInWithGoogle(false);
       if (user) {
+        captureEvent('email_submitted', { source: 'dj_account_prompt', method: 'google' });
         onComplete(true);
       }
     } finally {
@@ -29,6 +31,7 @@ export function DJAccountPrompt({ onComplete, onSkip }: DJAccountPromptProps) {
     try {
       const user = await signInWithApple(false);
       if (user) {
+        captureEvent('email_submitted', { source: 'dj_account_prompt', method: 'apple' });
         onComplete(true);
       }
     } finally {

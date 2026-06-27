@@ -6,6 +6,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchiveRadio } from '@/hooks/useArchiveRadio';
 import { pauseSource } from '@/lib/audio-exclusive';
+import { captureEvent } from '@/lib/posthog';
 import { db } from '@/lib/firebase';
 import { hasActiveOrImminentBroadcastSlot } from '@/hooks/useBroadcastLiveStatus';
 import { collection } from 'firebase/firestore';
@@ -205,6 +206,26 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
       radioPauseRef.current();
     }
   }, [broadcast.isPlaying]);
+
+  // Analytics: one play per radio start. Track radio.isPlaying edges so we
+  // count every way the loop starts/stops (the play() button, the live→radio
+  // handoff, auto-resume), mirroring how live/archive report their own
+  // isPlaying. session_duration is seconds the loop was playing.
+  const radioStartedAtRef = useRef<number | null>(null);
+  const prevRadioPlayingRef = useRef(false);
+  useEffect(() => {
+    const wasPlaying = prevRadioPlayingRef.current;
+    prevRadioPlayingRef.current = radio.isPlaying;
+    if (!wasPlaying && radio.isPlaying) {
+      radioStartedAtRef.current = Date.now();
+      captureEvent('playback_started', { type: 'radio' });
+    } else if (wasPlaying && !radio.isPlaying) {
+      const startedAt = radioStartedAtRef.current;
+      const sessionDuration = startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0;
+      radioStartedAtRef.current = null;
+      captureEvent('playback_ended', { type: 'radio', session_duration: sessionDuration });
+    }
+  }, [radio.isPlaying]);
 
   const play = useCallback(async () => {
     if (archivePlayer.isPlaying) archivePlayer.pause();
