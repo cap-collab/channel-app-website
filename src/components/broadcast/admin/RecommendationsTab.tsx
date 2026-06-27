@@ -17,7 +17,10 @@ import type {
 // output before emails send. Preview is always LIVE (no persist, ignores the
 // 48h floor). "Force regenerate" persists a fresh snapshot, bypassing the floor.
 
-type UserRow = { uid: string; email: string; displayName: string };
+type UserRow = { uid: string; email: string; displayName: string; chatUsername?: string; label?: string };
+
+// Picker label: chatUsername → displayName → email.
+const userLabel = (u: UserRow) => u.label || u.chatUsername || u.displayName || u.email;
 
 // Mirror of the /scene payload (subset we render in the preview).
 type SceneArchive = { id: string; showName: string; djs?: { name: string }[] };
@@ -89,6 +92,10 @@ export function RecommendationsTab() {
       if (!selectedUid) return;
       setLoading(true);
       setError(null);
+      // Hard timeout so a hung/slow request can never leave the button stuck on
+      // "Generating…" (disabled forever). Aborts after 65s (route maxDuration=60).
+      const ctrl = new AbortController();
+      const timer = window.setTimeout(() => ctrl.abort(), 65_000);
       try {
         const token = await getAuthToken();
         if (!token) throw new Error('Not authenticated');
@@ -96,6 +103,7 @@ export function RecommendationsTab() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ uid: selectedUid, context, force }),
+          signal: ctrl.signal,
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -106,11 +114,18 @@ export function RecommendationsTab() {
         setDropped(data.dropped || []);
         setScene(data.scene || null);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Preview failed');
+        const msg =
+          e instanceof DOMException && e.name === 'AbortError'
+            ? 'Preview timed out (request took too long). Try again.'
+            : e instanceof Error
+              ? e.message
+              : 'Preview failed';
+        setError(msg);
         setSnapshot(null);
         setDropped([]);
         setScene(null);
       } finally {
+        window.clearTimeout(timer);
         setLoading(false);
       }
     },
@@ -127,11 +142,14 @@ export function RecommendationsTab() {
   };
 
   const filtered = filter
-    ? users.filter(
-        (u) =>
-          u.email.toLowerCase().includes(filter.toLowerCase()) ||
-          u.displayName.toLowerCase().includes(filter.toLowerCase()),
-      )
+    ? users.filter((u) => {
+        const q = filter.toLowerCase();
+        return (
+          u.email.toLowerCase().includes(q) ||
+          u.displayName.toLowerCase().includes(q) ||
+          (u.chatUsername ?? '').toLowerCase().includes(q)
+        );
+      })
     : users;
 
   return (
@@ -155,8 +173,7 @@ export function RecommendationsTab() {
             <option value="">Select a user…</option>
             {filtered.slice(0, 200).map((u) => (
               <option key={u.uid} value={u.uid}>
-                {u.email}
-                {u.displayName ? ` (${u.displayName})` : ''}
+                {userLabel(u)}
               </option>
             ))}
           </select>

@@ -35,14 +35,15 @@ export async function GET(request: NextRequest) {
   const users = snap.docs
     .map((d) => {
       const data = d.data();
-      return {
-        uid: d.id,
-        email: (data.email as string) || "",
-        displayName: (data.displayName as string) || (data.chatUsername as string) || "",
-      };
+      const chatUsername = (data.chatUsername as string) || "";
+      const displayName = (data.displayName as string) || "";
+      const email = (data.email as string) || "";
+      // Label shown in the picker: chatUsername → displayName → email.
+      const label = chatUsername || displayName || email;
+      return { uid: d.id, email, displayName, chatUsername, label };
     })
     .filter((u) => u.email)
-    .sort((a, b) => a.email.localeCompare(b.email));
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   return NextResponse.json({ users });
 }
