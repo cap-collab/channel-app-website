@@ -61,7 +61,10 @@ export const DEFAULT_RECOMMENDATION_CONFIG: RecommendationConfig = {
     suppressArchiveIds: [],
     featureArchiveIds: [],
   },
-  minRegenIntervalMs: 48 * 60 * 60 * 1000, // 48h global freshness floor
+  minRegenIntervalMs: 24 * 60 * 60 * 1000, // 24h freshness floor: /scene serves
+  // the stored snapshot and only lazily regenerates a user whose snapshot is
+  // older than this when they return. The email cron persists a fresh snapshot
+  // for everyone on each run (the bulk refresh).
 };
 
 // Deep object literal check (not arrays, not null).

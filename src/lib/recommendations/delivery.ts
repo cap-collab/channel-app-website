@@ -13,7 +13,7 @@
  */
 
 import type { Firestore } from "firebase-admin/firestore";
-import { readSnapshot, generateForUser } from "./server";
+import { readSnapshot, generateForUser, loadConfig } from "./server";
 import type { RecommendationSnapshot } from "./types";
 
 /**
@@ -29,11 +29,12 @@ export async function getWeeklyEmailSnapshot(
 }
 
 /**
- * Website module: read the website snapshot, generating-and-caching lazily on
- * first visit when absent or stale (the 48h floor inside generateForUser means
- * a fresh snapshot is reused, not regenerated). This is the ONLY delivery path
- * allowed to generate, and only because website snapshots aren't pre-built for
- * everyone (dormant users never trigger it).
+ * Website module: read the website snapshot, regenerating lazily when ABSENT or
+ * STALE (older than the 48h freshness floor). Regenerating on staleness is what
+ * lets newly-created archives + fresh engagement reach a returning user's /scene
+ * — without it, a user's first snapshot is frozen forever (no cron pre-builds
+ * website snapshots). The 48h floor caps regeneration to at most once per 2 days
+ * per user, so this never thrashes.
  */
 export async function getOrGenerateWebsiteSnapshot(
   db: Firestore,
@@ -41,10 +42,17 @@ export async function getOrGenerateWebsiteSnapshot(
 ): Promise<RecommendationSnapshot | null> {
   const existing = await readSnapshot(db, uid, "website");
   if (existing) {
-    // generateForUser's 48h floor will no-op if this is still fresh; calling it
-    // unconditionally would add a read+write, so prefer the cached doc and let
-    // a future background refresh handle staleness. For v1 we simply return it.
-    return existing;
+    const cfg = await loadConfig(db);
+    const ageMs = Date.now() - existing.generatedAtMs;
+    if (ageMs < cfg.minRegenIntervalMs) return existing; // still fresh
+    // Stale → regenerate (generateForUser re-checks the floor before writing).
+    const outcome = await generateForUser(db, uid, "website", {
+      persist: true,
+      generatedBy: "website-lazy",
+    });
+    // On a benign race (another request regenerated first), generateForUser
+    // returns the fresh snapshot via its floor check; fall back to existing.
+    return outcome.snapshot ?? existing;
   }
   const outcome = await generateForUser(db, uid, "website", {
     persist: true,

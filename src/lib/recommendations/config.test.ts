@@ -55,7 +55,7 @@ describe("mergeConfig", () => {
     );
   });
 
-  it("has a 48h default freshness floor", () => {
-    expect(DEFAULT_RECOMMENDATION_CONFIG.minRegenIntervalMs).toBe(48 * 60 * 60 * 1000);
+  it("has a 24h default freshness floor", () => {
+    expect(DEFAULT_RECOMMENDATION_CONFIG.minRegenIntervalMs).toBe(24 * 60 * 60 * 1000);
   });
 });

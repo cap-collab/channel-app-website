@@ -3,6 +3,7 @@ import { getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import type { ArchiveSerialized } from "@/types/broadcast";
 import { buildScenePayload } from "@/lib/recommendations/scene-payload";
+import { generateForUser, loadSharedData, loadConfig } from "@/lib/recommendations/server";
 import { buildFeaturedMatrix } from "@/lib/recommendations/featured-matrix";
 import {
   sendWeeklyRecommendationsEmail,
@@ -86,6 +87,14 @@ export async function GET(request: NextRequest) {
     const featured = buildFeaturedMatrix(allArchives, { excludeTempos: ["very_fast"] });
     const featuredRows = featured.map((a) => archiveToRow(a));
 
+    // Load the shared catalog ONCE for the whole run, so per-user snapshot
+    // generation reuses it instead of re-scanning archives/DJs/collectives/slots
+    // for every user. Generation respects the 24h floor (skips users with a
+    // fresh snapshot — e.g. one made by a recent /scene visit). Skipped in
+    // dry-run so it stays a pure read.
+    const sharedData = dryRun ? null : await loadSharedData(db, nowMs);
+    const recConfig = dryRun ? null : await loadConfig(db);
+
     const usersSnap = await db.collection("users").get();
 
     let emailsSent = 0;
@@ -108,7 +117,24 @@ export async function GET(request: NextRequest) {
       if (previewTo && email.toLowerCase() !== previewTo) continue;
 
       try {
-        const payload = await buildScenePayload(db, userDoc.id);
+        // "About to email this user" = a generate-and-store event: refresh their
+        // stored snapshot if it's older than the 24h floor (reusing the shared
+        // catalog), else reuse the existing one. Then render the email from it —
+        // so the same fresh snapshot serves both the email and their next /scene
+        // visit. In dry-run we skip generation and just read (pure).
+        let prebuilt;
+        if (!dryRun && sharedData && recConfig) {
+          const outcome = await generateForUser(
+            db,
+            userDoc.id,
+            "website",
+            { persist: true, generatedBy: "cron" },
+            sharedData,
+            recConfig,
+          );
+          prebuilt = outcome.snapshot;
+        }
+        const payload = await buildScenePayload(db, userDoc.id, prebuilt);
 
         const seen = (data.lastWeeklyRecShows as Record<string, string> | undefined) || {};
         const pickSection = (id: string): WeeklyRecArchiveRow[] => {
