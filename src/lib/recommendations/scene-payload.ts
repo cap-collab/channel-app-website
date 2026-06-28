@@ -38,7 +38,7 @@ export interface ScenePayload {
 }
 
 const SECTION_TITLE: Record<string, string> = {
-  "favorite-artists": "New Favorites",
+  "favorite-artists": "Your favorites",
   discovery: "In Your Scene",
 };
 
