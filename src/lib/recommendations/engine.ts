@@ -67,10 +67,19 @@ export function generateRecommendations(
   // is. Only discovery fallback-fills (cold-start discovery from featured).
   const fallbackSections = new Set<SectionId>(["discovery"]);
 
+  // Engaged scene/tempo counts → let rules balance discovery across scenes (or
+  // tempos) the user likes equally (e.g. spiral=1,star=1 → alternate, not clump).
+  const engagedSceneCounts: Record<string, number> = {};
+  for (const { scene, count } of user.tasteSummary.sceneCounts) engagedSceneCounts[scene] = count;
+  const engagedTempoCounts: Record<string, number> = {};
+  for (const { tempo, count } of user.tasteSummary.tempoCounts) engagedTempoCounts[tempo] = count;
+
   const { sections, dropped } = applyRules(scored, config, ctx.context, {
     goLiveMutes: user.goLiveMutes,
     ownDjUsername: user.ownDjUsername,
     excludedDjUsernames: user.excludedDjUsernames,
+    engagedSceneCounts,
+    engagedTempoCounts,
     fallbackSections,
   });
 

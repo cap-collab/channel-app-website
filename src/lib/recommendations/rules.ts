@@ -40,6 +40,11 @@ export function applyRules(
     ownDjUsername?: string;
     // Usernames whose archives are excluded everywhere (own + owned collectives).
     excludedDjUsernames?: Set<string>;
+    // normalized scene/tempo → engagement count, to balance discovery across
+    // scenes/tempos the user likes equally (tied → tier-1 picks alternate
+    // one-of-each).
+    engagedSceneCounts?: Record<string, number>;
+    engagedTempoCounts?: Record<string, number>;
     // Sections that may be fallback-filled when short. favorite-artists is
     // only included when the user actually has favorites/engagement — a user
     // with no taste gets an EMPTY favorite-artists section, not padding.
@@ -108,6 +113,18 @@ export function applyRules(
         if (b.score !== a.score) return b.score - a.score;
         return a.item.id < b.item.id ? -1 : 1;
       });
+      // When the user engaged multiple scenes (or tempos) EQUALLY, alternate the
+      // tier-1 picks across those tied keys instead of clumping (catalog skew
+      // would otherwise over-represent one). Scene pass first, then tempo, so a
+      // tie in either dimension gets one-from-each. Only the tier-1 block moves.
+      const tiedScenes = tiedKeys(user.engagedSceneCounts);
+      if (tiedScenes.size >= 2) {
+        interleaveTier1ByKey(candidates, tiedScenes, (c) => c.item.sceneSlugs.find((s) => s !== "grid") ?? "");
+      }
+      const tiedTempos = tiedKeys(user.engagedTempoCounts);
+      if (tiedTempos.size >= 2) {
+        interleaveTier1ByKey(candidates, tiedTempos, (c) => c.item.tempo ?? "");
+      }
     } else {
       sortByScoreThenId(candidates);
     }
@@ -197,6 +214,63 @@ function capPerSceneTempo(items: ScoredCandidate[], max: number): ScoredCandidat
     out.push(c);
   }
   return out;
+}
+
+// The set of engaged keys (scenes or tempos) that are TIED for the lead — i.e.
+// no single clear winner. Empty when one leads (or <2 engaged).
+function tiedKeys(counts?: Record<string, number>): Set<string> {
+  if (!counts) return new Set();
+  const entries = Object.entries(counts);
+  if (entries.length < 2) return new Set();
+  const max = Math.max(...entries.map(([, n]) => n));
+  const tied = entries.filter(([, n]) => n === max).map(([k]) => k);
+  return tied.length >= 2 ? new Set(tied) : new Set();
+}
+
+// When the user engaged 2+ scenes (or tempos) EQUALLY, round-robin the tier-1
+// block across those tied keys so the output alternates (one from each) instead
+// of clumping. In-place, stable: only reorders the contiguous tier-1 run; other
+// tiers untouched. keyOf maps a candidate to its scene or tempo.
+function interleaveTier1ByKey(
+  candidates: ScoredCandidate[],
+  tied: Set<string>,
+  keyOf: (c: ScoredCandidate) => string,
+): void {
+  if (tied.size < 2) return;
+
+  // The contiguous tier-1 run at the front of the sorted list.
+  const start = candidates.findIndex((c) => c.discoveryTier === 1);
+  if (start < 0) return;
+  let end = start;
+  while (end < candidates.length && candidates[end].discoveryTier === 1) end++;
+  const tier1 = candidates.slice(start, end);
+
+  // Bucket tier-1 items by key (preserving their sorted order within a bucket).
+  const buckets = new Map<string, ScoredCandidate[]>();
+  for (const c of tier1) {
+    const k = keyOf(c);
+    (buckets.get(k) ?? buckets.set(k, []).get(k)!).push(c);
+  }
+  if (buckets.size < 2) return; // tier-1 spans only one key → nothing to alternate
+
+  // Round-robin across buckets, tied keys first, then any others.
+  const order = [
+    ...Array.from(buckets.keys()).filter((k) => tied.has(k)),
+    ...Array.from(buckets.keys()).filter((k) => !tied.has(k)),
+  ];
+  const interleaved: ScoredCandidate[] = [];
+  let added = true;
+  while (added) {
+    added = false;
+    for (const k of order) {
+      const b = buckets.get(k)!;
+      if (b.length) {
+        interleaved.push(b.shift()!);
+        added = true;
+      }
+    }
+  }
+  candidates.splice(start, tier1.length, ...interleaved);
 }
 
 const artistKey = (c: ScoredCandidate) => c.item.djUsernames[0] ?? c.item.id;

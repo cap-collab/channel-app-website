@@ -151,9 +151,12 @@ function buildReasons(input: CandidateInput, section: SectionId | null): string[
       const bits = [scene, t].filter(Boolean).join(" ");
       reasons.push(bits ? `More ${bits}` : "More like this");
     } else if (input.isAffiliated && input.affiliatedTo) {
-      // §2 crew/affiliation: "In {dj}'s world". (Audience-borrow vs crew is
-      // only distinguishable in §3 via the matcher's bridgeKind.)
-      reasons.push(`In ${input.affiliatedTo}'s world`);
+      // §2 crew → "Affiliated with {dj}"; audience-borrow → "Similar to {dj}".
+      reasons.push(
+        input.affiliationKind === "borrow"
+          ? `Similar to ${input.affiliatedTo}`
+          : `Affiliated with ${input.affiliatedTo}`,
+      );
     }
   }
 

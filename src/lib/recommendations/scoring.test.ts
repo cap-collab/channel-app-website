@@ -103,6 +103,18 @@ describe("scoreCandidate", () => {
     // §2 scene+tempo band: "More {scene} {tempo}".
     expect(disc.reasons[0]).toBe("More spiral uptempo");
 
+    // §2 affiliation band wording: crew → "Affiliated with", borrow → "Similar to".
+    const crew = scoreCandidate(
+      candidate({ item: normalizeArchive(archiveById("a-luke-new")), isAffiliated: true, affiliatedTo: "Maria", affiliationKind: "crew", discoveryTier: 2 }),
+      cfg, NOW_MS,
+    );
+    expect(crew.reasons[0]).toBe("Affiliated with Maria");
+    const borrow = scoreCandidate(
+      candidate({ item: normalizeArchive(archiveById("a-luke-new")), isAffiliated: true, affiliatedTo: "Maria", affiliationKind: "borrow", discoveryTier: 2 }),
+      cfg, NOW_MS,
+    );
+    expect(borrow.reasons[0]).toBe("Similar to Maria");
+
     const cold = scoreCandidate(candidate({ item: normalizeArchive(archiveById("a-stranger-cold")) }), cfg, NOW_MS);
     expect(cold.section).toBeNull();
     expect(cold.reasons.length).toBeGreaterThan(0);

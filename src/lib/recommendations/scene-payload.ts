@@ -22,6 +22,9 @@ import type { SnapshotSection, RecommendationSnapshot } from "./types";
 export interface RecBand {
   glyphSlug?: string;
   tempo?: string;
+  // When set, the card banner shows this text INSTEAD of glyph+tempo — used for
+  // affiliation-tier discovery picks ("Affiliated with X" / "Similar to X").
+  label?: string;
 }
 export interface RecSectionOut {
   id: string;
@@ -159,12 +162,22 @@ export async function buildScenePayload(
         if (!full) continue;
         archives.push(full);
         if (section.id === "discovery") {
-          const sceneSlugs =
-            (full.sceneIdsOverride && full.sceneIdsOverride.length ? full.sceneIdsOverride : full.sceneSlugs) || [];
-          bandByArchiveId[it.archiveId] = {
-            glyphSlug: sceneSlugs.find((s) => s !== "grid"),
-            tempo: full.tempo ?? undefined,
-          };
+          // Affiliation-tier picks show the reason ("Affiliated with X" /
+          // "Similar to X") in the banner instead of glyph+tempo. The engine put
+          // that exact string in reasons[0] for those tiers.
+          const reason = it.reasons?.[0];
+          const isAffiliationReason =
+            !!reason && (reason.startsWith("Affiliated with ") || reason.startsWith("Similar to "));
+          if (isAffiliationReason) {
+            bandByArchiveId[it.archiveId] = { label: reason };
+          } else {
+            const sceneSlugs =
+              (full.sceneIdsOverride && full.sceneIdsOverride.length ? full.sceneIdsOverride : full.sceneSlugs) || [];
+            bandByArchiveId[it.archiveId] = {
+              glyphSlug: sceneSlugs.find((s) => s !== "grid"),
+              tempo: full.tempo ?? undefined,
+            };
+          }
         }
       }
       return { id: section.id, title: SECTION_TITLE[section.id] ?? section.title, archives, bandByArchiveId };

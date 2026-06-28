@@ -19,6 +19,7 @@ const VISIBLE_PER_SECTION = 4;
 
 interface RecBand {
   glyphSlug?: string;
+  label?: string;
   tempo?: string;
 }
 interface RecSection {
@@ -307,6 +308,11 @@ function ArchiveGrid({
             {fixedBandLabel ? (
               <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center">
                 {fixedBandLabel}
+              </div>
+            ) : band?.label ? (
+              // Affiliation-tier reason ("Affiliated with X" / "Similar to X").
+              <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center">
+                {band.label}
               </div>
             ) : (
               band && (band.glyphSlug || tempoText) && (

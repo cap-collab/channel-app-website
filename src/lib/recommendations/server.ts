@@ -84,6 +84,8 @@ export interface SharedData {
   // built once. Per user, an archive DJ U is "affiliated" for Section 2 iff
   // relatedByDj.get(U) intersects the user's engagedDjs.
   relatedByDj: Map<string, Set<string>>;
+  // borrow-only related usernames per DJ (subset of relatedByDj) — crew removed.
+  borrowedByDj: Map<string, Set<string>>;
   // Next-week scheduled shows for the coming-up section.
   upcomingShows: MatchableShow[];
   upcomingStartMsByShowId: Map<string, number>;
@@ -180,6 +182,9 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
   // (crew + audience-borrow) normalized usernames. Per-user Section-2
   // affiliation = intersect this with the user's engagedDjs (cheap).
   const relatedByDj = new Map<string, Set<string>>();
+  // borrow-only related usernames per DJ (audience-borrow, crew removed) → lets
+  // the discovery banner say "Similar to" (borrow) vs "Affiliated with" (crew).
+  const borrowedByDj = new Map<string, Set<string>>();
   for (const dj of djUsers) {
     const username = affiliationGraph.uidToUsername.get(dj.id);
     if (!username) continue;
@@ -192,6 +197,7 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
     };
     const rel = buildRelatedUsernames(fakeShow, affiliationGraph);
     if (rel && rel.related.size > 0) relatedByDj.set(username, rel.related);
+    if (rel && rel.borrowed.size > 0) borrowedByDj.set(username, rel.borrowed);
   }
 
   // Collective slug nodes: a collective archive/slot credits the slug (no
@@ -271,6 +277,7 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
     archiveById,
     affiliationGraph,
     relatedByDj,
+    borrowedByDj,
     upcomingShows,
     upcomingStartMsByShowId,
     upcomingDjNameByShowId,
@@ -400,16 +407,23 @@ async function buildUserResultAndComingUp(
   // Section-2 affiliation lookup for THIS user: an archive DJ U is
   // "affiliated/crew" iff U has a related DJ R (from the once-built relatedByDj
   // map) that the user engaged with. Cheap per-user intersection.
-  const relatedDisplayForUser = new Map<string, string>();
+  const relatedDisplayForUser = new Map<string, { display: string; kind: "crew" | "borrow" }>();
   for (const [djUsername, relatedSet] of Array.from(shared.relatedByDj.entries())) {
+    const borrowed = shared.borrowedByDj.get(djUsername);
+    // Prefer a CREW bridge over a borrow bridge (crew wins). First pass: crew
+    // (related but not borrow-only); fall back to borrow if no crew match.
+    let chosen: { r: string; kind: "crew" | "borrow" } | undefined;
     for (const r of Array.from(relatedSet)) {
-      if (signals.engagedDjs.has(r)) {
-        relatedDisplayForUser.set(
-          djUsername,
-          shared.affiliationGraph.normalizedUsernameToDisplay.get(r) || r,
-        );
-        break;
-      }
+      if (!signals.engagedDjs.has(r)) continue;
+      const kind: "crew" | "borrow" = borrowed?.has(r) ? "borrow" : "crew";
+      if (kind === "crew") { chosen = { r, kind }; break; } // crew wins → stop
+      if (!chosen) chosen = { r, kind }; // remember first borrow, keep scanning for crew
+    }
+    if (chosen) {
+      relatedDisplayForUser.set(djUsername, {
+        display: shared.affiliationGraph.normalizedUsernameToDisplay.get(chosen.r) || chosen.r,
+        kind: chosen.kind,
+      });
     }
   }
   const affiliation: AffiliationLookup = { relatedDisplayByDjUsername: relatedDisplayForUser };

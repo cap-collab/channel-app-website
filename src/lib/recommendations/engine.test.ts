@@ -24,8 +24,8 @@ function itemMap() {
 // Maria's crew (luke, ninka) bridges to a user who engaged with Maria.
 const MARIA_CREW_AFFILIATION: AffiliationLookup = {
   relatedDisplayByDjUsername: new Map([
-    ["luke", "Maria"],
-    ["ninka", "Maria"],
+    ["luke", { display: "Maria", kind: "crew" as const }],
+    ["ninka", { display: "Maria", kind: "crew" as const }],
   ]),
 };
 

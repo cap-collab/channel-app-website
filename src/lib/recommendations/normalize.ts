@@ -264,9 +264,11 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
 // with, plus the display name of that related DJ. Built in server.ts from the
 // go-live affiliation graph; kept as a plain map so normalize stays pure.
 export interface AffiliationLookup {
-  // item DJ username (normalized) → display name of the engaged/related DJ
-  // this archive bridges from. Presence = affiliated/crew tie.
-  relatedDisplayByDjUsername: Map<string, string>;
+  // item DJ username (normalized) → the engaged/related DJ this archive bridges
+  // from: their display name + the bridge KIND (crew vs audience-borrow), so the
+  // banner can say "Affiliated with" (crew) vs "Similar to" (borrow). Presence =
+  // affiliated tie. Crew wins when a DJ is both.
+  relatedDisplayByDjUsername: Map<string, { display: string; kind: "crew" | "borrow" }>;
 }
 
 /**
@@ -290,8 +292,17 @@ export function buildCandidateInputs(
     if (sc + tc > maxAffinity) maxAffinity = sc + tc;
   }
   // The user's single TOP engaged scene + tempo (for discovery tiers 3 & 4).
-  const topScene = user.tasteSummary.sceneCounts[0]?.scene;
-  const topTempo = user.tasteSummary.tempoCounts[0]?.tempo;
+  // Only valid when there's a CLEAR winner — if the #1 and #2 are tied, there's
+  // no top scene/tempo, so the corresponding tier is dropped (it would otherwise
+  // arbitrarily favor one tied scene/tempo and over-represent it). Tiers are
+  // independent: tied scenes drop tier 3 but keep tier 4 if tempo has a winner,
+  // and vice-versa.
+  const sCounts = user.tasteSummary.sceneCounts;
+  const tCounts = user.tasteSummary.tempoCounts;
+  const scenesTied = sCounts.length >= 2 && sCounts[0].count === sCounts[1].count;
+  const temposTied = tCounts.length >= 2 && tCounts[0].count === tCounts[1].count;
+  const topScene = scenesTied ? undefined : sCounts[0]?.scene;
+  const topTempo = temposTied ? undefined : tCounts[0]?.tempo;
   const notLowHidden = (p: ContentItem["priority"]) => p !== "low" && p !== "hidden";
   const isHighFeatured = (p: ContentItem["priority"]) => p === "featured" || p === "high";
 
@@ -301,11 +312,13 @@ export function buildCandidateInputs(
 
     let isAffiliated = false;
     let affiliatedTo: string | undefined;
+    let affiliationKind: "crew" | "borrow" | undefined;
     for (const u of item.djUsernames) {
-      const display = affiliation.relatedDisplayByDjUsername.get(u);
-      if (display) {
+      const rel = affiliation.relatedDisplayByDjUsername.get(u);
+      if (rel) {
         isAffiliated = true;
-        affiliatedTo = display;
+        affiliatedTo = rel.display;
+        affiliationKind = rel.kind;
         break;
       }
     }
@@ -352,6 +365,7 @@ export function buildCandidateInputs(
       matchesOwnCrew,
       isAffiliated,
       affiliatedTo,
+      affiliationKind,
       sceneTempoMatch,
       matchedScenes,
       matchedTempo: tempoEngaged ? item.tempo : null,

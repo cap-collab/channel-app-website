@@ -162,7 +162,7 @@ describe("buildCandidateInputs", () => {
       archiveById: itemMap(),
     });
     const affiliation: AffiliationLookup = {
-      relatedDisplayByDjUsername: new Map([["luke", "Maria"]]),
+      relatedDisplayByDjUsername: new Map([["luke", { display: "Maria", kind: "crew" as const }]]),
     };
     const inputs = buildCandidateInputs(u, items, affiliation);
     const luke = inputs.find((i) => i.item.id === "a-luke-new")!;
@@ -191,7 +191,7 @@ describe("buildCandidateInputs", () => {
     });
     // normalizeArchive normalizes "deep-coll" → "deepcoll" (dash stripped).
     const affiliation: AffiliationLookup = {
-      relatedDisplayByDjUsername: new Map([["deepcoll", "Maria"]]),
+      relatedDisplayByDjUsername: new Map([["deepcoll", { display: "Maria", kind: "crew" as const }]]),
     };
     const inputs = buildCandidateInputs(u, items, affiliation);
     const coll = inputs.find((i) => i.item.id === "a-coll-show")!;

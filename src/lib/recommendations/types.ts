@@ -96,6 +96,7 @@ export interface CandidateInput {
   // Section-2 ties:
   isAffiliated: boolean; // DJ is affiliated / same crew (from the go-live graph)
   affiliatedTo?: string; // display name of the related DJ, for the reason
+  affiliationKind?: "crew" | "borrow"; // crew → "Affiliated with"; borrow → "Similar to"
   sceneTempoMatch: boolean; // scene ∈ engagedScenes AND tempo ∈ engagedTempos
   matchedScenes: string[];
   matchedTempo: Tempo | null;
