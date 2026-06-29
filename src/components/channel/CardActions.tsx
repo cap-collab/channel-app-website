@@ -22,6 +22,10 @@ interface CardActionsProps {
   // sized like the old station-logo badge. Caller's parent must be
   // position: relative.
   asOverlay?: boolean;
+  // When true, scale the chip + icon up ~20% (used only by the /scene
+  // "Coming up" section, which renders larger overlays). Default size is
+  // unchanged everywhere else.
+  enlarge?: boolean;
 }
 
 // Editorial frosted-glass action chip:
@@ -29,9 +33,6 @@ interface CardActionsProps {
 //     rather than a primary CTA.
 //   - Semi-transparent white fill with backdrop blur so the artwork colors
 //     show through. Thin white border, square corners, white icon.
-const iconClass = 'w-[14px] h-[14px] pointer-events-none';
-const buttonBase =
-  'inline-flex items-center justify-center w-7 h-7 bg-white/10 hover:bg-white/20 text-white border border-white/30 backdrop-blur-md transition-colors disabled:opacity-50';
 const overlayPos = 'absolute bottom-2 right-2 z-10';
 
 export function CardActions({
@@ -43,7 +44,16 @@ export function CardActions({
   onAddToWatchlist,
   isAddingWatchlist,
   asOverlay,
+  enlarge,
 }: CardActionsProps) {
+  // ~20% larger chip + icon when enlarge is set (28px→34px, 14px→17px).
+  const iconClass = enlarge
+    ? 'w-[17px] h-[17px] pointer-events-none'
+    : 'w-[14px] h-[14px] pointer-events-none';
+  const spinnerClass = enlarge ? 'w-[17px] h-[17px]' : 'w-[14px] h-[14px]';
+  const buttonBase = `inline-flex items-center justify-center ${
+    enlarge ? 'w-[34px] h-[34px]' : 'w-7 h-7'
+  } bg-white/10 hover:bg-white/20 text-white border border-white/30 backdrop-blur-md transition-colors disabled:opacity-50`;
   const buttonClass = asOverlay ? `${buttonBase} ${overlayPos}` : buttonBase;
 
   let action: React.ReactNode;
@@ -100,7 +110,7 @@ export function CardActions({
         title="Add to watchlist"
       >
         {isAddingWatchlist ? (
-          <div className="w-[14px] h-[14px] border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <div className={`${spinnerClass} border-2 border-white border-t-transparent rounded-full animate-spin`} />
         ) : (
           <svg
             className={iconClass}

@@ -397,6 +397,7 @@ function ComingUpGrid({
             key={key}
             show={row}
             profileMode
+            enlargeOverlay
             isOnline={!row.isIRL}
             stationLabel={row.station || 'Channel'}
             isFollowing={isInWatchlist(row.djName)}

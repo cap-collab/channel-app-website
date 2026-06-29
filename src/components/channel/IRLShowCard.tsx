@@ -26,6 +26,10 @@ interface IRLShowCardProps {
   isOnline?: boolean;
   // Station label for the online badge (e.g. "Channel"). Defaults to "Channel".
   stationLabel?: string;
+  // When true, scale the image-overlay elements (badge, date, DJ/show name,
+  // icons, action button) up ~20%. Used only by the /scene "Coming up"
+  // section; every other usage keeps the default sizes.
+  enlargeOverlay?: boolean;
 }
 
 export function IRLShowCard({
@@ -41,10 +45,19 @@ export function IRLShowCard({
   isRemoving,
   isOnline,
   stationLabel = 'Channel',
+  enlargeOverlay,
 }: IRLShowCardProps) {
   const [imageError, setImageError] = useState(false);
   // Compact /scene layout vs full discovery layout.
   const sceneLayout = profileMode || suggestionBridge !== undefined;
+
+  // ~20%-larger overlay vocabulary (only when enlargeOverlay is set):
+  //   badge/date 11.9px→14.3px, badge icon 14px→16.8px,
+  //   DJ name text-sm(14px)→16.8px, show name 10px→12px.
+  const badgeText = enlargeOverlay ? 'text-[14.3px]' : 'text-[11.9px]';
+  const badgeIcon = enlargeOverlay ? 'w-[16.8px] h-[16.8px]' : 'w-3.5 h-3.5';
+  const djNameText = enlargeOverlay ? 'text-[16.8px]' : 'text-sm';
+  const subText = enlargeOverlay ? 'text-[12px]' : 'text-[10px]';
 
   // Event photo first (the curated artwork), fall back to DJ photo.
   const photoUrl = show.eventPhotoUrl || show.djPhotoUrl;
@@ -61,16 +74,16 @@ export function IRLShowCard({
       {/* Top row: IRL/Online badge left, Date right */}
       <div className="absolute top-2 left-2 right-2 flex items-center justify-between">
         {isOnline ? (
-          <span className="text-[11.9px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg">
-            <svg className="w-3.5 h-3.5 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
+          <span className={`${badgeText} font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg`}>
+            <svg className={`${badgeIcon} text-sky-300`} fill="currentColor" viewBox="0 0 24 24">
               <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
             </svg>
             {stationLabel}
           </span>
         ) : (
-          <span className="text-[11.9px] font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg min-w-0 mr-2">
+          <span className={`${badgeText} font-mono text-white uppercase tracking-tighter flex items-center gap-1 drop-shadow-lg min-w-0 mr-2`}>
             <svg
-              className="w-3.5 h-3.5 shrink-0 text-green-300 drop-shadow-[0_0_3px_rgba(74,222,128,0.6)]"
+              className={`${badgeIcon} shrink-0 text-green-300 drop-shadow-[0_0_3px_rgba(74,222,128,0.6)]`}
               fill="currentColor"
               stroke="currentColor"
               strokeWidth={1.4}
@@ -82,7 +95,7 @@ export function IRLShowCard({
             <span className="truncate">IRL{show.venueName ? ` · ${show.venueName}` : ''}</span>
           </span>
         )}
-        <span className="text-[11.9px] font-mono text-white uppercase tracking-tighter drop-shadow-lg whitespace-nowrap">
+        <span className={`${badgeText} font-mono text-white uppercase tracking-tighter drop-shadow-lg whitespace-nowrap`}>
           <span className="md:hidden">
             {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
@@ -93,18 +106,18 @@ export function IRLShowCard({
       </div>
       {/* Bottom left: DJ/collective name + (scene mode) show name, else genres. */}
       <div className="absolute bottom-2 left-2 right-2">
-        <span className="text-sm font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1">
+        <span className={`${djNameText} font-black uppercase tracking-wider text-white drop-shadow-lg line-clamp-1`}>
           {show.djName}
         </span>
         {sceneLayout ? (
           show.eventName && show.eventName !== show.djName ? (
-            <span className="block text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 drop-shadow-lg whitespace-nowrap overflow-hidden">
+            <span className={`block ${subText} font-medium uppercase tracking-[0.15em] text-zinc-300 drop-shadow-lg whitespace-nowrap overflow-hidden`}>
               {show.eventName}
             </span>
           ) : null
         ) : (
           show.djGenres && show.djGenres.length > 0 && (
-            <span className="block text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-300 drop-shadow-lg whitespace-nowrap overflow-hidden">
+            <span className={`block ${subText} font-medium uppercase tracking-[0.15em] text-zinc-300 drop-shadow-lg whitespace-nowrap overflow-hidden`}>
               {show.djGenres.join(' · ')}
             </span>
           )
@@ -167,6 +180,7 @@ export function IRLShowCard({
         {sceneLayout && (
           <CardActions
             asOverlay
+            enlarge={enlargeOverlay}
             djUsername={show.djUsername}
             ticketUrl={show.ticketUrl}
             isFollowing={isFollowing}
