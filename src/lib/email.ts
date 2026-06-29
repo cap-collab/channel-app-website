@@ -1224,21 +1224,44 @@ export async function sendWeeklyRecommendationsEmail({
 
   let topBlocks: string;
   if (isFallback) {
-    // No-history: NO title and NO scene headers — just the featured rows, ordered
-    // by scene (spiral then star). Each row's bold headline carries the scene
-    // GLYPH + tempo ("🌀 · Uptempo") with "{DJ} · {show}" beneath, so the scene
-    // is conveyed by the glyph alone.
-    const SCENE_ORDER = ["spiral", "star"];
-    const rowsHtml = SCENE_ORDER.flatMap((slug) =>
-      section1.filter((r) => r.sceneSlug === slug).map(buildWeeklyFeaturedRowHtml),
-    );
-    // Include any featured archive that didn't match spiral/star, so nothing is
-    // silently dropped.
+    // No-history: a titled section ("Your Weekly Listening" + subtitle) over a
+    // 2-COLUMN grid — spiral picks on the left, star picks on the right. Each
+    // row's bold headline carries the scene GLYPH + tempo ("🌀 · Uptempo") with
+    // "{DJ} · {show}" beneath. The column header carries the scene name.
+    const spiralRows = section1.filter((r) => r.sceneSlug === "spiral").map(buildWeeklyFeaturedRowHtml);
+    const starRows = section1.filter((r) => r.sceneSlug === "star").map(buildWeeklyFeaturedRowHtml);
+    // Any featured archive that didn't match spiral/star is appended to the
+    // shorter column so nothing is silently dropped (keeps the grid balanced).
     const matched = new Set(["spiral", "star"]);
-    rowsHtml.push(
-      ...section1.filter((r) => !r.sceneSlug || !matched.has(r.sceneSlug)).map(buildWeeklyFeaturedRowHtml),
-    );
-    topBlocks = renderBlock("", rowsHtml);
+    const otherRows = section1.filter((r) => !r.sceneSlug || !matched.has(r.sceneSlug)).map(buildWeeklyFeaturedRowHtml);
+    for (const r of otherRows) (spiralRows.length <= starRows.length ? spiralRows : starRows).push(r);
+
+    const colHeader = (slug: string): string => {
+      const info = SCENE_GLYPH[slug];
+      const label = info ? `${info.glyph} ${info.name}` : "";
+      return `<p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">${label}</p>`;
+    };
+    // Mobile email clients collapse a side-by-side <td> grid awkwardly; this
+    // simple 2-cell table keeps spiral|star paired on desktop and stacks
+    // acceptably on narrow screens.
+    const gridHtml = `
+    <p style="margin: 0 0 2px; font-size: 18px; font-weight: 600; color: #1a1a1a;">Your Weekly Listening</p>
+    <p style="margin: 0 0 20px; font-size: 13px; color: #999;">Picked by Channel while we get to know your taste.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td width="50%" valign="top" style="padding-right: 10px;">
+          ${colHeader("spiral")}
+          ${spiralRows.join("")}
+        </td>
+        <td width="50%" valign="top" style="padding-left: 10px;">
+          ${colHeader("star")}
+          ${starRows.join("")}
+        </td>
+      </tr>
+    </table>
+    `;
+    firstUsed = true;
+    topBlocks = gridHtml;
   } else {
     // "New from your favorites" = DJ-centric rows (show name / DJ · scene).
     // "In your scene" (discovery) reuses the featured row format (scene glyph +
@@ -1274,10 +1297,9 @@ export async function sendWeeklyRecommendationsEmail({
   `;
 
   try {
-    // No-history (fallback) users haven't listened yet, so "Your Weekly Listening"
-    // reads wrong — use the discovery-framed subject that mirrors their section
-    // heading ("Featured this week").
-    const subject = isFallback ? "Featured this week" : "Your Weekly Listening";
+    // Both variants now head with "Your Weekly Listening" (fallback adds the
+    // "while we get to know your taste" subtitle), so the subject is shared.
+    const subject = "Your Weekly Listening";
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
