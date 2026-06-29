@@ -24,11 +24,13 @@ function verifyCronRequest(request: NextRequest): boolean {
   return isVercelCron || hasValidSecret;
 }
 
-// Runs DAILY (vercel.json). 25h window = the last day's live listens + 1h overlap
-// so a listen right at the run boundary is never missed between consecutive runs.
+// Runs DAILY (vercel.json). 49h window = two days of live listens, so a single
+// dropped/late daily cron tick (Vercel drops ticks with no retry) still gets a
+// second chance to reconcile a show before its listens age out — a 25h window
+// gave each show exactly ONE run to be caught on its air-day.
 // Idempotent (archive-keyed doc existence guard), so the overlap can't
-// double-count. Narrow window keeps the per-run collection-group scan cheap.
-const ACTIVE_WINDOW_MS = 25 * 60 * 60 * 1000;
+// double-count. Window still keeps the per-run collection-group scan cheap.
+const ACTIVE_WINDOW_MS = 49 * 60 * 60 * 1000;
 
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
