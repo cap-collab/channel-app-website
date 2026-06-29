@@ -13,7 +13,7 @@ import {
 import { getDjRecipients, getListenerRecipients } from "@/lib/channel-newsletter";
 import { fetchComingUp } from "@/lib/recommendations/coming-up";
 
-// Weekly recommendation email — Tue 10am PT (vercel.json `0 17 * * 2`).
+// Weekly recommendation email — Wed 10am PT (vercel.json `0 17 * * 3`).
 // Mirrors /scene over email per user:
 //   1. New from your favorites  (engine `favorite-artists`, max 2)
 //   2. In your scene            (engine `discovery`, max 2)
@@ -43,7 +43,7 @@ const RECENT_RETENTION_MS = 21 * 24 * 60 * 60 * 1000; // prune lastWeeklyRecShow
 
 // The SEND run only emails if the BACKFILL run completed within this window —
 // guards against sending stale/missing snapshots if the backfill failed or never
-// ran. Backfill is Tue 1AM PT, send Tue 10AM PT (~9h gap), so 18h is safe.
+// ran. Backfill is Wed 1AM PT, send Wed 10AM PT (~9h gap), so 18h is safe.
 const BACKFILL_FRESHNESS_MS = 18 * 60 * 60 * 1000;
 
 function backfillStatusDocId(shard: number | null): string {

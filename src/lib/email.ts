@@ -1225,9 +1225,10 @@ export async function sendWeeklyRecommendationsEmail({
   let topBlocks: string;
   if (isFallback) {
     // No-history: a titled section ("Your Weekly Listening" + subtitle) over a
-    // 2-COLUMN grid — spiral picks on the left, star picks on the right. Each
-    // row's bold headline carries the scene GLYPH + tempo ("🌀 · Uptempo") with
-    // "{DJ} · {show}" beneath. The column header carries the scene name.
+    // 2-COLUMN grid — spiral picks on the left, star picks on the right (no
+    // column titles). Each row's bold headline carries the scene GLYPH + tempo
+    // ("🌀 · Uptempo") with "{DJ} · {show}" beneath, so the scene reads from the
+    // glyph alone.
     const spiralRows = section1.filter((r) => r.sceneSlug === "spiral").map(buildWeeklyFeaturedRowHtml);
     const starRows = section1.filter((r) => r.sceneSlug === "star").map(buildWeeklyFeaturedRowHtml);
     // Any featured archive that didn't match spiral/star is appended to the
@@ -1236,11 +1237,6 @@ export async function sendWeeklyRecommendationsEmail({
     const otherRows = section1.filter((r) => !r.sceneSlug || !matched.has(r.sceneSlug)).map(buildWeeklyFeaturedRowHtml);
     for (const r of otherRows) (spiralRows.length <= starRows.length ? spiralRows : starRows).push(r);
 
-    const colHeader = (slug: string): string => {
-      const info = SCENE_GLYPH[slug];
-      const label = info ? `${info.glyph} ${info.name}` : "";
-      return `<p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">${label}</p>`;
-    };
     // Mobile email clients collapse a side-by-side <td> grid awkwardly; this
     // simple 2-cell table keeps spiral|star paired on desktop and stacks
     // acceptably on narrow screens.
@@ -1250,11 +1246,9 @@ export async function sendWeeklyRecommendationsEmail({
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
         <td width="50%" valign="top" style="padding-right: 10px;">
-          ${colHeader("spiral")}
           ${spiralRows.join("")}
         </td>
         <td width="50%" valign="top" style="padding-left: 10px;">
-          ${colHeader("star")}
           ${starRows.join("")}
         </td>
       </tr>
