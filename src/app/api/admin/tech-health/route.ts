@@ -124,6 +124,17 @@ export interface ReconcileStatus {
   errorCount: number;
 }
 
+// Weekly-recommendation snapshot BACKFILL (Tue 1AM PT). The SEND run (Tue 10AM PT)
+// only emails if this completed recently + cleanly — so this readout is the
+// pre-send health check.
+export interface WeeklyRecBackfillStatus {
+  completedAtMs: number;
+  usersScanned: number;
+  generated: number;
+  failed: number;
+  shard: number | null;
+}
+
 export interface TechHealthResponse {
   generatedAt: number;
   workers: WorkerHealth[];
@@ -134,6 +145,7 @@ export interface TechHealthResponse {
   r2Stats: R2Stats | null;
   r2Backup: R2BackupStatus | null;
   reconcileLiveStreams: ReconcileStatus | null;
+  weeklyRecBackfill: WeeklyRecBackfillStatus | null;
 }
 
 async function probeWorker(name: string, url: string): Promise<WorkerHealth> {
@@ -495,6 +507,16 @@ async function probeReconcileLiveStreams(): Promise<ReconcileStatus | null> {
   return doc.data() as ReconcileStatus;
 }
 
+async function probeWeeklyRecBackfill(): Promise<WeeklyRecBackfillStatus | null> {
+  const db = getAdminDb();
+  if (!db) return null;
+  // Unsharded status doc (sharded runs write -N variants; the unsharded doc is
+  // the common case).
+  const doc = await db.collection('system').doc('weekly-rec-backfill-status').get();
+  if (!doc.exists) return null;
+  return doc.data() as WeeklyRecBackfillStatus;
+}
+
 async function probeUpcomingSlots(): Promise<{ slotId: string; djName: string; startMs: number; type: string }[]> {
   const db = getAdminDb();
   if (!db) return [];
@@ -528,7 +550,7 @@ export async function GET(request: NextRequest) {
 
   // Probes run in parallel; each one swallows its own errors so the dashboard
   // shows partial data when a probe fails rather than a 500.
-  const [workersRestream, workersYoutube, livekit, normalizeQueue, faststartQueue, upcomingSlots, r2Stats, r2Backup, reconcileLiveStreams] = await Promise.all([
+  const [workersRestream, workersYoutube, livekit, normalizeQueue, faststartQueue, upcomingSlots, r2Stats, r2Backup, reconcileLiveStreams, weeklyRecBackfill] = await Promise.all([
     probeWorker('Restream + normalize', restreamWorkerUrl),
     probeWorker('YouTube render', youtubeWorkerUrl),
     probeLivekit(),
@@ -538,6 +560,7 @@ export async function GET(request: NextRequest) {
     probeR2Stats().catch(() => null),
     probeR2Backup().catch(() => null),
     probeReconcileLiveStreams().catch(() => null),
+    probeWeeklyRecBackfill().catch(() => null),
   ]);
 
   const body: TechHealthResponse = {
@@ -550,6 +573,7 @@ export async function GET(request: NextRequest) {
     r2Stats,
     r2Backup,
     reconcileLiveStreams,
+    weeklyRecBackfill,
   };
   return NextResponse.json(body);
 }

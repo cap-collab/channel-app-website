@@ -422,15 +422,15 @@ export function TechHealthTab() {
             </div>
           </section>
 
-          {/* Reconcile live→archive streams (weekly cron). One line. */}
+          {/* Reconcile live→archive streams (daily cron). One line. */}
           <section>
             <h3 className="text-sm uppercase tracking-wide text-gray-400 mb-2">Live→archive reconcile</h3>
             <div className="bg-[#1e1e1e] border border-white/10 p-4 text-sm">
               {!data.reconcileLiveStreams ? (
-                <div className="text-gray-500">Has not run yet — weekly, Mondays 09:00 UTC.</div>
+                <div className="text-gray-500">Has not run yet — daily, 09:00 UTC (1 AM PT).</div>
               ) : (() => {
                 const r = data.reconcileLiveStreams;
-                const stale = Date.now() - r.lastRunAt > 9 * 24 * 60 * 60 * 1000; // weekly; >9d = missed
+                const stale = Date.now() - r.lastRunAt > 2 * 24 * 60 * 60 * 1000; // daily; >2d = missed
                 return (
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-gray-300">
@@ -438,6 +438,42 @@ export function TechHealthTab() {
                       Ran {fmtAgo(r.lastRunAt)} · {r.linksCreated} linked (+{r.streamCountAdded} streams)
                       {r.errorCount > 0 ? <span className="text-red-400"> · {r.errorCount} errors</span> : null}
                     </span>
+                  </div>
+                );
+              })()}
+            </div>
+          </section>
+
+          {/* Weekly-rec snapshot backfill (Tue 1 AM PT). The send (Tue 10 AM PT)
+              is GATED on this being recent + clean — green = send will proceed. */}
+          <section>
+            <h3 className="text-sm uppercase tracking-wide text-gray-400 mb-2">Weekly recs backfill</h3>
+            <div className="bg-[#1e1e1e] border border-white/10 p-4 text-sm">
+              {!data.weeklyRecBackfill ? (
+                <div className="text-gray-500">Has not run yet — weekly, Tue 09:00 UTC (1 AM PT). Send is gated on it.</div>
+              ) : (() => {
+                const b = data.weeklyRecBackfill;
+                const ageMs = Date.now() - b.completedAtMs;
+                const failRate = b.usersScanned > 0 ? b.failed / b.usersScanned : 0;
+                // Mirror the send-gate: completed ≤18h ago AND ≤5% failures = healthy.
+                const recent = ageMs <= 18 * 60 * 60 * 1000;
+                const healthy = recent && failRate <= 0.05;
+                return (
+                  <div className="space-y-1">
+                    <div className="text-gray-300">
+                      <span className={healthy ? 'text-green-400' : recent ? 'text-yellow-400' : 'text-red-400'}>●</span>{' '}
+                      Ran {fmtAgo(b.completedAtMs)} · {b.generated} snapshots / {b.usersScanned} users
+                      {b.failed > 0 ? (
+                        <span className={failRate > 0.05 ? 'text-red-400' : 'text-yellow-400'}> · {b.failed} failed ({(failRate * 100).toFixed(1)}%)</span>
+                      ) : null}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {healthy
+                        ? 'Healthy — Tuesday send will proceed.'
+                        : !recent
+                          ? '⚠ Stale — send will ABORT (no emails) until a fresh backfill runs.'
+                          : '⚠ Failure rate >5% — send will ABORT (no emails).'}
+                    </div>
                   </div>
                 );
               })()}
