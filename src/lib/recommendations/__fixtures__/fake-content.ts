@@ -44,6 +44,7 @@ export const DJ = {
   ninka: { name: "Ninka", username: "ninka" }, // maria's crew (sibling)
   dax: { name: "Dax", username: "dax" }, // borrows maria's audience
   stranger: { name: "Stranger", username: "stranger" },
+  stranger2: { name: "Stranger Two", username: "stranger2" }, // distinct artist (for per-DJ dedup tests)
 } as const;
 
 export const FAKE_ARCHIVES: Archive[] = [
@@ -57,9 +58,9 @@ export const FAKE_ARCHIVES: Archive[] = [
   archive({ id: "a-ninka-new", showName: "Ninka Live", djs: [DJ.ninka], priority: "medium", sceneSlugs: ["star"], tempo: "very_fast", recordedAt: daysAgo(4), createdAt: daysAgo(4) }),
   // Stranger, but SAME scene (spiral) + SAME tempo (uptempo) as user engaged → Section 2 (scene+tempo).
   archive({ id: "a-stranger-scene", showName: "Stranger Spiral", djs: [DJ.stranger], priority: "high", sceneSlugs: ["spiral"], tempo: "uptempo", recordedAt: daysAgo(1), createdAt: daysAgo(1) }),
-  // Same scene+tempo match as a-stranger-scene but MEDIUM priority → must NOT be
-  // suggested via scene+tempo (weak signal → high/featured only).
-  archive({ id: "a-stranger-scene-med", showName: "Stranger Spiral Med", djs: [DJ.stranger], priority: "medium", sceneSlugs: ["spiral"], tempo: "uptempo", recordedAt: daysAgo(1), createdAt: daysAgo(1) }),
+  // Same scene+tempo match as a-stranger-scene but MEDIUM priority, by a DISTINCT
+  // artist (so discovery's 1-per-DJ cap doesn't dedup it against a-stranger-scene).
+  archive({ id: "a-stranger-scene-med", showName: "Stranger Spiral Med", djs: [DJ.stranger2], priority: "medium", sceneSlugs: ["spiral"], tempo: "uptempo", recordedAt: daysAgo(1), createdAt: daysAgo(1) }),
   // Stranger, different scene + tempo, no tie → only fallback-fill eligible. Featured + new.
   archive({ id: "a-stranger-cold", showName: "Stranger Cold", djs: [DJ.stranger], priority: "featured", sceneSlugs: ["dub"], tempo: "very_slow", recordedAt: daysAgo(1), createdAt: daysAgo(1) }),
   // Stranger, another cold fallback candidate, high priority.

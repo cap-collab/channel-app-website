@@ -134,7 +134,11 @@ export function applyRules(
     pinned.sort((a, b) => (featureOrder.get(a.item.id)! - featureOrder.get(b.item.id)!));
     const rest = candidates.filter((c) => !featureOrder.has(c.item.id));
 
-    const diversified = capPerDj(rest, config.diversity.maxPerDj);
+    // Discovery never shows the same artist twice — at most ONE archive per DJ
+    // (favorite-artists already collapses to one-per-artist). Other sections use
+    // the configured cap.
+    const maxPerDj = sectionId === "discovery" ? 1 : config.diversity.maxPerDj;
+    const diversified = capPerDj(rest, maxPerDj);
 
     // 6. Fallback-fill if below the section minimum.
     const cap = config.caps[context][sectionId];
@@ -151,9 +155,10 @@ export function applyRules(
     if (user.fallbackSections.has(sectionId) && assembled.length < minimum) {
       const need = Math.min(cap, minimum) - assembled.length;
       if (need > 0) {
-        // Fallback respects the same collapse so we don't reintroduce dupes.
+        // Fallback respects the same per-DJ cap (1 for discovery) so it can't
+        // reintroduce an artist already in the section.
         const existing = assembled;
-        const fill = takeFallback(fallbackPool, need, existing, config.diversity.maxPerDj);
+        const fill = takeFallback(fallbackPool, need, existing, maxPerDj);
         assembled = collapseSection(sectionId, [...existing, ...fill]);
       }
     }

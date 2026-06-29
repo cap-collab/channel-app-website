@@ -104,6 +104,17 @@ describe("generateRecommendations — sections", () => {
     expect(high).toBeLessThan(med); // Featured/High band leads
   });
 
+  it("discovery never shows the same artist twice (1 per DJ)", () => {
+    const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
+    const disc = section(r, "discovery").items;
+    const seen = new Set<string>();
+    for (const c of disc) {
+      const dj = c.item.djUsernames[0] ?? "";
+      expect(seen.has(dj)).toBe(false); // no repeat artist
+      seen.add(dj);
+    }
+  });
+
   it("discovery shows at most 2 archives per (scene+tempo) combo (diversity)", () => {
     const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
     const disc = section(r, "discovery").items;
@@ -241,7 +252,6 @@ describe("generateRecommendations — own/collective exclusion", () => {
     );
     const disc = ids(asStranger, "discovery");
     expect(disc).not.toContain("a-stranger-scene");
-    expect(disc).not.toContain("a-stranger-scene-med");
     expect(asStranger.dropped.some((d) => d.item.id === "a-stranger-scene" && d.excludedReason === "your own show")).toBe(true);
   });
 
@@ -250,7 +260,6 @@ describe("generateRecommendations — own/collective exclusion", () => {
     const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION, {}, [], ["stranger"]);
     const disc = ids(r, "discovery");
     expect(disc).not.toContain("a-stranger-scene");
-    expect(disc).not.toContain("a-stranger-scene-med");
   });
 
   it("does NOT exclude affiliated DJs' archives", () => {
