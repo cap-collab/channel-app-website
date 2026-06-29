@@ -9,7 +9,11 @@
       "schedule": "0 10 * * *"
     },
     {
-      "path": "/api/cron/weekly-recommendations",
+      "path": "/api/cron/weekly-recommendations?mode=backfill",
+      "schedule": "0 9 * * 2"
+    },
+    {
+      "path": "/api/cron/weekly-recommendations?mode=send",
       "schedule": "0 17 * * 2"
     },
     {

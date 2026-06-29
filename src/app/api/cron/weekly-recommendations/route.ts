@@ -39,6 +39,15 @@ function verifyCronRequest(request: NextRequest): boolean {
 const SECTION_CAP = 2;
 const RECENT_RETENTION_MS = 21 * 24 * 60 * 60 * 1000; // prune lastWeeklyRecShows after ~3 weeks
 
+// The SEND run only emails if the BACKFILL run completed within this window —
+// guards against sending stale/missing snapshots if the backfill failed or never
+// ran. Backfill is Tue 1AM PT, send Tue 10AM PT (~9h gap), so 18h is safe.
+const BACKFILL_FRESHNESS_MS = 18 * 60 * 60 * 1000;
+
+function backfillStatusDocId(shard: number | null): string {
+  return shard != null ? `weekly-rec-backfill-status-${shard}` : "weekly-rec-backfill-status";
+}
+
 function uidInShard(uid: string, shard: number, shardCount: number): boolean {
   if (shardCount <= 1) return true;
   let h = 0;
@@ -82,6 +91,15 @@ export async function GET(request: NextRequest) {
   const shard = params.get("shard") != null ? Number(params.get("shard")) : null;
   const shardCount = Number(params.get("shardCount")) || 1;
   const traceLimit = Number(params.get("traceLimit")) || 50;
+  // mode splits the weekly job into two scheduled runs so the snapshot BACKFILL
+  // completes (and can be verified/fixed) BEFORE any emails go out:
+  //   backfill = generate+persist every user's snapshot, send NOTHING.
+  //   send     = read the already-persisted snapshot, send the email, generate
+  //              nothing (snapshots are still fresh from the backfill run).
+  //   (unset)  = legacy single-pass: generate+persist AND send (manual runs).
+  const mode = params.get("mode"); // "backfill" | "send" | null
+  const doGenerate = !dryRun && mode !== "send"; // backfill + legacy generate
+  const doSend = mode !== "backfill"; // send + legacy send
 
   const nowMs = Date.now();
 
@@ -99,12 +117,40 @@ export async function GET(request: NextRequest) {
     // for every user. Generation respects the 24h floor (skips users with a
     // fresh snapshot — e.g. one made by a recent /scene visit). Skipped in
     // dry-run so it stays a pure read.
-    const sharedData = dryRun ? null : await loadSharedData(db, nowMs);
-    const recConfig = dryRun ? null : await loadConfig(db);
+    const sharedData = doGenerate ? await loadSharedData(db, nowMs) : null;
+    const recConfig = doGenerate ? await loadConfig(db) : null;
+
+    // SEND GUARD: a real send run refuses to email unless the BACKFILL run
+    // completed recently AND cleanly — so we never email from stale/missing
+    // snapshots if the backfill failed or never ran. (dry-run/preview bypass it.)
+    if (mode === "send" && !dryRun && !previewTo) {
+      const statusDoc = await db.collection("system").doc(backfillStatusDocId(shard)).get();
+      const status = statusDoc.data() as
+        | { completedAtMs?: number; usersScanned?: number; failed?: number }
+        | undefined;
+      const ageMs = status?.completedAtMs ? nowMs - status.completedAtMs : Infinity;
+      const stale = ageMs > BACKFILL_FRESHNESS_MS;
+      // Abort if it didn't run recently, or had a meaningful failure rate (>5%).
+      const failRate =
+        status?.usersScanned && status.usersScanned > 0 ? (status.failed ?? 0) / status.usersScanned : 0;
+      if (!status?.completedAtMs || stale || failRate > 0.05) {
+        console.error("[weekly-recommendations] SEND ABORTED — backfill not healthy", { status, ageMs, failRate });
+        return NextResponse.json(
+          {
+            error: "Backfill not completed/healthy — send aborted",
+            backfillStatus: status ?? null,
+            backfillAgeMs: Number.isFinite(ageMs) ? ageMs : null,
+            failRate,
+          },
+          { status: 409 },
+        );
+      }
+    }
 
     const usersSnap = await db.collection("users").get();
 
     let emailsSent = 0;
+    let generated = 0;
     let skippedOptOut = 0;
     let skippedNoEmail = 0;
     let failed = 0;
@@ -124,13 +170,11 @@ export async function GET(request: NextRequest) {
       if (previewTo && email.toLowerCase() !== previewTo) continue;
 
       try {
-        // "About to email this user" = a generate-and-store event: refresh their
-        // stored snapshot if it's older than the 24h floor (reusing the shared
-        // catalog), else reuse the existing one. Then render the email from it —
-        // so the same fresh snapshot serves both the email and their next /scene
-        // visit. In dry-run we skip generation and just read (pure).
+        // BACKFILL: generate+persist this user's snapshot (refresh if >24h old,
+        // reusing the shared catalog). The same snapshot then serves the SEND run
+        // and their next /scene visit.
         let prebuilt;
-        if (!dryRun && sharedData && recConfig) {
+        if (doGenerate && sharedData && recConfig) {
           const outcome = await generateForUser(
             db,
             userDoc.id,
@@ -140,7 +184,13 @@ export async function GET(request: NextRequest) {
             recConfig,
           );
           prebuilt = outcome.snapshot;
+          generated++;
         }
+        // Backfill-only run: snapshot persisted, no email. Move on.
+        if (!doSend) continue;
+
+        // SEND: read the persisted snapshot (prebuilt is undefined here in a
+        // pure send run → buildScenePayload reads the stored doc).
         const payload = await buildScenePayload(db, userDoc.id, prebuilt);
 
         const seen = (data.lastWeeklyRecShows as Record<string, string> | undefined) || {};
@@ -228,11 +278,28 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // BACKFILL run: stamp a status doc the SEND run gates on. Keyed per shard so
+    // a sharded backfill records each shard's completion independently.
+    if (mode === "backfill" && !dryRun && !previewTo) {
+      await db
+        .collection("system")
+        .doc(backfillStatusDocId(shard))
+        .set({
+          completedAtMs: nowMs,
+          usersScanned: usersSnap.size,
+          generated,
+          failed,
+          shard,
+        });
+    }
+
     return NextResponse.json({
+      mode: mode ?? "legacy",
       dryRun,
       previewTo: previewTo ?? null,
       shard,
       usersScanned: usersSnap.size,
+      generated,
       emailsSent,
       skippedOptOut,
       skippedNoEmail,
