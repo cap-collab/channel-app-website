@@ -2,6 +2,8 @@
 // Anything that needs to build recipient lists, email HTML, or send the
 // campaign should import from here — not duplicate logic in the route.
 
+import { getCityFromTimezone } from "@/lib/city-detection";
+
 export type Cohort = "dj" | "listener";
 export type Recipient = {
   email: string;
@@ -9,6 +11,10 @@ export type Recipient = {
   id: string;
   cohort: Cohort;
   djUsername?: string;
+  // Resolved IRL city (for city-gating the weekly fallback email's coming-up).
+  // pending-dj → djProfile.location; application → city; waitlist → tz-derived.
+  // Undefined when unknown (caller falls back to its own default, e.g. LA).
+  city?: string;
 };
 
 export const NEWSLETTER_FROM_EMAIL = "Cap from Channel <cap@channel-app.com>";
@@ -282,6 +288,10 @@ export async function getListenerRecipients(
       name: resolveFirstName(email, data.name, data.chatUsername, data.displayName),
       id: doc.id,
       cohort: "listener",
+      city:
+        (data.irlCity as string | undefined) ||
+        getCityFromTimezone((data.timezone as string) || "") ||
+        undefined,
     });
   }
 
@@ -303,6 +313,12 @@ export async function getListenerRecipients(
       name: resolveFirstName(email, data.name, data.chatUsername, data.displayName),
       id: doc.id,
       cohort: "listener",
+      // Pending DJs store their city on djProfile.location (no irlCity field).
+      city:
+        ((data.djProfile as Record<string, unknown> | undefined)?.location as string | undefined) ||
+        (data.irlCity as string | undefined) ||
+        (data.city as string | undefined) ||
+        undefined,
     });
   }
 
@@ -325,6 +341,11 @@ export async function getListenerRecipients(
       name: resolveFirstName(emailLower, data.name, undefined, data.displayName),
       id: doc.id,
       cohort: "listener",
+      city:
+        (data.irlCity as string | undefined) ||
+        (data.city as string | undefined) ||
+        getCityFromTimezone((data.timezone as string) || "") ||
+        undefined,
     });
   }
 

@@ -1110,10 +1110,10 @@ function buildWeeklyFeaturedRowHtml(row: WeeklyRecArchiveRow): string {
   const tempo = row.tempo ? tempoLabel(row.tempo) : null;
   // Headline = "glyph tempo" (just a space, no "·") to keep it short on mobile.
   const headline = [sceneGlyph, tempo].filter(Boolean).join(" ") || row.showName;
-  // Sub-line "DJ · show": hard-cap length so it never blows up a 2-col mobile
-  // cell, then clamp to 2 lines via CSS for clients that support it.
+  // Sub-line "DJ · show": hard-cap at 28 chars so it stays ~1 line in the narrow
+  // 2-col mobile cell (then the CSS 2-line clamp is just a safety net).
   const subRaw = `${djDisplayName} · ${row.showName}`;
-  const sub = subRaw.length > 60 ? subRaw.slice(0, 59).trimEnd() + "…" : subRaw;
+  const sub = subRaw.length > 28 ? subRaw.slice(0, 27).trimEnd() + "…" : subRaw;
   const url = `https://channel-app.com/?archive=${encodeURIComponent(row.slug)}`;
   const fallbackColor = "#DC9B50";
   const emailPhotoUrl = getEmailPhotoUrl(row.djUsername, row.djPhotoUrl, row.showImageUrl);

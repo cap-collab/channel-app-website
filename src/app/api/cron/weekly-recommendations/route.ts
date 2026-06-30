@@ -5,6 +5,7 @@ import type { ArchiveSerialized } from "@/types/broadcast";
 import { buildScenePayload } from "@/lib/recommendations/scene-payload";
 import { generateForUser, loadSharedData, loadConfig } from "@/lib/recommendations/server";
 import { buildFeaturedMatrix } from "@/lib/recommendations/featured-matrix";
+import { DEFAULT_FEATURED_CITY } from "@/lib/recommendations/featured-payload";
 import {
   sendWeeklyRecommendationsEmail,
   type WeeklyRecArchiveRow,
@@ -311,34 +312,41 @@ export async function GET(request: NextRequest) {
       const extras = broadListeners.filter((r) => !usersEmails.has(r.email.toLowerCase()));
 
       if (extras.length > 0) {
-        // Public (logged-out) "coming up this week" — same list for everyone here,
-        // built ONCE. userCity:null and empty engagement = no personalization.
-        const publicComingUpRows = await fetchComingUp({
-          db,
-          nowMs,
-          userCity: null,
-          engagedDjUsernames: new Set<string>(),
-        });
-        const comingUp: WeeklyRecComingUpRow[] = publicComingUpRows.map((r) => ({
-          showName: r.eventName || r.djName || "",
-          djName: r.djName,
-          djUsername: r.djUsername,
-          djPhotoUrl: r.djPhotoUrl,
-          showImageUrl: r.eventPhotoUrl,
-          stationId: "broadcast",
-          startTime: new Date(r.startMs).toISOString(),
-          isIRL: r.isIRL,
-          linkUrl: r.isIRL ? (r.ticketUrl || r.linkUrl) : r.linkUrl,
-          allDjArtists: r.isIRL
-            ? (r.allDjs || []).map((d) => d.djName).filter((n): n is string => !!n)
-            : undefined,
-        }));
+        // Per-CITY coming-up: each non-user's email is gated to THEIR city
+        // (pending-dj djProfile.location / waitlist tz / etc), defaulting to LA.
+        // Memoized so each distinct city is built once (fetchComingUp's shared
+        // data is cached, so this is cheap).
+        const comingUpByCity = new Map<string, WeeklyRecComingUpRow[]>();
+        const comingUpForCity = async (city: string): Promise<WeeklyRecComingUpRow[]> => {
+          const cached = comingUpByCity.get(city);
+          if (cached) return cached;
+          const rows = await fetchComingUp({ db, nowMs, userCity: city, engagedDjUsernames: new Set<string>() });
+          const mapped: WeeklyRecComingUpRow[] = rows.map((r) => ({
+            showName: r.eventName || r.djName || "",
+            djName: r.djName,
+            djUsername: r.djUsername,
+            djPhotoUrl: r.djPhotoUrl,
+            showImageUrl: r.eventPhotoUrl,
+            stationId: "broadcast",
+            startTime: new Date(r.startMs).toISOString(),
+            isIRL: r.isIRL,
+            linkUrl: r.isIRL ? (r.ticketUrl || r.linkUrl) : r.linkUrl,
+            allDjArtists: r.isIRL
+              ? (r.allDjs || []).map((d) => d.djName).filter((n): n is string => !!n)
+              : undefined,
+          }));
+          comingUpByCity.set(city, mapped);
+          return mapped;
+        };
 
         for (const r of extras) {
           // Honor the same shard split as the users loop (hash on the doc id).
           if (shard != null && !uidInShard(r.id, shard, shardCount)) continue;
           // previewTo: only the one preview recipient.
           if (previewTo && r.email.toLowerCase() !== previewTo) continue;
+
+          const recipientCity = r.city || DEFAULT_FEATURED_CITY;
+          const comingUp = await comingUpForCity(recipientCity);
 
           if (dryRun && !previewTo) {
             if (trace.length < traceLimit) {
