@@ -1091,8 +1091,8 @@ function buildWeeklyArchiveRowHtml(row: WeeklyRecArchiveRow): string {
         <tr>
           <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
           <td valign="top">
-            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 3px; line-height: 1.3; word-break: break-word;">${row.showName}</div>
-            <div style="font-size: 12px; color: #999; word-break: break-word;">${meta}</div>
+            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 3px; line-height: 1.3;">${row.showName}</div>
+            <div style="font-size: 12px; color: #999; line-height: 1.3;">${meta}</div>
           </td>
         </tr>
       </table>
@@ -1127,7 +1127,7 @@ function buildWeeklyFeaturedRowHtml(row: WeeklyRecArchiveRow): string {
           <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
           <td valign="top">
             <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 3px; line-height: 1.3;">${headline}</div>
-            <div style="font-size: 12px; color: #999; line-height: 1.3; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${sub}</div>
+            <div style="font-size: 12px; color: #999; line-height: 1.3;">${sub}</div>
           </td>
         </tr>
       </table>
@@ -1170,8 +1170,8 @@ function buildWeeklyComingUpRowHtml(row: WeeklyRecComingUpRow, timezone: string)
         <tr>
           <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
           <td valign="top">
-            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 3px; line-height: 1.3; word-break: break-word;">${row.showName}</div>
-            <div style="font-size: 12px; color: #999; line-height: 1.3; word-break: break-word;">${artistStr} · ${timeStr} · ${badge}</div>
+            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 3px; line-height: 1.3;">${row.showName}</div>
+            <div style="font-size: 12px; color: #999; line-height: 1.3;">${artistStr} · ${timeStr} · ${badge}</div>
           </td>
         </tr>
       </table>
