@@ -1167,8 +1167,16 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           // When viewing a collective profile, match by its slug directly
           // (not by chatUsername, which is the pretty name and may not equal
           // the slug after normalization).
+          let ownerUids = new Set<string>();
           if (djProfile.profileType === 'collective' && djProfile.collectiveSlug) {
             myCollectiveSlugs = new Set([djProfile.collectiveSlug]);
+            // Also surface the owners' own recordings on the collective page:
+            // match archives credited to any owner UID (djs[].userId).
+            ownerUids = new Set(
+              (djProfile.owners ?? []).filter(
+                (u): u is string => typeof u === "string" && u.length > 0
+              )
+            );
           }
 
           const djArchives = archives.filter((archive) => {
@@ -1181,6 +1189,8 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             // Match by DJ info in the archive's djs array
             const matchesDj = archive.djs?.some((dj) => {
               if (djUserId && dj.userId === djUserId) return true;
+              // On a collective page, also match the owners' own recordings.
+              if (dj.userId && ownerUids.size > 0 && ownerUids.has(dj.userId)) return true;
               if (dj.username && normalizedUsername) {
                 const archiveDjUsername = dj.username.toLowerCase().replace(/\s+/g, '');
                 if (archiveDjUsername === normalizedUsername) return true;
