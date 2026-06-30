@@ -118,7 +118,10 @@ export function SceneRecommendations({
           // later resolves to a real user, the effect re-runs (authLoading in
           // deps) and upgrades to personalized; the cancelled guard prevents a
           // stale featured response from clobbering it.
-          const res = await fetch('/api/recommendations/featured');
+          // Pass the device timezone so the featured coming-up is city-gated
+          // (server derives city → LA fallback).
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+          const res = await fetch(`/api/recommendations/featured?tz=${encodeURIComponent(tz)}`);
           if (!res.ok) throw new Error('featured failed');
           const data: FeaturedResponse = await res.json();
           if (cancelled) return;

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { buildScenePayload } from "@/lib/recommendations/scene-payload";
-import { getFeaturedPayload } from "@/lib/recommendations/featured-payload";
+import { getFeaturedPayload, DEFAULT_FEATURED_CITY } from "@/lib/recommendations/featured-payload";
+import { getCityFromTimezone } from "@/lib/city-detection";
 
 // Per-user /scene recommendations. All section rules live in buildScenePayload
 // (shared with the admin preview so the dashboard mirrors /scene exactly).
@@ -43,7 +44,14 @@ export async function POST(request: NextRequest) {
   const hasHistory = !streamOne.empty || !loveOne.empty || !favOne.empty;
 
   if (!hasHistory) {
-    const featured = await getFeaturedPayload(db, Date.now());
+    // City-gate the featured coming-up to the recipient's city: their own
+    // irlCity, else timezone-derived, else the global default (LA).
+    const userData = (await db.collection("users").doc(userId).get()).data() || {};
+    const userCity =
+      (userData.irlCity as string | undefined) ||
+      getCityFromTimezone((userData.timezone as string) || "") ||
+      DEFAULT_FEATURED_CITY;
+    const featured = await getFeaturedPayload(db, Date.now(), userCity);
     // MeResponse shape: featured archives surface via `startHere`; no personalized
     // sections / dive-back-in yet.
     return NextResponse.json({

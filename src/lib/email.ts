@@ -1090,9 +1090,9 @@ function buildWeeklyArchiveRowHtml(row: WeeklyRecArchiveRow): string {
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
         <tr>
           <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
-          <td valign="middle">
-            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; line-height: 1.3;">${row.showName}</div>
-            <div style="font-size: 12px; color: #999;">${meta}</div>
+          <td valign="top">
+            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 3px; line-height: 1.3; word-break: break-word;">${row.showName}</div>
+            <div style="font-size: 12px; color: #999; word-break: break-word;">${meta}</div>
           </td>
         </tr>
       </table>
@@ -1108,8 +1108,12 @@ function buildWeeklyFeaturedRowHtml(row: WeeklyRecArchiveRow): string {
   // Headline = scene GLYPH only (no plain "Spiral"/"Star" word) + tempo.
   const sceneGlyph = sceneInfo ? sceneInfo.glyph : "";
   const tempo = row.tempo ? tempoLabel(row.tempo) : null;
-  const headline = [sceneGlyph, tempo].filter(Boolean).join(" · ") || row.showName;
-  const sub = `${djDisplayName} · ${row.showName}`;
+  // Headline = "glyph tempo" (just a space, no "·") to keep it short on mobile.
+  const headline = [sceneGlyph, tempo].filter(Boolean).join(" ") || row.showName;
+  // Sub-line "DJ · show": hard-cap length so it never blows up a 2-col mobile
+  // cell, then clamp to 2 lines via CSS for clients that support it.
+  const subRaw = `${djDisplayName} · ${row.showName}`;
+  const sub = subRaw.length > 60 ? subRaw.slice(0, 59).trimEnd() + "…" : subRaw;
   const url = `https://channel-app.com/?archive=${encodeURIComponent(row.slug)}`;
   const fallbackColor = "#DC9B50";
   const emailPhotoUrl = getEmailPhotoUrl(row.djUsername, row.djPhotoUrl, row.showImageUrl);
@@ -1121,9 +1125,9 @@ function buildWeeklyFeaturedRowHtml(row: WeeklyRecArchiveRow): string {
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
         <tr>
           <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
-          <td valign="middle">
-            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; line-height: 1.3;">${headline}</div>
-            <div style="font-size: 12px; color: #999;">${sub}</div>
+          <td valign="top">
+            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 3px; line-height: 1.3;">${headline}</div>
+            <div style="font-size: 12px; color: #999; line-height: 1.3; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${sub}</div>
           </td>
         </tr>
       </table>
@@ -1165,9 +1169,9 @@ function buildWeeklyComingUpRowHtml(row: WeeklyRecComingUpRow, timezone: string)
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
         <tr>
           <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
-          <td valign="middle">
-            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; line-height: 1.3;">${row.showName}</div>
-            <div style="font-size: 12px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${artistStr} · ${timeStr} · ${badge}</div>
+          <td valign="top">
+            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 3px; line-height: 1.3; word-break: break-word;">${row.showName}</div>
+            <div style="font-size: 12px; color: #999; line-height: 1.3; word-break: break-word;">${artistStr} · ${timeStr} · ${badge}</div>
           </td>
         </tr>
       </table>

@@ -18,35 +18,47 @@ export interface FeaturedPayload {
   comingUpTitle: string;
 }
 
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min — same shared body for every visitor
-let cache: { at: number; body: FeaturedPayload } | null = null;
+// Global default featured city when no recipient/device city is available.
+export const DEFAULT_FEATURED_CITY = "Los Angeles";
+
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+// The featured ARCHIVE grid is city-agnostic, so cache it. Coming-up varies by
+// city, but fetchComingUp has its OWN shared-data cache, so the per-city filter
+// is cheap and runs fresh each call.
+let archivesCache: { at: number; archives: ArchiveSerialized[] } | null = null;
 
 export function isFeaturedCacheWarm(nowMs: number): boolean {
-  return !!cache && nowMs - cache.at < CACHE_TTL_MS;
+  return !!archivesCache && nowMs - archivesCache.at < CACHE_TTL_MS;
 }
 
 /**
- * Build (or return cached) the featured payload. Same result for every visitor,
- * changes slowly → cached 5 min in-process.
+ * Build (or return cached) the featured payload, city-gated for the given
+ * viewer. `userCity` null → no city gate (all IRL events). The featured grid is
+ * cached; coming-up is computed per-city (cheap via fetchComingUp's own cache).
  */
-export async function getFeaturedPayload(db: Firestore, nowMs: number): Promise<FeaturedPayload> {
-  if (cache && nowMs - cache.at < CACHE_TTL_MS) return cache.body;
+export async function getFeaturedPayload(
+  db: Firestore,
+  nowMs: number,
+  userCity: string | null = DEFAULT_FEATURED_CITY,
+): Promise<FeaturedPayload> {
+  let archives: ArchiveSerialized[];
+  if (archivesCache && nowMs - archivesCache.at < CACHE_TTL_MS) {
+    archives = archivesCache.archives;
+  } else {
+    const archivesSnap = await db.collection("archives").get();
+    const docs: ArchiveSerialized[] = archivesSnap.docs.map(
+      (doc) => ({ id: doc.id, ...(doc.data() as Omit<Archive, "id">) }) as ArchiveSerialized,
+    );
+    archives = buildFeaturedMatrix(docs);
+    archivesCache = { at: nowMs, archives };
+  }
 
-  const archivesSnap = await db.collection("archives").get();
-  const docs: ArchiveSerialized[] = archivesSnap.docs.map(
-    (doc) => ({ id: doc.id, ...(doc.data() as Omit<Archive, "id">) }) as ArchiveSerialized,
-  );
-  const archives = buildFeaturedMatrix(docs);
+  const comingUp = await fetchComingUp({ db, nowMs, userCity, engagedDjUsernames: new Set() });
 
-  // No city gate / no DJ reasons (same as the logged-out coming-up).
-  const comingUp = await fetchComingUp({ db, nowMs, userCity: null, engagedDjUsernames: new Set() });
-
-  const body: FeaturedPayload = {
+  return {
     archives,
     comingUp,
     startHereTitle: "Start here",
     comingUpTitle: "Coming up",
   };
-  cache = { at: nowMs, body };
-  return body;
 }
