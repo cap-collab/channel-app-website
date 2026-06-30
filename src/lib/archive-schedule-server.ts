@@ -147,6 +147,9 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
     for (const doc of ixSnap.docs) {
       const d = doc.data();
       if (!d.url || !d.durationSec) continue;
+      // Retired from the rotation: doc kept (so already-built loops still
+      // resolve its URL) but excluded from future loop generation.
+      if (d.disabledForLoops) continue;
       interstitials.push({
         id: doc.id,
         url: d.url,
@@ -964,6 +967,9 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
     for (const doc of ixSnap.docs) {
       const d = doc.data();
       if (!d.url || !d.durationSec) continue;
+      // Retired from the rotation: doc kept (so already-built loops still
+      // resolve its URL) but excluded from future loop generation.
+      if (d.disabledForLoops) continue;
       interstitials.push({
         id: doc.id,
         url: d.url,
