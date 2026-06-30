@@ -1245,7 +1245,7 @@ export async function sendWeeklyRecommendationsEmail({
     // simple 2-cell table keeps spiral|star paired on desktop and stacks
     // acceptably on narrow screens.
     const gridHtml = `
-    <p style="margin: 0 0 2px; font-size: 18px; font-weight: 600; color: #1a1a1a;">Your Weekly Listening</p>
+    <p style="margin: 0 0 4px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">Your Weekly Listening</p>
     <p style="margin: 0 0 20px; font-size: 13px; color: #999;">Picked by Channel while we get to know your taste.</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
