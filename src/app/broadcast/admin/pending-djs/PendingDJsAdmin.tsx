@@ -58,6 +58,7 @@ interface CollectiveOption {
   id: string;
   name: string;
   residentDJs: EventDJRef[];
+  guestDJs: EventDJRef[];
 }
 
 interface EventOption {
@@ -254,6 +255,7 @@ export function PendingDJsAdmin() {
           id: docSnap.id,
           name: data.name,
           residentDJs: data.residentDJs || [],
+          guestDJs: data.guestDJs || [],
         });
       });
       list.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
@@ -450,7 +452,7 @@ export function PendingDJsAdmin() {
     setLinkedVenueIds(venueIds);
     setOriginalLinkedVenueIds(venueIds);
 
-    const collectiveIds = collectiveOptions.filter(c => matchesDJ(c.residentDJs)).map(c => c.id);
+    const collectiveIds = collectiveOptions.filter(c => matchesDJ(c.residentDJs) || matchesDJ(c.guestDJs)).map(c => c.id);
     setLinkedCollectiveIds(collectiveIds);
     setOriginalLinkedCollectiveIds(collectiveIds);
 
@@ -724,25 +726,34 @@ export function PendingDJsAdmin() {
           });
         }
 
-        // Update collectives
+        // Update collectives. Linking a DJ adds them as a GUEST (guestDJs) —
+        // promote to resident by hand in the collectives admin. Skip if they're
+        // already a resident (don't duplicate them into guests too).
         for (const collectiveId of addedCollectives) {
           const coll = collectiveOptions.find(c => c.id === collectiveId);
           if (!coll) continue;
-          const updatedDJs = [...coll.residentDJs, djRef];
+          const isResident = coll.residentDJs.some(d => d.djUsername === editingProfile.chatUsernameNormalized || d.djName === editingProfile.chatUsername);
+          if (isResident) continue;
+          const updatedGuests = [...coll.guestDJs, djRef];
           await fetch('/api/admin/collectives', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ collectiveId, residentDJs: updatedDJs }),
+            body: JSON.stringify({ collectiveId, guestDJs: updatedGuests }),
           });
         }
+        // Unlinking removes the DJ from BOTH arrays (they could be in either).
         for (const collectiveId of removedCollectives) {
           const coll = collectiveOptions.find(c => c.id === collectiveId);
           if (!coll) continue;
-          const updatedDJs = coll.residentDJs.filter(d => d.djUsername !== editingProfile.chatUsernameNormalized && d.djName !== editingProfile.chatUsername);
+          const notThisDJ = (d: EventDJRef) => d.djUsername !== editingProfile.chatUsernameNormalized && d.djName !== editingProfile.chatUsername;
           await fetch('/api/admin/collectives', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ collectiveId, residentDJs: updatedDJs }),
+            body: JSON.stringify({
+              collectiveId,
+              residentDJs: coll.residentDJs.filter(notThisDJ),
+              guestDJs: coll.guestDJs.filter(notThisDJ),
+            }),
           });
         }
 
