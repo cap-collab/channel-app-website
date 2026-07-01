@@ -210,6 +210,7 @@ export function CollectivesAdmin() {
           genres: data.genres || [],
           socialLinks: data.socialLinks || {},
           residentDJs: data.residentDJs || [],
+          guestDJs: data.guestDJs || [],
           linkedVenues: data.linkedVenues || [],
           linkedCollectives: data.linkedCollectives || [],
           linkedEvents: data.linkedEvents || [],
