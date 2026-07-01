@@ -1775,6 +1775,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         // of More Archives and any leftover featured-tier archives fold into the
         // browse list below (one curated row + one browse row).
         const sceneIdsSet = new Set((sceneSection?.archives || []).map((a) => a.id));
+        // Whether a curated section was provided at all (drives the de-dup +
+        // Featured suppression). Whether it RENDERS also depends on the filter
+        // leaving at least one card (computed below as `showSceneSection`).
         const hasSceneSection = (sceneSection?.archives.length ?? 0) > 0;
 
         // Split into the dedicated "Featured" section (featured tier only) and
@@ -1805,11 +1808,19 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           : nonFeatured;
 
         // Resolve the curated scene grid to the same {archive, sceneIds} tuple
-        // shape renderGrid expects, preserving the server's pick order.
-        const sceneItems = (sceneSection?.archives || []).map((a) => ({
+        // shape renderGrid expects, preserving the server's pick order. The
+        // scene + tempo chips apply here too (same shared filter state that
+        // drives More Archives), so narrowing the filter narrows both sections.
+        const sceneItemsAll = (sceneSection?.archives || []).map((a) => ({
           archive: a,
           sceneIds: resolveArchiveScenes(a, djSceneMap),
         }));
+        const sceneItemsSceneFiltered = filteringActive
+          ? sceneItemsAll.filter(({ sceneIds }) => sceneIds.some((id) => sceneFilter.has(id)))
+          : sceneItemsAll;
+        const sceneItems = tempoFilteringActive
+          ? sceneItemsSceneFiltered.filter(({ archive }) => archive.tempo && tempoFilter.has(archive.tempo))
+          : sceneItemsSceneFiltered;
 
         // Filter chips (scene glyphs + tempo dropdown). Rendered once — in the
         // Featured header when a Featured section exists, otherwise in the
@@ -1916,17 +1927,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         );
 
         const hasFeatured = featuredList.length > 0;
-        // The curated scene grid and the legacy Featured section are mutually
-        // exclusive — the scene grid replaces Featured when present. Whichever
-        // renders holds the filter chips so they sit at the top of the archive area.
-        const topSectionShown = hasSceneSection || hasFeatured;
+        // The curated section renders only when the filter leaves it with cards.
+        const showSceneSection = hasSceneSection && sceneItems.length > 0;
 
         return (
           <div className="mt-6 max-w-7xl mx-auto">
             {/* Curated "Find Your Scene" / "Featured For You" grid — replaces the
-                Featured section on the homepage. Not scene/tempo-filtered (a small
-                fixed pick set); its picks are de-duped out of More Archives. */}
-            {hasSceneSection ? (
+                Featured section on the homepage. The scene/tempo chips apply here
+                too; picks are de-duped out of More Archives. */}
+            {showSceneSection ? (
               <div className="mb-10">
                 <div className="mb-4">
                   <div className="flex items-center justify-between gap-3">
@@ -1951,12 +1960,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               </div>
             ) : null}
 
-            {/* All-archives section — everything not shown in the top section. */}
+            {/* All-archives section — everything not shown in the top section.
+                The filter chips are repeated here (in addition to the curated
+                section header) and share the same filter state, so both rows stay
+                in sync — toggling either updates both sections at once. */}
             <div className="mb-4">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-2xl md:text-3xl font-semibold">More Archives</h2>
-                {/* When a top section is showing it already holds the chips. */}
-                {topSectionShown ? null : filterChips}
+                {filterChips}
               </div>
             </div>
             {renderGrid(ordered)}
@@ -2265,8 +2276,8 @@ export function ArchiveGridCard({
             High-transparency glass: heavy backdrop blur keeps the white text
             readable over busy images; subtle white border catches the light. */}
         {!isLiveCard && glyphSlug && (
-          <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2 py-1 text-[10px] font-mono uppercase tracking-wide leading-none text-white bg-black/15 backdrop-blur-xl border border-white/10">
-            <SceneGlyph slug={glyphSlug} className="!w-3 !h-3 shrink-0" />
+          <div className="absolute top-2.5 right-2.5 flex items-center gap-2 px-2.5 py-1.5 text-[12px] font-mono uppercase tracking-wide leading-none text-white bg-black/15 backdrop-blur-xl border border-white/10">
+            <SceneGlyph slug={glyphSlug} className="!w-3.5 !h-3.5 shrink-0" />
             {tempoText && <span className="pt-px">{tempoText}</span>}
           </div>
         )}
