@@ -878,16 +878,29 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       // matchers up front so both the broadcast-slot loop and the external-
       // shows loop can use them.
       const isCollective = djProfile.profileType === 'collective';
+      // Owners AND residents both feed the collective's upcoming-shows list.
+      // Owners are UIDs (djProfile.owners) — those match slots by djUserId with
+      // no resolution needed; ownersResolved adds their usernames for the
+      // username/name match paths. Guests are intentionally excluded.
       const residentUids = isCollective
-        ? new Set((djProfile.residentDJs || []).map(r => r.djUserId).filter((u): u is string => !!u))
+        ? new Set([
+            ...(djProfile.residentDJs || []).map(r => r.djUserId).filter((u): u is string => !!u),
+            ...(djProfile.owners || []),
+          ])
         : new Set<string>();
       const residentUsernames = isCollective
-        ? (djProfile.residentDJs || [])
-            .map(r => (r.djUsername || '').replace(/[\s-]+/g, '').toLowerCase())
+        ? [
+            ...(djProfile.residentDJs || []).map(r => r.djUsername || ''),
+            ...ownersResolved.map(o => o.chatUsername || ''),
+          ]
+            .map(u => u.replace(/[\s-]+/g, '').toLowerCase())
             .filter(Boolean)
         : [];
       const residentNames = isCollective
-        ? (djProfile.residentDJs || []).map(r => r.djName).filter(Boolean)
+        ? [
+            ...(djProfile.residentDJs || []).map(r => r.djName),
+            ...ownersResolved.map(o => o.chatUsername),
+          ].filter(Boolean)
         : [];
       const residentUsernameSet = new Set(residentUsernames);
 
@@ -1062,7 +1075,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     }
 
     fetchUpcomingShows();
-  }, [djProfile, allShows]);
+  }, [djProfile, allShows, ownersResolved]);
 
   // Fetch past shows and recordings for this DJ
   useEffect(() => {
