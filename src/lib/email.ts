@@ -1135,6 +1135,36 @@ function buildWeeklyFeaturedRowHtml(row: WeeklyRecArchiveRow): string {
   `;
 }
 
+// Compact 2-COLUMN card (used in the personalized email when BOTH top sections
+// have content). Title = show name (capped), sub = DJ name (capped) — short so it
+// fits the narrow ~50%-width mobile cell, same visual language as the fallback
+// featured card.
+function buildWeeklyCompactCardHtml(row: WeeklyRecArchiveRow): string {
+  const djDisplayName = row.djName || row.djUsername || row.showName;
+  const cap = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s);
+  const title = cap(row.showName || djDisplayName, 22);
+  const sub = cap(djDisplayName, 22);
+  const url = `https://channel-app.com/?archive=${encodeURIComponent(row.slug)}`;
+  const fallbackColor = "#DC9B50";
+  const emailPhotoUrl = getEmailPhotoUrl(row.djUsername, row.djPhotoUrl, row.showImageUrl);
+  const photoHtml = emailPhotoUrl
+    ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="48" height="48" style="width: 48px; height: 48px; border-radius: 0; object-fit: cover; border: 1px solid #e5e5e5; display: block;" />`
+    : `<table width="48" height="48" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #e5e5e5; background-color: ${fallbackColor};"><tr><td align="center" valign="middle" style="font-size: 20px; font-weight: bold; color: #fff;">${djDisplayName.charAt(0).toUpperCase()}</td></tr></table>`;
+  return `
+    <a href="${url}" style="text-decoration: none; color: inherit; display: block;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
+        <tr>
+          <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
+          <td valign="top">
+            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 3px; line-height: 1.3;">${title}</div>
+            <div style="font-size: 12px; color: #999; line-height: 1.3;">${sub}</div>
+          </td>
+        </tr>
+      </table>
+    </a>
+  `;
+}
+
 // Coming-up row → bundle-style row with an Online/IRL badge + weekday start–end.
 function buildWeeklyComingUpRowHtml(row: WeeklyRecComingUpRow, timezone: string): string {
   const djDisplayName = row.djName || row.djUsername || row.showName;
@@ -1260,11 +1290,33 @@ export async function sendWeeklyRecommendationsEmail({
     `;
     firstUsed = true;
     topBlocks = gridHtml;
+  } else if (section1.length > 0 && section2.length > 0) {
+    // BOTH sections have content → a 2-COLUMN grid (like the fallback), each
+    // column headed by its section title, compact cards (show name / DJ). Same
+    // plain 50%-width <td> grid the fallback uses (stays 2-up on mobile).
+    const colTitle = (t: string) =>
+      `<p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">${t}</p>`;
+    const favCards = section1.map(buildWeeklyCompactCardHtml).join("");
+    const sceneCards = section2.map(buildWeeklyCompactCardHtml).join("");
+    topBlocks = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td width="50%" valign="top" style="padding-right: 10px;">
+          ${colTitle("Your favorites")}
+          ${favCards}
+        </td>
+        <td width="50%" valign="top" style="padding-left: 10px;">
+          ${colTitle("In your scene")}
+          ${sceneCards}
+        </td>
+      </tr>
+    </table>
+    `;
+    firstUsed = true;
   } else {
-    // "New from your favorites" = DJ-centric rows (show name / DJ · scene).
-    // "In your scene" (discovery) reuses the featured row format (scene glyph +
-    // tempo / DJ · show), since those picks carry scene+tempo like the fallback.
-    const block1 = renderBlock("New from your favorites", section1.map(buildWeeklyArchiveRowHtml));
+    // Only ONE section has content → full-width stacked block (no lopsided grid).
+    // "New from your favorites" = DJ-centric rows; "In your scene" = glyph+tempo.
+    const block1 = renderBlock("Your favorites", section1.map(buildWeeklyArchiveRowHtml));
     const block2 = renderBlock("In your scene", section2.map(buildWeeklyFeaturedRowHtml));
     topBlocks = block1 + block2;
   }

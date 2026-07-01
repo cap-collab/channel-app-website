@@ -39,7 +39,7 @@ function verifyCronRequest(request: NextRequest): boolean {
   return isVercelCron || authHeader === `Bearer ${cronSecret}`;
 }
 
-const SECTION_CAP = 2;
+const SECTION_CAP = 3;
 const RECENT_RETENTION_MS = 21 * 24 * 60 * 60 * 1000; // prune lastWeeklyRecShows after ~3 weeks
 
 // The SEND run only emails if the BACKFILL run completed within this window —
