@@ -283,9 +283,10 @@ export function filterComingUpForUser(
     if (userCity && !matchesCity(ev.location, userCity)) continue;
 
     const djs = ev.djs;
-    // Hide if ANY lineup DJ is muted or is the user's own.
+    // Hide if ANY lineup DJ is muted. An artist DOES see their OWN IRL events
+    // (own-DJ is NOT excluded here — only for their own ONLINE shows above).
     const lineupNorms = djs.map((d) => normUser(d.djUsername)).filter(Boolean);
-    if (lineupNorms.some((n) => muted.has(n) || n === ownDjUsername)) continue;
+    if (lineupNorms.some((n) => muted.has(n))) continue;
     const firstDj = djs[0];
     const engagedDj = djs.find((d) => normUser(d.djUsername) && engagedDjUsernames.has(normUser(d.djUsername)));
     const reason = engagedDj?.djName ? `${engagedDj.djName} · ${ev.location}` : `In ${ev.location}`;
