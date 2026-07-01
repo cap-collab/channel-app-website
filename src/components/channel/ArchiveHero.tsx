@@ -173,6 +173,17 @@ interface ArchiveHeroProps {
   // Homepage variant: widens the hero slider and narrows the archives grid
   // so the hero reads bigger and the cards read smaller. Only `/` opts in.
   homepage?: boolean;
+  // Curated "Find Your Scene" / "Featured For You" grid rendered in place of the
+  // Featured section under the hero (homepage only). Its archives are a small
+  // fixed pick set (not scene/tempo-filtered) and are de-duped out of More
+  // Archives. When present, `bandByArchiveId` / `fixedNewIds` drive the black
+  // banner above each card explaining why it's recommended.
+  sceneSection?: {
+    title: string;
+    archives: ArchiveSerialized[];
+    bandByArchiveId?: Record<string, { glyphSlug?: string; label?: string; tempo?: string }>;
+    fixedNewIds?: string[];
+  } | null;
 }
 
 function formatClockTime(timestampMs: number): string {
@@ -207,7 +218,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
   );
 }
 
-export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle, preferredHeroSeed, initialRadioArchiveId, homepage }: ArchiveHeroProps) {
+export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle, preferredHeroSeed, initialRadioArchiveId, homepage, sceneSection }: ArchiveHeroProps) {
   const { user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
   const {
@@ -1759,12 +1770,27 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           ? sceneFiltered.filter(({ archive }) => archive.tempo && tempoFilter.has(archive.tempo))
           : sceneFiltered;
 
+        // The curated "Find Your Scene" / "Featured For You" grid (homepage). When
+        // present it REPLACES the Featured section — so its picks are de-duped out
+        // of More Archives and any leftover featured-tier archives fold into the
+        // browse list below (one curated row + one browse row).
+        const sceneIdsSet = new Set((sceneSection?.archives || []).map((a) => a.id));
+        const hasSceneSection = (sceneSection?.archives.length ?? 0) > 0;
+
         // Split into the dedicated "Featured" section (featured tier only) and
         // the "Archives" section (everything else). Featured archives appear in
         // the Featured section ONLY — not duplicated below. Both lists are
         // already scene- + tempo-filtered, so the chips drive both sections.
-        const featuredList = filteredArchives.filter(({ archive }) => priorityIsFeatured(archive.priority));
-        const nonFeatured = filteredArchives.filter(({ archive }) => !priorityIsFeatured(archive.priority));
+        // With a curated scene section active, Featured is suppressed and its
+        // items flow into More Archives instead.
+        const featuredList = hasSceneSection
+          ? []
+          : filteredArchives.filter(({ archive }) => priorityIsFeatured(archive.priority));
+        const nonFeatured = filteredArchives.filter(({ archive }) =>
+          hasSceneSection
+            ? !sceneIdsSet.has(archive.id)
+            : !priorityIsFeatured(archive.priority),
+        );
 
         // Move hero first to position 3 of the Archives grid (only when neither
         // filter is active, so the curated order is preserved). The pin runs on
@@ -1777,6 +1803,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
               return [...rest.slice(0, 2), heroItem, ...rest.slice(2)];
             })()
           : nonFeatured;
+
+        // Resolve the curated scene grid to the same {archive, sceneIds} tuple
+        // shape renderGrid expects, preserving the server's pick order.
+        const sceneItems = (sceneSection?.archives || []).map((a) => ({
+          archive: a,
+          sceneIds: resolveArchiveScenes(a, djSceneMap),
+        }));
 
         // Filter chips (scene glyphs + tempo dropdown). Rendered once — in the
         // Featured header when a Featured section exists, otherwise in the
@@ -1815,44 +1848,97 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             </div>
           ) : null;
 
-        // Card-grid renderer shared by both sections.
-        const renderGrid = (items: typeof filteredArchives) => (
+        // Black "why we recommend this" banner above a card in the curated scene
+        // grid — mirrors /scene. §"new" (favorite-artists) → "New Show"; §rec
+        // (discovery) → an affiliation reason ("Similar to X") or scene glyph +
+        // tempo. Only the curated grid passes `withBands`; More Archives never
+        // shows a banner.
+        const renderSceneBand = (archiveId: string) => {
+          const isNew = sceneSection?.fixedNewIds?.includes(archiveId);
+          if (isNew) {
+            return (
+              <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center">
+                New Show
+              </div>
+            );
+          }
+          const band = sceneSection?.bandByArchiveId?.[archiveId];
+          if (!band) return null;
+          if (band.label) {
+            return (
+              <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center">
+                {band.label}
+              </div>
+            );
+          }
+          const tempoText = band.tempo ? tempoLabel(band.tempo as Tempo) : null;
+          if (!band.glyphSlug && !tempoText) return null;
+          return (
+            <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center gap-1.5">
+              {band.glyphSlug && <SceneGlyph slug={band.glyphSlug} className="!w-3 !h-3" />}
+              {tempoText && <span>{tempoText}</span>}
+            </div>
+          );
+        };
+
+        // Card-grid renderer shared by both sections. `withBands` = render the
+        // curated recommendation banner above each card (curated scene grid only).
+        const renderGrid = (items: typeof filteredArchives, withBands = false) => (
           <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mx-auto ${homepage ? 'max-w-[90%]' : ''}`}>
             {items.map(({ archive, sceneIds }) => (
-              <ArchiveGridCard
-                key={archive.id}
-                archive={archive}
-                isActive={archivePlayer.currentArchive?.id === archive.id}
-                isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
-                sceneChips={sceneIds
-                  .map((id) => scenesById.get(id))
-                  .filter((s): s is NonNullable<typeof s> => Boolean(s))
-                  .map((s) => ({ slug: s.id, name: s.name, emoji: s.emoji }))}
-                onPlay={() => {
-                  if (archivePlayer.currentArchive?.id === archive.id && archivePlayer.isPlaying) {
-                    archivePlayer.pause();
-                  } else {
-                    setUserSelectedMode('archive');
-                    playArchive(archive);
-                    // Snap the carousel to slide 1 — that's where the
-                    // listener-played archive renders. Without this the
-                    // listener stays on slide 0 (radio/live) while their
-                    // archive is what's actually playing.
-                    setHeroIndex(1);
-                  }
-                }}
-              />
+              <div key={archive.id} className="relative">
+                {withBands && renderSceneBand(archive.id)}
+                <ArchiveGridCard
+                  archive={archive}
+                  isActive={archivePlayer.currentArchive?.id === archive.id}
+                  isPlaying={archivePlayer.isPlaying && archivePlayer.currentArchive?.id === archive.id}
+                  sceneChips={sceneIds
+                    .map((id) => scenesById.get(id))
+                    .filter((s): s is NonNullable<typeof s> => Boolean(s))
+                    .map((s) => ({ slug: s.id, name: s.name, emoji: s.emoji }))}
+                  onPlay={() => {
+                    if (archivePlayer.currentArchive?.id === archive.id && archivePlayer.isPlaying) {
+                      archivePlayer.pause();
+                    } else {
+                      setUserSelectedMode('archive');
+                      playArchive(archive);
+                      // Snap the carousel to slide 1 — that's where the
+                      // listener-played archive renders. Without this the
+                      // listener stays on slide 0 (radio/live) while their
+                      // archive is what's actually playing.
+                      setHeroIndex(1);
+                    }
+                  }}
+                />
+              </div>
             ))}
           </div>
         );
 
         const hasFeatured = featuredList.length > 0;
+        // The curated scene grid and the legacy Featured section are mutually
+        // exclusive — the scene grid replaces Featured when present. Whichever
+        // renders holds the filter chips so they sit at the top of the archive area.
+        const topSectionShown = hasSceneSection || hasFeatured;
 
         return (
           <div className="mt-6 max-w-7xl mx-auto">
-            {/* Featured section — featured-tier archives only. Chips live here
-                when present so they sit at the top of the archive area. */}
-            {hasFeatured && (
+            {/* Curated "Find Your Scene" / "Featured For You" grid — replaces the
+                Featured section on the homepage. Not scene/tempo-filtered (a small
+                fixed pick set); its picks are de-duped out of More Archives. */}
+            {hasSceneSection ? (
+              <div className="mb-10">
+                <div className="mb-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-2xl md:text-3xl font-semibold">{sceneSection!.title}</h2>
+                    {filterChips}
+                  </div>
+                </div>
+                {renderGrid(sceneItems, true)}
+              </div>
+            ) : hasFeatured ? (
+              /* Featured section — featured-tier archives only. Chips live here
+                 when present so they sit at the top of the archive area. */
               <div className="mb-10">
                 <div className="mb-4">
                   <div className="flex items-center justify-between gap-3">
@@ -1863,14 +1949,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 </div>
                 {renderGrid(featuredList)}
               </div>
-            )}
+            ) : null}
 
-            {/* All-archives section — everything except featured. */}
+            {/* All-archives section — everything not shown in the top section. */}
             <div className="mb-4">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-2xl md:text-3xl font-semibold">More Archives</h2>
-                {/* When a Featured section is showing it already holds the chips. */}
-                {hasFeatured ? null : filterChips}
+                {/* When a top section is showing it already holds the chips. */}
+                {topSectionShown ? null : filterChips}
               </div>
             </div>
             {renderGrid(ordered)}

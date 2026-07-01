@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useScheduleLazy } from '@/contexts/ScheduleContext';
 import { Header } from '@/components/Header';
@@ -41,8 +41,8 @@ type RecommendedItem =
   | MatchedItem
   | { type: 'curator'; data: CuratorRec };
 
-export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, sceneMode, initialHeroArchives, initialPreferredHero, initialRadioArchiveId }: { skipHero?: boolean; topSearchSlot?: React.ReactNode; discoveryFiltersSlot?: React.ReactNode; sceneMode?: boolean; initialHeroArchives?: import('@/types/broadcast').ArchiveSerialized[]; initialPreferredHero?: { spiral: import('@/types/broadcast').ArchiveSerialized | null; star: import('@/types/broadcast').ArchiveSerialized | null }; initialRadioArchiveId?: string | null } = {}) {
-  const { user, isAuthenticated } = useAuthContext();
+export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, sceneMode, initialHeroArchives, initialPreferredHero, initialRadioArchiveId, initialSceneArchives }: { skipHero?: boolean; topSearchSlot?: React.ReactNode; discoveryFiltersSlot?: React.ReactNode; sceneMode?: boolean; initialHeroArchives?: import('@/types/broadcast').ArchiveSerialized[]; initialPreferredHero?: { spiral: import('@/types/broadcast').ArchiveSerialized | null; star: import('@/types/broadcast').ArchiveSerialized | null }; initialRadioArchiveId?: string | null; initialSceneArchives?: import('@/types/broadcast').ArchiveSerialized[] } = {}) {
+  const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { isLive: isBroadcastLive, isStreaming: isBroadcastStreaming, currentShow } = useBroadcastStreamContext();
   const { stationBPM } = useBPM();
   const archivePlayer = useArchivePlayer();
@@ -279,6 +279,118 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
   useEffect(() => {
     archivePlayer.setFeaturedArchive(featuredArchive);
   }, [featuredArchive, archivePlayer.setFeaturedArchive]);
+
+  // "Find Your Scene" / "Featured For You" section under the hero. Seeds
+  // instantly from the SSR featured grid (logged-out / auth-unresolved); once a
+  // logged-in user resolves, upgrades to their personalized picks fetched from
+  // /api/recommendations/me (idle-deferred so the hero paints first).
+  //  - Logged-out / no-history: 6-cell featured matrix, titled "Find Your Scene".
+  //  - Logged-in w/ history: up to 6 cards, "new from favorites" first then
+  //    "in your scene", titled "Featured For You", each carrying a band so the
+  //    black banner above the card explains why it's recommended.
+  const [sceneSection, setSceneSection] = useState<{
+    title: string;
+    archives: import('@/types/broadcast').ArchiveSerialized[];
+    bandByArchiveId?: Record<string, { glyphSlug?: string; label?: string; tempo?: string }>;
+    fixedNewIds?: string[]; // favorite-artists ids → "New Show" banner
+  } | null>(
+    initialSceneArchives && initialSceneArchives.length > 0
+      ? { title: 'Find Your Scene', archives: initialSceneArchives }
+      : null,
+  );
+
+  // Stable "Find Your Scene" seed (the SSR featured grid) so the logged-out /
+  // signed-out branch can reset to it cleanly without re-reading the prop mid-run.
+  const sceneSeedRef = useRef<{ title: string; archives: import('@/types/broadcast').ArchiveSerialized[] } | null>(
+    initialSceneArchives && initialSceneArchives.length > 0
+      ? { title: 'Find Your Scene', archives: initialSceneArchives }
+      : null,
+  );
+
+  useEffect(() => {
+    // Only the homepage renders this section (skipHero=false, not sceneMode).
+    if (skipHero || sceneMode) return;
+    // WAIT for auth to settle before deciding — otherwise a logged-in user whose
+    // token hasn't resolved yet would momentarily fetch nothing, and a mid-flight
+    // resolution could race. While auth is resolving, the SSR seed stays shown.
+    if (authLoading) return;
+    // Logged out (resolved): revert to the SSR "Find Your Scene" seed. This also
+    // cleanly handles sign-out — any stale "Featured For You" is replaced.
+    if (!isAuthenticated || !user) {
+      setSceneSection(sceneSeedRef.current);
+      return;
+    }
+
+    let cancelled = false;
+    // Capture the identity we're fetching for; if `user` flips before the fetch
+    // resolves the effect re-runs (cancelled=true here) and the stale response
+    // is dropped by the guard below.
+    const run = async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/recommendations/me', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error('me failed');
+        const data = await res.json();
+        if (cancelled) return;
+
+        const sections: Array<{ id: string; archives: import('@/types/broadcast').ArchiveSerialized[]; bandByArchiveId?: Record<string, { glyphSlug?: string; label?: string; tempo?: string }> }> = data.sections || [];
+        if (sections.length > 0) {
+          const newSec = sections.find((s) => s.id === 'favorite-artists');
+          const recSec = sections.find((s) => s.id === 'discovery');
+          // "new" first, then "recommended"; dedupe by id; cap at 6.
+          const seen = new Set<string>();
+          const merged: import('@/types/broadcast').ArchiveSerialized[] = [];
+          const bandByArchiveId: Record<string, { glyphSlug?: string; label?: string; tempo?: string }> = {};
+          const fixedNewIds: string[] = [];
+          for (const a of newSec?.archives || []) {
+            if (seen.has(a.id)) continue;
+            seen.add(a.id);
+            merged.push(a);
+            fixedNewIds.push(a.id);
+          }
+          for (const a of recSec?.archives || []) {
+            if (seen.has(a.id)) continue;
+            seen.add(a.id);
+            merged.push(a);
+            const band = recSec?.bandByArchiveId?.[a.id];
+            if (band) bandByArchiveId[a.id] = band;
+          }
+          const capped = merged.slice(0, 6);
+          if (capped.length > 0) {
+            setSceneSection({ title: 'Featured For You', archives: capped, bandByArchiveId, fixedNewIds });
+            return;
+          }
+        }
+        // No personalized sections (no engagement history) → featured matrix.
+        const startHere: import('@/types/broadcast').ArchiveSerialized[] = data.startHere || [];
+        if (startHere.length > 0) {
+          setSceneSection({ title: 'Find Your Scene', archives: startHere.slice(0, 6) });
+        } else {
+          // Nothing personalized and no featured payload → fall back to the seed.
+          setSceneSection(sceneSeedRef.current);
+        }
+      } catch {
+        // Network/parse failure: keep whatever we're showing (SSR seed on first
+        // load; a prior personalized result on a token refresh). Don't clobber.
+      }
+    };
+
+    // Defer until idle so the hero + above-the-fold work paints first.
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(() => run(), { timeout: 2000 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback(id);
+      };
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [skipHero, sceneMode, authLoading, isAuthenticated, user]);
 
   // Helper: check if a show is currently live
   const isShowLive = useCallback((show: Show): boolean => {
@@ -1370,6 +1482,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
               liveDJChatRoom={currentDJChatRoom}
               preferredHeroSeed={initialPreferredHero}
               initialRadioArchiveId={initialRadioArchiveId}
+              sceneSection={sceneSection}
               homepage
             />
           ) : null}
