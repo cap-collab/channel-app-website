@@ -1180,16 +1180,22 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           // When viewing a collective profile, match by its slug directly
           // (not by chatUsername, which is the pretty name and may not equal
           // the slug after normalization).
-          let ownerUids = new Set<string>();
+          // Owner + resident matcher sets for surfacing members' own recordings
+          // on the collective page. Owners are UIDs (djProfile.owners); residents
+          // carry djUserId/djUsername/djName. Guests are intentionally excluded.
+          const memberUids = new Set<string>();
+          const memberUsernames = new Set<string>();
+          const memberNames: string[] = [];
           if (djProfile.profileType === 'collective' && djProfile.collectiveSlug) {
             myCollectiveSlugs = new Set([djProfile.collectiveSlug]);
-            // Also surface the owners' own recordings on the collective page:
-            // match archives credited to any owner UID (djs[].userId).
-            ownerUids = new Set(
-              (djProfile.owners ?? []).filter(
-                (u): u is string => typeof u === "string" && u.length > 0
-              )
-            );
+            for (const u of djProfile.owners ?? []) {
+              if (typeof u === "string" && u.length > 0) memberUids.add(u);
+            }
+            for (const r of djProfile.residentDJs ?? []) {
+              if (r.djUserId) memberUids.add(r.djUserId);
+              if (r.djUsername) memberUsernames.add(r.djUsername.toLowerCase().replace(/[\s-]+/g, ''));
+              if (r.djName) memberNames.push(r.djName.toLowerCase());
+            }
           }
 
           const djArchives = archives.filter((archive) => {
@@ -1202,8 +1208,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             // Match by DJ info in the archive's djs array
             const matchesDj = archive.djs?.some((dj) => {
               if (djUserId && dj.userId === djUserId) return true;
-              // On a collective page, also match the owners' own recordings.
-              if (dj.userId && ownerUids.size > 0 && ownerUids.has(dj.userId)) return true;
+              // On a collective page, also match owners' + residents' own
+              // recordings (by UID, normalized username, or name).
+              if (dj.userId && memberUids.size > 0 && memberUids.has(dj.userId)) return true;
+              if (dj.username && memberUsernames.size > 0 &&
+                  memberUsernames.has(dj.username.toLowerCase().replace(/[\s-]+/g, ''))) return true;
+              if (dj.name && memberNames.length > 0 &&
+                  memberNames.includes(dj.name.toLowerCase())) return true;
               if (dj.username && normalizedUsername) {
                 const archiveDjUsername = dj.username.toLowerCase().replace(/\s+/g, '');
                 if (archiveDjUsername === normalizedUsername) return true;
