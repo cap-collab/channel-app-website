@@ -1296,8 +1296,11 @@ export async function sendWeeklyRecommendationsEmail({
     // plain 50%-width <td> grid the fallback uses (stays 2-up on mobile).
     const colTitle = (t: string) =>
       `<p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">${t}</p>`;
+    // Favorites → compact show-name/DJ cards. Discovery ("In your scene") →
+    // the fallback featured-card style: glyph + tempo on top, "DJ · show"
+    // (truncated) beneath.
     const favCards = section1.map(buildWeeklyCompactCardHtml).join("");
-    const sceneCards = section2.map(buildWeeklyCompactCardHtml).join("");
+    const sceneCards = section2.map(buildWeeklyFeaturedRowHtml).join("");
     topBlocks = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
