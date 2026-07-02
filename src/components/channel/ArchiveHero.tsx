@@ -1188,8 +1188,36 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                         // archive as a last resort.
                         const liveRadioId = radioCtx?.currentItem?.archiveId;
                         const seedId = initialRadioArchiveId ?? null;
+                        // The `archives` list is the featured/high hero seed —
+                        // it may NOT contain the playing archive when it's a
+                        // medium/low-priority radio item. In that case, build a
+                        // minimal archive from the loop item's own denormalized
+                        // fields (artwork/djs/title are frozen alongside the
+                        // audio at schedule-write time), so the image can never
+                        // desync from what's actually playing. Only used for the
+                        // archive-radio slide — live/restream slides are a
+                        // different branch above and are unaffected.
+                        const radioItem = radioCtx?.currentItem;
+                        const fromLoopItem = ((): ArchiveSerialized | null => {
+                          if (!liveRadioId || !radioItem || radioItem.kind !== 'archive') return null;
+                          return {
+                            id: liveRadioId,
+                            slug: '',
+                            broadcastSlotId: '',
+                            showName: radioItem.title || '',
+                            djs: radioItem.djs ?? [],
+                            recordingUrl: radioItem.recordingUrl,
+                            duration: radioItem.durationSec ?? 0,
+                            recordedAt: 0,
+                            createdAt: 0,
+                            stationId: 'channel-main',
+                            showImageUrl: radioItem.artworkUrl,
+                            sceneIdsOverride: radioItem.sceneSlugs ?? null,
+                          };
+                        })();
                         const radioArchive =
                           (liveRadioId ? archives.find((a) => a.id === liveRadioId) : null) ??
+                          fromLoopItem ??
                           (seedId ? archives.find((a) => a.id === seedId) : null) ??
                           featuredArchive;
                         return (
