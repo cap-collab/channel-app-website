@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
-import type { TechHealthResponse } from '@/app/api/admin/tech-health/route';
+import type { TechHealthResponse, NormalizeQueuePendingItem } from '@/app/api/admin/tech-health/route';
 
 function diskClass(pct: number): string {
   if (pct >= 85) return 'text-red-400';
@@ -264,6 +264,10 @@ export function TechHealthTab() {
                   ))}
                 </ul>
               )}
+              <EmptyEgressNote
+                count={data.faststartQueue.emptyEgressLast24h}
+                items={data.faststartQueue.emptyEgressItems}
+              />
             </div>
           </section>
 
@@ -306,6 +310,10 @@ export function TechHealthTab() {
                   {data.normalizeQueue.failedLast24h}
                 </span>
               } />
+              <EmptyEgressNote
+                count={data.normalizeQueue.emptyEgressLast24h}
+                items={data.normalizeQueue.emptyEgressItems}
+              />
             </div>
           </section>
 
@@ -503,5 +511,34 @@ function OnOff({ on }: { on: boolean }) {
     <span className={on ? 'text-green-400 font-bold' : 'text-gray-500'}>
       {on ? 'ON' : 'OFF'}
     </span>
+  );
+}
+
+// Neutral note for benign empty/aborted-egress failures (source MP4 never
+// written — a DJ testing go-live/stop, or an aborted egress). Not an error:
+// grey, not red, and excluded from "Failed last 24h". Renders nothing when zero.
+function EmptyEgressNote({ count, items }: { count: number; items: NormalizeQueuePendingItem[] }) {
+  if (!count) return null;
+  return (
+    <div className="pt-1">
+      <Row
+        label="Empty/aborted egress (ignored)"
+        value={<span className="text-gray-500" title="Recording started then stopped before any audio was written (e.g. a DJ testing). No file to process — not an error.">{count}</span>}
+      />
+      {items && items.length > 0 && (
+        <ul className="pl-3 border-l border-white/10 space-y-1 mt-1">
+          {items.map((item) => (
+            <li key={item.id} className="flex items-center justify-between gap-2">
+              <span className="text-gray-500 truncate">{item.showName}</span>
+              <span className="text-gray-600 text-xs flex-shrink-0">
+                {item.ageMin >= 60
+                  ? `${Math.floor(item.ageMin / 60)}h ${item.ageMin % 60}m`
+                  : `${item.ageMin}m`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

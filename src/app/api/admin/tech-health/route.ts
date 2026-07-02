@@ -72,10 +72,17 @@ export interface NormalizeQueueHealth {
   oldestPendingAgeMin: number | null;
   doneLast24h: number;
   failedLast24h: number;
+  // Failures where the source MP4 never existed in R2 (aborted/test egress —
+  // a DJ going live then immediately stopping writes no media file). These are
+  // benign and self-fail immediately, so they're excluded from failedLast24h
+  // and surfaced separately instead of lighting up the red error count.
+  emptyEgressLast24h: number;
   // Pending entries with their resolved show name, oldest first. Show name is
   // joined from the archive (artist uploads carry archiveId) or the broadcast
   // slot (live recordings carry slotId); the queue doc itself has neither.
   pendingItems: NormalizeQueuePendingItem[];
+  // Benign empty/aborted-egress failures with show name (shown as a neutral note).
+  emptyEgressItems: NormalizeQueuePendingItem[];
 }
 
 export interface FaststartQueueHealth {
@@ -89,9 +96,24 @@ export interface FaststartQueueHealth {
   staleInProgress: number;
   oldestPendingAgeMin: number | null;
   failedLast24h: number;
+  // Failures where the source MP4 never existed in R2 (aborted/test egress).
+  // Excluded from failedLast24h and surfaced separately — see NormalizeQueueHealth.
+  emptyEgressLast24h: number;
   // Stuck (stale in-progress) and failed entries with show name, so the console
   // names the specific recording, not just a count.
   stuckItems: NormalizeQueuePendingItem[];
+  // Benign empty/aborted-egress failures with show name (shown as a neutral note).
+  emptyEgressItems: NormalizeQueuePendingItem[];
+}
+
+// A faststart/normalize failure whose source MP4 was never written to R2 (an
+// aborted or test egress: go live, immediately stop → egress writes only the
+// JSON manifest, no media). These fail immediately and can never succeed, so
+// they're benign — not a pipeline error. Mirrors isMissingSourceError in the
+// drain crons. Matched against the entry's recorded lastError string.
+function isEmptyEgressError(lastError: unknown): boolean {
+  const msg = String(lastError || '').toLowerCase();
+  return msg.includes('specified key does not exist') || msg.includes('nosuchkey');
 }
 
 export interface R2Stats {
@@ -337,7 +359,7 @@ async function probeLivekit(): Promise<LivekitHealth> {
 async function probeNormalizeQueue(): Promise<NormalizeQueueHealth> {
   const db = getAdminDb();
   if (!db) {
-    return { pending: 0, inProgress: 0, oldestPendingAgeMin: null, doneLast24h: 0, failedLast24h: 0, pendingItems: [] };
+    return { pending: 0, inProgress: 0, oldestPendingAgeMin: null, doneLast24h: 0, failedLast24h: 0, emptyEgressLast24h: 0, pendingItems: [], emptyEgressItems: [] };
   }
   const snap = await db.collection('normalize-queue').get();
   const now = Date.now();
@@ -347,7 +369,9 @@ async function probeNormalizeQueue(): Promise<NormalizeQueueHealth> {
   let oldestPendingMs = Infinity;
   let doneLast24h = 0;
   let failedLast24h = 0;
+  let emptyEgressLast24h = 0;
   const pendingDocs: Array<{ id: string; archiveId?: string; slotId?: string; queuedAt: number }> = [];
+  const emptyEgressDocs: Array<{ id: string; archiveId?: string; slotId?: string; refMs: number }> = [];
   for (const d of snap.docs) {
     const data = d.data();
     if (data.status === 'pending') {
@@ -362,7 +386,15 @@ async function probeNormalizeQueue(): Promise<NormalizeQueueHealth> {
       if (ts >= dayAgo) doneLast24h++;
     } else if (data.status === 'failed') {
       const ts = Number(data.lastAttemptAt || 0);
-      if (ts >= dayAgo) failedLast24h++;
+      if (ts >= dayAgo) {
+        // Split benign empty/aborted-egress failures out of the real error count.
+        if (isEmptyEgressError(data.lastError)) {
+          emptyEgressLast24h++;
+          emptyEgressDocs.push({ id: d.id, archiveId: data.archiveId, slotId: data.slotId, refMs: ts });
+        } else {
+          failedLast24h++;
+        }
+      }
     }
   }
 
@@ -393,63 +425,30 @@ async function probeNormalizeQueue(): Promise<NormalizeQueueHealth> {
       })
   );
 
+  const emptyEgressItems = await resolveShowNames(db, emptyEgressDocs, now);
+
   return {
     pending,
     inProgress,
     oldestPendingAgeMin: oldestPendingMs === Infinity ? null : Math.round((now - oldestPendingMs) / 60000),
     doneLast24h,
     failedLast24h,
+    emptyEgressLast24h,
     pendingItems,
+    emptyEgressItems,
   };
 }
 
-// Faststart runs BEFORE normalize (moves the moov atom to the front so mobile can
-// stream). It had no Tech Health visibility, so an entry stranded in-progress —
-// which blocks normalize for that recording AND every recording queued behind it —
-// was invisible (observed 2026-06-26: a stranded faststart silently delayed two
-// live recordings). This probe surfaces stale in-progress + failed entries.
-const FASTSTART_STALE_MS = 30 * 60 * 1000; // mirrors drain-faststart's STALE_IN_PROGRESS_MS
-async function probeFaststartQueue(): Promise<FaststartQueueHealth> {
-  const db = getAdminDb();
-  if (!db) {
-    return { pending: 0, inProgress: 0, staleInProgress: 0, oldestPendingAgeMin: null, failedLast24h: 0, stuckItems: [] };
-  }
-  const snap = await db.collection('faststart-queue').get();
-  const now = Date.now();
-  const dayAgo = now - 24 * 60 * 60 * 1000;
-  let pending = 0;
-  let inProgress = 0;
-  let staleInProgress = 0;
-  let oldestPendingMs = Infinity;
-  let failedLast24h = 0;
-  // Stuck = stale in-progress; also surface recently failed. Both name a recording.
-  const stuckDocs: Array<{ id: string; slotId?: string; archiveId?: string; refMs: number }> = [];
-  for (const d of snap.docs) {
-    const data = d.data();
-    if (data.status === 'pending') {
-      pending++;
-      const ts = Number(data.queuedAt || 0);
-      if (ts > 0 && ts < oldestPendingMs) oldestPendingMs = ts;
-    } else if (data.status === 'in-progress') {
-      inProgress++;
-      const startedAt = Number(data.startedAt || 0);
-      if (startedAt > 0 && now - startedAt > FASTSTART_STALE_MS) {
-        staleInProgress++;
-        stuckDocs.push({ id: d.id, slotId: data.slotId, archiveId: data.archiveId, refMs: startedAt });
-      }
-    } else if (data.status === 'failed') {
-      const ts = Number(data.lastAttemptAt || 0);
-      if (ts >= dayAgo) {
-        failedLast24h++;
-        stuckDocs.push({ id: d.id, slotId: data.slotId, archiveId: data.archiveId, refMs: ts });
-      }
-    }
-  }
-
-  // Resolve a show name for each stuck/failed entry (slotId → broadcast-slots,
-  // archiveId → archives), oldest-first, capped so a flood can't blow up the join.
-  const stuckItems: NormalizeQueuePendingItem[] = await Promise.all(
-    stuckDocs
+// Join queue docs to a show name (archiveId → archives, slotId → broadcast-slots),
+// oldest first, capped so a flood can't blow up the read fan-out. Shared by the
+// faststart + normalize probes for their stuck / empty-egress item lists.
+async function resolveShowNames(
+  db: FirebaseFirestore.Firestore,
+  docs: Array<{ id: string; archiveId?: string; slotId?: string; refMs: number }>,
+  now: number,
+): Promise<NormalizeQueuePendingItem[]> {
+  return Promise.all(
+    docs
       .sort((a, b) => a.refMs - b.refMs)
       .slice(0, 20)
       .map(async (entry) => {
@@ -470,8 +469,66 @@ async function probeFaststartQueue(): Promise<FaststartQueueHealth> {
           showName: showName || `(unknown — ${entry.id})`,
           ageMin: entry.refMs > 0 ? Math.round((now - entry.refMs) / 60000) : 0,
         };
-      })
+      }),
   );
+}
+
+// Faststart runs BEFORE normalize (moves the moov atom to the front so mobile can
+// stream). It had no Tech Health visibility, so an entry stranded in-progress —
+// which blocks normalize for that recording AND every recording queued behind it —
+// was invisible (observed 2026-06-26: a stranded faststart silently delayed two
+// live recordings). This probe surfaces stale in-progress + failed entries.
+const FASTSTART_STALE_MS = 30 * 60 * 1000; // mirrors drain-faststart's STALE_IN_PROGRESS_MS
+async function probeFaststartQueue(): Promise<FaststartQueueHealth> {
+  const db = getAdminDb();
+  if (!db) {
+    return { pending: 0, inProgress: 0, staleInProgress: 0, oldestPendingAgeMin: null, failedLast24h: 0, emptyEgressLast24h: 0, stuckItems: [], emptyEgressItems: [] };
+  }
+  const snap = await db.collection('faststart-queue').get();
+  const now = Date.now();
+  const dayAgo = now - 24 * 60 * 60 * 1000;
+  let pending = 0;
+  let inProgress = 0;
+  let staleInProgress = 0;
+  let oldestPendingMs = Infinity;
+  let failedLast24h = 0;
+  let emptyEgressLast24h = 0;
+  // Stuck = stale in-progress + real failures. Both name a recording.
+  const stuckDocs: Array<{ id: string; slotId?: string; archiveId?: string; refMs: number }> = [];
+  // Benign empty/aborted-egress failures, surfaced separately (not counted as errors).
+  const emptyEgressDocs: Array<{ id: string; slotId?: string; archiveId?: string; refMs: number }> = [];
+  for (const d of snap.docs) {
+    const data = d.data();
+    if (data.status === 'pending') {
+      pending++;
+      const ts = Number(data.queuedAt || 0);
+      if (ts > 0 && ts < oldestPendingMs) oldestPendingMs = ts;
+    } else if (data.status === 'in-progress') {
+      inProgress++;
+      const startedAt = Number(data.startedAt || 0);
+      if (startedAt > 0 && now - startedAt > FASTSTART_STALE_MS) {
+        staleInProgress++;
+        stuckDocs.push({ id: d.id, slotId: data.slotId, archiveId: data.archiveId, refMs: startedAt });
+      }
+    } else if (data.status === 'failed') {
+      const ts = Number(data.lastAttemptAt || 0);
+      if (ts >= dayAgo) {
+        // Split benign empty/aborted-egress failures out of the real error count.
+        if (isEmptyEgressError(data.lastError)) {
+          emptyEgressLast24h++;
+          emptyEgressDocs.push({ id: d.id, slotId: data.slotId, archiveId: data.archiveId, refMs: ts });
+        } else {
+          failedLast24h++;
+          stuckDocs.push({ id: d.id, slotId: data.slotId, archiveId: data.archiveId, refMs: ts });
+        }
+      }
+    }
+  }
+
+  const [stuckItems, emptyEgressItems] = await Promise.all([
+    resolveShowNames(db, stuckDocs, now),
+    resolveShowNames(db, emptyEgressDocs, now),
+  ]);
 
   return {
     pending,
@@ -479,7 +536,9 @@ async function probeFaststartQueue(): Promise<FaststartQueueHealth> {
     staleInProgress,
     oldestPendingAgeMin: oldestPendingMs === Infinity ? null : Math.round((now - oldestPendingMs) / 60000),
     failedLast24h,
+    emptyEgressLast24h,
     stuckItems,
+    emptyEgressItems,
   };
 }
 
@@ -554,8 +613,8 @@ export async function GET(request: NextRequest) {
     probeWorker('Restream + normalize', restreamWorkerUrl),
     probeWorker('YouTube render', youtubeWorkerUrl),
     probeLivekit(),
-    probeNormalizeQueue().catch(() => ({ pending: 0, inProgress: 0, oldestPendingAgeMin: null, doneLast24h: 0, failedLast24h: 0, pendingItems: [] })),
-    probeFaststartQueue().catch(() => ({ pending: 0, inProgress: 0, staleInProgress: 0, oldestPendingAgeMin: null, failedLast24h: 0, stuckItems: [] })),
+    probeNormalizeQueue().catch(() => ({ pending: 0, inProgress: 0, oldestPendingAgeMin: null, doneLast24h: 0, failedLast24h: 0, emptyEgressLast24h: 0, pendingItems: [], emptyEgressItems: [] })),
+    probeFaststartQueue().catch(() => ({ pending: 0, inProgress: 0, staleInProgress: 0, oldestPendingAgeMin: null, failedLast24h: 0, emptyEgressLast24h: 0, stuckItems: [], emptyEgressItems: [] })),
     probeUpcomingSlots().catch(() => []),
     probeR2Stats().catch(() => null),
     probeR2Backup().catch(() => null),
