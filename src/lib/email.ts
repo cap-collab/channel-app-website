@@ -295,6 +295,19 @@ export interface LaterTodayShowRow {
   endTime?: string; // ISO 8601 — used to render "start – end" on the row
 }
 
+// One IRL (in-person) event near the recipient, rendered in the "IRL near you"
+// block at the very bottom of go-live emails. City-gated by the caller.
+export interface IrlEventRow {
+  eventName: string;
+  djName?: string; // headliner / first lineup DJ
+  allDjArtists?: string[]; // full lineup — first few rendered, rest as "+N more"
+  photoUrl?: string; // event photo (falls back to DJ photo, then initial)
+  city: string; // event location (already matched to the recipient's city)
+  venueName?: string;
+  dateMs: number; // event start — rendered as a weekday + date, no time
+  ticketUrl?: string; // whole row links here when set
+}
+
 interface ShowStartingEmailParams {
   to: string;
   recipientUserId?: string; // For per-DJ unsubscribe link in footer
@@ -328,6 +341,10 @@ interface ShowStartingEmailParams {
   // Sorted by startTime ascending. When empty/absent, no section renders
   // and the email is byte-identical to the single-show layout.
   laterToday?: LaterTodayShowRow[];
+  // In-person events in the recipient's city this week, rendered as a separate
+  // "IRL near you" block below the online schedule. Caller has already
+  // city-gated + capped these. Absent/empty → no block renders.
+  irlEvents?: IrlEventRow[];
   // Recipient's timezone (e.g. "America/Los_Angeles") — used to format the
   // time label on each bundled row.
   userTimezone?: string;
@@ -353,6 +370,7 @@ export async function sendShowStartingEmail({
   engagementReason,
   savedReason,
   laterToday,
+  irlEvents,
   userTimezone,
   isRestream,
 }: ShowStartingEmailParams) {
@@ -413,6 +431,12 @@ export async function sendShowStartingEmail({
     ? buildLaterTodaySection(laterToday, userTimezone || "America/Los_Angeles")
     : "";
 
+  // IRL events in the recipient's city this week — own block below the online
+  // schedule. Empty/absent when the recipient has no resolvable city.
+  const irlNearYouHtml = irlEvents && irlEvents.length > 0
+    ? buildIrlNearYouSection(irlEvents)
+    : "";
+
   // Subject line is always about the PRIMARY live show only — "{DJ} is live on
   // channel" (or "airing" for a restream). The bundle below is the week's full
   // schedule, not a crew who are also live right now, so it must NOT inflate
@@ -442,6 +466,7 @@ export async function sendShowStartingEmail({
       </tr>
     </table>
     ${laterTodayHtml}
+    ${irlNearYouHtml}
   `;
 
   // Per-DJ mute link in the footer applies to every recipient — one click
@@ -710,6 +735,73 @@ function buildLaterTodaySection(rows: LaterTodayShowRow[], timezone: string): st
     buildBundleBlock("Also coming up today", today, timezone) +
     buildBundleBlock("Coming up this week", thisWeek, timezone)
   );
+}
+
+// Compact 48x48-photo row for an IRL event in the "IRL near you" block.
+// Mirrors buildLaterTodayRowHtml but carries the 🌲 IRL badge, venue/city, and
+// a full lineup (first 3 + "+N more"), matching the weekly newsletter's IRL
+// treatment. Whole row links to the ticket URL when present.
+function buildIrlEventRowHtml(ev: IrlEventRow): string {
+  const headliner = ev.djName || ev.eventName;
+  // Weekday + date, no time — IRL events are day-granular in the schedule.
+  const dateStr = new Date(ev.dateMs).toLocaleDateString("en-US", {
+    weekday: "short", month: "short", day: "numeric",
+  });
+  // Lineup: first 3 names, then "+N more". Falls back to the headliner.
+  const artists = (ev.allDjArtists && ev.allDjArtists.length > 0)
+    ? ev.allDjArtists
+    : (ev.djName ? [ev.djName] : []);
+  const lineup = artists.length > 3
+    ? `${artists.slice(0, 3).join(", ")} +${artists.length - 3} more`
+    : artists.join(", ");
+  const place = ev.venueName ? `${ev.venueName}, ${ev.city}` : ev.city;
+  // Meta line: "🌲 IRL · {lineup} · {venue, city} · {date}" — drop empty parts.
+  const metaParts = ["🌲 IRL", lineup, place, dateStr].filter((p) => p && p.trim());
+
+  const emailPhotoUrl = getEmailPhotoUrl(undefined, undefined, ev.photoUrl);
+  const photoHtml = emailPhotoUrl
+    ? `<img src="${emailPhotoUrl}" alt="${ev.eventName}" width="48" height="48" style="width: 48px; height: 48px; border-radius: 0; object-fit: cover; border: 1px solid #e5e5e5; display: block;" />`
+    : `<table width="48" height="48" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #e5e5e5; background-color: #22c55e;">
+        <tr>
+          <td align="center" valign="middle" style="font-size: 20px; font-weight: bold; color: #fff;">
+            ${headliner.charAt(0).toUpperCase()}
+          </td>
+        </tr>
+      </table>`;
+
+  const inner = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
+      <tr>
+        <td width="48" valign="top" style="padding-right: 12px;">
+          ${photoHtml}
+        </td>
+        <td valign="middle">
+          <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; line-height: 1.3;">
+            ${ev.eventName}
+          </div>
+          <div style="font-size: 12px; color: #999;">
+            ${metaParts.join(" · ")}
+          </div>
+        </td>
+      </tr>
+    </table>
+  `;
+  return ev.ticketUrl
+    ? `<a href="${ev.ticketUrl}" style="text-decoration: none; color: inherit; display: block;">${inner}</a>`
+    : inner;
+}
+
+// The "IRL near you" block — in-person events in the recipient's city this
+// week. Separate labelled block below the online schedule. Renders nothing
+// when empty (recipient has no resolvable city, or no events in their city).
+function buildIrlNearYouSection(events: IrlEventRow[]): string {
+  if (events.length === 0) return "";
+  return `
+    <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e5e5;">
+      <p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">IRL near you</p>
+      ${events.map((ev) => buildIrlEventRowHtml(ev)).join("")}
+    </div>
+  `;
 }
 
 // Build a curator rec card HTML block (matches show card layout)

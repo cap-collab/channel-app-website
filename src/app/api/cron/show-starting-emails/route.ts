@@ -11,6 +11,10 @@ import {
   isRestApiConfigured,
 } from "@/lib/firebase-rest";
 import { wordBoundaryMatch } from "@/lib/dj-matching";
+import { getAdminDb } from "@/lib/firebase-admin";
+import { fetchComingUp } from "@/lib/recommendations/coming-up";
+import { getCityFromTimezone } from "@/lib/city-detection";
+import type { IrlEventRow } from "@/lib/email";
 
 // Discovery now also scans up to 36h ahead to bundle "later today" shows
 // per user. Bumped from the default 60s so the matcher state pre-build
@@ -1041,8 +1045,54 @@ export async function GET(request: NextRequest) {
       reason: string;
       bundled: string[];
       bundleTrace: string[];
+      irl: string[];
     };
     const dryRunTrace: DryRunEntry[] = [];
+
+    // ── IRL events near the recipient (per-city, memoized) ──────────────────
+    // Reuses fetchComingUp (own 5-min shared cache), which fetches this week's
+    // `events` and city-gates them. We keep only the IRL rows, cap at 3 nearest
+    // dates, and map to the email's IrlEventRow shape. Built once per distinct
+    // city across the whole user loop. Needs the firebase-admin Firestore
+    // (fetchComingUp uses admin queries) — degrades to no IRL block if the
+    // admin SDK isn't available in this runtime.
+    const adminDb = getAdminDb();
+    const irlByCity = new Map<string, IrlEventRow[]>();
+    const irlEventsForCity = async (city: string): Promise<IrlEventRow[]> => {
+      const cached = irlByCity.get(city);
+      if (cached) return cached;
+      let rows: IrlEventRow[] = [];
+      if (adminDb) {
+        try {
+          const all = await fetchComingUp({
+            db: adminDb,
+            nowMs: now.getTime(),
+            userCity: city,
+            engagedDjUsernames: new Set<string>(),
+          });
+          rows = all
+            .filter((r) => r.isIRL)
+            .sort((a, b) => a.startMs - b.startMs)
+            .slice(0, 3)
+            .map((r) => ({
+              eventName: r.eventName || r.djName || "",
+              djName: r.djName,
+              allDjArtists: (r.allDjs || [])
+                .map((d) => d.djName)
+                .filter((n): n is string => !!n),
+              photoUrl: r.eventPhotoUrl,
+              city: r.location,
+              venueName: r.venueName,
+              dateMs: r.startMs,
+              ticketUrl: r.ticketUrl || r.linkUrl,
+            }));
+        } catch (err) {
+          console.error(`[show-starting] IRL fetch failed for city "${city}":`, err);
+        }
+      }
+      irlByCity.set(city, rows);
+      return rows;
+    };
 
     for (const userDoc of usersWithNotifications) {
       const userId = userDoc.id;
@@ -1294,6 +1344,16 @@ export async function GET(request: NextRequest) {
           startTimeMs: startMs,
         });
       }
+      // ── IRL events near the recipient ───────────────────────────────────
+      // City = explicit irlCity preference → derived from timezone. If neither
+      // resolves we show NOTHING (no London fallback) — we only surface "near
+      // you" events to people we can actually place in a city.
+      const userCity =
+        (userData.irlCity as string | undefined) ||
+        getCityFromTimezone(userTz) ||
+        undefined;
+      const irlEvents = userCity ? await irlEventsForCity(userCity) : [];
+
       bundled.sort((a, b) => a.startTimeMs - b.startTimeMs);
       const laterToday = bundled.map((b) => ({
         showId: b.showId,
@@ -1324,6 +1384,7 @@ export async function GET(request: NextRequest) {
               reason,
               bundled: laterToday.map((b) => `${b.djUsername || b.showName} @ ${b.startTime}`),
               bundleTrace,
+              irl: irlEvents.map((e) => `${e.eventName} @ ${e.city} (${new Date(e.dateMs).toISOString().slice(0, 10)})`),
             });
           }
         }
@@ -1348,6 +1409,7 @@ export async function GET(request: NextRequest) {
             affiliationBridgeDj: primaryMatch.borrowBridgeDj,
             bridgeKind: primaryMatch.borrowBridgeDj ? "borrow" : undefined,
             laterToday: laterToday.length > 0 ? laterToday : undefined,
+            irlEvents: irlEvents.length > 0 ? irlEvents : undefined,
             userTimezone: userTz,
           });
           console.log(`[show-starting][dryRun] Preview email sent to ${userEmail} (no stamp)`);
@@ -1375,6 +1437,7 @@ export async function GET(request: NextRequest) {
         affiliationBridgeDj: primaryMatch.borrowBridgeDj,
         bridgeKind: primaryMatch.borrowBridgeDj ? "borrow" : undefined,
         laterToday: laterToday.length > 0 ? laterToday : undefined,
+        irlEvents: irlEvents.length > 0 ? irlEvents : undefined,
         userTimezone: userTz,
       });
 
@@ -1397,7 +1460,7 @@ export async function GET(request: NextRequest) {
           const slotId = primary.showId.slice("broadcast-".length);
           perSlotCount.set(slotId, (perSlotCount.get(slotId) ?? 0) + 1);
         }
-        console.log(`[show-starting] Sent email to ${userId} for "${primary.name}" on ${primary.stationName}${laterToday.length > 0 ? ` (+${laterToday.length} bundled)` : ""} | bundleTrace=[${bundleTrace.join(", ")}] | upcomingTodayShows=${upcomingTodayShows.length}`);
+        console.log(`[show-starting] Sent email to ${userId} for "${primary.name}" on ${primary.stationName}${laterToday.length > 0 ? ` (+${laterToday.length} bundled)` : ""}${irlEvents.length > 0 ? ` (+${irlEvents.length} IRL)` : ""} | bundleTrace=[${bundleTrace.join(", ")}] | upcomingTodayShows=${upcomingTodayShows.length}`);
       }
     }
 
