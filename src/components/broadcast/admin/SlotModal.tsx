@@ -1122,6 +1122,14 @@ export function SlotModal({
         saveData.archiveId = selectedArchive.id;
         saveData.archiveRecordingUrl = selectedArchive.recordingUrl;
         saveData.archiveDuration = selectedArchive.duration;
+        // Re-derive the cover from the SELECTED archive, not the free-floating
+        // showImageUrl state. When an admin swaps a restream to a different
+        // archive, the recording fields above were always refreshed but the
+        // cover could stay pointing at the previously-scheduled archive (stale
+        // state, or the new archive having no image → the update guard skipped
+        // the field). Pinning it here makes the archive the single source of
+        // truth. Empty string clears any stale cover when the archive has none.
+        saveData.showImageUrl = selectedArchive.showImageUrl || '';
         // Pass all DJs from the archive for multi-DJ restream display
         if (selectedArchive.djs && selectedArchive.djs.length > 0) {
           saveData.restreamDjs = selectedArchive.djs;
