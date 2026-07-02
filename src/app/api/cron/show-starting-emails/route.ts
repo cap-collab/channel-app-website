@@ -1077,6 +1077,7 @@ export async function GET(request: NextRequest) {
             .map((r) => ({
               eventName: r.eventName || r.djName || "",
               djName: r.djName,
+              djUsername: r.djUsername || undefined,
               allDjArtists: (r.allDjs || [])
                 .map((d) => d.djName)
                 .filter((n): n is string => !!n),
@@ -1084,7 +1085,7 @@ export async function GET(request: NextRequest) {
               city: r.location,
               venueName: r.venueName,
               dateMs: r.startMs,
-              ticketUrl: r.ticketUrl || r.linkUrl,
+              ticketUrl: r.ticketUrl || r.linkUrl || undefined,
             }));
         } catch (err) {
           console.error(`[show-starting] IRL fetch failed for city "${city}":`, err);
