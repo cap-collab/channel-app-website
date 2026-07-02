@@ -920,7 +920,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // Controls are always available from slide 1+; from slide 0, only after
   // unlock. When live is on, slide 0 is the live slide — always unlocked
   // (arrow + dots + swipe immediately available, regardless of play state).
-  const carouselControlsVisible = heroIndex !== 0 || slide0Unlocked || isLive;
+  // Also unlock whenever the listener has an archive engaged (playing,
+  // loading, or paused): that archive lives on slide 1, and its playback
+  // pauses the radio, so slide0Unlocked would never latch — without this the
+  // listener gets stuck on slide 0 with no way back to what they're hearing.
+  const archiveEngagedForNav =
+    archivePlayer.isPlaying || archivePlayer.isLoading || !!archivePlayer.currentArchive;
+  const carouselControlsVisible =
+    heroIndex !== 0 || slide0Unlocked || isLive || archiveEngagedForNav;
   const handleLove = () => {
     setNudgeDismissedAt(Date.now());
     setHeartTrigger((t) => t + 1);
