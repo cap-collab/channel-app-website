@@ -173,7 +173,7 @@ interface ArchiveHeroProps {
   // Homepage variant: widens the hero slider and narrows the archives grid
   // so the hero reads bigger and the cards read smaller. Only `/` opts in.
   homepage?: boolean;
-  // Curated "Find Your Scene" / "Just For You" grid rendered in place of the
+  // Curated "Find Your Scene" / "For You" grid rendered in place of the
   // Featured section under the hero (homepage only). Its archives are a small
   // fixed pick set (not scene/tempo-filtered) and are de-duped out of More
   // Archives. When present, `bandByArchiveId` / `fixedNewIds` drive the black
@@ -1798,7 +1798,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           ? sceneFiltered.filter(({ archive }) => archive.tempo && tempoFilter.has(archive.tempo))
           : sceneFiltered;
 
-        // The curated "Find Your Scene" / "Just For You" grid (homepage). When
+        // The curated "Find Your Scene" / "For You" grid (homepage). When
         // present it REPLACES the Featured section — so its picks are de-duped out
         // of More Archives and any leftover featured-tier archives fold into the
         // browse list below (one curated row + one browse row).
@@ -1960,7 +1960,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
         return (
           <div className="mt-6 max-w-7xl mx-auto">
-            {/* Curated "Find Your Scene" / "Just For You" grid — replaces the
+            {/* Curated "Find Your Scene" / "For You" grid — replaces the
                 Featured section on the homepage. The scene/tempo chips apply here
                 too; picks are de-duped out of More Archives. */}
             {showSceneSection ? (

@@ -280,13 +280,13 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
     archivePlayer.setFeaturedArchive(featuredArchive);
   }, [featuredArchive, archivePlayer.setFeaturedArchive]);
 
-  // "Find Your Scene" / "Just For You" section under the hero. Seeds
+  // "Find Your Scene" / "For You" section under the hero. Seeds
   // instantly from the SSR featured grid (logged-out / auth-unresolved); once a
   // logged-in user resolves, upgrades to their personalized picks fetched from
   // /api/recommendations/me (idle-deferred so the hero paints first).
   //  - Logged-out / no-history: 6-cell featured matrix, titled "Find Your Scene".
   //  - Logged-in w/ history: up to 6 cards, "new from favorites" first then
-  //    "in your scene", titled "Just For You", each carrying a band so the
+  //    "in your scene", titled "For You", each carrying a band so the
   //    black banner above the card explains why it's recommended.
   const [sceneSection, setSceneSection] = useState<{
     title: string;
@@ -315,7 +315,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
     // resolution could race. While auth is resolving, the SSR seed stays shown.
     if (authLoading) return;
     // Logged out (resolved): revert to the SSR "Find Your Scene" seed. This also
-    // cleanly handles sign-out — any stale "Just For You" is replaced.
+    // cleanly handles sign-out — any stale "For You" is replaced.
     if (!isAuthenticated || !user) {
       setSceneSection(sceneSeedRef.current);
       return;
@@ -360,7 +360,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
           }
           const capped = merged.slice(0, 6);
           if (capped.length > 0) {
-            setSceneSection({ title: 'Just For You', archives: capped, bandByArchiveId, fixedNewIds });
+            setSceneSection({ title: 'For You', archives: capped, bandByArchiveId, fixedNewIds });
             return;
           }
         }
