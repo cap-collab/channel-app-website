@@ -20,6 +20,7 @@ export interface ComingUpRow extends IRLShowData {
   isIRL: boolean; // true = in-person event, false = online radio show
   startMs: number; // for chronological sort across online + IRL
   station?: string; // online shows: station label for the badge (e.g. "Channel")
+  collectiveSlug?: string; // IRL: event's collective, for a /dj/<slug> link
 }
 
 const normUser = (u?: string) => (u ? u.replace(/[\s-]+/g, "").toLowerCase() : "");
@@ -104,6 +105,7 @@ interface SharedEvent {
   ticketLink?: string;
   photo?: string;
   venueName?: string;
+  collectiveSlug?: string; // event's collective (venue-collective or first linked), for a /dj/<slug> link
   djs: Array<{ djName?: string; djUsername?: string; djPhotoUrl?: string }>;
 }
 export interface ComingUpShared {
@@ -227,6 +229,13 @@ export async function loadComingUpShared(db: Firestore, nowMs: number): Promise<
       ticketLink: (data.ticketLink as string) || undefined,
       photo: (data.photo as string) || undefined,
       venueName: (data.venueName as string) || undefined,
+      // Collective slug for a /dj/<slug> click-through: prefer a collective
+      // picked AS the venue, else the first linked collective. (Top-level
+      // collectiveId has no slug field, so it's not usable for a link.)
+      collectiveSlug:
+        (data.venueCollectiveSlug as string) ||
+        (data.linkedCollectives as Array<{ collectiveSlug?: string }> | undefined)?.[0]?.collectiveSlug ||
+        undefined,
       djs: (data.djs as SharedEvent["djs"]) || [],
     });
   }
@@ -305,6 +314,7 @@ export function filterComingUpForUser(
       reason,
       isIRL: true,
       startMs: ev.date,
+      collectiveSlug: ev.collectiveSlug,
     });
   }
 

@@ -300,13 +300,14 @@ export interface LaterTodayShowRow {
 export interface IrlEventRow {
   eventName: string;
   djName?: string; // headliner / first lineup DJ
-  djUsername?: string; // headliner username — DJ-page fallback link
+  djUsername?: string; // headliner username — last-resort click target
+  collectiveSlug?: string; // event's collective — click target when there's no ticket
   allDjArtists?: string[]; // full lineup — first few rendered, rest as "+N more"
   photoUrl?: string; // event photo (falls back to DJ photo, then initial)
   city: string; // event location (already matched to the recipient's city)
   venueName?: string;
   dateMs: number; // event start — rendered as a weekday + date, no time
-  ticketUrl?: string; // preferred click target; falls back to the DJ page
+  ticketUrl?: string; // preferred click target
 }
 
 interface ShowStartingEmailParams {
@@ -787,13 +788,16 @@ function buildIrlEventRowHtml(ev: IrlEventRow): string {
       </tr>
     </table>
   `;
-  // Click target: ticket link when present, otherwise the headliner's DJ page.
-  // Only events with neither a ticket nor a DJ stay plain text (rare).
+  // Click target: ticket link → the event's collective page → the headliner's
+  // DJ page. Collectives share the /dj/<slug> route. Only events with none of
+  // the three stay plain text (rare).
   const href = ev.ticketUrl
     ? ev.ticketUrl
-    : ev.djUsername
-      ? `https://channel-app.com/dj/${normalizeDjUsername(ev.djUsername)}`
-      : undefined;
+    : ev.collectiveSlug
+      ? `https://channel-app.com/dj/${ev.collectiveSlug}` // already a generateSlug output — use verbatim
+      : ev.djUsername
+        ? `https://channel-app.com/dj/${normalizeDjUsername(ev.djUsername)}`
+        : undefined;
   return href
     ? `<a href="${href}" style="text-decoration: none; color: inherit; display: block;">${inner}</a>`
     : inner;

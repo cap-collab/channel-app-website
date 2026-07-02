@@ -1078,6 +1078,7 @@ export async function GET(request: NextRequest) {
               eventName: r.eventName || r.djName || "",
               djName: r.djName,
               djUsername: r.djUsername || undefined,
+              collectiveSlug: r.collectiveSlug || undefined,
               allDjArtists: (r.allDjs || [])
                 .map((d) => d.djName)
                 .filter((n): n is string => !!n),
