@@ -39,6 +39,57 @@ function recordCleanup(ok, error) {
   health.lastCleanupError = ok ? null : String(error || '').slice(0, 200);
 }
 
+// FIFO mutex serializing all ffmpeg-bound post-processing (/faststart +
+// /normalize). This box has 4 CPUs shared with LiveKit; ffmpeg jobs pin a full
+// core (loudnorm two-pass more). The drain crons fire up to MAX_PER_TICK=3 at
+// once, and each endpoint ran ffmpeg inline the instant its request landed — so
+// 3 jobs thrashed the CPU (each ~3x slower) AND /faststart's FIXED /tmp paths
+// let concurrent runs clobber each other's temp files. Run one at a time:
+// callers still get their fast 202 (async) or eventual sync response, but the
+// heavy work is queued so it runs sequentially, predictably, and without
+// competing with a live broadcast for CPU. Length of the queue is naturally
+// bounded by the drains' MAX_PER_TICK.
+let ffmpegChain = Promise.resolve();
+let ffmpegQueueDepth = 0;
+function runExclusive(label, task) {
+  ffmpegQueueDepth++;
+  const wasQueued = ffmpegQueueDepth > 1;
+  if (wasQueued) console.log(`[ffmpeg-lock] ${label} queued (depth ${ffmpegQueueDepth})`);
+  const run = ffmpegChain.then(async () => {
+    console.log(`[ffmpeg-lock] ${label} started`);
+    try {
+      return await task();
+    } finally {
+      ffmpegQueueDepth--;
+      console.log(`[ffmpeg-lock] ${label} released (depth ${ffmpegQueueDepth})`);
+    }
+  });
+  // Keep the chain alive even if this task rejects, so one failure can't wedge
+  // the queue for everything behind it.
+  ffmpegChain = run.then(() => {}, () => {});
+  return run;
+}
+
+// Acquire the ffmpeg lock as a token you await, then release() in a finally.
+// Use this for long linear handlers (like /normalize) where wrapping the whole
+// body in a callback would mean re-indenting hundreds of lines. The semantics
+// match runExclusive: strict FIFO, one job at a time.
+function acquireFfmpegLock(label) {
+  ffmpegQueueDepth++;
+  if (ffmpegQueueDepth > 1) console.log(`[ffmpeg-lock] ${label} queued (depth ${ffmpegQueueDepth})`);
+  let release;
+  const released = new Promise((r) => { release = r; });
+  const acquired = ffmpegChain.then(() => {
+    console.log(`[ffmpeg-lock] ${label} started`);
+  });
+  // The chain advances only once this holder releases.
+  ffmpegChain = acquired.then(() => released).then(() => {
+    ffmpegQueueDepth--;
+    console.log(`[ffmpeg-lock] ${label} released (depth ${ffmpegQueueDepth})`);
+  });
+  return acquired.then(() => release);
+}
+
 // Pending restreams — scheduled to start at a future time but not yet started.
 // Keyed by slotId. Each value: { startTimer, params }.
 // When /stop is called for a pending slot (e.g., admin deletes before start),
@@ -562,64 +613,72 @@ app.post('/faststart', authenticate, async (req, res) => {
   });
   const bucket = process.env.R2_BUCKET_NAME;
 
+  // Serialize behind the shared ffmpeg lock so concurrent faststarts don't
+  // thrash CPU or clobber each other's temp files (unique-suffixed below too).
   try {
-    // Download
-    const resp = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: r2Key }));
-    const body = Buffer.from(await resp.Body.transformToByteArray());
-    console.log(`[faststart] Downloaded ${(body.length / 1024 / 1024).toFixed(1)}MB`);
+    const result = await runExclusive(`faststart ${r2Key}`, async () => {
+      // Download
+      const resp = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: r2Key }));
+      const body = Buffer.from(await resp.Body.transformToByteArray());
+      console.log(`[faststart] Downloaded ${(body.length / 1024 / 1024).toFixed(1)}MB`);
 
-    // Check if already faststart (moov before mdat)
-    let offset = 0;
-    while (offset < Math.min(body.length, 4096) - 8) {
-      const size = body.readUInt32BE(offset);
-      const type = body.slice(offset + 4, offset + 8).toString('ascii');
-      if (type === 'moov') {
-        console.log(`[faststart] Already has faststart, skipping`);
-        return res.json({ success: true, skipped: true });
+      // Check if already faststart (moov before mdat)
+      let offset = 0;
+      while (offset < Math.min(body.length, 4096) - 8) {
+        const size = body.readUInt32BE(offset);
+        const type = body.slice(offset + 4, offset + 8).toString('ascii');
+        if (type === 'moov') {
+          console.log(`[faststart] Already has faststart, skipping`);
+          return { success: true, skipped: true };
+        }
+        if (type === 'mdat') break;
+        if (size < 8) break;
+        offset += size;
       }
-      if (type === 'mdat') break;
-      if (size < 8) break;
-      offset += size;
-    }
 
-    // Process with ffmpeg
-    const tmpIn = `/tmp/faststart-in.mp4`;
-    const tmpOut = `/tmp/faststart-out.mp4`;
-    writeFileSync(tmpIn, body);
-    execSync(`ffmpeg -y -i ${tmpIn} -c copy -movflags +faststart ${tmpOut} 2>&1`);
+      // Process with ffmpeg (unique temp paths — no collision across jobs)
+      const tmpIn = `/tmp/faststart-in-${Date.now()}.mp4`;
+      const tmpOut = `/tmp/faststart-out-${Date.now()}.mp4`;
+      try {
+        writeFileSync(tmpIn, body);
+        execSync(`ffmpeg -y -i ${tmpIn} -c copy -movflags +faststart ${tmpOut} 2>&1`);
 
-    const outBuf = readFileSync(tmpOut);
+        const outBuf = readFileSync(tmpOut);
 
-    // Verify moov is now at front
-    offset = 0;
-    let verified = false;
-    while (offset < Math.min(outBuf.length, 4096) - 8) {
-      const size = outBuf.readUInt32BE(offset);
-      const type = outBuf.slice(offset + 4, offset + 8).toString('ascii');
-      if (type === 'moov') { verified = true; break; }
-      if (type === 'mdat') break;
-      if (size < 8) break;
-      offset += size;
-    }
+        // Verify moov is now at front
+        offset = 0;
+        let verified = false;
+        while (offset < Math.min(outBuf.length, 4096) - 8) {
+          const size = outBuf.readUInt32BE(offset);
+          const type = outBuf.slice(offset + 4, offset + 8).toString('ascii');
+          if (type === 'moov') { verified = true; break; }
+          if (type === 'mdat') break;
+          if (size < 8) break;
+          offset += size;
+        }
 
-    if (!verified) {
-      unlinkSync(tmpIn);
-      unlinkSync(tmpOut);
-      return res.status(500).json({ error: 'moov not at front after processing' });
-    }
+        if (!verified) {
+          return { error: 'moov not at front after processing', status: 500 };
+        }
 
-    // Upload fixed file
-    await s3.send(new PutObjectCommand({
-      Bucket: bucket,
-      Key: r2Key,
-      Body: outBuf,
-      ContentType: 'video/mp4',
-    }));
+        // Upload fixed file
+        await s3.send(new PutObjectCommand({
+          Bucket: bucket,
+          Key: r2Key,
+          Body: outBuf,
+          ContentType: 'video/mp4',
+        }));
 
-    unlinkSync(tmpIn);
-    unlinkSync(tmpOut);
-    console.log(`[faststart] Done: ${r2Key}`);
-    res.json({ success: true, size: outBuf.length });
+        console.log(`[faststart] Done: ${r2Key}`);
+        return { success: true, size: outBuf.length };
+      } finally {
+        try { unlinkSync(tmpIn); } catch {}
+        try { unlinkSync(tmpOut); } catch {}
+      }
+    });
+
+    if (result.error) return res.status(result.status || 500).json({ error: result.error });
+    res.json(result);
   } catch (err) {
     console.error(`[faststart] Failed:`, err);
     res.status(500).json({ error: err.message });
@@ -693,15 +752,20 @@ app.post('/normalize', authenticate, async (req, res) => {
       })
       .catch((e) => console.error(`[normalize] callback to ${callbackUrl} failed:`, e?.message || e));
   };
+  // Released once, from whichever respond() call ends this job. Set after we
+  // acquire the ffmpeg lock below; guarded so a pre-lock error-respond is safe.
+  let releaseLock = null;
   const respond = (status, payload) => {
     if (!res.headersSent) res.status(status).json(payload);
     fireCallback(payload);
     recordJob('normalize', status === 200, payload && payload.error);
+    if (releaseLock) { releaseLock(); releaseLock = null; }
   };
 
   // Format detection. Each branch controls the re-encode args + content-type
   // + output-key suffix below. Reject anything else rather than guessing —
   // the MP4 branch would corrupt a WAV/FLAC/M4A by forcing ContentType video/mp4.
+  // (Done BEFORE taking the lock — a bad format shouldn't wait in the queue.)
   let format;
   if (/\.mp4$/i.test(r2Key)) format = 'mp4';
   else if (/\.mp3$/i.test(r2Key)) format = 'mp3';
@@ -710,6 +774,11 @@ app.post('/normalize', authenticate, async (req, res) => {
       error: `Unsupported format for normalize: ${r2Key}. Only .mp4 and .mp3 are handled.`,
     });
   }
+
+  // Serialize the heavy ffmpeg work behind the shared lock so it never runs
+  // concurrently with another normalize/faststart (CPU thrash + shared VPS with
+  // LiveKit). Acquire now; respond() releases on every exit path below.
+  releaseLock = await acquireFfmpegLock(`normalize ${r2Key}`);
 
   console.log(`[normalize] Processing: ${r2Key} (format=${format})`);
 
