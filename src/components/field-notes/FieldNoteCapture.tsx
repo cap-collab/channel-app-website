@@ -147,8 +147,32 @@ export function FieldNoteCapture({ onCaptured }: Props) {
       if (!file) return;
       setError(null);
 
-      const url = URL.createObjectURL(file);
-      const isVideo = (file.type || '').startsWith('video/');
+      // Resolve a real MIME type (some phone files report none).
+      let mime = containerType(file.type);
+      if (!file.type) {
+        const ext = file.name.split('.').pop()?.toLowerCase() || '';
+        const extMime: Record<string, string> = {
+          mov: 'video/quicktime', mp4: 'video/mp4', m4v: 'video/mp4', '3gp': 'video/3gpp',
+          webm: 'video/webm', m4a: 'audio/mp4', mp3: 'audio/mpeg', wav: 'audio/wav',
+          aac: 'audio/aac', ogg: 'audio/ogg',
+        };
+        mime = extMime[ext] || 'video/mp4';
+      }
+
+      // iOS camera capture returns HEVC video in a QuickTime .mov (type
+      // video/quicktime). Fed to a <video> as-is, iOS (esp. Chrome/WKWebView)
+      // plays the picture but SILENTLY DROPS THE AAC AUDIO. QuickTime and MP4
+      // share the same underlying container, so re-wrapping the blob as
+      // video/mp4 routes it into the MP4/AAC pipeline and the audio plays —
+      // both in this preview and everywhere the note is later played back.
+      let blob: Blob = file;
+      if (mime === 'video/quicktime') {
+        blob = new Blob([file], { type: 'video/mp4' });
+        mime = 'video/mp4';
+      }
+
+      const url = URL.createObjectURL(blob);
+      const isVideo = mime.startsWith('video/');
       const el = document.createElement(isVideo ? 'video' : 'audio');
       el.preload = 'metadata';
       el.src = url;
@@ -172,18 +196,7 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         return;
       }
 
-      let mime = containerType(file.type);
-      if (!file.type) {
-        const ext = file.name.split('.').pop()?.toLowerCase() || '';
-        const extMime: Record<string, string> = {
-          mov: 'video/quicktime', mp4: 'video/mp4', m4v: 'video/mp4', '3gp': 'video/3gpp',
-          webm: 'video/webm', m4a: 'audio/mp4', mp3: 'audio/mpeg', wav: 'audio/wav',
-          aac: 'audio/aac', ogg: 'audio/ogg',
-        };
-        mime = extMime[ext] || 'video/mp4';
-      }
-
-      onCaptured({ blob: file, blobUrl: url, mimeType: mime, durationSec: Math.ceil(secs) });
+      onCaptured({ blob, blobUrl: url, mimeType: mime, durationSec: Math.ceil(secs) });
     },
     [onCaptured]
   );
@@ -201,14 +214,14 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => {
-              // Video-only (iOS Chrome etc.) or a prior mic failure → open the
-              // camera directly in this tap. Otherwise try audio recording.
+              // Inline audio recording where it works; otherwise open the camera
+              // (bare `capture` opens the normal camera UI, which records sound).
               if (videoOnly || micFailed) recordVideoRef.current?.click();
               else startAudioRecording();
             }}
             className="rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
           >
-            {videoOnly || micFailed ? '● Record video' : '● Record'}
+            ● Record
           </button>
           <button
             onClick={() => uploadRef.current?.click()}
@@ -219,12 +232,12 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         </div>
       )}
 
-      {/* Video-recording fallback → native camera. */}
+      {/* Record fallback → phone camera (records video with audio). */}
       <input
         ref={recordVideoRef}
         type="file"
         accept="video/*"
-        capture="environment"
+        capture
         className="hidden"
         onChange={(e) => onFileChosen(e.target.files?.[0])}
       />
