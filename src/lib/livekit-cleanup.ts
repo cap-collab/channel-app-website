@@ -9,6 +9,7 @@ export interface SlotCleanupInput {
   slotId: string;
   egressId?: string;
   recordingEgressId?: string;
+  secondRecordingEgressId?: string;  // parallel track-composite recording (best-effort)
   restreamEgressId?: string;
   restreamWorkerId?: string;
   restreamIngressId?: string;
@@ -98,6 +99,18 @@ export async function cleanupSlotLiveKit(slot: SlotCleanupInput): Promise<SlotCl
       result.stoppedRecordingEgress = true;
     } catch (e) {
       result.errors.push(`recording-egress: ${e}`);
+    }
+  }
+
+  // Parallel track-composite recording — best-effort stop (backstop for the
+  // client stopEgress). Its own errors never block the rest of cleanup.
+  if (slot.secondRecordingEgressId) {
+    try {
+      await egressClient.stopEgress(slot.secondRecordingEgressId);
+      console.log(`[track-recording] STOPPED by cleanup (by id): ${slot.secondRecordingEgressId} (slot ${slot.slotId})`);
+    } catch (e) {
+      console.warn(`[track-recording] cleanup stop failed (may already be stopping): ${slot.secondRecordingEgressId}`, e);
+      result.errors.push(`track-composite-egress: ${e}`);
     }
   }
 

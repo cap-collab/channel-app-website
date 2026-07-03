@@ -32,6 +32,54 @@ async function findAudioTrackSid(room: string): Promise<string | null> {
   return null;
 }
 
+// ── NEW (this session): helpers for the independent track-composite recording ──
+// These are used ONLY by the new parallel recording and touch nothing else.
+// Gated by RECORDING_TRACK_COMPOSITE (default ON; set =0 to disable entirely).
+const TRACK_COMPOSITE_ENABLED = process.env.RECORDING_TRACK_COMPOSITE !== '0'
+  && process.env.RECORDING_TRACK_COMPOSITE !== 'false';
+const TRACK_LOOKUP_TOTAL_BUDGET_MS = 1200; // hard cap on all polling combined
+const TRACK_LOOKUP_POLL_INTERVAL_MS = 250;
+const TRACK_LOOKUP_CALL_TIMEOUT_MS = 500;  // per listParticipants call
+
+/**
+ * Poll briefly for the DJ's published audio track SID, for the NEW track-composite
+ * recording only. The DJ's track often isn't server-visible the instant egress
+ * starts (publish→registration race), so a one-shot lookup usually misses it.
+ * Best-effort: returns null on ANY failure / if not found within the budget.
+ * Never throws, never blocks past the budget. Separate from findAudioTrackSid so
+ * the existing recording paths keep their exact original one-shot behavior.
+ */
+async function findAudioTrackSidForNewRecording(room: string): Promise<string | null> {
+  const deadline = Date.now() + TRACK_LOOKUP_TOTAL_BUDGET_MS;
+  const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
+  let attempt = 0;
+  while (Date.now() < deadline) {
+    attempt++;
+    try {
+      const participants = await Promise.race([
+        roomService.listParticipants(room),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), Math.min(TRACK_LOOKUP_CALL_TIMEOUT_MS, Math.max(0, deadline - Date.now()))),
+        ),
+      ]);
+      for (const p of participants) {
+        for (const t of p.tracks) {
+          if (t.type === 1 /* AUDIO */ && !t.muted && t.sid) {
+            console.log(`[track-recording] found audio track on attempt ${attempt} (${t.sid})`);
+            return t.sid;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[track-recording] track lookup attempt ${attempt} failed (non-fatal):`, (err as Error).message);
+    }
+    if (Date.now() + TRACK_LOOKUP_POLL_INTERVAL_MS >= deadline) break;
+    await new Promise((r) => setTimeout(r, TRACK_LOOKUP_POLL_INTERVAL_MS));
+  }
+  console.log(`[track-recording] no audio track within ${TRACK_LOOKUP_TOTAL_BUDGET_MS}ms budget → skipping`);
+  return null;
+}
+
 // Start HLS + MP4 egress for a room (or MP4-only for recording mode)
 export async function POST(request: NextRequest) {
   try {
@@ -102,21 +150,47 @@ export async function POST(request: NextRequest) {
     // Check for existing egresses. When reuseHlsEgress is true (DJ transition),
     // keep the first active egress (the HLS stream) for seamless handoff.
     // Otherwise stop all stale egresses (original behavior).
+    //
+    // DIAGNOSTIC LOGGING (behavior unchanged): this sweep identifies the HLS
+    // egress to keep by "first active in the list", not by output type. With the
+    // parallel track recording there can be up to 3 active egresses (HLS + room
+    // recording + track recording), and listEgress ordering isn't guaranteed. If
+    // the "first" ever turns out to be a recording (file output) rather than the
+    // HLS (segments), keeping it would strand listeners. The logs below classify
+    // every egress and LOUDLY warn if that race is about to happen — so we can
+    // see from console whether it ever actually occurs in prod before deciding to
+    // harden the sweep. We do NOT change what gets kept/stopped here.
+    const egressKindLabel = (e: { request?: { case?: string; value?: unknown } }): string => {
+      const v = (e.request?.value ?? {}) as { segmentOutputs?: unknown[]; fileOutputs?: unknown[]; output?: { case?: string } };
+      const isSegments = !!v.segmentOutputs?.length || v.output?.case === 'segments';
+      const isFile = !!v.fileOutputs?.length || v.output?.case === 'file';
+      if (isSegments) return 'HLS(segments)';
+      if (isFile) return 'RECORDING(file)';
+      return `unknown(case=${e.request?.case ?? '?'})`;
+    };
     let existingHlsEgressId: string | null = null;
     try {
       const existingEgresses = await egressClient.listEgress({ roomName: room });
+      const activeList = existingEgresses.filter((e) => e.status === 0 || e.status === 1);
+      console.log(`[egress-sweep] room=${room} reuseHlsEgress=${reuseHlsEgress} — ${activeList.length} active egress(es):`,
+        activeList.map((e) => `${e.egressId}:${egressKindLabel(e)}`).join(', ') || '(none)');
       for (const egress of existingEgresses) {
         // Only process active egresses (status 0=STARTING, 1=ACTIVE)
         if (egress.status === 0 || egress.status === 1) {
+          const kind = egressKindLabel(egress);
           if (reuseHlsEgress && !existingHlsEgressId) {
             // Keep the first active egress (the HLS stream from previous DJ)
             existingHlsEgressId = egress.egressId;
-            console.log('Reusing existing HLS egress for DJ transition:', egress.egressId);
+            if (kind !== 'HLS(segments)') {
+              console.warn(`[egress-sweep] ⚠️ RACE: keeping ${egress.egressId} as HLS for reuse, but it is ${kind} — the real HLS may get stopped, stranding listeners. (Recording lifecycles are ID-managed, so files are safe.)`);
+            } else {
+              console.log(`[egress-sweep] Reusing HLS egress for DJ transition: ${egress.egressId} (${kind})`);
+            }
           } else {
             // Stop stale or extra egresses
+            console.log(`[egress-sweep] Stopping egress ${egress.egressId} (${kind})`);
             try {
               await egressClient.stopEgress(egress.egressId);
-              console.log('Stopped stale egress before new session:', egress.egressId);
             } catch (stopErr) {
               console.warn('Failed to stop stale egress (may already be stopping):', egress.egressId, stopErr);
             }
@@ -219,12 +293,47 @@ export async function POST(request: NextRequest) {
       console.error('Failed to start MP4 recording egress:', recordingError);
     }
 
+    // ── NEW, INDEPENDENT recording (this session) ────────────────────────────
+    // A parallel track-composite recording of the DJ's audio track. It's an
+    // ADDITIVE experiment that rides alongside the existing room recording as the
+    // archive's `trackRecordingUrl` (never recordingUrl). It is completely
+    // independent of and cannot affect the live stream OR the existing room
+    // recording: it's its own egress, its own R2 key (`-track.mp4`), started here
+    // and stopped only by its own id. ANY failure is swallowed. Gated by
+    // RECORDING_TRACK_COMPOSITE (default ON; set =0 to disable entirely).
+    let secondRecordingEgressId: string | null = null;
+    if (TRACK_COMPOSITE_ENABLED) {
+      try {
+        const audioTrackSid = await findAudioTrackSidForNewRecording(room);
+        if (audioTrackSid) {
+          const trackMp4Output = new EncodedFileOutput({
+            fileType: EncodedFileType.MP4,
+            filepath: `recordings/${room}/{room_name}-{time}-track.mp4`,
+            output: { case: 's3', value: recordingS3Upload },
+          });
+          const trackEgress = await egressClient.startTrackCompositeEgress(
+            room,
+            { file: trackMp4Output },
+            { audioTrackId: audioTrackSid }
+          );
+          secondRecordingEgressId = trackEgress.egressId;
+          console.log(`[track-recording] STARTED (independent) egressId=${secondRecordingEgressId} key=recordings/${room}/...-track.mp4`);
+        } else {
+          console.log('[track-recording] SKIPPED: no audio track SID within budget (existing recording unaffected)');
+        }
+      } catch (trackError) {
+        // Purely best-effort — never affects the existing recording or live stream.
+        console.error('[track-recording] FAILED (non-fatal, existing recording + live stream unaffected):', trackError);
+      }
+    }
+
     // Construct the HLS URL using public R2 subdomain
     const hlsUrl = `${r2PublicUrl}/${room}/live.m3u8`;
 
     return NextResponse.json({
       egressId: hlsEgressId,
       recordingEgressId,
+      secondRecordingEgressId,
       status: existingHlsEgressId ? 1 : 0, // 1=ACTIVE (reused), 0=STARTING (new)
       room,
       hlsUrl,

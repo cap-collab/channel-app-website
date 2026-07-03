@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
             slotId: doc.id,
             egressId: slot.egressId,
             recordingEgressId: slot.recordingEgressId,
+            secondRecordingEgressId: slot.secondRecordingEgressId,
             restreamEgressId: slot.restreamEgressId,
             restreamWorkerId: slot.restreamWorkerId,
             restreamIngressId: slot.restreamIngressId,
