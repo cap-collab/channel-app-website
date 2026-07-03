@@ -5,7 +5,7 @@ import {
   requireFieldNotesAccess,
   createPendingFieldNote,
   getPublishedFieldNotes,
-  ALLOWED_FIELD_NOTE_TYPES,
+  isAllowedFieldNoteType,
   getFieldNoteExtension,
 } from '@/lib/field-notes';
 import { FieldNoteSubmitInput } from '@/types/field-notes';
@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
   try {
     const input = (await request.json()) as FieldNoteSubmitInput;
 
-    if (!input.fileType || !ALLOWED_FIELD_NOTE_TYPES.includes(input.fileType.split(';')[0].trim())) {
-      return NextResponse.json({ error: 'Unsupported audio format.' }, { status: 400 });
+    if (!input.fileType || !isAllowedFieldNoteType(input.fileType)) {
+      return NextResponse.json({ error: 'Please upload an audio or video file.' }, { status: 400 });
     }
 
     const r2PublicUrl = getR2PublicUrl();

@@ -11,26 +11,21 @@ import { EventDJRef, EventVenueRef, CollectiveRef } from '@/types/events';
 
 const COLLECTION = 'field-notes';
 
-// MIME types accepted for a field note. Superset of the pre-recording audio set
-// plus browser MediaRecorder containers and short video (audio track kept).
-export const ALLOWED_FIELD_NOTE_TYPES = [
-  'audio/mpeg',
-  'audio/wav',
-  'audio/x-wav',
-  'audio/aac',
-  'audio/mp4',
-  'audio/x-m4a',
-  'audio/ogg',
-  'audio/webm',
-  'video/mp4',
-  'video/webm',
-];
+// Field notes accept ANY audio or video the browser/OS produces — the only
+// hard limit is length (<=90s), enforced separately. We don't whitelist exact
+// subtypes because phones emit many (video/quicktime, video/3gpp,
+// audio/x-m4a, etc.). Just require the top-level type to be audio or video.
+export function isAllowedFieldNoteType(mimeType: string): boolean {
+  const base = (mimeType || '').split(';')[0].trim().toLowerCase();
+  return base.startsWith('audio/') || base.startsWith('video/');
+}
 
 export function getFieldNoteExtension(mimeType: string): string {
   // Strip any codecs parameter, e.g. "audio/webm;codecs=opus" → "audio/webm".
-  const base = (mimeType || '').split(';')[0].trim();
+  const base = (mimeType || '').split(';')[0].trim().toLowerCase();
   const map: Record<string, string> = {
     'audio/mpeg': 'mp3',
+    'audio/mp3': 'mp3',
     'audio/wav': 'wav',
     'audio/x-wav': 'wav',
     'audio/aac': 'aac',
@@ -40,8 +35,17 @@ export function getFieldNoteExtension(mimeType: string): string {
     'audio/webm': 'webm',
     'video/mp4': 'mp4',
     'video/webm': 'webm',
+    'video/quicktime': 'mov',
+    'video/3gpp': '3gp',
+    'video/x-matroska': 'mkv',
+    'video/ogg': 'ogv',
   };
-  return map[base] || 'webm';
+  if (map[base]) return map[base];
+  // Fallback: use the subtype (e.g. "video/x-foo" → "foo"), stripped of x- and
+  // any suffix, defaulting sensibly by top-level type.
+  const sub = base.split('/')[1]?.replace(/^x-/, '').replace(/[^a-z0-9]/g, '');
+  if (sub) return sub.slice(0, 5);
+  return base.startsWith('video/') ? 'mp4' : 'webm';
 }
 
 // Firestore rejects `undefined`; strip undefined keys from a ref object.
