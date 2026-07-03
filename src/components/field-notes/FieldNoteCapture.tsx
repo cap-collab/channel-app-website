@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MAX_FIELD_NOTE_DURATION_SEC } from '@/lib/field-notes-config';
 
 export interface CapturedTake {
@@ -14,20 +14,120 @@ interface Props {
   onCaptured: (take: CapturedTake) => void;
 }
 
+// Pick a MediaRecorder audio mimeType this browser supports. iOS/Safari only do
+// audio/mp4 (AAC); Chrome/FF do audio/webm;codecs=opus.
+function pickAudioMime(): string {
+  const candidates = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
+  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return '';
+  return candidates.find((t) => MediaRecorder.isTypeSupported(t)) || '';
+}
+
 function containerType(mime: string): string {
   return (mime || 'video/mp4').split(';')[0].trim();
 }
 
-// A field note is a short video. Two paths, both reliable on iOS Safari, iOS
-// Chrome, Android, and desktop:
-//   • Record a video → native camera in video mode (<input accept="video/*" capture>)
-//   • Upload a video → video file picker (<input accept="video/*">)
-// We deliberately do NOT use getUserMedia/MediaRecorder — on mobile it's fragile
-// (permission prompts, iOS Chrome quirks). The camera-capture file input just works.
+function fmt(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+// Record a field note. Preference order:
+//   1. In-browser AUDIO recording via getUserMedia + MediaRecorder — prompts for
+//      mic permission (iOS Safari, Android, desktop; also iOS Chrome when the
+//      mic is allowed).
+//   2. If the mic can't be used (blocked/unavailable, e.g. iOS Chrome with the
+//      site's mic permission off), fall back to recording a VIDEO with the native
+//      camera. The fallback is a SEPARATE button so its tap is a fresh user
+//      gesture — iOS ignores a camera .click() fired after an awaited call.
+// Upload always opens the video library.
 export function FieldNoteCapture({ onCaptured }: Props) {
+  const [recording, setRecording] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const recordRef = useRef<HTMLInputElement | null>(null);
+  const [micFailed, setMicFailed] = useState(false); // show the video-fallback button
+  const [canRecordAudio, setCanRecordAudio] = useState(true);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startedAtRef = useRef<number>(0);
+  const recordVideoRef = useRef<HTMLInputElement | null>(null);
   const uploadRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const hasApis = typeof navigator.mediaDevices?.getUserMedia === 'function' &&
+      typeof MediaRecorder !== 'undefined';
+    setCanRecordAudio(hasApis);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    const mr = mediaRecorderRef.current;
+    if (mr && mr.state !== 'inactive') mr.stop();
+    setRecording(false);
+  }, []);
+
+  const startAudioRecording = useCallback(async () => {
+    setError(null);
+    setMicFailed(false);
+
+    if (!canRecordAudio || (typeof window !== 'undefined' && !window.isSecureContext)) {
+      // No recording APIs (or insecure) → go straight to the video fallback UI.
+      setMicFailed(true);
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const chosen = pickAudioMime();
+      const mr = chosen ? new MediaRecorder(stream, { mimeType: chosen }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = mr;
+      chunksRef.current = [];
+
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mr.onstop = () => {
+        const type = containerType(mr.mimeType || chosen || 'audio/mp4');
+        const recorded = new Blob(chunksRef.current, { type });
+        const secs = Math.min(
+          MAX_FIELD_NOTE_DURATION_SEC,
+          Math.max(1, Math.round((Date.now() - startedAtRef.current) / 1000))
+        );
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        onCaptured({ blob: recorded, blobUrl: URL.createObjectURL(recorded), mimeType: type, durationSec: secs });
+      };
+
+      startedAtRef.current = Date.now();
+      mr.start();
+      setRecording(true);
+      setElapsed(0);
+      timerRef.current = setInterval(() => {
+        const secs = Math.round((Date.now() - startedAtRef.current) / 1000);
+        setElapsed(secs);
+        if (secs >= MAX_FIELD_NOTE_DURATION_SEC) stopRecording();
+      }, 250);
+    } catch {
+      // Mic blocked/unavailable — offer the video-recording fallback (its own
+      // button, so the camera opens from a fresh tap gesture on iOS).
+      setError('Microphone isn’t available here — you can record a video instead.');
+      setMicFailed(true);
+    }
+  }, [canRecordAudio, onCaptured, stopRecording]);
 
   const onFileChosen = useCallback(
     async (file: File | undefined) => {
@@ -56,7 +156,6 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         return;
       }
 
-      // Infer a MIME type when the browser reports none (some phone files do).
       let mime = containerType(file.type);
       if (!file.type) {
         const ext = file.name.split('.').pop()?.toLowerCase() || '';
@@ -75,31 +174,40 @@ export function FieldNoteCapture({ onCaptured }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      {recording ? (
         <button
-          onClick={() => recordRef.current?.click()}
-          className="rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
+          onClick={stopRecording}
+          className="w-full rounded-xl bg-white text-black font-medium py-4"
         >
-          ● Record
+          ■ Stop — {fmt(elapsed)} / {fmt(MAX_FIELD_NOTE_DURATION_SEC)}
         </button>
-        <button
-          onClick={() => uploadRef.current?.click()}
-          className="rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-medium py-4"
-        >
-          Upload
-        </button>
-      </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => (micFailed ? recordVideoRef.current?.click() : startAudioRecording())}
+            className="rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
+          >
+            {micFailed ? '● Record video' : '● Record'}
+          </button>
+          <button
+            onClick={() => uploadRef.current?.click()}
+            className="rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-medium py-4"
+          >
+            Upload
+          </button>
+        </div>
+      )}
 
-      {/* Record → native camera in video mode. */}
+      {/* Video-recording fallback → native camera. */}
       <input
-        ref={recordRef}
+        ref={recordVideoRef}
         type="file"
         accept="video/*"
         capture="environment"
         className="hidden"
         onChange={(e) => onFileChosen(e.target.files?.[0])}
       />
-      {/* Upload → video file picker (no `capture` so existing files are pickable). */}
+      {/* Upload → video library (no `capture`). */}
       <input
         ref={uploadRef}
         type="file"
