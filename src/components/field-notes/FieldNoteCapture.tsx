@@ -47,6 +47,11 @@ export function FieldNoteCapture({ onCaptured }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [micFailed, setMicFailed] = useState(false); // show the video-fallback button
   const [canRecordAudio, setCanRecordAudio] = useState(true);
+  // True when we know up-front that in-browser audio recording won't work, so
+  // the Record button opens the camera DIRECTLY on the first tap (no await —
+  // preserving the gesture iOS needs to open the camera). iOS Chrome/Firefox/
+  // Edge (WKWebView) can't reliably record the mic even though the API exists.
+  const [videoOnly, setVideoOnly] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -60,6 +65,14 @@ export function FieldNoteCapture({ onCaptured }: Props) {
     const hasApis = typeof navigator.mediaDevices?.getUserMedia === 'function' &&
       typeof MediaRecorder !== 'undefined';
     setCanRecordAudio(hasApis);
+
+    // iOS + non-Safari → treat as video-only so Record opens the camera directly.
+    const ua = navigator.userAgent;
+    const isIOS = /iP(hone|ad|od)/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isSafari = /^((?!chrome|crios|fxios|edgios).)*safari/i.test(ua);
+    const secure = typeof window === 'undefined' || window.isSecureContext;
+    if (!hasApis || !secure || (isIOS && !isSafari)) setVideoOnly(true);
   }, []);
 
   useEffect(() => {
@@ -144,6 +157,9 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         el.onloadedmetadata = () => resolve(el.duration || 0);
         el.onerror = () => resolve(0);
       });
+      // Release the probe element's hold on the blob before the preview uses it.
+      el.removeAttribute('src');
+      el.load?.();
 
       if (!secs || !isFinite(secs)) {
         URL.revokeObjectURL(url);
@@ -184,10 +200,15 @@ export function FieldNoteCapture({ onCaptured }: Props) {
       ) : (
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => (micFailed ? recordVideoRef.current?.click() : startAudioRecording())}
+            onClick={() => {
+              // Video-only (iOS Chrome etc.) or a prior mic failure → open the
+              // camera directly in this tap. Otherwise try audio recording.
+              if (videoOnly || micFailed) recordVideoRef.current?.click();
+              else startAudioRecording();
+            }}
             className="rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
           >
-            {micFailed ? '● Record video' : '● Record'}
+            {videoOnly || micFailed ? '● Record video' : '● Record'}
           </button>
           <button
             onClick={() => uploadRef.current?.click()}
