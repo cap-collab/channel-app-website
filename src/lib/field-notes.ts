@@ -69,20 +69,23 @@ function normalizeDjs(djs?: EventDJRef[]): EventDJRef[] {
     }));
 }
 
+// Keep any venue with a name. A free-text (not-in-DB) venue has no venueId — we
+// store venueId: '' so it round-trips as a name-only tag the admin can link later.
 function normalizeVenues(venues?: EventVenueRef[]): EventVenueRef[] {
   if (!Array.isArray(venues)) return [];
   return venues
-    .filter((v) => v && v.venueId && v.venueName)
-    .map((v) => ({ venueId: v.venueId, venueName: v.venueName }));
+    .filter((v) => v && typeof v.venueName === 'string' && v.venueName.trim().length > 0)
+    .map((v) => ({ venueId: v.venueId || '', venueName: v.venueName.trim() }));
 }
 
+// Same for collectives — keep name-only entries (collectiveId: '').
 function normalizeCollectives(collectives?: CollectiveRef[]): CollectiveRef[] {
   if (!Array.isArray(collectives)) return [];
   return collectives
-    .filter((c) => c && c.collectiveId && c.collectiveName)
+    .filter((c) => c && typeof c.collectiveName === 'string' && c.collectiveName.trim().length > 0)
     .map((c) => cleanRef({
-      collectiveId: c.collectiveId,
-      collectiveName: c.collectiveName,
+      collectiveId: c.collectiveId || '',
+      collectiveName: c.collectiveName.trim(),
       collectiveSlug: c.collectiveSlug || undefined,
       collectivePhoto: c.collectivePhoto ?? null,
     }));
@@ -93,6 +96,14 @@ export function djKey(d: EventDJRef): string {
   return d.djUserId || normalizeUsername(d.djName || '');
 }
 
+// Stable key for a venue/collective tag: prefer the id, else the normalized name.
+function venueKey(v: EventVenueRef): string {
+  return v.venueId || normalizeUsername(v.venueName || '');
+}
+function collectiveKey(c: CollectiveRef): string {
+  return c.collectiveId || normalizeUsername(c.collectiveName || '');
+}
+
 function deriveTaggedKeys(
   djs: EventDJRef[],
   venues: EventVenueRef[],
@@ -100,8 +111,8 @@ function deriveTaggedKeys(
 ): { taggedDjKeys: string[]; taggedVenueIds: string[]; taggedCollectiveIds: string[] } {
   return {
     taggedDjKeys: Array.from(new Set(djs.map(djKey).filter(Boolean))),
-    taggedVenueIds: Array.from(new Set(venues.map((v) => v.venueId).filter(Boolean))),
-    taggedCollectiveIds: Array.from(new Set(collectives.map((c) => c.collectiveId).filter(Boolean))),
+    taggedVenueIds: Array.from(new Set(venues.map(venueKey).filter(Boolean))),
+    taggedCollectiveIds: Array.from(new Set(collectives.map(collectiveKey).filter(Boolean))),
   };
 }
 
