@@ -147,9 +147,15 @@ async function processOnePending(
   const entry: QueueEntry = { id: oldest.id, ...(oldest.data() as Omit<QueueEntry, 'id'>) };
   const entryRef = oldest.ref;
 
-  // Claim before calling the worker so a re-trigger doesn't double-process.
-  await entryRef.update({ status: 'in-progress', startedAt: Date.now() });
-
+  // CLAIM-LAST: call the worker FIRST; write the entry's terminal status only
+  // after. Faststart is idempotent (worker skips if moov is already at front)
+  // and ~1s, so a double-fire from an overlapping tick is harmless — the
+  // normalize enqueue below is separately deduped by r2Key. The old order
+  // claimed `in-progress` before the call, so if ANY later step in this tick
+  // threw (or the lambda was killed) the entry stranded in-progress with no
+  // error, got re-pended, re-stranded under the same conditions, and after 3
+  // rounds tripped the poison cap → false "failed". Doing the work before the
+  // claim means such a death just leaves the entry `pending` → clean retry.
   console.log(`[drain-faststart-queue] Faststarting ${entry.r2Key} (queue=${entry.id}, slot=${entry.slotId || 'n/a'}, attempt ${entry.attempts + 1})`);
   const result = await callWorkerFaststart(entry.r2Key);
 
@@ -171,28 +177,36 @@ async function processOnePending(
     };
   }
 
-  // Faststart succeeded. Enqueue normalize BEFORE marking this entry done, so a
-  // crash between the two writes leaves the faststart entry 'in-progress' and
-  // recoverStaleInProgress re-runs it (faststart is idempotent → re-runs safely
-  // and reaches the enqueue again). Marking 'done' first would orphan the
-  // recording: faststart drain never revisits a done entry, and no normalize
-  // entry exists for the normalize drain to pick up. (Observed 2026-06-23: the
-  // old order silently dropped normalize for the "David L invites" set.)
-  // Idempotency guard: if a retry already enqueued normalize for this r2Key,
+  // Faststart succeeded. Enqueue normalize BEFORE marking this entry done. With
+  // claim-last the entry is still `pending` here, so a crash between the enqueue
+  // and the done-write just re-runs the whole thing next tick (faststart is
+  // idempotent; the enqueue is deduped by r2Key below). Marking done first would
+  // orphan the recording: faststart drain never revisits a done entry, and no
+  // normalize entry would exist for the normalize drain to pick up. (Observed
+  // 2026-06-23: that order silently dropped normalize for the "David L invites" set.)
+  // Idempotency guard: if a prior run already enqueued normalize for this r2Key,
   // don't add a duplicate.
   const existingNorm = await db.collection('normalize-queue')
     .where('r2Key', '==', entry.r2Key)
     .limit(1)
     .get();
   if (existingNorm.empty) {
-    await db.collection('normalize-queue').add({
+    // Live recordings carry slotId only; artist uploads carry archiveId only.
+    // Firestore .add() throws on any `undefined` field ("Cannot use undefined
+    // as a Firestore value"), so include a key ONLY when it's actually set.
+    // Passing archiveId: undefined for a live recording crashed the whole tick
+    // BEFORE the entry was marked done — it stranded in-progress, got recovered,
+    // re-crashed, and after 3 strandings tripped the poison cap → false "failed".
+    // (Root cause of the 2026-07-03 02/03/04:00 UTC MinTek "failures".)
+    const normDoc: Record<string, unknown> = {
       r2Key: entry.r2Key,
-      slotId: entry.slotId,
-      archiveId: entry.archiveId,
       queuedAt: Date.now(),
       status: 'pending',
       attempts: 0,
-    });
+    };
+    if (entry.slotId) normDoc.slotId = entry.slotId;
+    if (entry.archiveId) normDoc.archiveId = entry.archiveId;
+    await db.collection('normalize-queue').add(normDoc);
     console.log(`[drain-faststart-queue] Faststarted ${entry.r2Key} (skipped=${!!result.body.skipped}) → normalize queued`);
   } else {
     console.log(`[drain-faststart-queue] Faststarted ${entry.r2Key} — normalize already queued (${existingNorm.docs[0].id}), skipping duplicate`);
