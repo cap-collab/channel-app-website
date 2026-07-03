@@ -45,13 +45,8 @@ export function FieldNoteCapture({ onCaptured }: Props) {
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [micFailed, setMicFailed] = useState(false); // show the video-fallback button
+  const [micFailed, setMicFailed] = useState(false); // mic blocked → offer camera fallback
   const [canRecordAudio, setCanRecordAudio] = useState(true);
-  // True when we know up-front that in-browser audio recording won't work, so
-  // the Record button opens the camera DIRECTLY on the first tap (no await —
-  // preserving the gesture iOS needs to open the camera). iOS Chrome/Firefox/
-  // Edge (WKWebView) can't reliably record the mic even though the API exists.
-  const [videoOnly, setVideoOnly] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -62,17 +57,12 @@ export function FieldNoteCapture({ onCaptured }: Props) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    // Only gate on whether the APIs exist. In-browser audio recording works on
+    // iOS Chrome too (iOS 14.3+), so we always TRY it — no browser-identity
+    // short-circuit. Field notes are voice, so audio recording is the point.
     const hasApis = typeof navigator.mediaDevices?.getUserMedia === 'function' &&
       typeof MediaRecorder !== 'undefined';
     setCanRecordAudio(hasApis);
-
-    // iOS + non-Safari → treat as video-only so Record opens the camera directly.
-    const ua = navigator.userAgent;
-    const isIOS = /iP(hone|ad|od)/.test(ua) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const isSafari = /^((?!chrome|crios|fxios|edgios).)*safari/i.test(ua);
-    const secure = typeof window === 'undefined' || window.isSecureContext;
-    if (!hasApis || !secure || (isIOS && !isSafari)) setVideoOnly(true);
   }, []);
 
   useEffect(() => {
@@ -214,9 +204,10 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => {
-              // Inline audio recording where it works; otherwise open the camera
-              // (bare `capture` opens the normal camera UI, which records sound).
-              if (videoOnly || micFailed) recordVideoRef.current?.click();
+              // Always try in-browser AUDIO recording first (works on iOS
+              // Chrome too). Only if the mic was already denied do we open the
+              // camera as a fallback.
+              if (micFailed) recordVideoRef.current?.click();
               else startAudioRecording();
             }}
             className="rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
