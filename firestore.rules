@@ -216,5 +216,17 @@ service cloud.firestore {
       allow create: if true;
       allow read, update, delete: if false;
     }
+
+    // Field notes (listener voice notes, admin-approved)
+    // The client never reads/writes this collection directly — all access goes
+    // through the admin-SDK API routes (which enforce the FIELD_NOTES_ADMIN_ONLY
+    // gate). These rules are defense-in-depth.
+    // Public read of published notes is DISABLED during the admin-only testing
+    // gate. At public launch, add:
+    //   allow read: if resource.data.status == 'published';
+    match /field-notes/{noteId} {
+      allow read, update: if isBroadcaster();
+      allow create, delete: if false;
+    }
   }
 }

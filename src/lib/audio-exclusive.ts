@@ -8,7 +8,7 @@
 // ArchivePlayerContext). That keeps the React state in sync, which the
 // inline + sticky players read for play/pause icons and barMode selection.
 
-type Source = 'live' | 'archive';
+type Source = 'live' | 'archive' | 'fieldnotes';
 
 const elements: Partial<Record<Source, HTMLAudioElement>> = {};
 

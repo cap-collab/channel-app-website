@@ -39,6 +39,12 @@ function isTestAccount(key: string): boolean {
   const lower = key.toLowerCase();
   return TEST_ACCOUNTS.some((a) => lower.includes(a));
 }
+// Field notes live under a dedicated prefix and are referenced only by the
+// `field-notes` Firestore collection (not `archives`), so they'd otherwise be
+// miscounted as orphans. Classify them into their own bucket. Read-only.
+function isFieldNote(key: string): boolean {
+  return key.startsWith('field-notes/');
+}
 
 async function listAllObjects(s3: S3Client, bucket: string): Promise<_Object[]> {
   const all: _Object[] = [];
@@ -103,6 +109,8 @@ export async function GET(request: NextRequest) {
   let hlsBytes = 0;
   let testCount = 0;
   let testBytes = 0;
+  let fieldNotesCount = 0;
+  let fieldNotesBytes = 0;
   let orphanCount = 0;
   let orphanBytes = 0;
 
@@ -110,6 +118,7 @@ export async function GET(request: NextRequest) {
     const key = obj.Key!;
     const size = obj.Size || 0;
     if (isHlsArtifact(key)) { hlsCount++; hlsBytes += size; continue; }
+    if (isFieldNote(key)) { fieldNotesCount++; fieldNotesBytes += size; continue; }
     if (referenced.has(key)) { referencedCount++; referencedBytes += size; continue; }
     if (isTestAccount(key)) { testCount++; testBytes += size; continue; }
     if (!isAudioKey(key)) continue;
@@ -122,6 +131,7 @@ export async function GET(request: NextRequest) {
     referenced: { count: referencedCount, bytes: referencedBytes },
     hls: { count: hlsCount, bytes: hlsBytes },
     test: { count: testCount, bytes: testBytes },
+    fieldNotes: { count: fieldNotesCount, bytes: fieldNotesBytes },
     orphan: { count: orphanCount, bytes: orphanBytes },
   };
 
