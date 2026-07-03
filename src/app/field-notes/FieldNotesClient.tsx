@@ -7,6 +7,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { FIELD_NOTES_ADMIN_ONLY } from '@/lib/field-notes-config';
 import { FieldNoteRecorder } from '@/components/field-notes/FieldNoteRecorder';
+import { FieldNoteCapture, CapturedTake } from '@/components/field-notes/FieldNoteCapture';
 import { FieldNoteEntityPlaylists } from '@/components/field-notes/FieldNoteEntityPlaylists';
 import { FieldNoteSerialized } from '@/types/field-notes';
 
@@ -86,7 +87,7 @@ export function FieldNotesClient() {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
   const [showAuth, setShowAuth] = useState(false);
-  const [showRecorder, setShowRecorder] = useState(false);
+  const [take, setTake] = useState<CapturedTake | null>(null);
 
   const [notes, setNotes] = useState<FieldNoteSerialized[]>([]);
   const [myNotes, setMyNotes] = useState<FieldNoteSerialized[]>([]);
@@ -123,9 +124,12 @@ export function FieldNotesClient() {
     else if (!gateLoading) setLoadingFeed(false);
   }, [hasAccess, user, gateLoading, loadFeed]);
 
-  const onRecordClick = () => {
-    if (!isAuthenticated) setShowAuth(true);
-    else setShowRecorder(true);
+  const onCaptured = (captured: CapturedTake) => {
+    if (!isAuthenticated) {
+      setShowAuth(true);
+      return;
+    }
+    setTake(captured);
   };
 
   return (
@@ -149,14 +153,9 @@ export function FieldNotesClient() {
           </div>
         ) : (
           <>
-            {/* 1. Record */}
+            {/* 1. Record / upload — directly on the landing */}
             <section>
-              <button
-                onClick={onRecordClick}
-                className="w-full rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
-              >
-                ● Record a field note
-              </button>
+              <FieldNoteCapture onCaptured={onCaptured} />
             </section>
 
             {/* 2. Attributed playback */}
@@ -199,11 +198,16 @@ export function FieldNotesClient() {
         )}
       </main>
 
-      {showRecorder && (
+      {take && (
         <FieldNoteRecorder
-          onClose={() => setShowRecorder(false)}
+          take={take}
+          onClose={() => {
+            URL.revokeObjectURL(take.blobUrl);
+            setTake(null);
+          }}
           onSubmitted={() => {
-            setShowRecorder(false);
+            URL.revokeObjectURL(take.blobUrl);
+            setTake(null);
             loadFeed();
           }}
         />
