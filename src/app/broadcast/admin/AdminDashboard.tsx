@@ -18,8 +18,9 @@ import { SocialRenderTab } from '@/components/broadcast/admin/SocialRenderTab';
 import { ArchiveRadioTab } from '@/components/broadcast/admin/ArchiveRadioTab';
 import { TechHealthTab } from '@/components/broadcast/admin/TechHealthTab';
 import { RecommendationsTab } from '@/components/broadcast/admin/RecommendationsTab';
+import { FieldNotesTab } from '@/components/broadcast/admin/FieldNotesTab';
 
-type AdminTab = 'schedule' | 'applications' | 'archives' | 'archive-radio' | 'marketing' | 'scenes' | 'social-render' | 'tech-health' | 'recommendations';
+type AdminTab = 'schedule' | 'applications' | 'archives' | 'archive-radio' | 'marketing' | 'scenes' | 'social-render' | 'tech-health' | 'recommendations' | 'field-notes';
 
 // Get start of current week (Sunday)
 function getWeekStart(date: Date = new Date()): Date {
@@ -52,6 +53,7 @@ export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>('schedule');
   const [applicationCount, setApplicationCount] = useState(0);
   const [archiveCount, setArchiveCount] = useState(0);
+  const [fieldNoteCount, setFieldNoteCount] = useState(0);
 
   // Check if user has broadcaster access
   const hasBroadcasterAccess = isBroadcaster(role);
@@ -356,6 +358,25 @@ export function AdminDashboard() {
               )}
             </button>
             <button
+              onClick={() => setActiveTab('field-notes')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                activeTab === 'field-notes'
+                  ? 'bg-white text-black'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              Field Notes
+              {fieldNoteCount > 0 && (
+                <span className={`px-2 py-0.5 text-xs rounded-full ${
+                  activeTab === 'field-notes'
+                    ? 'bg-black text-white'
+                    : 'bg-yellow-500 text-black'
+                }`}>
+                  {fieldNoteCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setActiveTab('archives')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
                 activeTab === 'archives'
@@ -504,6 +525,11 @@ export function AdminDashboard() {
             <SocialRenderTab />
           ) : activeTab === 'recommendations' ? (
             <RecommendationsTab />
+          ) : activeTab === 'field-notes' ? (
+            <FieldNotesTab
+              userId={user?.uid || ''}
+              onPendingCountChange={setFieldNoteCount}
+            />
           ) : (
             <TechHealthTab />
           )}

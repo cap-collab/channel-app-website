@@ -4,14 +4,15 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { useUserRole, isDJ } from "@/hooks/useUserRole";
+import { useUserRole, isDJ, isBroadcaster } from "@/hooks/useUserRole";
+import { FIELD_NOTES_ADMIN_ONLY } from "@/lib/field-notes-config";
 import { AuthModal } from "@/components/AuthModal";
 import { MobileMenu, MobileMenuItem } from "@/components/MobileMenu";
 import { HeaderTuner } from "@/components/HeaderTuner";
 import { GlobalBroadcastBar } from "@/components/GlobalBroadcastBar";
 import { FloatingChat } from "@/components/channel/FloatingChat";
 
-type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "streaming-guide" | "stripe-setup" | "studio" | "archives" | "explore";
+type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "streaming-guide" | "stripe-setup" | "studio" | "archives" | "explore" | "field-notes";
 
 interface HeaderProps {
   currentPage?: CurrentPage;
@@ -50,6 +51,12 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
 
     // "For You" tab → the /scene recommendations page.
     items.push({ label: "For You", href: "/scene", active: currentPage === "explore" });
+
+    // "Record a field note" → the /field-notes page. While in testing
+    // (FIELD_NOTES_ADMIN_ONLY), only shown to admin-dashboard accounts.
+    if (!FIELD_NOTES_ADMIN_ONLY || isBroadcaster(role)) {
+      items.push({ label: "Record a field note", href: "/field-notes", active: currentPage === "field-notes" });
+    }
 
     // Studio - shown when signed out or when user is a DJ
     if (!isAuthenticated || isDJ(role)) {

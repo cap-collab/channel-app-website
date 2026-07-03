@@ -1,0 +1,442 @@
+import { NextRequest } from 'next/server';
+import { getAdminDb, getAdminAuth } from './firebase-admin';
+import { normalizeUsername } from './dj-matching';
+import { MAX_FIELD_NOTE_DURATION_SEC } from './field-notes-config';
+import {
+  FieldNoteSerialized,
+  FieldNoteStatus,
+  FieldNoteSubmitInput,
+} from '@/types/field-notes';
+import { EventDJRef, EventVenueRef, CollectiveRef } from '@/types/events';
+
+const COLLECTION = 'field-notes';
+
+// MIME types accepted for a field note. Superset of the pre-recording audio set
+// plus browser MediaRecorder containers and short video (audio track kept).
+export const ALLOWED_FIELD_NOTE_TYPES = [
+  'audio/mpeg',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/aac',
+  'audio/mp4',
+  'audio/x-m4a',
+  'audio/ogg',
+  'audio/webm',
+  'video/mp4',
+  'video/webm',
+];
+
+export function getFieldNoteExtension(mimeType: string): string {
+  // Strip any codecs parameter, e.g. "audio/webm;codecs=opus" → "audio/webm".
+  const base = (mimeType || '').split(';')[0].trim();
+  const map: Record<string, string> = {
+    'audio/mpeg': 'mp3',
+    'audio/wav': 'wav',
+    'audio/x-wav': 'wav',
+    'audio/aac': 'aac',
+    'audio/mp4': 'm4a',
+    'audio/x-m4a': 'm4a',
+    'audio/ogg': 'ogg',
+    'audio/webm': 'webm',
+    'video/mp4': 'mp4',
+    'video/webm': 'webm',
+  };
+  return map[base] || 'webm';
+}
+
+// Firestore rejects `undefined`; strip undefined keys from a ref object.
+function cleanRef<T extends Record<string, unknown>>(d: T): T {
+  const cleaned: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(d)) {
+    if (v !== undefined) cleaned[k] = v;
+  }
+  return cleaned as T;
+}
+
+function normalizeDjs(djs?: EventDJRef[]): EventDJRef[] {
+  if (!Array.isArray(djs)) return [];
+  return djs
+    .filter((d) => d && typeof d.djName === 'string' && d.djName.trim().length > 0)
+    .map((d) => cleanRef({
+      djName: d.djName.trim(),
+      djUserId: d.djUserId || undefined,
+      djUsername: d.djUsername || undefined,
+      djPhotoUrl: d.djPhotoUrl || undefined,
+    }));
+}
+
+function normalizeVenues(venues?: EventVenueRef[]): EventVenueRef[] {
+  if (!Array.isArray(venues)) return [];
+  return venues
+    .filter((v) => v && v.venueId && v.venueName)
+    .map((v) => ({ venueId: v.venueId, venueName: v.venueName }));
+}
+
+function normalizeCollectives(collectives?: CollectiveRef[]): CollectiveRef[] {
+  if (!Array.isArray(collectives)) return [];
+  return collectives
+    .filter((c) => c && c.collectiveId && c.collectiveName)
+    .map((c) => cleanRef({
+      collectiveId: c.collectiveId,
+      collectiveName: c.collectiveName,
+      collectiveSlug: c.collectiveSlug || undefined,
+      collectivePhoto: c.collectivePhoto ?? null,
+    }));
+}
+
+// Stable key for a DJ tag: prefer the uid, else the normalized name.
+export function djKey(d: EventDJRef): string {
+  return d.djUserId || normalizeUsername(d.djName || '');
+}
+
+function deriveTaggedKeys(
+  djs: EventDJRef[],
+  venues: EventVenueRef[],
+  collectives: CollectiveRef[]
+): { taggedDjKeys: string[]; taggedVenueIds: string[]; taggedCollectiveIds: string[] } {
+  return {
+    taggedDjKeys: Array.from(new Set(djs.map(djKey).filter(Boolean))),
+    taggedVenueIds: Array.from(new Set(venues.map((v) => v.venueId).filter(Boolean))),
+    taggedCollectiveIds: Array.from(new Set(collectives.map((c) => c.collectiveId).filter(Boolean))),
+  };
+}
+
+function serializeFieldNote(id: string, data: Record<string, unknown>): FieldNoteSerialized {
+  return {
+    id,
+    recordedByUserId: data.recordedByUserId as string,
+    recordedByUsername: data.recordedByUsername as string,
+    recordedByPhotoUrl: (data.recordedByPhotoUrl as string | null) ?? null,
+    audioUrl: data.audioUrl as string,
+    audioKey: data.audioKey as string,
+    audioMimeType: data.audioMimeType as string,
+    durationSec: (data.durationSec as number) || 0,
+    linkedSlotId: (data.linkedSlotId as string | null) ?? null,
+    linkedArchiveId: (data.linkedArchiveId as string | null) ?? null,
+    linkedEventId: (data.linkedEventId as string | null) ?? null,
+    eventName: (data.eventName as string | null) ?? null,
+    eventDate: (data.eventDate as number | null) ?? null,
+    djs: (data.djs as EventDJRef[]) || [],
+    venues: (data.venues as EventVenueRef[]) || [],
+    collectives: (data.collectives as CollectiveRef[]) || [],
+    taggedDjKeys: (data.taggedDjKeys as string[]) || [],
+    taggedVenueIds: (data.taggedVenueIds as string[]) || [],
+    taggedCollectiveIds: (data.taggedCollectiveIds as string[]) || [],
+    city: (data.city as string) || '',
+    caption: (data.caption as string | null) ?? null,
+    transcript: (data.transcript as string | null) ?? null,
+    status: data.status as FieldNoteStatus,
+    uploadStatus: (data.uploadStatus as 'uploading' | 'ready') || 'ready',
+    createdAt: (data.createdAt as number) || 0,
+    publishedAt: (data.publishedAt as number | null) ?? null,
+    reviewedBy: (data.reviewedBy as string | null) ?? null,
+    rejectionReason: (data.rejectionReason as string | null) ?? null,
+    adminNotes: (data.adminNotes as string | null) ?? null,
+  };
+}
+
+// Strip admin-only fields before returning a note to non-admin surfaces.
+function stripAdminFields(note: FieldNoteSerialized): FieldNoteSerialized {
+  return { ...note, adminNotes: null, reviewedBy: null };
+}
+
+// ---- Reads ----------------------------------------------------------------
+
+// Admin list: all notes, newest first.
+export async function getFieldNotes(status?: FieldNoteStatus): Promise<FieldNoteSerialized[]> {
+  const db = getAdminDb();
+  if (!db) throw new Error('Firestore not initialized');
+
+  let query = db.collection(COLLECTION).orderBy('createdAt', 'desc').limit(500);
+  if (status) query = db.collection(COLLECTION).where('status', '==', status).orderBy('createdAt', 'desc').limit(500);
+
+  const snapshot = await query.get();
+  return snapshot.docs.map((doc) => serializeFieldNote(doc.id, doc.data()));
+}
+
+// Public feed: published + ready notes, newest published first. Admin fields stripped.
+export async function getPublishedFieldNotes(max = 200): Promise<FieldNoteSerialized[]> {
+  const db = getAdminDb();
+  if (!db) throw new Error('Firestore not initialized');
+
+  const snapshot = await db
+    .collection(COLLECTION)
+    .where('status', '==', 'published')
+    .orderBy('publishedAt', 'desc')
+    .limit(max)
+    .get();
+
+  return snapshot.docs
+    .map((doc) => serializeFieldNote(doc.id, doc.data()))
+    .filter((n) => n.uploadStatus === 'ready')
+    .map(stripAdminFields);
+}
+
+// The author's own notes (any status), newest first. Admin fields stripped
+// (but rejectionReason is kept so the author sees why).
+export async function getFieldNotesByAuthor(userId: string): Promise<FieldNoteSerialized[]> {
+  const db = getAdminDb();
+  if (!db) throw new Error('Firestore not initialized');
+
+  const snapshot = await db
+    .collection(COLLECTION)
+    .where('recordedByUserId', '==', userId)
+    .orderBy('createdAt', 'desc')
+    .limit(200)
+    .get();
+
+  return snapshot.docs
+    .map((doc) => serializeFieldNote(doc.id, doc.data()))
+    .map(stripAdminFields);
+}
+
+export async function getFieldNote(id: string): Promise<FieldNoteSerialized | null> {
+  const db = getAdminDb();
+  if (!db) throw new Error('Firestore not initialized');
+  const docSnap = await db.collection(COLLECTION).doc(id).get();
+  if (!docSnap.exists) return null;
+  return serializeFieldNote(docSnap.id, docSnap.data() || {});
+}
+
+// ---- Writes ---------------------------------------------------------------
+
+export interface CreatePendingResult {
+  id: string;
+  audioKey: string;
+  audioUrl: string;
+}
+
+// Validate + create a pending field note (uploadStatus 'uploading'). The caller
+// supplies the pre-computed R2 key/url (built after presign) so the doc and the
+// presigned PUT target stay in lockstep.
+export async function createPendingFieldNote(
+  author: { userId: string; username: string; photoUrl?: string | null },
+  input: FieldNoteSubmitInput,
+  audio: { audioKey: string; audioUrl: string; audioMimeType: string }
+): Promise<string> {
+  const db = getAdminDb();
+  if (!db) throw new Error('Firestore not initialized');
+
+  const durationSec = Math.ceil(Number(input.durationSec) || 0);
+  if (durationSec <= 0) throw new Error('Could not determine recording duration.');
+  if (durationSec > MAX_FIELD_NOTE_DURATION_SEC) {
+    throw new Error(`Field notes must be ${MAX_FIELD_NOTE_DURATION_SEC} seconds or shorter.`);
+  }
+
+  const djs = normalizeDjs(input.djs);
+  const venues = normalizeVenues(input.venues);
+  const collectives = normalizeCollectives(input.collectives);
+
+  const hasEventLink = Boolean(
+    input.linkedSlotId || input.linkedArchiveId || input.linkedEventId ||
+    (input.eventName && input.eventName.trim())
+  );
+  const hasTag = djs.length > 0 || venues.length > 0 || collectives.length > 0;
+  if (!hasEventLink && !hasTag) {
+    throw new Error('Add at least an event, a DJ, a venue, or a collective.');
+  }
+
+  const { taggedDjKeys, taggedVenueIds, taggedCollectiveIds } = deriveTaggedKeys(djs, venues, collectives);
+
+  const docRef = await db.collection(COLLECTION).add({
+    recordedByUserId: author.userId,
+    recordedByUsername: author.username,
+    recordedByPhotoUrl: author.photoUrl ?? null,
+
+    audioUrl: audio.audioUrl,
+    audioKey: audio.audioKey,
+    audioMimeType: audio.audioMimeType,
+    durationSec,
+
+    linkedSlotId: input.linkedSlotId || null,
+    linkedArchiveId: input.linkedArchiveId || null,
+    linkedEventId: input.linkedEventId || null,
+    eventName: input.eventName?.trim() || null,
+    eventDate: typeof input.eventDate === 'number' ? input.eventDate : null,
+
+    djs,
+    venues,
+    collectives,
+    taggedDjKeys,
+    taggedVenueIds,
+    taggedCollectiveIds,
+
+    city: input.city?.trim() || '',
+    caption: input.caption?.trim() || null,
+    transcript: null,
+
+    status: 'pending' as FieldNoteStatus,
+    uploadStatus: 'uploading',
+    createdAt: Date.now(),
+    publishedAt: null,
+    reviewedBy: null,
+    rejectionReason: null,
+    adminNotes: null,
+  });
+
+  return docRef.id;
+}
+
+// After the client PUTs the blob to R2, flip uploadStatus to 'ready'.
+export async function markFieldNoteReady(
+  id: string,
+  userId: string,
+  fileExists: (key: string) => Promise<boolean>
+): Promise<void> {
+  const db = getAdminDb();
+  if (!db) throw new Error('Firestore not initialized');
+
+  const ref = db.collection(COLLECTION).doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error('Field note not found');
+  const data = snap.data()!;
+  if (data.recordedByUserId !== userId) throw new Error('Not authorized');
+  if (data.uploadStatus !== 'uploading') throw new Error('Field note is not in uploading state');
+
+  const exists = await fileExists(data.audioKey as string);
+  if (!exists) throw new Error('Upload could not be verified. Please try again.');
+
+  await ref.update({ uploadStatus: 'ready' });
+}
+
+// Admin update: status change (publish/reject) and/or tag edits. Any time.
+export interface FieldNotePatch {
+  status?: FieldNoteStatus;
+  rejectionReason?: string | null;
+  adminNotes?: string | null;
+  djs?: EventDJRef[];
+  venues?: EventVenueRef[];
+  collectives?: CollectiveRef[];
+  linkedSlotId?: string | null;
+  linkedArchiveId?: string | null;
+  linkedEventId?: string | null;
+  eventName?: string | null;
+  eventDate?: number | null;
+}
+
+export async function updateFieldNote(
+  id: string,
+  patch: FieldNotePatch,
+  reviewedBy: string
+): Promise<void> {
+  const db = getAdminDb();
+  if (!db) throw new Error('Firestore not initialized');
+
+  const ref = db.collection(COLLECTION).doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error('Field note not found');
+
+  const update: Record<string, unknown> = {};
+
+  // Tag edits — if any tag field is present, re-derive the flat key arrays.
+  const tagsTouched =
+    patch.djs !== undefined || patch.venues !== undefined || patch.collectives !== undefined;
+  if (tagsTouched) {
+    const cur = snap.data()!;
+    const djs = patch.djs !== undefined ? normalizeDjs(patch.djs) : ((cur.djs as EventDJRef[]) || []);
+    const venues = patch.venues !== undefined ? normalizeVenues(patch.venues) : ((cur.venues as EventVenueRef[]) || []);
+    const collectives = patch.collectives !== undefined ? normalizeCollectives(patch.collectives) : ((cur.collectives as CollectiveRef[]) || []);
+    update.djs = djs;
+    update.venues = venues;
+    update.collectives = collectives;
+    const keys = deriveTaggedKeys(djs, venues, collectives);
+    update.taggedDjKeys = keys.taggedDjKeys;
+    update.taggedVenueIds = keys.taggedVenueIds;
+    update.taggedCollectiveIds = keys.taggedCollectiveIds;
+  }
+
+  if (patch.linkedSlotId !== undefined) update.linkedSlotId = patch.linkedSlotId || null;
+  if (patch.linkedArchiveId !== undefined) update.linkedArchiveId = patch.linkedArchiveId || null;
+  if (patch.linkedEventId !== undefined) update.linkedEventId = patch.linkedEventId || null;
+  if (patch.eventName !== undefined) update.eventName = patch.eventName?.trim() || null;
+  if (patch.eventDate !== undefined) update.eventDate = typeof patch.eventDate === 'number' ? patch.eventDate : null;
+  if (patch.adminNotes !== undefined) update.adminNotes = patch.adminNotes || null;
+
+  if (patch.status !== undefined) {
+    if (patch.status === 'rejected' && !(patch.rejectionReason && patch.rejectionReason.trim())) {
+      throw new Error('A rejection reason is required.');
+    }
+    update.status = patch.status;
+    update.reviewedBy = reviewedBy;
+    if (patch.status === 'published') {
+      update.publishedAt = Date.now();
+      update.rejectionReason = null;
+    } else if (patch.status === 'rejected') {
+      update.rejectionReason = patch.rejectionReason!.trim();
+      update.publishedAt = null;
+    }
+  } else if (patch.rejectionReason !== undefined) {
+    update.rejectionReason = patch.rejectionReason?.trim() || null;
+  }
+
+  if (Object.keys(update).length === 0) return;
+  await ref.update(update);
+}
+
+// ---- Auth -----------------------------------------------------------------
+
+export interface FieldNotesCaller {
+  userId: string;
+  role?: string;
+  username: string;
+  photoUrl?: string | null;
+}
+
+function isBroadcasterRole(role?: string): boolean {
+  return role === 'broadcaster' || role === 'admin';
+}
+
+// Resolve + authenticate the caller from a Bearer token. When `requireAdmin`
+// is true (the testing gate), the caller must have admin-dashboard access.
+export async function requireFieldNotesAccess(
+  request: NextRequest,
+  requireAdmin: boolean
+): Promise<{ ok: true; caller: FieldNotesCaller } | { ok: false; status: number; error: string }> {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return { ok: false, status: 401, error: 'Sign in required' };
+  }
+
+  const auth = getAdminAuth();
+  const db = getAdminDb();
+  if (!auth || !db) return { ok: false, status: 500, error: 'Server not configured' };
+
+  let uid: string;
+  try {
+    const decoded = await auth.verifyIdToken(authHeader.slice(7));
+    uid = decoded.uid;
+  } catch {
+    return { ok: false, status: 401, error: 'Invalid session' };
+  }
+
+  const userDoc = await db.collection('users').doc(uid).get();
+  const userData = userDoc.data() || {};
+  const role = userData.role as string | undefined;
+
+  if (requireAdmin && !isBroadcasterRole(role)) {
+    return { ok: false, status: 403, error: 'Field Notes is not available yet.' };
+  }
+
+  const username =
+    (userData.chatUsername as string) ||
+    (userData.displayName as string) ||
+    'Listener';
+
+  return {
+    ok: true,
+    caller: {
+      userId: uid,
+      role,
+      username,
+      photoUrl: (userData.djProfile?.photoUrl as string) || (userData.photoURL as string) || null,
+    },
+  };
+}
+
+// Require admin-dashboard access specifically (for the admin list/review routes).
+export async function requireBroadcaster(
+  request: NextRequest
+): Promise<{ ok: true; caller: FieldNotesCaller } | { ok: false; status: number; error: string }> {
+  const result = await requireFieldNotesAccess(request, true);
+  return result;
+}
