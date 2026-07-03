@@ -145,10 +145,16 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
         </div>
 
         <div className="px-5 py-4 space-y-6">
-          {/* Recorded take preview */}
+          {/* Recorded take preview. A video take must use <video> — an <audio>
+              element can't decode a video container, so its audio wouldn't play. */}
           <section className="space-y-2">
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-            <audio controls src={take.blobUrl} className="w-full" />
+            {take.mimeType.startsWith('video/') ? (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <video controls playsInline src={take.blobUrl} className="w-full max-h-64 rounded-lg bg-black" />
+            ) : (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <audio controls src={take.blobUrl} className="w-full" />
+            )}
             <div className="flex items-center justify-between text-sm text-gray-400">
               <span>{fmt(take.durationSec)}</span>
               <button onClick={onClose} className="text-gray-400 hover:text-white underline">

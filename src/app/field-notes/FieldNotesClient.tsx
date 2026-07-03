@@ -46,8 +46,13 @@ function NoteCard({ note }: { note: FieldNoteSerialized }) {
         </div>
       </div>
 
-      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-      <audio controls preload="none" src={note.audioUrl} className="w-full" />
+      {note.audioMimeType?.startsWith('video/') ? (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video controls playsInline preload="metadata" src={note.audioUrl} className="w-full max-h-72 rounded-lg bg-black" />
+      ) : (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <audio controls preload="none" src={note.audioUrl} className="w-full" />
+      )}
 
       {note.caption && <p className="text-sm text-gray-300">{note.caption}</p>}
 
