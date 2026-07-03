@@ -140,7 +140,7 @@ export function FieldNotesClient() {
         <div>
           <h1 className="text-2xl font-bold text-white">Field Notes</h1>
           <p className="text-gray-400 mt-1">
-            Voice impressions from people who were there. Not reviews — memories.
+            Voice impressions from people who were there.
           </p>
         </div>
 
