@@ -65,7 +65,6 @@ export function FieldNoteRecorder({ onClose, onSubmitted }: Props) {
   const [venues, setVenues] = useState<EventVenueRef[]>([]);
   const [collectives, setCollectives] = useState<CollectiveRef[]>([]);
 
-  const [caption, setCaption] = useState('');
   const [city, setCity] = useState(DEFAULT_CITY_FALLBACK);
 
   const [submitting, setSubmitting] = useState(false);
@@ -249,7 +248,6 @@ export function FieldNoteRecorder({ onClose, onSubmitted }: Props) {
         venues,
         collectives,
         city,
-        caption: caption.trim() || undefined,
       };
       if (selected) {
         if (selected.type === 'slot') body.linkedSlotId = selected.id;
@@ -297,7 +295,7 @@ export function FieldNoteRecorder({ onClose, onSubmitted }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4">
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4">
       <div className="w-full sm:max-w-lg bg-gray-900 rounded-t-2xl sm:rounded-2xl max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
           <h2 className="text-lg font-semibold text-white">Record a field note</h2>
@@ -355,91 +353,88 @@ export function FieldNoteRecorder({ onClose, onSubmitted }: Props) {
             )}
           </section>
 
-          {/* 2. Event link */}
-          <section>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Link to an event</label>
-            <select
-              value={selectedEventId}
-              onChange={(e) => {
-                setSelectedEventId(e.target.value);
-                setCreatingNew(false);
-              }}
-              className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
-            >
-              <option value="">— Recent events (last 48h) —</option>
-              {candidates.map((c) => (
-                <option key={`${c.type}:${c.id}`} value={`${c.type}:${c.id}`}>
-                  {c.name}
-                  {c.djs[0] ? ` · ${c.djs[0].djName}` : ''}
-                </option>
-              ))}
-            </select>
+          {/* Details — only shown once a recording exists */}
+          {blob && (
+            <>
+              {/* Event link */}
+              <section>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Link to an event</label>
+                <select
+                  value={selectedEventId}
+                  onChange={(e) => {
+                    setSelectedEventId(e.target.value);
+                    setCreatingNew(false);
+                  }}
+                  className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
+                >
+                  <option value="">— Recent events (last 48h) —</option>
+                  {candidates.map((c) => (
+                    <option key={`${c.type}:${c.id}`} value={`${c.type}:${c.id}`}>
+                      {c.name}
+                      {c.djs[0] ? ` · ${c.djs[0].djName}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatingNew((v) => !v);
+                    setSelectedEventId('');
+                  }}
+                  className="mt-2 text-sm text-gray-400 hover:text-white underline"
+                >
+                  {creatingNew ? 'Cancel new event' : 'None of these — add a new event'}
+                </button>
+                {creatingNew && (
+                  <div className="mt-2 space-y-2">
+                    <input
+                      type="text"
+                      value={newEventName}
+                      onChange={(e) => setNewEventName(e.target.value)}
+                      placeholder="Event name"
+                      className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="date"
+                      value={newEventDate}
+                      onChange={(e) => setNewEventDate(e.target.value)}
+                      className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
+                    />
+                  </div>
+                )}
+              </section>
+
+              {/* Tags */}
+              <FieldNoteTagPicker
+                djs={djs}
+                venues={venues}
+                collectives={collectives}
+                onChange={(next) => {
+                  setDjs(next.djs);
+                  setVenues(next.venues);
+                  setCollectives(next.collectives);
+                }}
+              />
+
+              <p className="text-xs text-gray-500">City: {city}</p>
+
+              {submitError && <p className="text-sm text-red-400">{submitError}</p>}
+            </>
+          )}
+        </div>
+
+        {blob && (
+          <div className="px-5 py-4 border-t border-gray-800 sticky bottom-0 bg-gray-900">
             <button
-              type="button"
-              onClick={() => {
-                setCreatingNew((v) => !v);
-                setSelectedEventId('');
-              }}
-              className="mt-2 text-sm text-gray-400 hover:text-white underline"
+              onClick={handleSubmit}
+              disabled={!canSubmit() || submitting}
+              className="w-full rounded-lg bg-white text-black font-medium py-3 disabled:opacity-40"
             >
-              {creatingNew ? 'Cancel new event' : 'None of these — add a new event'}
+              {submitting ? 'Submitting…' : 'Submit for review'}
             </button>
-            {creatingNew && (
-              <div className="mt-2 space-y-2">
-                <input
-                  type="text"
-                  value={newEventName}
-                  onChange={(e) => setNewEventName(e.target.value)}
-                  placeholder="Event name"
-                  className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
-                />
-                <input
-                  type="date"
-                  value={newEventDate}
-                  onChange={(e) => setNewEventDate(e.target.value)}
-                  className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
-                />
-              </div>
-            )}
-          </section>
-
-          {/* 3. Tags */}
-          <FieldNoteTagPicker
-            djs={djs}
-            venues={venues}
-            collectives={collectives}
-            onChange={(next) => {
-              setDjs(next.djs);
-              setVenues(next.venues);
-              setCollectives(next.collectives);
-            }}
-          />
-
-          {/* Caption + city */}
-          <section className="space-y-2">
-            <textarea
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              placeholder="Add a caption (optional)"
-              rows={2}
-              className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
-            />
-            <p className="text-xs text-gray-500">City: {city}</p>
-          </section>
-
-          {submitError && <p className="text-sm text-red-400">{submitError}</p>}
-        </div>
-
-        <div className="px-5 py-4 border-t border-gray-800 sticky bottom-0 bg-gray-900">
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit() || submitting}
-            className="w-full rounded-lg bg-white text-black font-medium py-3 disabled:opacity-40"
-          >
-            {submitting ? 'Submitting…' : 'Submit for review'}
-          </button>
-          <p className="text-xs text-gray-500 text-center mt-2">Every field note is reviewed before it appears.</p>
-        </div>
+            <p className="text-xs text-gray-500 text-center mt-2">Every field note is reviewed before it appears.</p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -70,14 +70,37 @@ export async function GET(request: NextRequest) {
       db.collection('events').orderBy('date', 'desc').limit(80).get(),
     ]);
 
-    const candidates: RecentEventCandidate[] = [];
+    // Dedup key: same show + same primary DJ = the same event to a listener.
+    // A live show appears both as broadcast-slot(s) and (once recorded) as an
+    // archive; multiple loop slots can share a name. Collapse to one entry.
+    const key = (name: string, djs: { djName?: string; djUsername?: string }[]): string => {
+      const dj = djs[0];
+      const djKey = dj?.djUsername || (dj?.djName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      return `${(name || '').toLowerCase().trim()}|${djKey}`;
+    };
+
+    const seen = new Map<string, RecentEventCandidate>();
+    const add = (c: RecentEventCandidate) => {
+      const k = key(c.name, c.djs);
+      const existing = seen.get(k);
+      if (!existing) {
+        seen.set(k, c);
+        return;
+      }
+      // Prefer a slot (the live show the listener attended) over an archive of
+      // the same show; otherwise keep the more recent one.
+      const rank = (t: RecentEventCandidate['type']) => (t === 'slot' ? 2 : t === 'event' ? 1 : 0);
+      if (rank(c.type) > rank(existing.type) || (rank(c.type) === rank(existing.type) && c.date > existing.date)) {
+        seen.set(k, c);
+      }
+    };
 
     for (const doc of slotsSnap.docs) {
       const data = doc.data();
       const startMs = coerceSlotTimeMs(data.startTime);
       if (!startMs || startMs < min || startMs > max) continue;
       if (data.djUsername === 'channelbroadcast') continue; // hidden test account
-      candidates.push({
+      add({
         type: 'slot',
         id: doc.id,
         name: (data.showName as string) || 'Live show',
@@ -90,7 +113,7 @@ export async function GET(request: NextRequest) {
       const data = doc.data();
       const recMs = coerceSlotTimeMs(data.recordedAt);
       if (!recMs || recMs < min || recMs > max) continue;
-      candidates.push({
+      add({
         type: 'archive',
         id: doc.id,
         name: (data.showName as string) || 'Recorded show',
@@ -103,7 +126,7 @@ export async function GET(request: NextRequest) {
       const data = doc.data();
       const dateMs = coerceSlotTimeMs(data.date);
       if (!dateMs || dateMs < min || dateMs > max) continue;
-      candidates.push({
+      add({
         type: 'event',
         id: doc.id,
         name: (data.name as string) || 'Event',
@@ -112,7 +135,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    candidates.sort((a, b) => b.date - a.date);
+    const candidates = Array.from(seen.values()).sort((a, b) => b.date - a.date);
 
     return NextResponse.json({ candidates });
   } catch (error) {
