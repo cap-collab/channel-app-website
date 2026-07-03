@@ -75,19 +75,20 @@ export function FieldNoteCapture({ onCaptured }: Props) {
 
   return (
     <div className="space-y-3">
-      <button
-        onClick={() => recordRef.current?.click()}
-        className="w-full rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
-      >
-        ● Record a video
-      </button>
-
-      <button
-        onClick={() => uploadRef.current?.click()}
-        className="w-full rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-medium py-4"
-      >
-        Upload a video
-      </button>
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => recordRef.current?.click()}
+          className="rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
+        >
+          ● Record
+        </button>
+        <button
+          onClick={() => uploadRef.current?.click()}
+          className="rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-medium py-4"
+        >
+          Upload
+        </button>
+      </div>
 
       {/* Record → native camera in video mode. */}
       <input
@@ -106,8 +107,6 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         className="hidden"
         onChange={(e) => onFileChosen(e.target.files?.[0])}
       />
-
-      <p className="text-xs text-gray-500 text-center">Up to {MAX_FIELD_NOTE_DURATION_SEC} seconds.</p>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
     </div>
