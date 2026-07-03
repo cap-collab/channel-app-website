@@ -36,9 +36,10 @@ export function FieldNoteCapture({ onCaptured }: Props) {
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  // Whether in-browser recording is even possible. On iOS, only Safari can use
-  // getUserMedia — Chrome/Firefox/Edge run on WKWebView and can't capture the
-  // mic (no prompt ever appears). There we hide Record and lead with Upload.
+  // Whether the in-browser recording APIs exist at all. NOTE: getUserMedia has
+  // worked in iOS Chrome/Firefox/Edge since iOS 14.3 (the old "Safari-only" rule
+  // is obsolete), so we do NOT gate on browser identity — we always TRY to
+  // record and only fall back to native video capture if the attempt fails.
   const [canRecord, setCanRecord] = useState(true);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -46,17 +47,18 @@ export function FieldNoteCapture({ onCaptured }: Props) {
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<number>(0);
+  // Hidden input that opens the native camera in video mode. Used as the
+  // "Record" path on browsers without getUserMedia (iOS Chrome): it's the only
+  // reliable in-page capture on iOS — audio `capture` is a no-op there.
+  const videoCaptureRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    // Detect iOS + non-Safari (Chrome/Firefox/Edge on iOS = WKWebView, no mic
-    // capture) and the absence of the recording APIs entirely.
-    const ua = navigator.userAgent;
-    const isIOS = /iP(hone|ad|od)/.test(ua) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS masquerades as Mac
-    const isSafari = /^((?!chrome|crios|fxios|edgios).)*safari/i.test(ua);
+    // Only gate on whether the recording APIs exist at all. Don't disable by
+    // browser — iOS Chrome CAN record (iOS 14.3+). If a real attempt fails
+    // (blocked permission, etc.) we fall back to native video capture.
     const hasApis = typeof navigator.mediaDevices?.getUserMedia === 'function' &&
       typeof MediaRecorder !== 'undefined';
-    setCanRecord(hasApis && (!isIOS || isSafari));
+    setCanRecord(hasApis);
   }, []);
 
   useEffect(() => {
@@ -127,31 +129,16 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         if (secs >= MAX_FIELD_NOTE_DURATION_SEC) stopRecording();
       }, 250);
     } catch (err) {
+      // Mic couldn't start (blocked permission, no device, or a browser like
+      // iOS Chrome where the site's mic permission is off). Fall back to the
+      // native camera in video mode — the reliable in-page capture everywhere.
       const name = (err as { name?: string })?.name;
-      if (name === 'NotAllowedError' || name === 'SecurityError') {
-        // Mobile Chrome shows no address-bar lock icon, so the desktop "click
-        // the lock" advice is wrong. When the mic is blocked at the site OR OS
-        // level, Chrome throws immediately without a prompt and won't re-ask.
-        // Point at the real fixes and make Upload the easy way out.
-        let blocked = false;
-        try {
-          const status = await navigator.permissions?.query({ name: 'microphone' as PermissionName });
-          blocked = status?.state === 'denied';
-        } catch {
-          /* Permissions API not available — fall through to generic copy */
-        }
-        setError(
-          blocked
-            ? 'Microphone is blocked for this site. Chrome ⋮ menu → Settings → Site settings → Microphone → allow this site, then tap Record again. Or upload a file below.'
-            : 'Couldn’t access the microphone. Check that Chrome has mic permission (phone Settings → Apps → Chrome → Permissions), then try again. Or upload a file below.'
-        );
-      } else if (name === 'NotFoundError') {
-        setError('No microphone available. Please upload a file below.');
-      } else if (name === 'NotReadableError') {
-        setError('Your microphone is in use by another app. Close it, or upload a file below.');
+      if (name === 'NotReadableError') {
+        setError('Your microphone is in use by another app. Opening the camera instead…');
       } else {
-        setError('Could not start recording. Please upload a file below.');
+        setError('Couldn’t use the microphone — opening the camera to record a video note instead…');
       }
+      videoCaptureRef.current?.click();
     }
   }, [onCaptured, stopRecording]);
 
@@ -207,9 +194,15 @@ export function FieldNoteCapture({ onCaptured }: Props) {
 
   return (
     <div className="space-y-3">
-      {canRecord && (!recording ? (
+      {/* Record — always attempt the mic (prompts for permission on iOS Safari,
+          Android, desktop). If it can't (e.g. iOS Chrome with mic blocked), it
+          falls back to the native camera in video mode. */}
+      {!recording ? (
         <button
-          onClick={startRecording}
+          onClick={() => {
+            if (canRecord) startRecording();
+            else videoCaptureRef.current?.click();
+          }}
           className="w-full rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
         >
           ● Record a field note
@@ -221,31 +214,31 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         >
           ■ Stop — {fmt(elapsed)} / {fmt(MAX_FIELD_NOTE_DURATION_SEC)}
         </button>
-      ))}
-
-      {canRecord && (
-        <div className="flex items-center gap-3 text-xs text-gray-500">
-          <span className="h-px flex-1 bg-gray-800" />
-          or upload a file
-          <span className="h-px flex-1 bg-gray-800" />
-        </div>
       )}
 
-      {!canRecord && (
-        <p className="text-sm text-gray-400">
-          In-browser recording isn’t supported here. Record with your phone’s
-          Voice Memos (or use Safari), then upload the file below — up to {MAX_FIELD_NOTE_DURATION_SEC}s.
-        </p>
-      )}
+      {/* Hidden native-camera input (video mode) — the mic-failure fallback and
+          the "Record" path on browsers without the recording APIs. */}
+      <input
+        ref={videoCaptureRef}
+        type="file"
+        accept="video/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => onFileChosen(e.target.files?.[0])}
+      />
 
+      <div className="flex items-center gap-3 text-xs text-gray-500">
+        <span className="h-px flex-1 bg-gray-800" />
+        or upload a video
+        <span className="h-px flex-1 bg-gray-800" />
+      </div>
+
+      {/* Upload — opens the video picker. */}
       <label className="block">
-        <span className="sr-only">Upload an audio or video file</span>
-        {/* audio/* first so the picker surfaces audio files as the primary
-            option; video is still allowed. No `capture` attribute, so tapping
-            opens the file picker (not the camera). */}
+        <span className="sr-only">Upload a video</span>
         <input
           type="file"
-          accept="audio/*,video/*"
+          accept="video/*"
           onChange={(e) => onFileChosen(e.target.files?.[0])}
           className="block w-full text-sm text-gray-400 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-800 file:text-white file:px-4 file:py-2"
         />
