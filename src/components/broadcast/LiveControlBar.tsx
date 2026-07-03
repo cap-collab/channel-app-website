@@ -50,15 +50,15 @@ function dbToBarWidth(db: number): number {
 
 // Meter scale: -60 dB → 0 dB linear. Zones map to broadcast practice:
 //   -60 to -40 dB : gray   (noise floor — not useful signal)
-//   -40 to -6  dB : green  (healthy level)
-//   -6  to -3  dB : yellow (hot, near headroom ceiling)
-//   -3  to  0  dB : red    (clipping)
+//   -40 to -8  dB : green  (healthy level)
+//   -8  to -4  dB : yellow (hot, near headroom ceiling)
+//   -4  to  0  dB : red    (clipping)
 // Fill semantics: the bar fills left→right as level rises. Whatever portion
 // is filled takes the color of the zone the CURRENT level sits in. Reference
-// ticks at -40 / -6 / -3 stay as faint marks on the track.
+// ticks at -40 / -8 / -4 stay as faint marks on the track.
 // Peak meter: bar fills left→right as level rises. The filled portion's color
-// changes ALONG its length (not uniformly) — the part of the bar past the -6
-// tick is yellow, past the -3 tick is red. Implemented by putting a
+// changes ALONG its length (not uniformly) — the part of the bar past the -8
+// tick is yellow, past the -4 tick is red. Implemented by putting a
 // full-track-width gradient inside a clipping container that's sized to the
 // current fill width, so the gradient stays anchored to dB positions while
 // only the reached portion is visible.
@@ -66,51 +66,35 @@ function dbToBarWidth(db: number): number {
 // Track width maps -60 dB → 0 dB linearly (dbToBarWidth).
 // Zone positions on the track:
 //   -40 dB = 33.3%  (green plateau begins; below this we leave the fill gray)
-//   -6  dB = 90%    (green → yellow)
-//   -3  dB = 95%    (yellow → red)
+//   -8  dB = 86.7%  (green → yellow)
+//   -4  dB = 93.3%  (yellow → red)
 function ChannelMeter({ label, db }: { label: 'L' | 'R'; db: number }) {
   const width = Math.round(dbToBarWidth(db) * 100);
   const belowFloor = db < -40;
-  // Gradient positioned to the full track (100%):
-  //   0%..33.3% gray (under -40 — visually subtle for noise floor)
-  //   33.3%..85% green (healthy)
-  //   85%..92% green → yellow
-  //   92%..97% yellow → orange → red
-  //   97%..100% red
-  // Gradient anchored to dB positions. Stops with matching colors on either
-  // side = sharp boundary; stops with different colors = gradual blend.
-  // Transitions:
-  //   0→33.3%  : solid gray (noise floor)
-  //   33.3→55% : sharp green boundary (jumps out of noise floor into healthy)
-  //   55→90%   : solid green (stable healthy zone)
-  //   90→95%   : green → yellow (gradual warm-up as you approach -6 dB)
-  //   95→98%   : yellow → orange (gradual, -3 dB zone)
-  //   98→100%  : orange → red (clipping)
-  // Gradient anchored to dB positions. Matching color pairs = solid region,
-  // mismatched = gradual blend.
-  //   0→25%   : solid gray (deep noise floor)
-  //   25→50%  : gray → green (gradual emergence from noise, roughly -45 to -30 dB)
-  //   50→88%  : solid green (healthy zone)
-  //   88→94%  : green → yellow (≈ -7 to -4 dB)
-  //   94→97%  : yellow → orange (≈ -4 to -2 dB)
-  //   97→100% : orange → red (clipping)
+  // Gradient anchored to dB positions (track maps -60→0 dB linearly). Matching
+  // color pairs = solid region, mismatched = gradual blend.
+  //   0→25%     : solid gray (deep noise floor)
+  //   25→50%    : gray → green (gradual emergence from noise, roughly -45 to -30 dB)
+  //   50→86.7%  : solid green (healthy zone, up to -8 dB)
+  //   86.7→93.3%: green → yellow → red (hot band, -8 to -4 dB)
+  //   93.3→100% : solid red (clipping, -4 to 0 dB)
   const gradient = belowFloor
     ? '#4b5563'
     : 'linear-gradient(to right,' +
       ' #4b5563 0%, #4b5563 25%,' +
-      ' #22c55e 50%, #22c55e 88%,' +
-      ' #eab308 94%,' +
-      ' #f97316 97%,' +
-      ' #ef4444 100%)';
+      ' #22c55e 50%, #22c55e 86.7%,' +
+      ' #eab308 90%,' +
+      ' #f97316 92%,' +
+      ' #ef4444 93.3%, #ef4444 100%)';
 
   return (
     <div className="flex items-center gap-2 min-w-0">
       <span className="text-[10px] text-gray-500 font-mono w-3 text-right">{label}</span>
       <div className="relative h-3 bg-gray-900 rounded-sm overflow-hidden flex-1 min-w-0 border border-gray-800">
-        {/* Zone reference ticks on the empty track: -40 / -6 / -3 */}
+        {/* Zone reference ticks on the empty track: -40 / -8 / -4 */}
         <div className="absolute inset-y-0 bg-gray-600/50" style={{ left: '33.3%', width: 1 }} />
-        <div className="absolute inset-y-0 bg-yellow-500/40" style={{ left: '90%', width: 1 }} />
-        <div className="absolute inset-y-0 bg-red-500/50" style={{ left: '95%', width: 1 }} />
+        <div className="absolute inset-y-0 bg-yellow-500/40" style={{ left: '86.7%', width: 1 }} />
+        <div className="absolute inset-y-0 bg-red-500/50" style={{ left: '93.3%', width: 1 }} />
         {/* Gradient layer spans the full track; we reveal only the left
             `width%` via clip-path. Color positions are anchored to dB marks. */}
         <div
