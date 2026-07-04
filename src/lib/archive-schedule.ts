@@ -528,12 +528,12 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   // placeholder with a real pool pick in left-to-right order.
   const PLACEHOLDER_URL = '__placeholder__';
   // The anchor interlude (the hand-back played immediately AFTER the live block
-  // ends) is always the "toilet therapist" interlude per Cap. It gets its own
-  // placeholder sentinel so the finalise pass can pin it instead of round-
-  // robining, and so it's excluded from the round-robin pool to avoid landing
-  // adjacent to itself.
+  // ends) is filled from the same round-robin pool as every other interlude
+  // slot — any interlude may play there. It keeps its own placeholder sentinel
+  // only so the assembly/interleave passes can tell it apart, but the finalise
+  // pass fills it via the shared cursor like a generic slot. reflowOffsets then
+  // aligns the following archive to whatever duration the picked interlude has.
   const ANCHOR_PLACEHOLDER_URL = '__anchor_placeholder__';
-  const TOILET_THERAPIST_ID = 'mGUjchuXuFAtTa4dmAls';
   const interludePlaceholder = (): ScheduleItem => ({
     kind: 'interstitial',
     recordingUrl: PLACEHOLDER_URL,
@@ -644,14 +644,9 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
   // unless the pool length itself is 1.
   let interstitialCount = 0;
   if (usingInterludes) {
-    const toiletTherapist = interstitialPool.find((ix) => ix.id === TOILET_THERAPIST_ID) ?? null;
-    // Round-robin pool for the generic placeholders. When toilet-therapist is
-    // being pinned to the anchor slot, exclude it from the round-robin so it
-    // can't appear adjacent to its pinned placement (unless it's the only
-    // interlude in the pool, in which case there's nothing else to rotate).
-    const rrPool = toiletTherapist && shuffledInterludes.length > 1
-      ? shuffledInterludes.filter((ix) => ix.id !== TOILET_THERAPIST_ID)
-      : shuffledInterludes;
+    // Single round-robin pool for every interlude slot, including the anchor
+    // hand-back. No slot is pinned to a specific interlude.
+    const rrPool = shuffledInterludes;
     const fillFrom = (ix: Interstitial): ScheduleItem => ({
       kind: 'interstitial',
       interstitialId: ix.id,
@@ -662,16 +657,12 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     });
     let cursor = 0;
     for (let i = 0; i < items.length; i++) {
-      if (items[i].recordingUrl === ANCHOR_PLACEHOLDER_URL) {
-        // Pin the anchor interlude to toilet-therapist; fall back to the normal
-        // round-robin pick if it's missing from the pool for some reason.
-        const ix = toiletTherapist ?? rrPool[cursor % rrPool.length];
-        if (!toiletTherapist) cursor++;
-        items[i] = fillFrom(ix);
-        interstitialCount++;
-        continue;
-      }
-      if (items[i].recordingUrl !== PLACEHOLDER_URL) continue;
+      // The anchor hand-back slot and generic slots are filled identically:
+      // next pick from the shared round-robin cursor.
+      const isPlaceholder =
+        items[i].recordingUrl === PLACEHOLDER_URL ||
+        items[i].recordingUrl === ANCHOR_PLACEHOLDER_URL;
+      if (!isPlaceholder) continue;
       const ix = rrPool[cursor % rrPool.length];
       cursor++;
       items[i] = fillFrom(ix);
