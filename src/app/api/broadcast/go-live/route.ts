@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { broadcastToken, djUsername, djUserId, egressId, recordingEgressId, secondRecordingEgressId, thankYouMessage, redChannelChoice, redMode } = body;
+    const { broadcastToken, djUsername, djUserId, egressId, recordingEgressId, thankYouMessage, redChannelChoice, redMode } = body;
 
     console.log('[go-live] Request received:', { broadcastToken: broadcastToken?.slice(0, 10) + '...', djUsername, djUserId });
 
@@ -454,34 +454,8 @@ export async function POST(request: NextRequest) {
         }
         return cleanRec;
       });
-      const recordings: Record<string, unknown>[] = [...currentRecordings, newRecording];
-
-      // Parallel track-composite recording (best-effort experiment). Rides along
-      // as a second entry tagged kind:'track-composite'; its webhook lands the URL
-      // on the archive's trackRecordingUrl (NOT recordingUrl — the room-composite
-      // primary stays what plays). Everything here is additive and guarded.
-      if (secondRecordingEgressId) {
-        recordings.push({
-          egressId: secondRecordingEgressId,
-          status: 'recording',
-          startedAt: Date.now(),
-          kind: 'track-composite',
-        });
-        updateData.secondRecordingEgressId = secondRecordingEgressId;
-        try {
-          await db.collection('recording-egress-map').doc(secondRecordingEgressId).set({
-            slotId: doc.id,
-            kind: 'track-composite',
-            createdAt: FieldValue.serverTimestamp(),
-          });
-          console.log('[go-live] Created track-composite egress mapping:', { egressId: secondRecordingEgressId, slotId: doc.id });
-        } catch (mapError) {
-          console.error('[go-live] Failed to create track-composite egress mapping (non-fatal):', mapError);
-        }
-      }
-
-      updateData.recordings = recordings;
-      console.log('[go-live] Recordings array:', { existing: currentRecordings.length, primary: newRecording.egressId, track: secondRecordingEgressId || 'none', total: recordings.length });
+      updateData.recordings = [...currentRecordings, newRecording];
+      console.log('[go-live] Recordings array:', { existing: currentRecordings.length, new: newRecording.egressId, recordings: updateData.recordings });
 
       // Create egress-to-slot mapping for webhook lookup
       // This allows the webhook to find the slot even with multiple recordings

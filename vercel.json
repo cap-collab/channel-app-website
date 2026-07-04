@@ -61,10 +61,6 @@
       "schedule": "*/15 * * * *"
     },
     {
-      "path": "/api/cron/process-track-recordings",
-      "schedule": "*/15 * * * *"
-    },
-    {
       "path": "/api/cron/audit-r2-stats",
       "schedule": "0 8 * * *"
     },

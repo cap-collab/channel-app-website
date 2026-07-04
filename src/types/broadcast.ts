@@ -121,11 +121,7 @@ export interface BroadcastSlot {
   // Recording (for downloadable audio files)
   egressId?: string;              // HLS egress ID
   recordingEgressId?: string;     // MP4 file egress ID (legacy, for backward compat)
-  secondRecordingEgressId?: string;  // parallel track-composite egress ID (best-effort)
-  trackRecordingQueued?: boolean;    // process-track-recordings cron has handed it to faststart (or given up)
-  trackRecordingNote?: string;       // why the track recording was skipped (empty egress / not found)
   recordingUrl?: string;          // Public URL to download file (legacy)
-  trackRecordingUrl?: string;     // Parallel track-composite recording (candidate; not what plays)
   recordingStatus?: 'recording' | 'processing' | 'ready' | 'failed';  // Legacy
   recordingDuration?: number;     // Duration in seconds (legacy)
   // Multiple recordings support (stop/restart creates new recordings)
@@ -187,9 +183,7 @@ export interface BroadcastSlotSerialized {
   // Recording (for downloadable audio files)
   egressId?: string;
   recordingEgressId?: string;
-  secondRecordingEgressId?: string;
   recordingUrl?: string;
-  trackRecordingUrl?: string;
   recordingStatus?: 'recording' | 'processing' | 'ready' | 'failed';
   recordingDuration?: number;
   // Multiple recordings support
@@ -231,9 +225,6 @@ export interface Recording {
   duration?: number;  // seconds
   startedAt: number;  // Unix timestamp ms
   endedAt?: number;   // Unix timestamp ms
-  // Which egress method produced this file. Absent = legacy/room-composite (the
-  // primary archive recording). 'track-composite' = the parallel candidate.
-  kind?: 'room-composite' | 'track-composite';
 }
 
 // State for the broadcast hook
@@ -243,8 +234,7 @@ export interface BroadcastState {
   isPublishing: boolean;
   isLive: boolean;              // Egress is running
   egressId: string | null;
-  recordingEgressId: string | null;  // MP4 file egress ID for recording (primary, room-composite)
-  secondRecordingEgressId: string | null;  // parallel track-composite recording (best-effort)
+  recordingEgressId: string | null;  // MP4 file egress ID for recording
   hlsUrl: string | null;
   roomName: string;
   error: string | null;
@@ -348,8 +338,7 @@ export interface Archive {
   broadcastSlotId: string;       // Reference to original broadcast-slot
   showName: string;              // Original show title
   djs: ArchiveDJ[];              // DJ information (supports multiple DJs for B3B)
-  recordingUrl: string;          // MP4 URL from R2 (what plays — primary room-composite recording)
-  trackRecordingUrl?: string;    // Parallel track-composite recording (candidate for comparison; NOT what plays)
+  recordingUrl: string;          // MP4 URL from R2
   duration: number;              // Duration in seconds
   recordedAt: number;            // Unix ms - when the show was recorded
   createdAt: number;             // Unix ms - when archive was created

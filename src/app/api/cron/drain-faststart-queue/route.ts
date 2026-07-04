@@ -35,13 +35,6 @@ interface QueueEntry {
   queuedAt: number;
   status: string;
   attempts: number;
-  // Set for the parallel track-composite candidate: faststart it (so it's
-  // playable) but do NOT enqueue normalize — normalize swaps recordingUrl, and
-  // the candidate must stay off the archive's playable URL until promoted.
-  skipNormalize?: boolean;
-  // The public URL of the track candidate, so the drain can attach it as
-  // trackRecordingUrl after faststart without re-deriving it.
-  trackRecordingUrl?: string;
 }
 
 // True when no live broadcast is currently running AND none start in the next
@@ -191,33 +184,6 @@ async function processOnePending(
   // orphan the recording: faststart drain never revisits a done entry, and no
   // normalize entry would exist for the normalize drain to pick up. (Observed
   // 2026-06-23: that order silently dropped normalize for the "David L invites" set.)
-  // The track-composite candidate is faststarted (above) but never normalized —
-  // normalize swaps recordingUrl, which must stay the room-composite primary.
-  // Once faststarted, attach it to the slot + archive as `trackRecordingUrl`
-  // (the candidate for comparison — NEVER recordingUrl). This is the single place
-  // that owns the attach, kept OFF the LiveKit webhook (added by the backend
-  // process-track-recordings cron, not the webhook).
-  if (entry.skipNormalize) {
-    const trackUrl = entry.trackRecordingUrl || (process.env.R2_PUBLIC_URL ? `${process.env.R2_PUBLIC_URL.replace(/\/$/, '')}/${entry.r2Key}` : null);
-    if (trackUrl && entry.slotId) {
-      try {
-        const slotRef = db.collection('broadcast-slots').doc(entry.slotId);
-        await slotRef.update({ trackRecordingUrl: trackUrl });
-        const archSnap = await db.collection('archives')
-          .where('broadcastSlotId', '==', entry.slotId).limit(1).get();
-        if (!archSnap.empty) {
-          await archSnap.docs[0].ref.update({ trackRecordingUrl: trackUrl });
-          console.log(`[drain-faststart-queue] trackRecordingUrl attached to archive ${archSnap.docs[0].id}`);
-        }
-      } catch (attachErr) {
-        console.error('[drain-faststart-queue] Failed to attach trackRecordingUrl (non-fatal):', attachErr);
-      }
-    }
-    await entryRef.update({ status: 'done', finishedAt: Date.now() });
-    console.log(`[drain-faststart-queue] Faststarted ${entry.r2Key} (track-composite candidate — normalize skipped)`);
-    return { r2Key: entry.r2Key, action: 'faststarted' };
-  }
-
   // Idempotency guard: if a prior run already enqueued normalize for this r2Key,
   // don't add a duplicate.
   const existingNorm = await db.collection('normalize-queue')

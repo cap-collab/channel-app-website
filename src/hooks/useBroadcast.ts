@@ -66,7 +66,6 @@ export function useBroadcast(
     isLive: false,
     egressId: null,
     recordingEgressId: null,
-    secondRecordingEgressId: null,
     hlsUrl: null,
     roomName,
     error: null,
@@ -398,7 +397,6 @@ export function useBroadcast(
               thankYouMessage: currentDjInfo?.thankYouMessage,
               egressId: data.egressId,
               recordingEgressId: data.recordingEgressId,
-              secondRecordingEgressId: data.secondRecordingEgressId,
               // Best-effort persistence of the DJ's Stream Optimization choice
               // and the resolved RED decision applied at publish; the go-live
               // API write is already non-blocking (see catch below).
@@ -428,7 +426,6 @@ export function useBroadcast(
         isLive: true,
         egressId: data.egressId,
         recordingEgressId: data.recordingEgressId || null,
-        secondRecordingEgressId: data.secondRecordingEgressId || null,
         hlsUrl,
       }));
 
@@ -495,7 +492,7 @@ export function useBroadcast(
     const keepHls = options?.keepHlsEgress || false;
 
     // In recording-only mode, we only have recordingEgressId (no HLS egressId)
-    if (!state.egressId && !state.recordingEgressId && !state.secondRecordingEgressId) return;
+    if (!state.egressId && !state.recordingEgressId) return;
 
     try {
       // Stop HLS egress if it exists (not in recording-only mode)
@@ -524,21 +521,6 @@ export function useBroadcast(
         }
       }
 
-      // Stop the parallel track-composite recording (best-effort — failing to
-      // stop it never blocks ending the show; the scheduled-end cron is a backstop).
-      if (state.secondRecordingEgressId) {
-        try {
-          await fetch('/api/livekit/egress', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ egressId: state.secondRecordingEgressId }),
-          });
-          console.log('📡 [track-recording] STOPPED by client (by id):', state.secondRecordingEgressId);
-        } catch (trackError) {
-          console.error('📡 [track-recording] failed to stop (non-fatal — cron backstop will catch it):', trackError);
-        }
-      }
-
       // Update Firestore slot status to 'completed' via API
       // force: true allows completing before scheduled end time (DJ ended early)
       if (currentSlotId) {
@@ -559,12 +541,11 @@ export function useBroadcast(
         isLive: false,
         egressId: null,
         recordingEgressId: null,
-        secondRecordingEgressId: null,
       }));
     } catch (error) {
       console.error('Failed to stop egress:', error);
     }
-  }, [state.egressId, state.recordingEgressId, state.secondRecordingEgressId]);
+  }, [state.egressId, state.recordingEgressId]);
 
   // Unpublish audio
   const unpublishAudio = useCallback(async () => {

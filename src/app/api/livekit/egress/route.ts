@@ -14,42 +14,24 @@ const r2Bucket = process.env.R2_BUCKET_NAME || '';
 const r2Endpoint = `https://${r2AccountId}.r2.cloudflarestorage.com`;
 const r2PublicUrl = process.env.R2_PUBLIC_URL || '';
 
-/** Find the first published audio track SID in a room. */
-async function findAudioTrackSid(room: string): Promise<string | null> {
-  try {
-    const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
-    const participants = await roomService.listParticipants(room);
-    for (const p of participants) {
-      for (const t of p.tracks) {
-        if (t.type === 1 /* AUDIO */ && !t.muted && t.sid) {
-          return t.sid;
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('Failed to find audio track SID:', err);
-  }
-  return null;
-}
-
-// ── NEW (this session): helpers for the independent track-composite recording ──
-// These are used ONLY by the new parallel recording and touch nothing else.
-// Gated by RECORDING_TRACK_COMPOSITE (default ON; set =0 to disable entirely).
-const TRACK_COMPOSITE_ENABLED = process.env.RECORDING_TRACK_COMPOSITE !== '0'
-  && process.env.RECORDING_TRACK_COMPOSITE !== 'false';
-const TRACK_LOOKUP_TOTAL_BUDGET_MS = 1200; // hard cap on all polling combined
+// Poll briefly for the DJ's published audio track SID. Used to pick
+// track-composite egress (records the raw SFU Opus stream — no Chrome, no NetEQ
+// jitter buffer) over room-composite (which re-renders through Chrome/NetEQ and
+// bakes in NetEQ's time-stretch/expand→silence artifacts; that's the documented
+// source of the periodic recording dropouts). The DJ's track often isn't
+// server-visible the instant egress starts (publish→registration race), so a
+// one-shot lookup usually misses it and silently falls back to room-composite.
+// Best-effort: returns null on ANY failure / if not found within the budget, in
+// which case the caller falls back to room-composite (always works). Never
+// throws, never blocks past the budget — a recording must always start.
+//
+// NOTE: TrackType.AUDIO === 0 in the LiveKit protocol enum (1 is VIDEO). The old
+// `=== 1` check never matched, which is why every live recording had silently
+// been room-composite (the glitchy path) despite the code intending track-composite.
+const TRACK_LOOKUP_TOTAL_BUDGET_MS = 1200;
 const TRACK_LOOKUP_POLL_INTERVAL_MS = 250;
-const TRACK_LOOKUP_CALL_TIMEOUT_MS = 500;  // per listParticipants call
-
-/**
- * Poll briefly for the DJ's published audio track SID, for the NEW track-composite
- * recording only. The DJ's track often isn't server-visible the instant egress
- * starts (publish→registration race), so a one-shot lookup usually misses it.
- * Best-effort: returns null on ANY failure / if not found within the budget.
- * Never throws, never blocks past the budget. Separate from findAudioTrackSid so
- * the existing recording paths keep their exact original one-shot behavior.
- */
-async function findAudioTrackSidForNewRecording(room: string): Promise<string | null> {
+const TRACK_LOOKUP_CALL_TIMEOUT_MS = 500;
+async function findAudioTrackSid(room: string): Promise<string | null> {
   const deadline = Date.now() + TRACK_LOOKUP_TOTAL_BUDGET_MS;
   const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
   let attempt = 0;
@@ -64,23 +46,19 @@ async function findAudioTrackSidForNewRecording(room: string): Promise<string | 
       ]);
       for (const p of participants) {
         for (const t of p.tracks) {
-          // TrackType.AUDIO === 0 in the LiveKit protocol enum (NOT 1 — that's
-          // VIDEO). Verified against a live channelbroadcast track showing
-          // type:0 source:2(MICROPHONE). The `=== 1` check never matched an
-          // audio track, which is why track-composite was always skipped.
           if (t.type === 0 /* AUDIO */ && !t.muted && t.sid) {
-            console.log(`[track-recording] found audio track on attempt ${attempt} (${t.sid})`);
+            console.log(`findAudioTrackSid: found audio track on attempt ${attempt} (${t.sid})`);
             return t.sid;
           }
         }
       }
     } catch (err) {
-      console.warn(`[track-recording] track lookup attempt ${attempt} failed (non-fatal):`, (err as Error).message);
+      console.warn(`findAudioTrackSid attempt ${attempt} failed (non-fatal):`, (err as Error).message);
     }
     if (Date.now() + TRACK_LOOKUP_POLL_INTERVAL_MS >= deadline) break;
     await new Promise((r) => setTimeout(r, TRACK_LOOKUP_POLL_INTERVAL_MS));
   }
-  console.log(`[track-recording] no audio track within ${TRACK_LOOKUP_TOTAL_BUDGET_MS}ms budget → skipping`);
+  console.log(`findAudioTrackSid: no audio track within ${TRACK_LOOKUP_TOTAL_BUDGET_MS}ms budget → room-composite fallback`);
   return null;
 }
 
@@ -297,47 +275,12 @@ export async function POST(request: NextRequest) {
       console.error('Failed to start MP4 recording egress:', recordingError);
     }
 
-    // ── NEW, INDEPENDENT recording (this session) ────────────────────────────
-    // A parallel track-composite recording of the DJ's audio track. It's an
-    // ADDITIVE experiment that rides alongside the existing room recording as the
-    // archive's `trackRecordingUrl` (never recordingUrl). It is completely
-    // independent of and cannot affect the live stream OR the existing room
-    // recording: it's its own egress, its own R2 key (`-track.mp4`), started here
-    // and stopped only by its own id. ANY failure is swallowed. Gated by
-    // RECORDING_TRACK_COMPOSITE (default ON; set =0 to disable entirely).
-    let secondRecordingEgressId: string | null = null;
-    if (TRACK_COMPOSITE_ENABLED) {
-      try {
-        const audioTrackSid = await findAudioTrackSidForNewRecording(room);
-        if (audioTrackSid) {
-          const trackMp4Output = new EncodedFileOutput({
-            fileType: EncodedFileType.MP4,
-            filepath: `recordings/${room}/{room_name}-{time}-track.mp4`,
-            output: { case: 's3', value: recordingS3Upload },
-          });
-          const trackEgress = await egressClient.startTrackCompositeEgress(
-            room,
-            { file: trackMp4Output },
-            { audioTrackId: audioTrackSid }
-          );
-          secondRecordingEgressId = trackEgress.egressId;
-          console.log(`[track-recording] STARTED (independent) egressId=${secondRecordingEgressId} key=recordings/${room}/...-track.mp4`);
-        } else {
-          console.log('[track-recording] SKIPPED: no audio track SID within budget (existing recording unaffected)');
-        }
-      } catch (trackError) {
-        // Purely best-effort — never affects the existing recording or live stream.
-        console.error('[track-recording] FAILED (non-fatal, existing recording + live stream unaffected):', trackError);
-      }
-    }
-
     // Construct the HLS URL using public R2 subdomain
     const hlsUrl = `${r2PublicUrl}/${room}/live.m3u8`;
 
     return NextResponse.json({
       egressId: hlsEgressId,
       recordingEgressId,
-      secondRecordingEgressId,
       status: existingHlsEgressId ? 1 : 0, // 1=ACTIVE (reused), 0=STARTING (new)
       room,
       hlsUrl,

@@ -53,11 +53,6 @@ export interface LivekitHealth {
   listenerCount: number | null;
   // Derived ON/OFF status (from data already fetched + one CDN check):
   recordingOn: boolean;   // an ACTIVE egress has a file (mp4) output
-  // Which egress method the currently-active recording uses: 'track-composite'
-  // (preferred — direct GStreamer, no NetEQ dropouts) vs 'room-composite'
-  // (headless-Chrome fallback, prone to periodic dropouts). null when nothing is
-  // recording. Lets us confirm live shows are getting the clean recording path.
-  recordingMethod: 'track-composite' | 'room-composite' | null;
   postingOn: boolean;     // a participant publishes an unmuted audio track
   audibleOn: boolean;     // an HLS (segments) egress is active AND live.m3u8 → 200
   webCount: number;       // participants whose identity starts "web-listener-"
@@ -270,16 +265,6 @@ function egressHasSegments(e: { request?: { value?: unknown } }): boolean {
   const v = e.request?.value as { segmentOutputs?: unknown[]; output?: { case?: string } } | undefined;
   return !!v?.segmentOutputs?.length || v?.output?.case === 'segments';
 }
-// Classify a recording (file-output) egress by its request case. The SDK tags
-// the egress request with `case: 'roomComposite' | 'trackComposite' | ...`.
-// Used for Tech Health so we can see whether the live recording is on the clean
-// track-composite path or the room-composite fallback.
-function egressMethod(e: { request?: { case?: string } }): 'track-composite' | 'room-composite' | null {
-  const c = e.request?.case;
-  if (c === 'trackComposite' || c === 'track') return 'track-composite';
-  if (c === 'roomComposite') return 'room-composite';
-  return null;
-}
 
 async function probeLivekit(): Promise<LivekitHealth> {
   // Read listener count independently of the LiveKit probe so a LiveKit failure
@@ -300,7 +285,6 @@ async function probeLivekit(): Promise<LivekitHealth> {
       staleEgressCount: 0,
       listenerCount,
       recordingOn: false,
-      recordingMethod: null,
       postingOn: false,
       audibleOn: false,
       webCount: 0,
@@ -327,10 +311,6 @@ async function probeLivekit(): Promise<LivekitHealth> {
     // Derived status — all from the arrays already fetched (no new LiveKit calls).
     const activeEgresses = egresses.filter(isActiveEgress);
     const recordingOn = activeEgresses.some(egressHasFile);
-    // Method of the active recording (file-output) egress, for rollout visibility.
-    const recordingMethod = egressMethod(
-      (activeEgresses.find(egressHasFile) as { request?: { case?: string } }) ?? {},
-    );
     const hlsEgressActive = activeEgresses.some(egressHasSegments);
     const postingOn = publishing.length > 0;
     const webCount = participants.filter((p) => p.identity.startsWith('web-listener-')).length;
@@ -350,7 +330,6 @@ async function probeLivekit(): Promise<LivekitHealth> {
       staleEgressCount,
       listenerCount,
       recordingOn,
-      recordingMethod,
       postingOn,
       audibleOn,
       webCount,
@@ -368,7 +347,6 @@ async function probeLivekit(): Promise<LivekitHealth> {
       staleEgressCount: 0,
       listenerCount,
       recordingOn: false,
-      recordingMethod: null,
       postingOn: false,
       audibleOn: false,
       webCount: 0,
