@@ -124,6 +124,7 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
           type="text"
           value={djQuery}
           onChange={(e) => setDjQuery(e.target.value)}
+          onBlur={addFreeTextDj}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -132,29 +133,21 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
             }
           }}
           placeholder={loading ? 'Loading DJs…' : 'Search a DJ, or type a new name'}
-          className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
+          className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-base"
         />
-        {(filteredDjs.length > 0 || djQuery.trim()) && (
+        {filteredDjs.length > 0 && (
           <div className="mt-1 rounded-lg bg-gray-800 divide-y divide-gray-700 overflow-hidden">
             {filteredDjs.map((o) => (
               <button
                 key={o.djUserId || o.djUsername || o.label}
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => addDj(o)}
                 className="block w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700"
               >
                 {o.label}
               </button>
             ))}
-            {djQuery.trim() && (
-              <button
-                type="button"
-                onClick={addFreeTextDj}
-                className="block w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700"
-              >
-                Add “{djQuery.trim()}” as a new name
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -173,6 +166,7 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
           type="text"
           value={venueQuery}
           onChange={(e) => setVenueQuery(e.target.value)}
+          onBlur={addFreeTextVenue}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -181,29 +175,21 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
             }
           }}
           placeholder={loading ? 'Loading venues…' : 'Search a venue, or type a new name'}
-          className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
+          className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-base"
         />
-        {(filteredVenues.length > 0 || venueQuery.trim()) && (
+        {filteredVenues.length > 0 && (
           <div className="mt-1 rounded-lg bg-gray-800 divide-y divide-gray-700 overflow-hidden">
             {filteredVenues.map((o) => (
               <button
                 key={o.venueId}
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => addVenue(o)}
                 className="block w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700"
               >
                 {o.label}
               </button>
             ))}
-            {venueQuery.trim() && (
-              <button
-                type="button"
-                onClick={addFreeTextVenue}
-                className="block w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700"
-              >
-                Add “{venueQuery.trim()}” as a new venue
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -222,6 +208,7 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
           type="text"
           value={collectiveQuery}
           onChange={(e) => setCollectiveQuery(e.target.value)}
+          onBlur={addFreeTextCollective}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -230,29 +217,21 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
             }
           }}
           placeholder={loading ? 'Loading collectives…' : 'Search a collective, or type a new name'}
-          className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
+          className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-base"
         />
-        {(filteredCollectives.length > 0 || collectiveQuery.trim()) && (
+        {filteredCollectives.length > 0 && (
           <div className="mt-1 rounded-lg bg-gray-800 divide-y divide-gray-700 overflow-hidden">
             {filteredCollectives.map((o) => (
               <button
                 key={o.collectiveId}
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => addCollective(o)}
                 className="block w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700"
               >
                 {o.label}
               </button>
             ))}
-            {collectiveQuery.trim() && (
-              <button
-                type="button"
-                onClick={addFreeTextCollective}
-                className="block w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700"
-              >
-                Add “{collectiveQuery.trim()}” as a new collective
-              </button>
-            )}
           </div>
         )}
       </div>

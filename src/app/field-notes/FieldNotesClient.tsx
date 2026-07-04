@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -42,11 +44,52 @@ function noteEntities(note: FieldNoteSerialized): Entity[] {
   return out.filter((e) => e.label);
 }
 
+interface EntityGroup {
+  key: string;                       // combined key of all the note's entities
+  entities: Entity[];               // one or more tagged entities
+  fallbackLabel: string;            // used when a note has no entities (event/untitled)
+  notes: FieldNoteSerialized[];
+  latest: number;
+}
+
 // Title a note by the entities it tags — for the private "your notes" rows.
 function noteTitle(note: FieldNoteSerialized): string {
   const labels = noteEntities(note).map((e) => e.label);
   if (labels.length > 0) return labels.join(', ');
   return note.eventName || 'Untitled note';
+}
+
+// One small entity chip in a category header — photo + name, linked if DB-backed.
+function EntityChip({ e }: { e: Entity }) {
+  const inner = (
+    <span className="flex items-center gap-2 min-w-0">
+      <span className="w-8 h-8 bg-zinc-800 border border-[#333] flex-shrink-0 overflow-hidden flex items-center justify-center">
+        {e.photoUrl ? (
+          <Image src={e.photoUrl} alt={e.label} width={32} height={32} className="w-full h-full object-cover" unoptimized />
+        ) : (
+          <span className="text-zinc-600 font-mono text-xs">{e.label.charAt(0).toUpperCase()}</span>
+        )}
+      </span>
+      <span className="text-white font-bold text-sm truncate">{e.label}</span>
+    </span>
+  );
+  return e.href ? (
+    <Link href={e.href} className="hover:opacity-80 transition-opacity min-w-0">{inner}</Link>
+  ) : (
+    <span className="min-w-0">{inner}</span>
+  );
+}
+
+// Category header: all the group's entities in a row.
+function EntityHeader({ group }: { group: EntityGroup }) {
+  if (group.entities.length === 0) {
+    return <span className="text-white font-bold text-sm">{group.fallbackLabel}</span>;
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      {group.entities.map((e) => <EntityChip key={e.key} e={e} />)}
+    </div>
+  );
 }
 
 function StatusLabel({ status, reason }: { status: string; reason?: string | null }) {
@@ -101,11 +144,34 @@ export function FieldNotesClient() {
     if (!authLoading) loadFeed();
   }, [authLoading, loadFeed]);
 
-  // Published notes, newest first — a flat community log.
-  const publishedFeed = useMemo(
-    () => [...notes].sort((a, b) => b.createdAt - a.createdAt),
-    [notes]
-  );
+  // Group published notes by their FULL set of tagged entities — notes with the
+  // same entities share one category header (all those entities in a row), with
+  // thin cards below. Groups ordered by most-recent note; notes newest-first.
+  const entityGroups = useMemo(() => {
+    const map = new Map<string, EntityGroup>();
+    for (const note of notes) {
+      const entities = noteEntities(note);
+      const key = entities.length
+        ? entities.map((e) => e.key).sort().join('|')
+        : `event:${(note.eventName || 'untitled').toLowerCase()}`;
+      const g = map.get(key);
+      if (g) {
+        g.notes.push(note);
+        g.latest = Math.max(g.latest, note.createdAt);
+      } else {
+        map.set(key, {
+          key,
+          entities,
+          fallbackLabel: note.eventName || 'Untitled',
+          notes: [note],
+          latest: note.createdAt,
+        });
+      }
+    }
+    const groups = Array.from(map.values());
+    groups.forEach((g) => g.notes.sort((a, b) => b.createdAt - a.createdAt));
+    return groups.sort((a, b) => b.latest - a.latest);
+  }, [notes]);
 
   // Submitting is allowed anonymously — no login prompt.
   const onCaptured = (captured: CapturedTake) => {
@@ -198,23 +264,27 @@ export function FieldNotesClient() {
               <h2 className={SECTION_HEADER_CLS}>Community log</h2>
               {loading ? (
                 <p className="text-zinc-500 text-sm">Loading…</p>
-              ) : publishedFeed.length === 0 ? (
+              ) : entityGroups.length === 0 ? (
                 <p className="text-zinc-500 text-sm">No published field notes yet.</p>
               ) : (
-                <div className="space-y-3">
-                  {publishedFeed.map((note) => (
-                    <FieldNoteAudioPlayer
-                      key={note.id}
-                      src={note.audioUrl}
-                      createdAt={note.createdAt}
-                      entities={noteEntities(note)}
-                      upvotes={note.upvotes || 0}
-                      downvotes={note.downvotes || 0}
-                      myVote={note.myVote || 0}
-                      canVote={isAuthenticated}
-                      onVote={(value) => handleVote(note.id, value)}
-                      onReply={() => setReplyTo(note)}
-                    />
+                <div className="space-y-6">
+                  {entityGroups.map((g) => (
+                    <div key={g.key} className="space-y-2">
+                      <EntityHeader group={g} />
+                      {g.notes.map((note) => (
+                        <FieldNoteAudioPlayer
+                          key={note.id}
+                          src={note.audioUrl}
+                          createdAt={note.createdAt}
+                          upvotes={note.upvotes || 0}
+                          downvotes={note.downvotes || 0}
+                          myVote={note.myVote || 0}
+                          canVote={isAuthenticated}
+                          onVote={(value) => handleVote(note.id, value)}
+                          onReply={() => setReplyTo(note)}
+                        />
+                      ))}
+                    </div>
                   ))}
                 </div>
               )}

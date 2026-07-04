@@ -1,20 +1,10 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
-
-export interface NoteEntityRef {
-  key: string;
-  label: string;
-  photoUrl?: string | null;   // only DB-backed entities have a photo
-  href?: string;              // only DB-backed entities have a page
-}
 
 interface Props {
   src: string;                 // audio OR video URL — we only play the audio track
   createdAt: number;           // unix ms
-  entities: NoteEntityRef[];   // tagged DJs / venues / collectives
   upvotes: number;
   downvotes: number;
   myVote: 1 | -1 | 0;
@@ -38,7 +28,7 @@ function fmtDate(ms: number): string {
 // black header with mono technical data, transparent body with a square brand
 // thumbnail + bold-sans note text, and a line-style seek player. Self-contained
 // local <audio> so it plays the audio track of an audio OR video file.
-export function FieldNoteAudioPlayer({ src, createdAt, entities, upvotes, downvotes, myVote, canVote, onVote, onReply }: Props) {
+export function FieldNoteAudioPlayer({ src, createdAt, upvotes, downvotes, myVote, canVote, onVote, onReply }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -64,34 +54,11 @@ export function FieldNoteAudioPlayer({ src, createdAt, entities, upvotes, downvo
 
   return (
     <div className="border border-[#333] rounded-none overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      {/* Header: solid black, mono — just the date */}
+      {/* Header: solid black, mono — just the date. (The tagged entities are
+          shown once as the group's category header, above the cards.) */}
       <div className="flex items-center px-3 py-1.5 bg-black border-b border-[#333] font-mono">
         <span className="text-zinc-500 text-[10px] uppercase tracking-wider">{date}</span>
       </div>
-
-      {/* Body: a row of tagged entities. DB-backed ones show a square photo +
-          name (linked); free-text ones show just the name (no image). */}
-      {entities.length > 0 && (
-        <div className="p-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-          {entities.map((e) => {
-            const inner = (
-              <span className="flex items-center gap-2 min-w-0">
-                {e.photoUrl && (
-                  <span className="w-8 h-8 bg-zinc-800 border border-[#333] flex-shrink-0 overflow-hidden">
-                    <Image src={e.photoUrl} alt={e.label} width={32} height={32} className="w-full h-full object-cover" unoptimized />
-                  </span>
-                )}
-                <span className="text-white font-bold text-sm truncate">{e.label}</span>
-              </span>
-            );
-            return e.href ? (
-              <Link key={e.key} href={e.href} className="hover:opacity-80 transition-opacity min-w-0">{inner}</Link>
-            ) : (
-              <span key={e.key} className="min-w-0">{inner}</span>
-            );
-          })}
-        </div>
-      )}
 
       {/* Player: line seek bar on the transparent body */}
       <div className="px-3 pb-2">

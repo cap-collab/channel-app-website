@@ -27,10 +27,9 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
   const { user } = useAuthContext();
 
   const [candidates, setCandidates] = useState<RecentEventCandidate[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string>('');
-  const [creatingNew, setCreatingNew] = useState(false);
-  const [newEventName, setNewEventName] = useState('');
-  const [newEventDate, setNewEventDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [eventQuery, setEventQuery] = useState('');
+  const [selectedEventId, setSelectedEventId] = useState<string>('');  // "type:id" of a matched event
+  const [eventFreeText, setEventFreeText] = useState('');              // typed-in event name (no match)
 
   const [djs, setDjs] = useState<EventDJRef[]>([]);
   const [venues, setVenues] = useState<EventVenueRef[]>([]);
@@ -66,10 +65,41 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
     };
   }, []);
 
+  const selectedEvent = candidates.find((c) => `${c.type}:${c.id}` === selectedEventId);
+  const selectedEventLabel = selectedEvent
+    ? `${selectedEvent.name}${selectedEvent.djs[0] ? ` · ${selectedEvent.djs[0].djName}` : ''}`
+    : eventFreeText;
+
+  const filteredEvents = (() => {
+    const q = eventQuery.trim().toLowerCase();
+    if (!q) return [];
+    return candidates.filter((c) => c.name.toLowerCase().includes(q)).slice(0, 8);
+  })();
+
+  const pickEvent = (c: RecentEventCandidate) => {
+    setSelectedEventId(`${c.type}:${c.id}`);
+    setEventFreeText('');
+    setEventQuery('');
+  };
+  // Commit whatever is typed as a free-text event name (on blur or submit).
+  const commitEventFreeText = () => {
+    const name = eventQuery.trim();
+    if (name) {
+      setEventFreeText(name);
+      setSelectedEventId('');
+      setEventQuery('');
+    }
+  };
+  const clearEvent = () => {
+    setSelectedEventId('');
+    setEventFreeText('');
+    setEventQuery('');
+  };
+
   const canSubmit = () => {
-    const hasEvent = selectedEventId || (creatingNew && newEventName.trim());
+    const hasEvent = Boolean(selectedEventId || eventFreeText.trim() || eventQuery.trim());
     const hasTag = djs.length > 0 || venues.length > 0 || collectives.length > 0;
-    return Boolean(hasEvent || hasTag);
+    return hasEvent || hasTag;
   };
 
   const handleSubmit = async () => {
@@ -77,17 +107,18 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
     setSubmitError(null);
 
     try {
-      const selected = candidates.find((c) => `${c.type}:${c.id}` === selectedEventId);
       const extras: SubmitExtras = { djs, venues, collectives, city };
+      const selected = candidates.find((c) => `${c.type}:${c.id}` === selectedEventId);
+      // Any text still in the box counts as free-text on submit (no extra tap).
+      const freeText = eventFreeText.trim() || eventQuery.trim();
       if (selected) {
         if (selected.type === 'slot') extras.linkedSlotId = selected.id;
         else if (selected.type === 'archive') extras.linkedArchiveId = selected.id;
         else if (selected.type === 'event') extras.linkedEventId = selected.id;
         extras.eventName = selected.name;
         extras.eventDate = selected.date;
-      } else if (creatingNew && newEventName.trim()) {
-        extras.eventName = newEventName.trim();
-        extras.eventDate = new Date(newEventDate + 'T12:00:00Z').getTime();
+      } else if (freeText) {
+        extras.eventName = freeText;
       }
 
       await submitFieldNote(take, extras, user);
@@ -100,24 +131,19 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4">
-      <div className="w-full sm:max-w-lg bg-gray-900 rounded-t-2xl sm:rounded-2xl max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
-          <h2 className="text-lg font-semibold text-white">Field note details</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none">×</button>
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4">
+      <div className="w-full sm:max-w-lg bg-black border border-[#333] max-h-[85dvh] flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#333] shrink-0">
+          <h2 className="text-sm font-mono uppercase tracking-wider text-white">Field note details</h2>
+          <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-white text-2xl leading-none px-1">×</button>
         </div>
 
-        <div className="px-5 py-4 space-y-6">
-          {/* Recorded take preview. A video take must use <video> — an <audio>
-              element can't decode a video container, so its audio wouldn't play. */}
+        <div className="px-4 py-4 space-y-5 overflow-y-auto">
+          {/* Recorded take preview — AUDIO only, even for a video input (the
+              <audio> element plays the audio track). */}
           <section className="space-y-2">
-            {take.mimeType.startsWith('video/') ? (
-              // eslint-disable-next-line jsx-a11y/media-has-caption
-              <video controls playsInline src={take.blobUrl} className="w-full max-h-64 rounded-lg bg-black" />
-            ) : (
-              // eslint-disable-next-line jsx-a11y/media-has-caption
-              <audio controls src={take.blobUrl} className="w-full" />
-            )}
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <audio controls src={take.blobUrl} className="w-full" />
             <div className="flex items-center justify-between text-sm text-gray-400">
               <span>{fmt(take.durationSec)}</span>
               <button onClick={onClose} className="text-gray-400 hover:text-white underline">
@@ -126,51 +152,42 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
             </div>
           </section>
 
-          {/* Event link */}
+          {/* Event — same picker logic as DJs: search recent events, free-text
+              fallback that commits on blur/submit (no "add as new" button). */}
           <section>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Link to an event</label>
-            <select
-              value={selectedEventId}
-              onChange={(e) => {
-                setSelectedEventId(e.target.value);
-                setCreatingNew(false);
-              }}
-              className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
-            >
-              <option value="">— Recent events (last 48h) —</option>
-              {candidates.map((c) => (
-                <option key={`${c.type}:${c.id}`} value={`${c.type}:${c.id}`}>
-                  {c.name}
-                  {c.djs[0] ? ` · ${c.djs[0].djName}` : ''}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => {
-                setCreatingNew((v) => !v);
-                setSelectedEventId('');
-              }}
-              className="mt-2 text-sm text-gray-400 hover:text-white underline"
-            >
-              {creatingNew ? 'Cancel new event' : 'None of these — add a new event'}
-            </button>
-            {creatingNew && (
-              <div className="mt-2 space-y-2">
+            <label className="block text-sm font-medium text-gray-300 mb-1">Event</label>
+            {selectedEventId || eventFreeText ? (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-gray-800 text-white text-sm px-3 py-1">
+                  {selectedEventLabel}
+                  <button type="button" onClick={clearEvent} className="text-gray-300 hover:text-white leading-none" aria-label="Remove event">×</button>
+                </span>
+              </div>
+            ) : (
+              <>
                 <input
                   type="text"
-                  value={newEventName}
-                  onChange={(e) => setNewEventName(e.target.value)}
-                  placeholder="Event name"
-                  className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
+                  value={eventQuery}
+                  onChange={(e) => setEventQuery(e.target.value)}
+                  onBlur={commitEventFreeText}
+                  placeholder="Search an event, or type a new name"
+                  className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-base"
                 />
-                <input
-                  type="date"
-                  value={newEventDate}
-                  onChange={(e) => setNewEventDate(e.target.value)}
-                  className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
-                />
-              </div>
+                {filteredEvents.length > 0 && (
+                  <div className="mt-1 rounded-lg bg-gray-800 divide-y divide-gray-700 overflow-hidden">
+                    {filteredEvents.map((c) => (
+                      <button
+                        key={`${c.type}:${c.id}`}
+                        type="button"
+                        onClick={() => pickEvent(c)}
+                        className="block w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700"
+                      >
+                        {c.name}{c.djs[0] ? ` · ${c.djs[0].djName}` : ''}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </section>
 
@@ -191,11 +208,11 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
           {submitError && <p className="text-sm text-red-400">{submitError}</p>}
         </div>
 
-        <div className="px-5 py-4 border-t border-gray-800 sticky bottom-0 bg-gray-900">
+        <div className="px-4 py-3 border-t border-[#333] shrink-0">
           <button
             onClick={handleSubmit}
             disabled={!canSubmit() || submitting}
-            className="w-full rounded-lg bg-white text-black font-medium py-3 disabled:opacity-40"
+            className="w-full rounded-none bg-white text-black font-mono text-xs uppercase tracking-wider py-3 disabled:opacity-40"
           >
             {submitting ? 'Submitting…' : 'Submit for review'}
           </button>

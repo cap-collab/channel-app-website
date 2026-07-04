@@ -4,7 +4,8 @@ import { coerceSlotTimeMs } from '@/lib/broadcast-slots';
 import { RecentEventCandidate } from '@/types/field-notes';
 import { EventDJRef } from '@/types/events';
 
-const WINDOW_MS = 48 * 60 * 60 * 1000;
+// Events that started today or in the past 7 days (not future).
+const WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 function slotDjs(data: Record<string, unknown>): EventDJRef[] {
   const arr = (data.djs as Array<Record<string, unknown>>) || [];
@@ -54,7 +55,7 @@ export async function GET() {
 
     const now = Date.now();
     const min = now - WINDOW_MS;
-    const max = now + WINDOW_MS;
+    const max = now + 6 * 60 * 60 * 1000; // small forward buffer for an ongoing/just-scheduled show today
 
     const [slotsSnap, archivesSnap, eventsSnap] = await Promise.all([
       db.collection('broadcast-slots').orderBy('startTime', 'desc').limit(80).get(),
