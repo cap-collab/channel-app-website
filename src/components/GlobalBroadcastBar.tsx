@@ -347,9 +347,11 @@ export function GlobalBroadcastBar() {
     // Interlude state: scheduled audio clip between archive shows. Show
     // channel branding, hide DJ-specific actions (no DJ to love/tip/visit).
     const isInterlude = radioCtx.currentItem?.kind === 'interstitial';
+    // Fall back to the same loading/empty labels as the inline hero radio bar
+    // (ArchiveHero) so the sticky bar and inline bar never disagree mid-load.
     const radioTitle = isInterlude
       ? 'interlude'
-      : (radioArchive?.showName || radioCtx.currentItem?.title || 'Archive radio');
+      : (radioArchive?.showName || radioCtx.currentItem?.title || (radioCtx.ready ? 'No archive scheduled' : 'Loading…'));
     const radioDjs = isInterlude
       ? 'channel radio'
       : (radioArchive?.djs?.map((d) => d.name).join(', ')
