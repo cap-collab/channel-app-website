@@ -193,7 +193,7 @@ export function FieldNoteCapture({ onCaptured }: Props) {
       {recording ? (
         <button
           onClick={stopRecording}
-          className="w-full rounded-xl bg-white text-black font-medium py-4"
+          className="w-full rounded-none bg-white text-black font-medium py-4"
         >
           ■ Stop — {fmt(elapsed)} / {fmt(MAX_FIELD_NOTE_DURATION_SEC)}
         </button>
@@ -201,7 +201,7 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         <>
           <button
             onClick={() => uploadRef.current?.click()}
-            className="w-full rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
+            className="w-full rounded-none bg-red-600 hover:bg-red-500 text-white font-medium py-4"
           >
             Upload a video
           </button>
@@ -214,13 +214,13 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={startAudioRecording}
-            className="rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
+            className="rounded-none bg-red-600 hover:bg-red-500 text-white font-medium py-4"
           >
             ● Record
           </button>
           <button
             onClick={() => uploadRef.current?.click()}
-            className="rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-medium py-4"
+            className="rounded-none bg-gray-800 hover:bg-gray-700 text-white font-medium py-4"
           >
             Upload
           </button>
