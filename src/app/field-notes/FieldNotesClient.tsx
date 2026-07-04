@@ -22,50 +22,30 @@ function timeAgo(ms: number): string {
   return `${days}d ago`;
 }
 
-function NoteCard({ note }: { note: FieldNoteSerialized }) {
+// Title a note by the entities it tags (DJs, venues, collectives) — whether or
+// not they exist in the DB. Falls back to the event name, then a generic label.
+function noteTitle(note: FieldNoteSerialized): string {
   const tags = [
     ...note.djs.map((d) => d.djName),
     ...note.venues.map((v) => v.venueName),
     ...note.collectives.map((c) => c.collectiveName),
-  ];
+  ].filter(Boolean);
+  if (tags.length > 0) return tags.join(', ');
+  return note.eventName || 'Untitled note';
+}
+
+function StatusPill({ status, reason }: { status: string; reason?: string | null }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    published: { label: 'Published', cls: 'bg-green-600 text-white' },
+    pending: { label: 'Pending review', cls: 'bg-yellow-500 text-black' },
+    rejected: { label: 'Rejected', cls: 'bg-red-600 text-white' },
+  };
+  const s = map[status] || { label: status, cls: 'bg-gray-700 text-white' };
   return (
-    <div className="rounded-xl bg-gray-900 p-4 space-y-3">
-      <div className="flex items-center gap-3">
-        {note.recordedByPhotoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={note.recordedByPhotoUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-gray-700" />
-        )}
-        <div className="min-w-0">
-          <p className="text-sm text-white truncate">{note.recordedByUsername}</p>
-          <p className="text-xs text-gray-500">
-            {note.city ? `${note.city} · ` : ''}
-            {timeAgo(note.createdAt)}
-          </p>
-        </div>
-      </div>
-
-      {note.audioMimeType?.startsWith('video/') ? (
-        // eslint-disable-next-line jsx-a11y/media-has-caption
-        <video controls playsInline preload="metadata" src={note.audioUrl} className="w-full max-h-72 rounded-lg bg-black" />
-      ) : (
-        // eslint-disable-next-line jsx-a11y/media-has-caption
-        <audio controls preload="none" src={note.audioUrl} className="w-full" />
-      )}
-
-      {note.caption && <p className="text-sm text-gray-300">{note.caption}</p>}
-
-      {note.eventName && <p className="text-sm text-gray-400">at {note.eventName}</p>}
-
-      {tags.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {tags.map((t, i) => (
-            <span key={`${t}-${i}`} className="rounded-full bg-gray-800 text-gray-300 text-xs px-2.5 py-1">
-              {t}
-            </span>
-          ))}
-        </div>
+    <div className="flex flex-col items-end gap-1">
+      <span className={`rounded-full text-xs px-2.5 py-1 ${s.cls}`}>{s.label}</span>
+      {status === 'rejected' && reason && (
+        <span className="text-xs text-gray-500 max-w-[200px] text-right">{reason}</span>
       )}
     </div>
   );
@@ -77,7 +57,8 @@ export function FieldNotesClient() {
   const [showAuth, setShowAuth] = useState(false);
   const [take, setTake] = useState<CapturedTake | null>(null);
 
-  const [notes, setNotes] = useState<FieldNoteSerialized[]>([]);
+  const [notes, setNotes] = useState<FieldNoteSerialized[]>([]);      // published (for playback)
+  const [myNotes, setMyNotes] = useState<FieldNoteSerialized[]>([]);  // author's own (any status)
   const [loadingFeed, setLoadingFeed] = useState(true);
 
   const hasAccess = !FIELD_NOTES_ADMIN_ONLY || isBroadcaster(role);
@@ -87,10 +68,17 @@ export function FieldNotesClient() {
     if (!user) return;
     try {
       const token = await user.getIdToken();
-      const feedRes = await fetch('/api/field-notes', { headers: { Authorization: `Bearer ${token}` } });
+      const [feedRes, mineRes] = await Promise.all([
+        fetch('/api/field-notes', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/field-notes/mine', { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
       if (feedRes.ok) {
         const data = await feedRes.json();
         setNotes(data.notes || []);
+      }
+      if (mineRes.ok) {
+        const data = await mineRes.json();
+        setMyNotes(data.notes || []);
       }
     } catch {
       /* non-fatal */
@@ -141,17 +129,23 @@ export function FieldNotesClient() {
             {/* 2. Attributed playback */}
             <FieldNoteEntityPlaylists notes={notes} />
 
-            {/* 3. Feed */}
+            {/* 3. Your notes — with published / pending / rejected status */}
             <section>
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Recent notes</h2>
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Your notes</h2>
               {loadingFeed ? (
                 <p className="text-gray-500">Loading…</p>
-              ) : notes.length === 0 ? (
-                <p className="text-gray-500">No field notes yet. Be the first.</p>
+              ) : myNotes.length === 0 ? (
+                <p className="text-gray-500">You haven’t sent a field note yet.</p>
               ) : (
-                <div className="space-y-3">
-                  {notes.map((note) => (
-                    <NoteCard key={note.id} note={note} />
+                <div className="space-y-2">
+                  {myNotes.map((note) => (
+                    <div key={note.id} className="flex items-center justify-between rounded-lg bg-gray-900 px-4 py-3 gap-3">
+                      <div className="min-w-0">
+                        <p className="text-white text-sm truncate">{noteTitle(note)}</p>
+                        <p className="text-xs text-gray-500">{timeAgo(note.createdAt)}</p>
+                      </div>
+                      <StatusPill status={note.status} reason={note.rejectionReason} />
+                    </div>
                   ))}
                 </div>
               )}
