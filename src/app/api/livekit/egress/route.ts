@@ -64,7 +64,11 @@ async function findAudioTrackSidForNewRecording(room: string): Promise<string | 
       ]);
       for (const p of participants) {
         for (const t of p.tracks) {
-          if (t.type === 1 /* AUDIO */ && !t.muted && t.sid) {
+          // TrackType.AUDIO === 0 in the LiveKit protocol enum (NOT 1 — that's
+          // VIDEO). Verified against a live channelbroadcast track showing
+          // type:0 source:2(MICROPHONE). The `=== 1` check never matched an
+          // audio track, which is why track-composite was always skipped.
+          if (t.type === 0 /* AUDIO */ && !t.muted && t.sid) {
             console.log(`[track-recording] found audio track on attempt ${attempt} (${t.sid})`);
             return t.sid;
           }
