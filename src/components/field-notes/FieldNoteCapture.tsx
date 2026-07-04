@@ -122,10 +122,12 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         setElapsed(secs);
         if (secs >= MAX_FIELD_NOTE_DURATION_SEC) stopRecording();
       }, 250);
-    } catch {
-      // Mic blocked/unavailable. Offer the video-recording fallback (its own
-      // button, so the camera opens from a fresh tap gesture on iOS).
-      setError('Microphone isn’t available here — you can record a video instead.');
+    } catch (err) {
+      // Surface the REAL failure reason so we can see why iOS rejects (temp
+      // diagnostic). NotAllowedError=denied/no-prompt, NotFoundError=no device,
+      // NotReadableError=hardware/busy, etc.
+      const e = err as { name?: string; message?: string };
+      setError(`mic error: ${e?.name || 'unknown'} — ${e?.message || 'no message'}`);
       setMicFailed(true);
     }
   }, [onCaptured, stopRecording]);
