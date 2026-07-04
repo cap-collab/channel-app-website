@@ -71,23 +71,6 @@ function NoteCard({ note }: { note: FieldNoteSerialized }) {
   );
 }
 
-function StatusPill({ status, reason }: { status: string; reason?: string | null }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    published: { label: 'Published', cls: 'bg-green-600 text-white' },
-    pending: { label: 'Pending review', cls: 'bg-yellow-500 text-black' },
-    rejected: { label: 'Rejected', cls: 'bg-red-600 text-white' },
-  };
-  const s = map[status] || { label: status, cls: 'bg-gray-700 text-white' };
-  return (
-    <div className="flex flex-col items-end gap-1">
-      <span className={`rounded-full text-xs px-2.5 py-1 ${s.cls}`}>{s.label}</span>
-      {status === 'rejected' && reason && (
-        <span className="text-xs text-gray-500 max-w-[200px] text-right">{reason}</span>
-      )}
-    </div>
-  );
-}
-
 export function FieldNotesClient() {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
@@ -95,7 +78,6 @@ export function FieldNotesClient() {
   const [take, setTake] = useState<CapturedTake | null>(null);
 
   const [notes, setNotes] = useState<FieldNoteSerialized[]>([]);
-  const [myNotes, setMyNotes] = useState<FieldNoteSerialized[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
 
   const hasAccess = !FIELD_NOTES_ADMIN_ONLY || isBroadcaster(role);
@@ -105,17 +87,10 @@ export function FieldNotesClient() {
     if (!user) return;
     try {
       const token = await user.getIdToken();
-      const [feedRes, mineRes] = await Promise.all([
-        fetch('/api/field-notes', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/field-notes/mine', { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
+      const feedRes = await fetch('/api/field-notes', { headers: { Authorization: `Bearer ${token}` } });
       if (feedRes.ok) {
         const data = await feedRes.json();
         setNotes(data.notes || []);
-      }
-      if (mineRes.ok) {
-        const data = await mineRes.json();
-        setMyNotes(data.notes || []);
       }
     } catch {
       /* non-fatal */
@@ -166,25 +141,7 @@ export function FieldNotesClient() {
             {/* 2. Attributed playback */}
             <FieldNoteEntityPlaylists notes={notes} />
 
-            {/* 3. My notes */}
-            {isAuthenticated && myNotes.length > 0 && (
-              <section>
-                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Your notes</h2>
-                <div className="space-y-2">
-                  {myNotes.map((note) => (
-                    <div key={note.id} className="flex items-center justify-between rounded-lg bg-gray-900 px-4 py-3 gap-3">
-                      <div className="min-w-0">
-                        <p className="text-white text-sm truncate">{note.eventName || note.djs[0]?.djName || 'Field note'}</p>
-                        <p className="text-xs text-gray-500">{timeAgo(note.createdAt)}</p>
-                      </div>
-                      <StatusPill status={note.status} reason={note.rejectionReason} />
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* 4. Feed */}
+            {/* 3. Feed */}
             <section>
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">Recent notes</h2>
               {loadingFeed ? (
