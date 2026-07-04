@@ -203,11 +203,11 @@ export function FieldNoteCapture({ onCaptured }: Props) {
             onClick={() => uploadRef.current?.click()}
             className="w-full rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
           >
-            Upload a recording
+            Upload a video
           </button>
           <p className="text-xs text-gray-500">
-            Recording in the browser isn’t supported here. Upload an audio or video
-            clip (e.g. a Voice Memo) — or open this page in Safari to record directly.
+            Recording in the browser isn’t supported here. Upload a video from your
+            library — or open this page in Safari to record audio directly.
           </p>
         </>
       ) : (
@@ -227,12 +227,13 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         </div>
       )}
 
-      {/* Upload accepts audio or video; explicit types (bare audio/* greys out
-          files on iOS). No `capture` attribute. */}
+      {/* Upload → straight into the video library. accept="video/*" alone opens
+          the Photos video library on iOS (no confusing action sheet) and the
+          gallery on Android. No `capture` attribute. */}
       <input
         ref={uploadRef}
         type="file"
-        accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.caf,.mov,.mp4"
+        accept="video/*"
         className="hidden"
         onChange={(e) => onFileChosen(e.target.files?.[0])}
       />
