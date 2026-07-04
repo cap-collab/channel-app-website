@@ -220,7 +220,7 @@ export function FieldNoteCapture({ onCaptured }: Props) {
           </button>
           <button
             onClick={() => uploadRef.current?.click()}
-            className="rounded-none bg-gray-800 hover:bg-gray-700 text-white font-medium py-4"
+            className="rounded-none bg-black hover:bg-zinc-900 border border-white/15 text-white font-medium py-4"
           >
             Upload
           </button>

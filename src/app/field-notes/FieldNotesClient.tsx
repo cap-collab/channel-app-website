@@ -12,6 +12,7 @@ import { normalizeUsername } from '@/lib/dj-matching';
 import { FIELD_NOTES_ADMIN_ONLY } from '@/lib/field-notes-config';
 import { FieldNoteRecorder } from '@/components/field-notes/FieldNoteRecorder';
 import { FieldNoteCapture, CapturedTake } from '@/components/field-notes/FieldNoteCapture';
+import { FieldNoteAudioPlayer } from '@/components/field-notes/FieldNoteAudioPlayer';
 import { FieldNoteSerialized } from '@/types/field-notes';
 
 const SECTION_HEADER_CLS = 'text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2';
@@ -74,39 +75,29 @@ function StatusLabel({ status, reason }: { status: string; reason?: string | nul
   );
 }
 
-// Entity card matching the DJ/collective cards used on collective pages: square
-// avatar + name (+ a small "N notes" line). Links to the entity when DB-backed.
-function EntityCard({ group }: { group: EntityGroup }) {
-  const inner = (
-    <div className="flex items-start gap-3 bg-zinc-900/50 border border-white/10 rounded-lg p-3 hover:bg-zinc-800/50 transition-colors overflow-hidden">
+// Small entity tile matching the collective DJ/guest cards: square avatar +
+// name (no bio available on note tags). Tapping selects it to reveal its notes.
+function EntityTile({ group, active, onSelect }: { group: EntityGroup; active: boolean; onSelect: () => void }) {
+  return (
+    <button
+      onClick={onSelect}
+      className={`w-full text-left flex items-start gap-3 bg-zinc-900/50 border rounded-lg p-3 transition-colors h-[78px] overflow-hidden ${
+        active ? 'border-white/40 bg-zinc-800/50' : 'border-white/10 hover:bg-zinc-800/50'
+      }`}
+    >
       <div className="w-14 h-14 bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
         {group.photoUrl ? (
           <Image src={group.photoUrl} alt={group.label} width={56} height={56} className="w-full h-full object-cover" unoptimized />
         ) : (
-          <span className="text-zinc-600 text-lg">{group.label.charAt(0).toUpperCase()}</span>
+          <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
         )}
       </div>
       <div className="min-w-0 flex-1 overflow-hidden">
         <p className="text-white font-medium text-sm truncate">{group.label}</p>
-        <p className="text-zinc-500 text-[10px] uppercase tracking-wider mt-1">
-          {group.notes.length} note{group.notes.length === 1 ? '' : 's'}
-        </p>
       </div>
-    </div>
-  );
-  return group.href ? <Link href={group.href} className="block">{inner}</Link> : inner;
-}
-
-// A published note: plays AUDIO only. We point a plain <audio> at the file even
-// when the note is a video — the audio track plays, and it works across mobile
-// and desktop browsers regardless of the original input being audio or video.
-function NoteAudio({ note }: { note: FieldNoteSerialized }) {
-  return (
-    <div className="flex items-center gap-3 bg-zinc-900/40 border border-white/10 rounded-lg px-3 py-2">
-      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-      <audio controls preload="none" src={note.audioUrl} className="w-full" />
-      <span className="text-[10px] text-zinc-500 shrink-0 tabular-nums">{fmtDate(note.createdAt)}</span>
-    </div>
+    </button>
   );
 }
 
@@ -115,6 +106,7 @@ export function FieldNotesClient() {
   const { role, loading: roleLoading } = useUserRole(user);
   const [showAuth, setShowAuth] = useState(false);
   const [take, setTake] = useState<CapturedTake | null>(null);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   const [notes, setNotes] = useState<FieldNoteSerialized[]>([]);      // published
   const [myNotes, setMyNotes] = useState<FieldNoteSerialized[]>([]);  // author's own (any status)
@@ -197,7 +189,8 @@ export function FieldNotesClient() {
               <FieldNoteCapture onCaptured={onCaptured} />
             </section>
 
-            {/* Public notes, grouped by entity (entity card + audio-only notes) */}
+            {/* Public notes: a grid of small entity tiles; tap one to reveal its
+                notes (audio-only players). Anonymous — no poster shown. */}
             <section>
               <h2 className={SECTION_HEADER_CLS}>Notes from the crowd</h2>
               {loading ? (
@@ -205,18 +198,38 @@ export function FieldNotesClient() {
               ) : entityGroups.length === 0 ? (
                 <p className="text-zinc-500 text-sm">No published field notes yet.</p>
               ) : (
-                <div className="space-y-6">
-                  {entityGroups.map((g) => (
-                    <div key={g.key} className="space-y-2">
-                      <EntityCard group={g} />
-                      <div className="space-y-2 pl-2">
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {entityGroups.map((g) => (
+                      <EntityTile
+                        key={g.key}
+                        group={g}
+                        active={expandedKey === g.key}
+                        onSelect={() => setExpandedKey(expandedKey === g.key ? null : g.key)}
+                      />
+                    ))}
+                  </div>
+
+                  {expandedKey && (() => {
+                    const g = entityGroups.find((x) => x.key === expandedKey);
+                    if (!g) return null;
+                    return (
+                      <div className="mt-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-white text-sm font-medium">{g.label}</p>
+                          {g.href && (
+                            <Link href={g.href} className="text-zinc-400 hover:text-white text-xs transition-colors">
+                              View page →
+                            </Link>
+                          )}
+                        </div>
                         {g.notes.map((note) => (
-                          <NoteAudio key={`${g.key}-${note.id}`} note={note} />
+                          <FieldNoteAudioPlayer key={`${g.key}-${note.id}`} src={note.audioUrl} dateLabel={fmtDate(note.createdAt)} />
                         ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    );
+                  })()}
+                </>
               )}
             </section>
 
