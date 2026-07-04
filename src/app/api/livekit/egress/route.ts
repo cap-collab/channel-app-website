@@ -31,7 +31,18 @@ const r2PublicUrl = process.env.R2_PUBLIC_URL || '';
 const TRACK_LOOKUP_TOTAL_BUDGET_MS = 1200;
 const TRACK_LOOKUP_POLL_INTERVAL_MS = 250;
 const TRACK_LOOKUP_CALL_TIMEOUT_MS = 500;
-async function findAudioTrackSid(room: string): Promise<string | null> {
+// `identity` (when provided) restricts the match to the DJ who is going live —
+// CRITICAL for never-miss: during a DJ→DJ overlap two unmuted audio tracks can be
+// present (the outgoing DJ lingering + the incoming DJ), and binding the incoming
+// DJ's track-composite recording to the OUTGOING DJ's dying track produces a
+// silent/tiny recording (= a silent missed recording; LiveKit egress #1193). So
+// we only ever return a track owned by `identity`. If the DJ's own live track
+// isn't found within the budget we return null → the caller falls back to
+// room-composite (records the whole room, cannot bind wrong) — never another
+// participant's track. `restream-*` participants are always skipped. When
+// `identity` is omitted (backward-compat / other callers), fall back to the old
+// "first unmuted audio track" behavior.
+async function findAudioTrackSid(room: string, identity?: string): Promise<string | null> {
   const deadline = Date.now() + TRACK_LOOKUP_TOTAL_BUDGET_MS;
   const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
   let attempt = 0;
@@ -45,9 +56,12 @@ async function findAudioTrackSid(room: string): Promise<string | null> {
         ),
       ]);
       for (const p of participants) {
+        if (p.identity?.startsWith('restream-')) continue; // restreams use room-composite HLS
+        // When we know who's going live, ONLY accept that DJ's own track.
+        if (identity && p.identity !== identity) continue;
         for (const t of p.tracks) {
           if (t.type === 0 /* AUDIO */ && !t.muted && t.sid) {
-            console.log(`findAudioTrackSid: found audio track on attempt ${attempt} (${t.sid})`);
+            console.log(`findAudioTrackSid: found audio track on attempt ${attempt} for ${p.identity} (${t.sid})`);
             return t.sid;
           }
         }
@@ -58,14 +72,14 @@ async function findAudioTrackSid(room: string): Promise<string | null> {
     if (Date.now() + TRACK_LOOKUP_POLL_INTERVAL_MS >= deadline) break;
     await new Promise((r) => setTimeout(r, TRACK_LOOKUP_POLL_INTERVAL_MS));
   }
-  console.log(`findAudioTrackSid: no audio track within ${TRACK_LOOKUP_TOTAL_BUDGET_MS}ms budget → room-composite fallback`);
+  console.log(`findAudioTrackSid: no audio track${identity ? ` for ${identity}` : ''} within ${TRACK_LOOKUP_TOTAL_BUDGET_MS}ms budget → room-composite fallback`);
   return null;
 }
 
 // Start HLS + MP4 egress for a room (or MP4-only for recording mode)
 export async function POST(request: NextRequest) {
   try {
-    const { room, recordingOnly, reuseHlsEgress } = await request.json();
+    const { room, recordingOnly, reuseHlsEgress, identity } = await request.json();
 
     if (!room) {
       return NextResponse.json({ error: 'Room name required' }, { status: 400 });
@@ -102,7 +116,7 @@ export async function POST(request: NextRequest) {
       // Use track composite egress for MP4 recording — encodes the audio track
       // directly via GStreamer instead of running a headless Chrome compositor,
       // which eliminates periodic pops/frame drops in recordings.
-      const audioTrackSid = await findAudioTrackSid(room);
+      const audioTrackSid = await findAudioTrackSid(room, identity);
       const recordingEgress = audioTrackSid
         ? await egressClient.startTrackCompositeEgress(
             room,
@@ -260,7 +274,7 @@ export async function POST(request: NextRequest) {
       // Use track composite egress for MP4 recording — encodes the audio track
       // directly via GStreamer instead of running a headless Chrome compositor,
       // which eliminates periodic pops/frame drops in recordings.
-      const audioTrackSid = await findAudioTrackSid(room);
+      const audioTrackSid = await findAudioTrackSid(room, identity);
       recordingMethod = audioTrackSid ? 'track-composite' : 'room-composite';
       const recordingEgress = audioTrackSid
         ? await egressClient.startTrackCompositeEgress(

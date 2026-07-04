@@ -359,7 +359,11 @@ export function useBroadcast(
       const res = await fetchWithTimeout('/api/livekit/egress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room: currentRoomName, recordingOnly, reuseHlsEgress: !recordingOnly }),
+        // identity = the DJ going live. The egress route uses it so the
+        // track-composite recording binds ONLY to this DJ's own audio track (not
+        // a lingering previous DJ's during a handoff) — else it falls back to
+        // room-composite. Prevents the silent wrong-track recording.
+        body: JSON.stringify({ room: currentRoomName, recordingOnly, reuseHlsEgress: !recordingOnly, identity: participantIdentity }),
         timeoutMs: 15_000,
       });
 
@@ -448,7 +452,7 @@ export function useBroadcast(
       setState(prev => ({ ...prev, error: message }));
       return false;
     }
-  }, [recordingOnly]);  // Only depends on recordingOnly since we use refs for other values
+  }, [recordingOnly, participantIdentity]);  // refs for other values; participantIdentity is stable per session
 
   // Go live - connect, publish, and start egress
   const goLive = useCallback(async (stream: MediaStream) => {
@@ -668,6 +672,13 @@ export function useBroadcast(
           if (roomRef.current) {
             await roomRef.current.localParticipant.setMicrophoneEnabled(true);
             console.log('📡 Audio unmuted');
+            // Let the unmute propagate to the SFU (~100–500ms) BEFORE starting
+            // egress, so findAudioTrackSid sees THIS DJ's now-unmuted track and
+            // picks track-composite for the right DJ — instead of missing it
+            // (→ needless room-composite fallback) or, worse, binding to the
+            // outgoing DJ's still-present track. Queue path's own final step, so
+            // it doesn't delay listeners.
+            await new Promise((r) => setTimeout(r, 500));
           }
 
           // Start egress and go live

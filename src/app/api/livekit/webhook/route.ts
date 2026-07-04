@@ -276,6 +276,41 @@ export async function POST(request: NextRequest) {
               updateData.recordingDuration = durationSec;
             }
 
+            // ── NEVER-MISS SAFETY NET: flag a suspiciously short/dead recording ──
+            // A recording far shorter than its slot is the signature of a silent
+            // miss — most importantly a track-composite egress that bound to the
+            // wrong (outgoing) DJ's dying track (#1193), but ALSO any other dead
+            // capture. Nothing else catches this today (a 0s file was still saved
+            // as 'ready'). We flag it on the slot + log loudly so Tech Health
+            // surfaces it and the HLS-segment backstop can recover the audio.
+            // Thresholds: shorter than SHORT_RECORDING_ABS_SEC, OR under
+            // SHORT_RECORDING_FRACTION of the scheduled slot length (when known).
+            const SHORT_RECORDING_ABS_SEC = 60;
+            const SHORT_RECORDING_FRACTION = 0.25;
+            try {
+              const startMs = (slotData?.startTime as { toMillis?: () => number } | undefined)?.toMillis?.()
+                ?? Number((slotData?.startTime as { _seconds?: number } | undefined)?._seconds || 0) * 1000;
+              const endMs = (slotData?.endTime as { toMillis?: () => number } | undefined)?.toMillis?.()
+                ?? Number((slotData?.endTime as { _seconds?: number } | undefined)?._seconds || 0) * 1000;
+              const slotSec = startMs && endMs && endMs > startMs ? (endMs - startMs) / 1000 : 0;
+              const isShort = durationSec < SHORT_RECORDING_ABS_SEC
+                || (slotSec > 0 && durationSec < slotSec * SHORT_RECORDING_FRACTION);
+              if (isShort) {
+                await slotRef.update({
+                  shortRecording: {
+                    egressId: egress.egressId,
+                    durationSec,
+                    slotSec: Math.round(slotSec),
+                    recordingUrl,
+                    flaggedAt: Date.now(),
+                  },
+                });
+                console.warn(`⚠️ SHORT/DEAD RECORDING for slot ${slotId}: ${durationSec}s (slot ~${Math.round(slotSec)}s) — likely wrong-track/dead capture. Recover from HLS segments if needed. ${recordingUrl}`);
+              }
+            } catch (shortErr) {
+              console.error('[webhook] short-recording check failed (non-fatal):', shortErr);
+            }
+
             await slotRef.update(updateData);
             console.log(`Recording saved for slot ${slotId}: ${recordingUrl} (${durationSec}s)`);
 

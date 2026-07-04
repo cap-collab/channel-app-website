@@ -41,6 +41,52 @@ export function AdminDashboard() {
   const [roomStatus, setRoomStatus] = useState<RoomStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Manual safety-net room recording (start-from-now insurance capture).
+  const [manualRecEgressId, setManualRecEgressId] = useState<string | null>(null);
+  const [manualRecBusy, setManualRecBusy] = useState(false);
+
+  const toggleManualRecording = useCallback(async () => {
+    if (!user) return;
+    setManualRecBusy(true);
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch('/api/broadcast/manual-recording', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify(
+          manualRecEgressId ? { action: 'stop', egressId: manualRecEgressId } : { action: 'start' },
+        ),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(`Manual recording ${manualRecEgressId ? 'stop' : 'start'} failed: ${data.error || res.status}`);
+      } else if (manualRecEgressId) {
+        setManualRecEgressId(null);
+      } else {
+        setManualRecEgressId(data.egressId);
+      }
+    } catch (e) {
+      alert(`Manual recording error: ${(e as Error).message}`);
+    } finally {
+      setManualRecBusy(false);
+    }
+  }, [user, manualRecEgressId]);
+
+  // On load, detect an already-running manual recording so the button reflects it.
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const idToken = await user.getIdToken();
+        const res = await fetch('/api/broadcast/manual-recording', {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        const data = await res.json();
+        if (res.ok && data.active?.length) setManualRecEgressId(data.active[0].egressId);
+      } catch { /* non-fatal */ }
+    })();
+  }, [user]);
+
   // Calendar state
   const [currentWeekStart, setCurrentWeekStart] = useState(getWeekStart());
 
@@ -454,6 +500,20 @@ export function AdminDashboard() {
               }`}
             >
               Recommendations
+            </button>
+            {/* Safety-net manual room recording — start a guaranteed room-composite
+                capture from now if a live show looks like it's recording wrong. */}
+            <button
+              onClick={toggleManualRecording}
+              disabled={manualRecBusy}
+              title="Start/stop a backup room recording (captures the whole room from now — insurance if the primary recording looks off)"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+                manualRecEgressId
+                  ? 'bg-red-600 text-white hover:bg-red-700 animate-pulse'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              {manualRecBusy ? '…' : manualRecEgressId ? '● Stop backup rec' : '🎙️ Backup rec'}
             </button>
             <Link
               href="/broadcast/admin/pending-djs"

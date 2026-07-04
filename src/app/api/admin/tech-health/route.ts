@@ -164,10 +164,40 @@ export interface TechHealthResponse {
   normalizeQueue: NormalizeQueueHealth;
   faststartQueue: FaststartQueueHealth;
   upcomingSlots: { slotId: string; djName: string; startMs: number; type: string }[];
+  // Recordings flagged suspiciously short/dead by the webhook (never-miss net) —
+  // likely a wrong-track/dead capture. Surface so a miss is caught within minutes
+  // and can be recovered from the HLS-segment backstop. Last 48h.
+  shortRecordings: { slotId: string; showName: string; durationSec: number; slotSec: number; recordingUrl: string; flaggedAt: number }[];
   r2Stats: R2Stats | null;
   r2Backup: R2BackupStatus | null;
   reconcileLiveStreams: ReconcileStatus | null;
   weeklyRecBackfill: WeeklyRecBackfillStatus | null;
+}
+
+// Recordings the webhook flagged as suspiciously short/dead in the last 48h.
+async function probeShortRecordings(): Promise<TechHealthResponse['shortRecordings']> {
+  const db = getAdminDb();
+  if (!db) return [];
+  const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+  const snap = await db.collection('broadcast-slots')
+    .where('shortRecording.flaggedAt', '>=', cutoff)
+    .get()
+    .catch(() => null);
+  if (!snap) return [];
+  return snap.docs
+    .map((d) => {
+      const s = d.data();
+      const sr = s.shortRecording || {};
+      return {
+        slotId: d.id,
+        showName: (s.showName as string) || '(unknown)',
+        durationSec: Number(sr.durationSec || 0),
+        slotSec: Number(sr.slotSec || 0),
+        recordingUrl: (sr.recordingUrl as string) || '',
+        flaggedAt: Number(sr.flaggedAt || 0),
+      };
+    })
+    .sort((a, b) => b.flaggedAt - a.flaggedAt);
 }
 
 async function probeWorker(name: string, url: string): Promise<WorkerHealth> {
@@ -609,13 +639,14 @@ export async function GET(request: NextRequest) {
 
   // Probes run in parallel; each one swallows its own errors so the dashboard
   // shows partial data when a probe fails rather than a 500.
-  const [workersRestream, workersYoutube, livekit, normalizeQueue, faststartQueue, upcomingSlots, r2Stats, r2Backup, reconcileLiveStreams, weeklyRecBackfill] = await Promise.all([
+  const [workersRestream, workersYoutube, livekit, normalizeQueue, faststartQueue, upcomingSlots, shortRecordings, r2Stats, r2Backup, reconcileLiveStreams, weeklyRecBackfill] = await Promise.all([
     probeWorker('Restream + normalize', restreamWorkerUrl),
     probeWorker('YouTube render', youtubeWorkerUrl),
     probeLivekit(),
     probeNormalizeQueue().catch(() => ({ pending: 0, inProgress: 0, oldestPendingAgeMin: null, doneLast24h: 0, failedLast24h: 0, emptyEgressLast24h: 0, pendingItems: [], emptyEgressItems: [] })),
     probeFaststartQueue().catch(() => ({ pending: 0, inProgress: 0, staleInProgress: 0, oldestPendingAgeMin: null, failedLast24h: 0, emptyEgressLast24h: 0, stuckItems: [], emptyEgressItems: [] })),
     probeUpcomingSlots().catch(() => []),
+    probeShortRecordings().catch(() => []),
     probeR2Stats().catch(() => null),
     probeR2Backup().catch(() => null),
     probeReconcileLiveStreams().catch(() => null),
@@ -629,6 +660,7 @@ export async function GET(request: NextRequest) {
     normalizeQueue,
     faststartQueue,
     upcomingSlots,
+    shortRecordings,
     r2Stats,
     r2Backup,
     reconcileLiveStreams,
