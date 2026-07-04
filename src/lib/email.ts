@@ -1365,16 +1365,17 @@ export async function sendWeeklyRecommendationsEmail({
   //  - else the default: "Your Weekly Listening" on fallback, nothing on
   //    personalized (unchanged from before).
   const dropTitle = !!wasFallbackLastWeek && !!openedLastWeek && !isFallback;
-  const eyebrowText = dropTitle
-    ? null
-    : openedLastWeek
-      ? "Really worth your time"
-      : isFallback
-        ? "Your Weekly Listening"
-        : null;
-  const eyebrowHtml = eyebrowText
-    ? `<p style="margin: 0 0 20px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">${eyebrowText}</p>`
-    : "";
+  let eyebrowHtml = "";
+  if (dropTitle) {
+    eyebrowHtml = ""; // no title — recs are genuinely different
+  } else if (openedLastWeek) {
+    // Openers get a centered, black headline styled like our previous
+    // "Your Weekly Listening" title (18px/600), 20% smaller → 14px.
+    eyebrowHtml = `<p style="margin: 0 0 20px; font-size: 14px; font-weight: 600; color: #1a1a1a; line-height: 1.3; text-align: center;">Really worth your time</p>`;
+  } else if (isFallback) {
+    // Non-opener fallback keeps the small grey monospace eyebrow.
+    eyebrowHtml = `<p style="margin: 0 0 20px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">Your Weekly Listening</p>`;
+  }
 
   // Render blocks in order — the first NON-EMPTY block omits the top divider.
   const rows3 = comingUp.map((r) => buildWeeklyComingUpRowHtml(r, tz));
