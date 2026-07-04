@@ -378,6 +378,16 @@ export function useBroadcast(
       // Update Firestore slot status to 'live' via API (uses Admin SDK, no auth required)
       console.log('📡 broadcastToken value:', currentBroadcastToken);
       console.log('📡 Egress response:', { egressId: data.egressId, recordingEgressId: data.recordingEgressId });
+      // Make the recording method loud in the browser console so we can confirm
+      // at a glance that the show is being recorded via the clean track-composite
+      // path (raw SFU Opus) and NOT the room-composite/Chrome/NetEQ fallback.
+      if (data.recordingMethod === 'track-composite') {
+        console.log('🎵✅ RECORDING METHOD: track-composite (clean — raw audio, no Chrome/NetEQ)');
+      } else if (data.recordingMethod === 'room-composite') {
+        console.warn('⚠️ RECORDING METHOD: room-composite (fallback — Chrome/NetEQ; audio track not found in time)');
+      } else if (data.recordingMethod === 'failed') {
+        console.error('❌ RECORDING METHOD: FAILED to start the recording egress');
+      }
       if (currentBroadcastToken) {
         try {
           console.log('📡 Calling go-live API with:', {

@@ -252,11 +252,16 @@ export async function POST(request: NextRequest) {
     });
 
     let recordingEgressId: string | null = null;
+    // Which method the recording uses — track-composite (clean, raw SFU Opus)
+    // when the DJ's audio track is found, else room-composite (Chrome/NetEQ)
+    // fallback. Surfaced in logs + the response so it's visible in the browser.
+    let recordingMethod: 'track-composite' | 'room-composite' | 'failed' = 'failed';
     try {
       // Use track composite egress for MP4 recording — encodes the audio track
       // directly via GStreamer instead of running a headless Chrome compositor,
       // which eliminates periodic pops/frame drops in recordings.
       const audioTrackSid = await findAudioTrackSid(room);
+      recordingMethod = audioTrackSid ? 'track-composite' : 'room-composite';
       const recordingEgress = audioTrackSid
         ? await egressClient.startTrackCompositeEgress(
             room,
@@ -269,10 +274,11 @@ export async function POST(request: NextRequest) {
             { audioOnly: true }
           );
       recordingEgressId = recordingEgress.egressId;
-      console.log(`MP4 recording egress started (${audioTrackSid ? 'track-composite' : 'room-composite'}):`, recordingEgressId);
+      const icon = recordingMethod === 'track-composite' ? '🎵✅' : '⚠️';
+      console.log(`${icon} MP4 recording started: ${recordingMethod.toUpperCase()} (egress ${recordingEgressId})${recordingMethod === 'room-composite' ? ' — audio track not found in time, fell back to Chrome/NetEQ path' : ''}`);
     } catch (recordingError) {
       // Log but don't fail - HLS streaming is more important
-      console.error('Failed to start MP4 recording egress:', recordingError);
+      console.error('❌ Failed to start MP4 recording egress:', recordingError);
     }
 
     // Construct the HLS URL using public R2 subdomain
@@ -281,6 +287,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       egressId: hlsEgressId,
       recordingEgressId,
+      recordingMethod,  // 'track-composite' | 'room-composite' | 'failed' — visible in browser console
       status: existingHlsEgressId ? 1 : 0, // 1=ACTIVE (reused), 0=STARTING (new)
       room,
       hlsUrl,
