@@ -23,7 +23,7 @@ function pickAudioMime(): string {
 }
 
 function containerType(mime: string): string {
-  return (mime || 'video/mp4').split(';')[0].trim();
+  return (mime || 'audio/mp4').split(';')[0].trim();
 }
 
 function fmt(sec: number): string {
@@ -32,28 +32,40 @@ function fmt(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-// Record a field note. Preference order:
-//   1. In-browser AUDIO recording via getUserMedia + MediaRecorder — prompts for
-//      mic permission (iOS Safari, Android, desktop; also iOS Chrome when the
-//      mic is allowed).
-//   2. If the mic can't be used (blocked/unavailable, e.g. iOS Chrome with the
-//      site's mic permission off), fall back to recording a VIDEO with the native
-//      camera. The fallback is a SEPARATE button so its tap is a fresh user
-//      gesture — iOS ignores a camera .click() fired after an awaited call.
-// Upload always opens the video library.
+// Detect a non-Safari browser on iOS (Chrome=CriOS, Firefox=FxiOS, Edge=EdgiOS).
+// These render via WKWebView, where web-content getUserMedia is NOT wired up by
+// the host app — so inline mic recording throws NotAllowedError with no prompt
+// (proven on-device). There is no web workaround: a page can't open the native
+// Camera app, and in-browser video capture records SILENT because it hits the
+// same mic block. So on these browsers we show Upload only (attach a recording,
+// e.g. a Voice Memo) and tell the user Safari records inline.
+function isNonSafariIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return isIOS && /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+}
+
 export function FieldNoteCapture({ onCaptured }: Props) {
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [micFailed, setMicFailed] = useState(false); // mic blocked → offer camera fallback
+  // On non-Safari iOS, inline recording can't work — show upload-only UI.
+  const [uploadOnly, setUploadOnly] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<number>(0);
-  const recordVideoRef = useRef<HTMLInputElement | null>(null);
   const uploadRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const hasApis = typeof navigator.mediaDevices?.getUserMedia === 'function' &&
+      typeof MediaRecorder !== 'undefined';
+    if (!hasApis || isNonSafariIOS()) setUploadOnly(true);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -73,22 +85,14 @@ export function FieldNoteCapture({ onCaptured }: Props) {
   }, []);
 
   const startAudioRecording = useCallback(async () => {
-    // CRITICAL for iOS: getUserMedia must be the FIRST thing called inside the
-    // tap handler. On iOS WebKit (Safari AND Chrome), any state updates / async
-    // work before it break the user-gesture chain, so WebKit suppresses the
-    // permission prompt and the call silently fails with no prompt — which is
-    // exactly the "no prompt on iOS Chrome" symptom. So: call it immediately,
-    // synchronously, before touching React state or doing any checks.
+    // getUserMedia must be the first call in the tap handler on iOS (any prior
+    // work breaks the user-gesture chain and suppresses the prompt).
     if (!navigator.mediaDevices?.getUserMedia) {
-      setMicFailed(true);
-      setError('Recording isn’t supported here.');
+      setUploadOnly(true);
       return;
     }
-
     const gumPromise = navigator.mediaDevices.getUserMedia({ audio: true });
-
     setError(null);
-    setMicFailed(false);
 
     try {
       const stream = await gumPromise;
@@ -122,13 +126,11 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         setElapsed(secs);
         if (secs >= MAX_FIELD_NOTE_DURATION_SEC) stopRecording();
       }, 250);
-    } catch (err) {
-      // Surface the REAL failure reason so we can see why iOS rejects (temp
-      // diagnostic). NotAllowedError=denied/no-prompt, NotFoundError=no device,
-      // NotReadableError=hardware/busy, etc.
-      const e = err as { name?: string; message?: string };
-      setError(`mic error: ${e?.name || 'unknown'} — ${e?.message || 'no message'}`);
-      setMicFailed(true);
+    } catch {
+      // Mic denied/unavailable (e.g. an iOS browser that slipped past detection).
+      // Fall back to upload-only rather than a silent video capture.
+      setUploadOnly(true);
+      setError('Recording isn’t available in this browser — upload a recording, or open this page in Safari to record.');
     }
   }, [onCaptured, stopRecording]);
 
@@ -142,19 +144,15 @@ export function FieldNoteCapture({ onCaptured }: Props) {
       if (!file.type) {
         const ext = file.name.split('.').pop()?.toLowerCase() || '';
         const extMime: Record<string, string> = {
+          m4a: 'audio/mp4', mp3: 'audio/mpeg', wav: 'audio/wav', aac: 'audio/aac',
+          ogg: 'audio/ogg', caf: 'audio/x-caf', webm: 'audio/webm',
           mov: 'video/quicktime', mp4: 'video/mp4', m4v: 'video/mp4', '3gp': 'video/3gpp',
-          webm: 'video/webm', m4a: 'audio/mp4', mp3: 'audio/mpeg', wav: 'audio/wav',
-          aac: 'audio/aac', ogg: 'audio/ogg',
         };
-        mime = extMime[ext] || 'video/mp4';
+        mime = extMime[ext] || 'audio/mpeg';
       }
 
-      // iOS camera capture returns HEVC video in a QuickTime .mov (type
-      // video/quicktime). Fed to a <video> as-is, iOS (esp. Chrome/WKWebView)
-      // plays the picture but SILENTLY DROPS THE AAC AUDIO. QuickTime and MP4
-      // share the same underlying container, so re-wrapping the blob as
-      // video/mp4 routes it into the MP4/AAC pipeline and the audio plays —
-      // both in this preview and everywhere the note is later played back.
+      // iOS camera-recorded video is HEVC in a QuickTime .mov; re-type to
+      // video/mp4 so its audio plays back (bare .mov drops audio on iOS).
       let blob: Blob = file;
       if (mime === 'video/quicktime') {
         blob = new Blob([file], { type: 'video/mp4' });
@@ -171,7 +169,6 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         el.onloadedmetadata = () => resolve(el.duration || 0);
         el.onerror = () => resolve(0);
       });
-      // Release the probe element's hold on the blob before the preview uses it.
       el.removeAttribute('src');
       el.load?.();
 
@@ -200,16 +197,23 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         >
           ■ Stop — {fmt(elapsed)} / {fmt(MAX_FIELD_NOTE_DURATION_SEC)}
         </button>
+      ) : uploadOnly ? (
+        <>
+          <button
+            onClick={() => uploadRef.current?.click()}
+            className="w-full rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
+          >
+            Upload a recording
+          </button>
+          <p className="text-xs text-gray-500">
+            Recording in the browser isn’t supported here. Upload an audio or video
+            clip (e.g. a Voice Memo) — or open this page in Safari to record directly.
+          </p>
+        </>
       ) : (
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => {
-              // Always try in-browser AUDIO recording first (works on iOS
-              // Chrome too). Only if the mic was already denied do we open the
-              // camera as a fallback.
-              if (micFailed) recordVideoRef.current?.click();
-              else startAudioRecording();
-            }}
+            onClick={startAudioRecording}
             className="rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium py-4"
           >
             ● Record
@@ -223,20 +227,12 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         </div>
       )}
 
-      {/* Record fallback → phone camera (records video with audio). */}
-      <input
-        ref={recordVideoRef}
-        type="file"
-        accept="video/*"
-        capture
-        className="hidden"
-        onChange={(e) => onFileChosen(e.target.files?.[0])}
-      />
-      {/* Upload → video library (no `capture`). */}
+      {/* Upload accepts audio or video; explicit types (bare audio/* greys out
+          files on iOS). No `capture` attribute. */}
       <input
         ref={uploadRef}
         type="file"
-        accept="video/*"
+        accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.caf,.mov,.mp4"
         className="hidden"
         onChange={(e) => onFileChosen(e.target.files?.[0])}
       />
