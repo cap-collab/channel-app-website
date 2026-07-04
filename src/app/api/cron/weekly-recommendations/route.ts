@@ -13,7 +13,11 @@ import {
 } from "@/lib/email";
 import { getDjRecipients, getListenerRecipients } from "@/lib/channel-newsletter";
 import { fetchComingUp } from "@/lib/recommendations/coming-up";
-import { listResendEmails, buildRecipientEventMap } from "@/lib/resend-events";
+import {
+  listResendEmails,
+  buildRecipientEventMap,
+  type RecipientEvent,
+} from "@/lib/resend-events";
 import { Resend } from "resend";
 
 // Weekly recommendation email — sent Tue 11am PT (vercel.json `0 18 * * 2`).
@@ -347,6 +351,10 @@ export async function GET(request: NextRequest) {
             // Clear the open flag so a skipped Monday report run can never leak a
             // stale "opened" into a later week. The next report run re-stamps it.
             lastWeeklyRecOpenedLast: false,
+            // Whether this send was the featured-fallback (no recorded taste) vs
+            // a personalized send — so the Monday recap can break opens down by
+            // template. Only populated from the first send after this shipped.
+            lastWeeklyRecLastWasFallback: isFallback,
           },
           { merge: true },
         );
@@ -514,47 +522,80 @@ async function runReport(
     });
     const byEmail = buildRecipientEventMap(rows);
 
-    // Aggregate counts + name lists for the recap.
-    let total = 0;
-    let opened = 0;
-    const unsubscribed: string[] = [];
-    const bounced: string[] = [];
-    for (const [email, ev] of Array.from(byEmail)) {
-      total++;
-      if (ev.opened) opened++;
-      if (ev.unsubscribed) unsubscribed.push(email);
-      if (ev.bounced) bounced.push(email);
-    }
-    unsubscribed.sort();
-    bounced.sort();
+    // Load users ONCE to (a) classify each recipient DJ vs non-DJ (role==="dj")
+    // and template fallback vs personalized (lastWeeklyRecLastWasFallback, only
+    // populated from the first send after this shipped), and (b) stamp the open
+    // flag. Recipients with no users doc (extra-sources / waitlist) are non-DJ
+    // by definition and always got the featured fallback.
+    const usersSnap = await db.collection("users").get();
 
-    // Stamp `lastWeeklyRecOpenedLast` per user (matched by the doc's email).
-    // dryRun / previewTo skip all writes and the recap email — pure read.
+    // Bucketed tallies: cohort → template → {sent, opened, unsub[], bounce[]}.
+    type Bucket = { total: number; opened: number; unsubscribed: string[]; bounced: string[] };
+    const mkBucket = (): Bucket => ({ total: 0, opened: 0, unsubscribed: [], bounced: [] });
+    type Cohort = "dj" | "listener";
+    type Template = "personalized" | "fallback" | "unknown";
+    const buckets: Record<Cohort, Record<Template, Bucket>> = {
+      dj: { personalized: mkBucket(), fallback: mkBucket(), unknown: mkBucket() },
+      listener: { personalized: mkBucket(), fallback: mkBucket(), unknown: mkBucket() },
+    };
+    const overall = mkBucket();
+
+    const tally = (b: Bucket, email: string, ev: RecipientEvent) => {
+      b.total++;
+      if (ev.opened) b.opened++;
+      if (ev.unsubscribed) b.unsubscribed.push(email);
+      if (ev.bounced) b.bounced.push(email);
+    };
+
+    // Match each user doc to its Resend event; classify + tally + stamp.
     let flagged = 0;
-    if (!dryRun && !previewTo && byEmail.size > 0) {
-      const usersSnap = await db.collection("users").get();
-      let batch = db.batch();
-      let pending = 0;
-      for (const userDoc of usersSnap.docs) {
-        if (shard != null && !uidInShard(userDoc.id, shard, shardCount)) continue;
-        const email = (userDoc.data().email as string | undefined)?.toLowerCase();
-        if (!email) continue;
-        const ev = byEmail.get(email);
-        if (!ev) continue; // not in last week's send → leave prior flag as cleared
-        batch.set(userDoc.ref, { lastWeeklyRecOpenedLast: ev.opened }, { merge: true });
-        flagged++;
-        if (++pending >= 400) {
-          await batch.commit();
-          batch = db.batch();
-          pending = 0;
+    const matchedEmails = new Set<string>();
+    let batch = db.batch();
+    let pending = 0;
+    const willWrite = !dryRun && !previewTo && byEmail.size > 0;
+    for (const userDoc of usersSnap.docs) {
+      const data = userDoc.data();
+      const email = (data.email as string | undefined)?.toLowerCase();
+      if (!email) continue;
+      const ev = byEmail.get(email);
+      if (!ev) continue; // not in last week's send
+      matchedEmails.add(email);
+
+      const cohort: Cohort = data.role === "dj" ? "dj" : "listener";
+      const template: Template =
+        data.lastWeeklyRecLastWasFallback === true
+          ? "fallback"
+          : data.lastWeeklyRecLastWasFallback === false
+            ? "personalized"
+            : "unknown"; // sent before template tracking shipped
+      tally(buckets[cohort][template], email, ev);
+      tally(overall, email, ev);
+
+      // Stamp the open flag (respects shard split; skipped on dry-run/preview).
+      if (willWrite) {
+        if (shard == null || uidInShard(userDoc.id, shard, shardCount)) {
+          batch.set(userDoc.ref, { lastWeeklyRecOpenedLast: ev.opened }, { merge: true });
+          flagged++;
+          if (++pending >= 400) {
+            await batch.commit();
+            batch = db.batch();
+            pending = 0;
+          }
         }
       }
-      if (pending > 0) await batch.commit();
+    }
+    if (willWrite && pending > 0) await batch.commit();
+
+    // Recipients with NO users doc (extra-sources / waitlist) → non-DJ, fallback.
+    for (const [email, ev] of Array.from(byEmail)) {
+      if (matchedEmails.has(email)) continue;
+      tally(buckets.listener.fallback, email, ev);
+      tally(overall, email, ev);
     }
 
     // Email Cap the recap (skipped on dryRun/previewTo or an empty poll).
     let reportSent = false;
-    if (!dryRun && !previewTo && byEmail.size > 0) {
+    if (willWrite) {
       const resend = new Resend(apiKey);
       const sendDateLabel = new Date(nowMs - LAST_SEND_WINDOW_END_MS).toLocaleDateString("en-US", {
         weekday: "long",
@@ -565,19 +606,19 @@ async function runReport(
       await resend.emails.send({
         from: REPORT_FROM,
         to: REPORT_TO,
-        subject: `[weekly listening recap] ${total} sent — ${opened} opens, ${unsubscribed.length} unsubs, ${bounced.length} bounces`,
-        html: buildWeeklyRecReportHtml({
-          total,
-          opened,
-          unsubscribed,
-          bounced,
-          sendDateLabel,
-          truncated,
-        }),
+        subject: `[weekly listening recap] ${overall.total} sent — ${overall.opened} opens, ${overall.unsubscribed.length} unsubs, ${overall.bounced.length} bounces`,
+        html: buildWeeklyRecReportHtml({ overall, buckets, sendDateLabel, truncated }),
       });
       reportSent = true;
     }
 
+    // Compact per-bucket summary for the JSON response (counts only).
+    const summarize = (b: Bucket) => ({
+      sent: b.total,
+      opened: b.opened,
+      unsub: b.unsubscribed.length,
+      bounce: b.bounced.length,
+    });
     return NextResponse.json({
       mode: "report",
       dryRun,
@@ -585,12 +626,19 @@ async function runReport(
       pagesFetched,
       truncated,
       matched: byEmail.size,
-      total,
-      opened,
-      unsubscribed: unsubscribed.length,
-      bounced: bounced.length,
       flagged,
       reportSent,
+      overall: summarize(overall),
+      dj: {
+        personalized: summarize(buckets.dj.personalized),
+        fallback: summarize(buckets.dj.fallback),
+        unknown: summarize(buckets.dj.unknown),
+      },
+      listener: {
+        personalized: summarize(buckets.listener.personalized),
+        fallback: summarize(buckets.listener.fallback),
+        unknown: summarize(buckets.listener.unknown),
+      },
     });
   } catch (error) {
     console.error("[weekly-recommendations] report error:", error);
@@ -603,34 +651,79 @@ function pct(n: number, d: number): string {
   return `${((n / d) * 100).toFixed(1)}%`;
 }
 
+type ReportBucket = { total: number; opened: number; unsubscribed: string[]; bounced: string[] };
+type ReportBuckets = Record<
+  "dj" | "listener",
+  Record<"personalized" | "fallback" | "unknown", ReportBucket>
+>;
+
 function buildWeeklyRecReportHtml(s: {
-  total: number;
-  opened: number;
-  unsubscribed: string[];
-  bounced: string[];
+  overall: ReportBucket;
+  buckets: ReportBuckets;
   sendDateLabel: string;
   truncated: boolean;
 }): string {
+  const td = (v: string | number, bold = false) =>
+    `<td style="padding:6px 10px;border:1px solid #ddd;${bold ? "font-weight:bold;" : ""}">${v}</td>`;
+
+  // A row per (cohort × template); the leading label spells out both.
+  const row = (label: string, b: ReportBucket): string => {
+    if (b.total === 0) return ""; // hide empty combinations
+    return `<tr>
+      ${td(label, true)}
+      ${td(b.total)}
+      ${td(`${b.opened} (${pct(b.opened, b.total)})`)}
+      ${td(b.unsubscribed.length)}
+      ${td(b.bounced.length)}
+    </tr>`;
+  };
+
+  const cohortRows = (cohort: "dj" | "listener", cohortLabel: string): string =>
+    row(`${cohortLabel} · Personalized`, s.buckets[cohort].personalized) +
+    row(`${cohortLabel} · Fallback`, s.buckets[cohort].fallback) +
+    row(`${cohortLabel} · Unknown template`, s.buckets[cohort].unknown);
+
+  // Collect unsubs/bounces across every bucket for the detail lists.
+  const allUnsub = new Set<string>();
+  const allBounce = new Set<string>();
+  for (const cohort of ["dj", "listener"] as const) {
+    for (const tmpl of ["personalized", "fallback", "unknown"] as const) {
+      s.buckets[cohort][tmpl].unsubscribed.forEach((e) => allUnsub.add(e));
+      s.buckets[cohort][tmpl].bounced.forEach((e) => allBounce.add(e));
+    }
+  }
   const list = (title: string, emails: string[]): string =>
     emails.length === 0
       ? ""
       : `<h3 style="margin:20px 0 6px;font-size:14px;">${title} (${emails.length})</h3>
          <ul style="margin:0;padding-left:18px;font-size:13px;color:#333;">
-           ${emails.map((e) => `<li>${e}</li>`).join("")}
+           ${emails.sort().map((e) => `<li>${e}</li>`).join("")}
          </ul>`;
+
+  const anyUnknown =
+    s.buckets.dj.unknown.total > 0 || s.buckets.listener.unknown.total > 0;
+
   return `<!DOCTYPE html><html><body style="font-family:-apple-system,Arial,sans-serif;color:#111;">
     <h2 style="margin:0 0 8px;">Weekly Listening recap — send of ${s.sendDateLabel}</h2>
     <p style="margin:0 0 12px;font-size:13px;color:#555;">
-      Resend events for the last "Your Weekly Listening" send.
+      Resend events for the last "Your Weekly Listening" send, broken down by
+      audience (DJ vs listener) and template (personalized vs featured fallback).
     </p>
     <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px;">
-      <tr><td style="padding:6px 12px;border:1px solid #ddd;font-weight:bold;">Sent</td><td style="padding:6px 12px;border:1px solid #ddd;">${s.total}</td></tr>
-      <tr><td style="padding:6px 12px;border:1px solid #ddd;font-weight:bold;">Opened</td><td style="padding:6px 12px;border:1px solid #ddd;">${s.opened} (${pct(s.opened, s.total)})</td></tr>
-      <tr><td style="padding:6px 12px;border:1px solid #ddd;font-weight:bold;">Unsubscribed</td><td style="padding:6px 12px;border:1px solid #ddd;">${s.unsubscribed.length}</td></tr>
-      <tr><td style="padding:6px 12px;border:1px solid #ddd;font-weight:bold;">Bounced</td><td style="padding:6px 12px;border:1px solid #ddd;">${s.bounced.length}</td></tr>
+      <thead>
+        <tr style="background:#f6f6f6;">
+          ${td("Segment", true)}${td("Sent", true)}${td("Opened", true)}${td("Unsub", true)}${td("Bounced", true)}
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="background:#fafafa;">${td("ALL", true)}${td(s.overall.total, true)}${td(`${s.overall.opened} (${pct(s.overall.opened, s.overall.total)})`, true)}${td(s.overall.unsubscribed.length, true)}${td(s.overall.bounced.length, true)}</tr>
+        ${cohortRows("dj", "DJ")}
+        ${cohortRows("listener", "Listener")}
+      </tbody>
     </table>
-    ${list("Unsubscribed", s.unsubscribed)}
-    ${list("Bounced / complained", s.bounced)}
+    ${anyUnknown ? `<p style="margin:12px 0 0;font-size:12px;color:#888;">"Unknown template" = sent before per-send template tracking shipped; resolves next week.</p>` : ""}
+    ${list("Unsubscribed", Array.from(allUnsub))}
+    ${list("Bounced / complained", Array.from(allBounce))}
     ${s.truncated ? `<p style="margin:16px 0 0;font-size:12px;color:#b00;">⚠ Poll hit the page cap — counts may be incomplete.</p>` : ""}
     <p style="margin:20px 0 0;font-size:12px;color:#888;line-height:1.5;">
       Note: open rates count tracking-pixel hits. Apple Mail Privacy Protection
