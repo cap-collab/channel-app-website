@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { FIELD_NOTES_ADMIN_ONLY } from '@/lib/field-notes-config';
-import { requireFieldNotesAccess, getFieldNotesByAuthor } from '@/lib/field-notes';
+import { resolveSubmitCaller, getFieldNotesByAuthor } from '@/lib/field-notes';
 
-// GET — the signed-in author's own notes (any status), for the "My notes" section.
+// GET — the signed-in author's own notes (any status), for the "My notes"
+// section. Logged out → empty (nothing to show, no admin gate).
 export async function GET(request: NextRequest) {
-  const access = await requireFieldNotesAccess(request, FIELD_NOTES_ADMIN_ONLY);
+  const access = await resolveSubmitCaller(request, false);
   if (!access.ok) {
     return NextResponse.json({ error: access.error }, { status: access.status });
+  }
+  if (!access.caller) {
+    return NextResponse.json({ notes: [] });
   }
 
   try {

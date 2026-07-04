@@ -140,6 +140,9 @@ function serializeFieldNote(id: string, data: Record<string, unknown>): FieldNot
     city: (data.city as string) || '',
     caption: (data.caption as string | null) ?? null,
     transcript: (data.transcript as string | null) ?? null,
+    upvotes: (data.upvotes as number) || 0,
+    downvotes: (data.downvotes as number) || 0,
+    parentNoteId: (data.parentNoteId as string | null) ?? null,
     status: data.status as FieldNoteStatus,
     uploadStatus: (data.uploadStatus as 'uploading' | 'ready') || 'ready',
     createdAt: (data.createdAt as number) || 0,
@@ -169,8 +172,10 @@ export async function getFieldNotes(status?: FieldNoteStatus): Promise<FieldNote
   return snapshot.docs.map((doc) => serializeFieldNote(doc.id, doc.data()));
 }
 
-// Public feed: published + ready notes, newest published first. Admin fields stripped.
-export async function getPublishedFieldNotes(max = 200): Promise<FieldNoteSerialized[]> {
+// Public feed: published + ready notes, newest published first. Admin fields
+// stripped. When viewerId is given, fills each note's `myVote` with that user's
+// vote (so the UI can highlight the selected button).
+export async function getPublishedFieldNotes(max = 200, viewerId?: string | null): Promise<FieldNoteSerialized[]> {
   const db = getAdminDb();
   if (!db) throw new Error('Firestore not initialized');
 
@@ -181,10 +186,60 @@ export async function getPublishedFieldNotes(max = 200): Promise<FieldNoteSerial
     .limit(max)
     .get();
 
-  return snapshot.docs
+  const notes = snapshot.docs
     .map((doc) => serializeFieldNote(doc.id, doc.data()))
     .filter((n) => n.uploadStatus === 'ready')
     .map(stripAdminFields);
+
+  if (viewerId) {
+    await Promise.all(
+      notes.map(async (n) => {
+        const v = await db.collection(COLLECTION).doc(n.id).collection('votes').doc(viewerId).get();
+        n.myVote = v.exists ? ((v.data()?.value as 1 | -1) || 0) : 0;
+      })
+    );
+  }
+
+  return notes;
+}
+
+// Cast/toggle a vote. value: 1 (up), -1 (down), or 0 (clear). One vote per user;
+// re-voting the same direction clears it. Counts are kept denormalized on the
+// note doc via a transaction.
+export async function voteOnFieldNote(noteId: string, userId: string, value: 1 | -1 | 0): Promise<{ upvotes: number; downvotes: number; myVote: 1 | -1 | 0 }> {
+  const db = getAdminDb();
+  if (!db) throw new Error('Firestore not initialized');
+
+  const noteRef = db.collection(COLLECTION).doc(noteId);
+  const voteRef = noteRef.collection('votes').doc(userId);
+
+  return db.runTransaction(async (tx) => {
+    const [noteSnap, voteSnap] = await Promise.all([tx.get(noteRef), tx.get(voteRef)]);
+    if (!noteSnap.exists) throw new Error('Field note not found');
+    const data = noteSnap.data()!;
+    let up = (data.upvotes as number) || 0;
+    let down = (data.downvotes as number) || 0;
+    const prev = voteSnap.exists ? ((voteSnap.data()?.value as 1 | -1) || 0) : 0;
+
+    // Toggle: clicking the same direction again clears the vote.
+    const next: 1 | -1 | 0 = prev === value ? 0 : value;
+
+    // Remove the previous vote's effect.
+    if (prev === 1) up -= 1;
+    else if (prev === -1) down -= 1;
+    // Apply the new vote.
+    if (next === 1) up += 1;
+    else if (next === -1) down += 1;
+
+    up = Math.max(0, up);
+    down = Math.max(0, down);
+
+    tx.update(noteRef, { upvotes: up, downvotes: down });
+    if (next === 0) tx.delete(voteRef);
+    else tx.set(voteRef, { value: next, updatedAt: Date.now() });
+
+    return { upvotes: up, downvotes: down, myVote: next };
+  });
 }
 
 // The author's own notes (any status), newest first. Admin fields stripped
@@ -225,7 +280,7 @@ export interface CreatePendingResult {
 // supplies the pre-computed R2 key/url (built after presign) so the doc and the
 // presigned PUT target stay in lockstep.
 export async function createPendingFieldNote(
-  author: { userId: string; username: string; photoUrl?: string | null },
+  author: { userId: string; username: string; photoUrl?: string | null } | null,
   input: FieldNoteSubmitInput,
   audio: { audioKey: string; audioUrl: string; audioMimeType: string }
 ): Promise<string> {
@@ -254,9 +309,9 @@ export async function createPendingFieldNote(
   const { taggedDjKeys, taggedVenueIds, taggedCollectiveIds } = deriveTaggedKeys(djs, venues, collectives);
 
   const docRef = await db.collection(COLLECTION).add({
-    recordedByUserId: author.userId,
-    recordedByUsername: author.username,
-    recordedByPhotoUrl: author.photoUrl ?? null,
+    recordedByUserId: author?.userId ?? null,
+    recordedByUsername: author?.username ?? 'Anonymous',
+    recordedByPhotoUrl: author?.photoUrl ?? null,
 
     audioUrl: audio.audioUrl,
     audioKey: audio.audioKey,
@@ -280,6 +335,10 @@ export async function createPendingFieldNote(
     caption: input.caption?.trim() || null,
     transcript: null,
 
+    upvotes: 0,
+    downvotes: 0,
+    parentNoteId: input.parentNoteId || null,
+
     status: 'pending' as FieldNoteStatus,
     uploadStatus: 'uploading',
     createdAt: Date.now(),
@@ -292,10 +351,11 @@ export async function createPendingFieldNote(
   return docRef.id;
 }
 
-// After the client PUTs the blob to R2, flip uploadStatus to 'ready'.
+// After the client PUTs the blob to R2, flip uploadStatus to 'ready'. userId is
+// null for anonymous submissions; when the note has an owner, verify it matches.
 export async function markFieldNoteReady(
   id: string,
-  userId: string,
+  userId: string | null,
   fileExists: (key: string) => Promise<boolean>
 ): Promise<void> {
   const db = getAdminDb();
@@ -305,7 +365,7 @@ export async function markFieldNoteReady(
   const snap = await ref.get();
   if (!snap.exists) throw new Error('Field note not found');
   const data = snap.data()!;
-  if (data.recordedByUserId !== userId) throw new Error('Not authorized');
+  if (data.recordedByUserId && data.recordedByUserId !== userId) throw new Error('Not authorized');
   if (data.uploadStatus !== 'uploading') throw new Error('Field note is not in uploading state');
 
   const exists = await fileExists(data.audioKey as string);
@@ -446,6 +506,50 @@ export async function requireFieldNotesAccess(
       photoUrl: (userData.djProfile?.photoUrl as string) || (userData.photoURL as string) || null,
     },
   };
+}
+
+// Resolve the caller for the SUBMIT flow, where login is optional (anonymous
+// notes are allowed). Returns the logged-in caller when a valid token is
+// present, else an anonymous caller. While the admin testing gate is on,
+// still blocks non-admins (the whole feature is admin-only until launch).
+export async function resolveSubmitCaller(
+  request: NextRequest,
+  requireAdmin: boolean
+): Promise<{ ok: true; caller: FieldNotesCaller | null } | { ok: false; status: number; error: string }> {
+  const authHeader = request.headers.get('authorization');
+  const db = getAdminDb();
+  const auth = getAdminAuth();
+  if (!db || !auth) return { ok: false, status: 500, error: 'Server not configured' };
+
+  // No token → anonymous. Only allowed when the admin gate is OFF.
+  if (!authHeader?.startsWith('Bearer ')) {
+    if (requireAdmin) return { ok: false, status: 403, error: 'Field Notes is not available yet.' };
+    return { ok: true, caller: null };
+  }
+
+  // Token present → resolve the user (and enforce the admin gate if on).
+  try {
+    const decoded = await auth.verifyIdToken(authHeader.slice(7));
+    const userDoc = await db.collection('users').doc(decoded.uid).get();
+    const userData = userDoc.data() || {};
+    const role = userData.role as string | undefined;
+    if (requireAdmin && !isBroadcasterRole(role)) {
+      return { ok: false, status: 403, error: 'Field Notes is not available yet.' };
+    }
+    return {
+      ok: true,
+      caller: {
+        userId: decoded.uid,
+        role,
+        username: (userData.chatUsername as string) || (userData.displayName as string) || 'Listener',
+        photoUrl: (userData.djProfile?.photoUrl as string) || (userData.photoURL as string) || null,
+      },
+    };
+  } catch {
+    // Bad token — treat as anonymous (still gated when admin-only).
+    if (requireAdmin) return { ok: false, status: 403, error: 'Field Notes is not available yet.' };
+    return { ok: true, caller: null };
+  }
 }
 
 // Require admin-dashboard access specifically (for the admin list/review routes).

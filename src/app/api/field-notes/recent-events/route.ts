@@ -1,8 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { coerceSlotTimeMs } from '@/lib/broadcast-slots';
-import { FIELD_NOTES_ADMIN_ONLY } from '@/lib/field-notes-config';
-import { requireFieldNotesAccess } from '@/lib/field-notes';
 import { RecentEventCandidate } from '@/types/field-notes';
 import { EventDJRef } from '@/types/events';
 
@@ -48,14 +46,8 @@ function eventDjs(data: Record<string, unknown>): EventDJRef[] {
 
 // GET — "ongoing or last 48h" candidates from broadcast-slots + archives +
 // events, merged and sorted newest-first, for the "link a recent event" picker.
-export async function GET(request: NextRequest) {
-  if (FIELD_NOTES_ADMIN_ONLY) {
-    const access = await requireFieldNotesAccess(request, true);
-    if (!access.ok) {
-      return NextResponse.json({ error: access.error }, { status: access.status });
-    }
-  }
-
+// Open (the feature is only hidden from the menu, not secured).
+export async function GET() {
   try {
     const db = getAdminDb();
     if (!db) return NextResponse.json({ error: 'Database not configured' }, { status: 500 });

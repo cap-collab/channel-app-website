@@ -52,10 +52,10 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     // "For You" tab → the /scene recommendations page.
     items.push({ label: "For You", href: "/scene", active: currentPage === "explore" });
 
-    // "Record a field note" → the /field-notes page. While in testing
-    // (FIELD_NOTES_ADMIN_ONLY), only shown to admin-dashboard accounts.
+    // "Field notes" → the /field-notes page. The page itself is open, but the
+    // menu link is only shown to admin-dashboard accounts (hidden, not secured).
     if (!FIELD_NOTES_ADMIN_ONLY || isBroadcaster(role)) {
-      items.push({ label: "Record a field note", href: "/field-notes", active: currentPage === "field-notes" });
+      items.push({ label: "Field notes", href: "/field-notes", active: currentPage === "field-notes" });
     }
 
     // Studio - shown when signed out or when user is a DJ

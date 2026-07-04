@@ -5,6 +5,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { getDefaultCity, DEFAULT_CITY_FALLBACK } from '@/lib/city-detection';
 import { FieldNoteTagPicker } from './FieldNoteTagPicker';
 import { CapturedTake } from './FieldNoteCapture';
+import { submitFieldNote, SubmitExtras } from '@/lib/field-notes-submit';
 import { EventDJRef, EventVenueRef, CollectiveRef } from '@/types/events';
 import { RecentEventCandidate } from '@/types/field-notes';
 
@@ -50,12 +51,8 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (!user) return;
       try {
-        const token = await user.getIdToken();
-        const res = await fetch('/api/field-notes/recent-events', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch('/api/field-notes/recent-events');
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled) setCandidates(data.candidates || []);
@@ -67,7 +64,7 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, []);
 
   const canSubmit = () => {
     const hasEvent = selectedEventId || (creatingNew && newEventName.trim());
@@ -76,58 +73,24 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
   };
 
   const handleSubmit = async () => {
-    if (!user) return;
     setSubmitting(true);
     setSubmitError(null);
 
     try {
-      const token = await user.getIdToken();
       const selected = candidates.find((c) => `${c.type}:${c.id}` === selectedEventId);
-      const body: Record<string, unknown> = {
-        fileType: take.mimeType,
-        durationSec: take.durationSec,
-        djs,
-        venues,
-        collectives,
-        city,
-      };
+      const extras: SubmitExtras = { djs, venues, collectives, city };
       if (selected) {
-        if (selected.type === 'slot') body.linkedSlotId = selected.id;
-        else if (selected.type === 'archive') body.linkedArchiveId = selected.id;
-        else if (selected.type === 'event') body.linkedEventId = selected.id;
-        body.eventName = selected.name;
-        body.eventDate = selected.date;
+        if (selected.type === 'slot') extras.linkedSlotId = selected.id;
+        else if (selected.type === 'archive') extras.linkedArchiveId = selected.id;
+        else if (selected.type === 'event') extras.linkedEventId = selected.id;
+        extras.eventName = selected.name;
+        extras.eventDate = selected.date;
       } else if (creatingNew && newEventName.trim()) {
-        body.eventName = newEventName.trim();
-        body.eventDate = new Date(newEventDate + 'T12:00:00Z').getTime();
+        extras.eventName = newEventName.trim();
+        extras.eventDate = new Date(newEventDate + 'T12:00:00Z').getTime();
       }
 
-      // 1. init → presigned URL + doc id
-      const initRes = await fetch('/api/field-notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
-      });
-      const initData = await initRes.json();
-      if (!initRes.ok) throw new Error(initData.error || 'Failed to submit');
-
-      // 2. PUT blob → R2
-      const putRes = await fetch(initData.presignedUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': take.mimeType },
-        body: take.blob,
-      });
-      if (!putRes.ok) throw new Error('Upload failed. Please try again.');
-
-      // 3. complete
-      const completeRes = await fetch('/api/field-notes/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ fieldNoteId: initData.fieldNoteId }),
-      });
-      const completeData = await completeRes.json();
-      if (!completeRes.ok) throw new Error(completeData.error || 'Failed to finalize');
-
+      await submitFieldNote(take, extras, user);
       onSubmitted();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Something went wrong.');

@@ -32,6 +32,24 @@ function fmt(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// Voice-recording (microphone) glyph.
+function MicIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z" />
+    </svg>
+  );
+}
+
+// Minimal, discreet upload glyph (tray + up-arrow).
+function UploadIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15V4m0 0L8 8m4-4 4 4M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" />
+    </svg>
+  );
+}
+
 // Detect a non-Safari browser on iOS (Chrome=CriOS, Firefox=FxiOS, Edge=EdgiOS).
 // These render via WKWebView, where web-content getUserMedia is NOT wired up by
 // the host app — so inline mic recording throws NotAllowedError with no prompt
@@ -179,7 +197,7 @@ export function FieldNoteCapture({ onCaptured }: Props) {
       }
       if (secs > MAX_FIELD_NOTE_DURATION_SEC + 0.5) {
         URL.revokeObjectURL(url);
-        setError(`Field notes must be ${MAX_FIELD_NOTE_DURATION_SEC} seconds or shorter.`);
+        setError(`That clip is ${Math.round(secs)}s — field notes must be ${MAX_FIELD_NOTE_DURATION_SEC} seconds or shorter. Please trim it and try again.`);
         return;
       }
 
@@ -193,36 +211,40 @@ export function FieldNoteCapture({ onCaptured }: Props) {
       {recording ? (
         <button
           onClick={stopRecording}
-          className="w-full rounded-none bg-white text-black font-medium py-4"
+          className="w-full rounded-none bg-white text-black font-mono text-xs uppercase tracking-wider py-2.5 flex items-center justify-center gap-2"
         >
-          ■ Stop — {fmt(elapsed)} / {fmt(MAX_FIELD_NOTE_DURATION_SEC)}
+          <span className="w-2.5 h-2.5 bg-red-600 animate-pulse" />
+          Stop · {fmt(elapsed)} / {fmt(MAX_FIELD_NOTE_DURATION_SEC)}
         </button>
       ) : uploadOnly ? (
         <>
           <button
             onClick={() => uploadRef.current?.click()}
-            className="w-full rounded-none bg-red-600 hover:bg-red-500 text-white font-medium py-4"
+            className="w-full rounded-none bg-white hover:bg-zinc-200 text-black font-mono text-xs uppercase tracking-wider py-2.5 flex items-center justify-center gap-2"
           >
-            Upload a video
+            <UploadIcon /> Upload a video
           </button>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-zinc-500">
             Recording in the browser isn’t supported here. Upload a video from your
             library — or open this page in Safari to record audio directly.
           </p>
         </>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
+          {/* Record — white/high-contrast, mic icon */}
           <button
             onClick={startAudioRecording}
-            className="rounded-none bg-red-600 hover:bg-red-500 text-white font-medium py-4"
+            className="rounded-none bg-white hover:bg-zinc-200 text-black font-mono text-xs uppercase tracking-wider py-2.5 flex items-center justify-center gap-2"
           >
-            ● Record
+            <MicIcon />
+            Record
           </button>
+          {/* Upload — black/bordered, minimal upload icon */}
           <button
             onClick={() => uploadRef.current?.click()}
-            className="rounded-none bg-black hover:bg-zinc-900 border border-white/15 text-white font-medium py-4"
+            className="rounded-none bg-black hover:bg-zinc-900 border border-white/20 text-white font-mono text-xs uppercase tracking-wider py-2.5 flex items-center justify-center gap-2"
           >
-            Upload
+            <UploadIcon /> Upload
           </button>
         </div>
       )}

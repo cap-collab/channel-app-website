@@ -43,6 +43,14 @@ export interface FieldNoteDoc {
 
   transcript?: string | null;   // RESERVED — never populated in MVP
 
+  // Voting — denormalized counts; per-user vote lives in the `votes` subcollection.
+  upvotes?: number;
+  downvotes?: number;
+
+  // If this note is a voice reply, the id of the note it replies to. The reply
+  // is otherwise a normal note that inherits the parent's attributions.
+  parentNoteId?: string | null;
+
   // Workflow
   status: FieldNoteStatus;                 // starts 'pending'
   uploadStatus: 'uploading' | 'ready';
@@ -55,6 +63,7 @@ export interface FieldNoteDoc {
 
 export interface FieldNoteSerialized extends FieldNoteDoc {
   id: string;
+  myVote?: 1 | -1 | 0;   // the viewing user's vote (0/undefined = none)
 }
 
 // Shape the submit endpoint accepts from the client to build a pending note.
@@ -71,6 +80,7 @@ export interface FieldNoteSubmitInput {
   collectives?: CollectiveRef[];
   city?: string | null;
   caption?: string | null;
+  parentNoteId?: string | null;   // set for voice replies
 }
 
 // A candidate event/show for the "link to a recent event" picker.

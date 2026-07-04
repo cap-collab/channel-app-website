@@ -10,4 +10,4 @@
 export const FIELD_NOTES_ADMIN_ONLY = true;
 
 // Max length of a field note recording, in seconds.
-export const MAX_FIELD_NOTE_DURATION_SEC = 90;
+export const MAX_FIELD_NOTE_DURATION_SEC = 60;

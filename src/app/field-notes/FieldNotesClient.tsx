@@ -1,18 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
-import { AuthModal } from '@/components/AuthModal';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { normalizeUsername } from '@/lib/dj-matching';
-import { FIELD_NOTES_ADMIN_ONLY } from '@/lib/field-notes-config';
 import { FieldNoteRecorder } from '@/components/field-notes/FieldNoteRecorder';
 import { FieldNoteCapture, CapturedTake } from '@/components/field-notes/FieldNoteCapture';
 import { FieldNoteAudioPlayer } from '@/components/field-notes/FieldNoteAudioPlayer';
+import { submitFieldNote } from '@/lib/field-notes-submit';
 import { FieldNoteSerialized } from '@/types/field-notes';
 
 const SECTION_HEADER_CLS = 'text-[10px] uppercase tracking-[0.5em] text-zinc-500 mb-3 border-b border-white/10 pb-2';
@@ -46,11 +42,6 @@ function noteEntities(note: FieldNoteSerialized): Entity[] {
   return out.filter((e) => e.label);
 }
 
-interface EntityGroup extends Entity {
-  notes: FieldNoteSerialized[];
-  latest: number;
-}
-
 // Title a note by the entities it tags — for the private "your notes" rows.
 function noteTitle(note: FieldNoteSerialized): string {
   const labels = noteEntities(note).map((e) => e.label);
@@ -75,56 +66,30 @@ function StatusLabel({ status, reason }: { status: string; reason?: string | nul
   );
 }
 
-// Small entity tile matching the collective DJ/guest cards: square avatar +
-// name (no bio available on note tags). Tapping selects it to reveal its notes.
-function EntityTile({ group, active, onSelect }: { group: EntityGroup; active: boolean; onSelect: () => void }) {
-  return (
-    <button
-      onClick={onSelect}
-      className={`w-full text-left flex items-start gap-3 bg-zinc-900/50 border rounded-lg p-3 transition-colors h-[78px] overflow-hidden ${
-        active ? 'border-white/40 bg-zinc-800/50' : 'border-white/10 hover:bg-zinc-800/50'
-      }`}
-    >
-      <div className="w-14 h-14 bg-zinc-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
-        {group.photoUrl ? (
-          <Image src={group.photoUrl} alt={group.label} width={56} height={56} className="w-full h-full object-cover" unoptimized />
-        ) : (
-          <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-        )}
-      </div>
-      <div className="min-w-0 flex-1 overflow-hidden">
-        <p className="text-white font-medium text-sm truncate">{group.label}</p>
-      </div>
-    </button>
-  );
-}
-
 export function FieldNotesClient() {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
-  const { role, loading: roleLoading } = useUserRole(user);
-  const [showAuth, setShowAuth] = useState(false);
   const [take, setTake] = useState<CapturedTake | null>(null);
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<FieldNoteSerialized | null>(null);
+  const [replyBusy, setReplyBusy] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
 
   const [notes, setNotes] = useState<FieldNoteSerialized[]>([]);      // published
   const [myNotes, setMyNotes] = useState<FieldNoteSerialized[]>([]);  // author's own (any status)
   const [loading, setLoading] = useState(true);
 
-  const hasAccess = !FIELD_NOTES_ADMIN_ONLY || isBroadcaster(role);
-  const gateLoading = authLoading || roleLoading;
-
+  // Open to everyone — the feature is only hidden from the menu for non-admins.
   const loadFeed = useCallback(async () => {
-    if (!user) return;
     try {
-      const token = await user.getIdToken();
-      const [feedRes, mineRes] = await Promise.all([
-        fetch('/api/field-notes', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/field-notes/mine', { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
-      if (feedRes.ok) setNotes((await feedRes.json()).notes || []);
-      if (mineRes.ok) setMyNotes((await mineRes.json()).notes || []);
+      // Send the token when logged in so the feed includes the user's votes.
+      const token = user ? await user.getIdToken() : null;
+      const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined;
+      const feedP = fetch('/api/field-notes', { headers: authHeader }).then((r) => (r.ok ? r.json() : { notes: [] }));
+      const mineP = token
+        ? fetch('/api/field-notes/mine', { headers: authHeader }).then((r) => (r.ok ? r.json() : { notes: [] }))
+        : Promise.resolve({ notes: [] });
+      const [feed, mine] = await Promise.all([feedP, mineP]);
+      setNotes(feed.notes || []);
+      setMyNotes(mine.notes || []);
     } catch {
       /* non-fatal */
     } finally {
@@ -133,36 +98,79 @@ export function FieldNotesClient() {
   }, [user]);
 
   useEffect(() => {
-    if (hasAccess && user) loadFeed();
-    else if (!gateLoading) setLoading(false);
-  }, [hasAccess, user, gateLoading, loadFeed]);
+    if (!authLoading) loadFeed();
+  }, [authLoading, loadFeed]);
 
-  // Group published notes under EACH entity they tag. Ordered by most-recent note.
-  const entityGroups = useMemo(() => {
-    const map = new Map<string, EntityGroup>();
-    for (const note of notes) {
-      for (const e of noteEntities(note)) {
-        const g = map.get(e.key);
-        if (g) {
-          g.notes.push(note);
-          g.latest = Math.max(g.latest, note.createdAt);
-        } else {
-          map.set(e.key, { ...e, notes: [note], latest: note.createdAt });
-        }
-      }
-    }
-    const groups = Array.from(map.values());
-    groups.forEach((g) => g.notes.sort((a, b) => b.createdAt - a.createdAt));
-    return groups.sort((a, b) => b.latest - a.latest);
-  }, [notes]);
+  // Published notes, newest first — a flat community log.
+  const publishedFeed = useMemo(
+    () => [...notes].sort((a, b) => b.createdAt - a.createdAt),
+    [notes]
+  );
 
+  // Submitting is allowed anonymously — no login prompt.
   const onCaptured = (captured: CapturedTake) => {
-    if (!isAuthenticated) {
-      setShowAuth(true);
-      return;
-    }
     setTake(captured);
   };
+
+  // Vote (login required). Optimistic: apply locally, then confirm with the API.
+  const handleVote = useCallback(async (noteId: string, value: 1 | -1) => {
+    if (!user) return; // logged-out: no-op (button is disabled visually below)
+    const token = await user.getIdToken();
+    // Optimistic local update.
+    setNotes((prev) => prev.map((n) => {
+      if (n.id !== noteId) return n;
+      const prevVote = n.myVote || 0;
+      const next = prevVote === value ? 0 : value;
+      let up = n.upvotes || 0;
+      let down = n.downvotes || 0;
+      if (prevVote === 1) up -= 1; else if (prevVote === -1) down -= 1;
+      if (next === 1) up += 1; else if (next === -1) down += 1;
+      return { ...n, myVote: next, upvotes: Math.max(0, up), downvotes: Math.max(0, down) };
+    }));
+    try {
+      const cur = notes.find((n) => n.id === noteId);
+      const sendValue = (cur?.myVote || 0) === value ? 0 : value;
+      const res = await fetch(`/api/field-notes/${noteId}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ value: sendValue }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotes((prev) => prev.map((n) => n.id === noteId ? { ...n, upvotes: data.upvotes, downvotes: data.downvotes, myVote: data.myVote } : n));
+      }
+    } catch {
+      /* keep optimistic state */
+    }
+  }, [user, notes]);
+
+  // A captured voice reply → submit immediately with the parent's attributions,
+  // no attribution UI. Then refresh (it's pending until admin approval).
+  const submitReply = useCallback(async (parent: FieldNoteSerialized, captured: CapturedTake) => {
+    setReplyError(null);
+    setReplyBusy(true);
+    try {
+      await submitFieldNote(captured, {
+        djs: parent.djs,
+        venues: parent.venues,
+        collectives: parent.collectives,
+        linkedSlotId: parent.linkedSlotId,
+        linkedArchiveId: parent.linkedArchiveId,
+        linkedEventId: parent.linkedEventId,
+        eventName: parent.eventName,
+        eventDate: parent.eventDate,
+        city: parent.city,
+        parentNoteId: parent.id,
+      }, user);
+      URL.revokeObjectURL(captured.blobUrl);
+      setReplyTo(null);
+      loadFeed();
+    } catch (err) {
+      setReplyError(err instanceof Error ? err.message : 'Failed to send reply.');
+    } finally {
+      setReplyBusy(false);
+    }
+  }, [user, loadFeed]);
 
   return (
     <div className="min-h-screen text-white relative overflow-x-clip">
@@ -175,13 +183,8 @@ export function FieldNotesClient() {
           <p className="text-zinc-400 text-sm mt-2">Voice impressions from people who were there.</p>
         </div>
 
-        {gateLoading ? (
+        {authLoading ? (
           <p className="text-zinc-500 text-sm">Loading…</p>
-        ) : !hasAccess ? (
-          <div className="bg-zinc-900/50 border border-white/10 rounded-lg p-6 text-center">
-            <p className="text-white text-sm">Field Notes isn’t available yet.</p>
-            <p className="text-zinc-500 text-sm mt-1">This feature is in testing.</p>
-          </div>
         ) : (
           <>
             {/* Record / upload */}
@@ -192,55 +195,36 @@ export function FieldNotesClient() {
             {/* Public notes: a grid of small entity tiles; tap one to reveal its
                 notes (audio-only players). Anonymous — no poster shown. */}
             <section>
-              <h2 className={SECTION_HEADER_CLS}>Notes from the crowd</h2>
+              <h2 className={SECTION_HEADER_CLS}>Community log</h2>
               {loading ? (
                 <p className="text-zinc-500 text-sm">Loading…</p>
-              ) : entityGroups.length === 0 ? (
+              ) : publishedFeed.length === 0 ? (
                 <p className="text-zinc-500 text-sm">No published field notes yet.</p>
               ) : (
-                <>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {entityGroups.map((g) => (
-                      <EntityTile
-                        key={g.key}
-                        group={g}
-                        active={expandedKey === g.key}
-                        onSelect={() => setExpandedKey(expandedKey === g.key ? null : g.key)}
-                      />
-                    ))}
-                  </div>
-
-                  {expandedKey && (() => {
-                    const g = entityGroups.find((x) => x.key === expandedKey);
-                    if (!g) return null;
-                    return (
-                      <div className="mt-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-white text-sm font-medium">{g.label}</p>
-                          {g.href && (
-                            <Link href={g.href} className="text-zinc-400 hover:text-white text-xs transition-colors">
-                              View page →
-                            </Link>
-                          )}
-                        </div>
-                        {g.notes.map((note) => (
-                          <FieldNoteAudioPlayer key={`${g.key}-${note.id}`} src={note.audioUrl} dateLabel={fmtDate(note.createdAt)} />
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </>
+                <div className="space-y-3">
+                  {publishedFeed.map((note) => (
+                    <FieldNoteAudioPlayer
+                      key={note.id}
+                      src={note.audioUrl}
+                      createdAt={note.createdAt}
+                      entities={noteEntities(note)}
+                      upvotes={note.upvotes || 0}
+                      downvotes={note.downvotes || 0}
+                      myVote={note.myVote || 0}
+                      canVote={isAuthenticated}
+                      onVote={(value) => handleVote(note.id, value)}
+                      onReply={() => setReplyTo(note)}
+                    />
+                  ))}
+                </div>
               )}
             </section>
 
-            {/* Your notes — with status (only the author sees approval state). Last. */}
-            <section>
-              <h2 className={SECTION_HEADER_CLS}>Your notes</h2>
-              {loading ? (
-                <p className="text-zinc-500 text-sm">Loading…</p>
-              ) : myNotes.length === 0 ? (
-                <p className="text-zinc-500 text-sm">You haven’t sent a field note yet.</p>
-              ) : (
+            {/* Your notes — with status. Only shown when logged in AND the user
+                has at least one note. Hidden entirely otherwise. */}
+            {isAuthenticated && myNotes.length > 0 && (
+              <section>
+                <h2 className={SECTION_HEADER_CLS}>Your notes</h2>
                 <div className="divide-y divide-white/10 border border-white/10 rounded-lg overflow-hidden">
                   {myNotes.map((note) => (
                     <div key={note.id} className="flex items-center justify-between px-4 py-3 gap-3 bg-zinc-900/40">
@@ -252,8 +236,8 @@ export function FieldNotesClient() {
                     </div>
                   ))}
                 </div>
-              )}
-            </section>
+              </section>
+            )}
           </>
         )}
       </main>
@@ -272,7 +256,25 @@ export function FieldNotesClient() {
           }}
         />
       )}
-      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
+
+      {/* Voice reply: capture only, then auto-submit with the parent's
+          attributions (no attribution UI). */}
+      {replyTo && (
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4">
+          <div className="w-full sm:max-w-lg bg-gray-900 rounded-t-2xl sm:rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">Voice reply</h2>
+              <button onClick={() => setReplyTo(null)} className="text-gray-400 hover:text-white text-xl leading-none">×</button>
+            </div>
+            {replyBusy ? (
+              <p className="text-zinc-400 text-sm py-6 text-center">Sending your reply…</p>
+            ) : (
+              <FieldNoteCapture onCaptured={(captured) => submitReply(replyTo, captured)} />
+            )}
+            {replyError && <p className="text-sm text-red-400 mt-3">{replyError}</p>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generatePresignedUploadUrl, getR2PublicUrl } from '@/lib/r2-upload';
-import { FIELD_NOTES_ADMIN_ONLY } from '@/lib/field-notes-config';
 import {
-  requireFieldNotesAccess,
+  resolveSubmitCaller,
   createPendingFieldNote,
   getPublishedFieldNotes,
   isAllowedFieldNoteType,
@@ -10,17 +9,13 @@ import {
 } from '@/lib/field-notes';
 import { FieldNoteSubmitInput } from '@/types/field-notes';
 
-// GET — public feed of published notes (gated to admins while FIELD_NOTES_ADMIN_ONLY).
+// GET — public feed of published notes. Open to everyone. When a token is
+// present, fills each note's `myVote` so the UI can highlight the user's vote.
 export async function GET(request: NextRequest) {
-  if (FIELD_NOTES_ADMIN_ONLY) {
-    const access = await requireFieldNotesAccess(request, true);
-    if (!access.ok) {
-      return NextResponse.json({ error: access.error }, { status: access.status });
-    }
-  }
-
+  const access = await resolveSubmitCaller(request, false);
+  const viewerId = access.ok ? access.caller?.userId ?? null : null;
   try {
-    const notes = await getPublishedFieldNotes();
+    const notes = await getPublishedFieldNotes(200, viewerId);
     return NextResponse.json({ notes });
   } catch (error) {
     console.error('[field-notes GET]', error);
@@ -29,12 +24,13 @@ export async function GET(request: NextRequest) {
 }
 
 // POST — submit/init: validate, mint presigned R2 PUT, create the pending doc.
+// Login is optional — anonymous submissions are allowed.
 export async function POST(request: NextRequest) {
-  const access = await requireFieldNotesAccess(request, FIELD_NOTES_ADMIN_ONLY);
+  const access = await resolveSubmitCaller(request, false);
   if (!access.ok) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
-  const { caller } = access;
+  const caller = access.caller; // null when anonymous
 
   try {
     const input = (await request.json()) as FieldNoteSubmitInput;
@@ -50,12 +46,12 @@ export async function POST(request: NextRequest) {
 
     const timestamp = Date.now();
     const ext = getFieldNoteExtension(input.fileType);
-    const audioKey = `field-notes/${caller.userId}/${timestamp}.${ext}`;
+    const audioKey = `field-notes/${caller?.userId ?? 'anonymous'}/${timestamp}.${ext}`;
     const audioUrl = `${r2PublicUrl}/${audioKey}`;
 
     // Create the pending doc first (validates duration/tags/event link).
     const fieldNoteId = await createPendingFieldNote(
-      { userId: caller.userId, username: caller.username, photoUrl: caller.photoUrl },
+      caller ? { userId: caller.userId, username: caller.username, photoUrl: caller.photoUrl } : null,
       input,
       { audioKey, audioUrl, audioMimeType: input.fileType.split(';')[0].trim() }
     );
