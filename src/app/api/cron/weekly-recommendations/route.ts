@@ -316,6 +316,8 @@ export async function GET(request: NextRequest) {
           comingUp,
           isFallback,
           recipientUid: userDoc.id, // CTA deep-links the recipient's own /scene
+          openedLastWeek,
+          wasFallbackLastWeek: data.lastWeeklyRecLastWasFallback === true,
         });
 
         if (!ok) { failed++; continue; }

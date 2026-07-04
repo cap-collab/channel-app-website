@@ -1176,6 +1176,12 @@ interface WeeklyRecommendationsEmailParams {
   comingUp: WeeklyRecComingUpRow[]; // everything this week
   isFallback?: boolean; // section1/2 came from the featured matrix
   recipientUid?: string; // known recipient → CTA deep-links their own /scene
+  // Personalization state used to vary the top eyebrow title:
+  //  - opened last week      → title becomes "Really worth your time"
+  //  - was fallback last week + opened + NOT fallback now → DROP the title
+  //    entirely (we know their recs are genuinely different this time).
+  openedLastWeek?: boolean;
+  wasFallbackLastWeek?: boolean;
 }
 
 // Archive row → bundle-style row. Links to the homepage main player
@@ -1343,12 +1349,32 @@ export async function sendWeeklyRecommendationsEmail({
   comingUp,
   isFallback,
   recipientUid,
+  openedLastWeek,
+  wasFallbackLastWeek,
 }: WeeklyRecommendationsEmailParams): Promise<boolean> {
   if (!resend) {
     console.warn("Email service not configured - skipping email");
     return false;
   }
   const tz = userTimezone || "America/Los_Angeles";
+
+  // Top eyebrow title:
+  //  - DROP entirely when they were fallback last week, opened it, and are NOT
+  //    fallback now (their recs are genuinely different — let the content speak).
+  //  - else "Really worth your time" for anyone who opened last week.
+  //  - else the default: "Your Weekly Listening" on fallback, nothing on
+  //    personalized (unchanged from before).
+  const dropTitle = !!wasFallbackLastWeek && !!openedLastWeek && !isFallback;
+  const eyebrowText = dropTitle
+    ? null
+    : openedLastWeek
+      ? "Really worth your time"
+      : isFallback
+        ? "Your Weekly Listening"
+        : null;
+  const eyebrowHtml = eyebrowText
+    ? `<p style="margin: 0 0 20px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">${eyebrowText}</p>`
+    : "";
 
   // Render blocks in order — the first NON-EMPTY block omits the top divider.
   const rows3 = comingUp.map((r) => buildWeeklyComingUpRowHtml(r, tz));
@@ -1379,8 +1405,6 @@ export async function sendWeeklyRecommendationsEmail({
     // simple 2-cell table keeps spiral|star paired on desktop and stacks
     // acceptably on narrow screens.
     const gridHtml = `
-    <p style="margin: 0 0 4px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">Your Weekly Listening</p>
-    <p style="margin: 0 0 20px; font-size: 13px; color: #999;">Picked by Channel while we get to know your taste.</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
         <td width="50%" valign="top" style="padding-right: 10px;">
@@ -1448,14 +1472,15 @@ export async function sendWeeklyRecommendationsEmail({
   `;
 
   const content = `
+    ${eyebrowHtml}
     ${topBlocks}
     ${block3}
     ${ctaHtml}
   `;
 
   try {
-    // Both variants now head with "Your Weekly Listening" (fallback adds the
-    // "while we get to know your taste" subtitle), so the subject is shared.
+    // Subject is shared across variants; the in-body eyebrow varies (dropped /
+    // "Really worth your time" / "Your Weekly Listening") per personalization.
     const subject = "Your Weekly Listening";
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
