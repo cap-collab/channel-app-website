@@ -53,6 +53,10 @@ export interface LivekitHealth {
   listenerCount: number | null;
   // Derived ON/OFF status (from data already fetched + one CDN check):
   recordingOn: boolean;   // an ACTIVE egress has a file (mp4) output
+  // Which method the CURRENTLY-ACTIVE recording uses — visible to admin (no DJ
+  // console needed). 'track-composite' = clean; 'room-composite' = Chrome/NetEQ
+  // fallback; null = nothing recording.
+  recordingMethod: 'track-composite' | 'room-composite' | null;
   postingOn: boolean;     // a participant publishes an unmuted audio track
   audibleOn: boolean;     // an HLS (segments) egress is active AND live.m3u8 → 200
   webCount: number;       // participants whose identity starts "web-listener-"
@@ -295,6 +299,16 @@ function egressHasSegments(e: { request?: { value?: unknown } }): boolean {
   const v = e.request?.value as { segmentOutputs?: unknown[]; output?: { case?: string } } | undefined;
   return !!v?.segmentOutputs?.length || v?.output?.case === 'segments';
 }
+// Classify the RECORDING (file-output) egress by how it was requested:
+// trackComposite = the clean per-DJ-track path; roomComposite = the Chrome/NetEQ
+// fallback. So an admin (with no access to the DJ's console) can see live which
+// path the current recording is on.
+function egressRecordingMethod(e: { request?: { case?: string } }): 'track-composite' | 'room-composite' | null {
+  const c = e.request?.case;
+  if (c === 'trackComposite' || c === 'track') return 'track-composite';
+  if (c === 'roomComposite') return 'room-composite';
+  return null;
+}
 
 async function probeLivekit(): Promise<LivekitHealth> {
   // Read listener count independently of the LiveKit probe so a LiveKit failure
@@ -315,6 +329,7 @@ async function probeLivekit(): Promise<LivekitHealth> {
       staleEgressCount: 0,
       listenerCount,
       recordingOn: false,
+      recordingMethod: null,
       postingOn: false,
       audibleOn: false,
       webCount: 0,
@@ -342,6 +357,10 @@ async function probeLivekit(): Promise<LivekitHealth> {
     const activeEgresses = egresses.filter(isActiveEgress);
     const recordingOn = activeEgresses.some(egressHasFile);
     const hlsEgressActive = activeEgresses.some(egressHasSegments);
+    // Method of the active recording (file-output) egress — for the admin live view.
+    const recordingMethod = egressRecordingMethod(
+      (activeEgresses.find(egressHasFile) as { request?: { case?: string } }) ?? {},
+    );
     const postingOn = publishing.length > 0;
     const webCount = participants.filter((p) => p.identity.startsWith('web-listener-')).length;
     const machineryCount = participants.length - webCount;
@@ -360,6 +379,7 @@ async function probeLivekit(): Promise<LivekitHealth> {
       staleEgressCount,
       listenerCount,
       recordingOn,
+      recordingMethod,
       postingOn,
       audibleOn,
       webCount,
@@ -377,6 +397,7 @@ async function probeLivekit(): Promise<LivekitHealth> {
       staleEgressCount: 0,
       listenerCount,
       recordingOn: false,
+      recordingMethod: null,
       postingOn: false,
       audibleOn: false,
       webCount: 0,

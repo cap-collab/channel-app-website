@@ -139,7 +139,17 @@ export function TechHealthTab() {
                   } />
                   <Row label="Audio posting" value={<OnOff on={data.livekit.postingOn} />} />
                   <Row label="Audible on website" value={<OnOff on={data.livekit.audibleOn} />} />
-                  <Row label="Recording" value={<OnOff on={data.livekit.recordingOn} />} />
+                  <Row label="Recording" value={
+                    <span className="flex items-center gap-2">
+                      <OnOff on={data.livekit.recordingOn} />
+                      {data.livekit.recordingOn && data.livekit.recordingMethod === 'track-composite' && (
+                        <span className="text-green-400 font-bold" title="Recording the DJ's track directly (clean — no Chrome/NetEQ). The good path.">🎵 track-composite</span>
+                      )}
+                      {data.livekit.recordingOn && data.livekit.recordingMethod === 'room-composite' && (
+                        <span className="text-yellow-400 font-bold" title="Fallback: recording via Chrome/NetEQ (glitchier). Track wasn't found in time — the recording still works, just the old path.">⚠️ room-composite (fallback)</span>
+                      )}
+                    </span>
+                  } />
                   <Row label="Connections" value={
                     <span className="text-gray-300">
                       web: {data.livekit.webCount} · machinery: {data.livekit.machineryCount}
