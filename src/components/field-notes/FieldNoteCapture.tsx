@@ -46,7 +46,6 @@ export function FieldNoteCapture({ onCaptured }: Props) {
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [micFailed, setMicFailed] = useState(false); // mic blocked → offer camera fallback
-  const [canRecordAudio, setCanRecordAudio] = useState(true);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -55,15 +54,6 @@ export function FieldNoteCapture({ onCaptured }: Props) {
   const startedAtRef = useRef<number>(0);
   const recordVideoRef = useRef<HTMLInputElement | null>(null);
   const uploadRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    // Only gate on whether the APIs exist. In-browser audio recording works on
-    // iOS Chrome too (iOS 14.3+), so we always TRY it — no browser-identity
-    // short-circuit. Field notes are voice, so audio recording is the point.
-    const hasApis = typeof navigator.mediaDevices?.getUserMedia === 'function' &&
-      typeof MediaRecorder !== 'undefined';
-    setCanRecordAudio(hasApis);
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -83,17 +73,25 @@ export function FieldNoteCapture({ onCaptured }: Props) {
   }, []);
 
   const startAudioRecording = useCallback(async () => {
-    setError(null);
-    setMicFailed(false);
-
-    if (!canRecordAudio || (typeof window !== 'undefined' && !window.isSecureContext)) {
-      // No recording APIs (or insecure) → go straight to the video fallback UI.
+    // CRITICAL for iOS: getUserMedia must be the FIRST thing called inside the
+    // tap handler. On iOS WebKit (Safari AND Chrome), any state updates / async
+    // work before it break the user-gesture chain, so WebKit suppresses the
+    // permission prompt and the call silently fails with no prompt — which is
+    // exactly the "no prompt on iOS Chrome" symptom. So: call it immediately,
+    // synchronously, before touching React state or doing any checks.
+    if (!navigator.mediaDevices?.getUserMedia) {
       setMicFailed(true);
+      setError('Recording isn’t supported here.');
       return;
     }
 
+    const gumPromise = navigator.mediaDevices.getUserMedia({ audio: true });
+
+    setError(null);
+    setMicFailed(false);
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await gumPromise;
       streamRef.current = stream;
       const chosen = pickAudioMime();
       const mr = chosen ? new MediaRecorder(stream, { mimeType: chosen }) : new MediaRecorder(stream);
@@ -125,12 +123,12 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         if (secs >= MAX_FIELD_NOTE_DURATION_SEC) stopRecording();
       }, 250);
     } catch {
-      // Mic blocked/unavailable — offer the video-recording fallback (its own
+      // Mic blocked/unavailable. Offer the video-recording fallback (its own
       // button, so the camera opens from a fresh tap gesture on iOS).
       setError('Microphone isn’t available here — you can record a video instead.');
       setMicFailed(true);
     }
-  }, [canRecordAudio, onCaptured, stopRecording]);
+  }, [onCaptured, stopRecording]);
 
   const onFileChosen = useCallback(
     async (file: File | undefined) => {
