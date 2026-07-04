@@ -13,8 +13,10 @@ import {
 } from "@/lib/email";
 import { getDjRecipients, getListenerRecipients } from "@/lib/channel-newsletter";
 import { fetchComingUp } from "@/lib/recommendations/coming-up";
+import { listResendEmails, buildRecipientEventMap } from "@/lib/resend-events";
+import { Resend } from "resend";
 
-// Weekly recommendation email — Wed 10am PT (vercel.json `0 17 * * 3`).
+// Weekly recommendation email — sent Tue 11am PT (vercel.json `0 18 * * 2`).
 // Mirrors /scene over email per user:
 //   1. New from your favorites  (engine `favorite-artists`, max 2)
 //   2. In your scene            (engine `discovery`, max 2)
@@ -23,11 +25,25 @@ import { fetchComingUp } from "@/lib/recommendations/coming-up";
 // featured matrix (6 shows, excluding the "Intense"/very_fast tempo).
 //
 // Gating: emailNotifications.weeklyRecommendations !== false (default on).
-// No-repeat: section 1/2 picks are deduped against lastWeeklyRecShows so a user
-// doesn't see the same archive two weeks running; sends stamp the map.
 //
-// Params: ?dryRun=1 (compute, send nothing), ?previewTo=<email> (send ONE real
-// email to that address, stamp nothing), ?shard=N&shardCount=M (split the run).
+// No-repeat is OPEN-GATED. A separate `mode=report` run (Mon 10am PT) polls
+// Resend for LAST week's send and stamps `lastWeeklyRecOpenedLast` per user:
+//   - opened last week  → rotate: suppress the archives they already saw
+//     (`lastWeeklyRecShows`), surface fresh next-best, and if a section runs
+//     thin fill from `lastWeeklyRecShownIds` (what they saw, in order) rather
+//     than the featured grid.
+//   - didn't open / unknown → show the BEST picks, no dedup (they never saw the
+//     good ones, so burning them would be wrong).
+// The report run also emails Cap a recap (opens / unsubscribes / bounces).
+//
+// Subject is shared ("Your Weekly Listening") — the report run matches on it.
+const WEEKLY_REC_SUBJECT = "Your Weekly Listening";
+const REPORT_TO = "cap@channel-app.com";
+const REPORT_FROM = "Channel <djshows@channel-app.com>";
+//
+// Params: ?mode=report|backfill|send, ?dryRun=1 (compute, send nothing),
+// ?previewTo=<email> (send ONE real email to that address, stamp nothing),
+// ?shard=N&shardCount=M (split the run).
 
 export const maxDuration = 300;
 
@@ -100,11 +116,22 @@ export async function GET(request: NextRequest) {
   //   send     = read the already-persisted snapshot, send the email, generate
   //              nothing (snapshots are still fresh from the backfill run).
   //   (unset)  = legacy single-pass: generate+persist AND send (manual runs).
-  const mode = params.get("mode"); // "backfill" | "send" | null
-  const doGenerate = !dryRun && mode !== "send"; // backfill + legacy generate
-  const doSend = mode !== "backfill"; // send + legacy send
+  //   report   = poll Resend for last week's send, stamp per-user open flags,
+  //              email Cap the recap. Generates/sends NOTHING else.
+  const mode = params.get("mode"); // "report" | "backfill" | "send" | null
+  const doReport = mode === "report";
+  const doGenerate = !doReport && !dryRun && mode !== "send"; // backfill + legacy generate
+  const doSend = !doReport && mode !== "backfill"; // send + legacy send
 
   const nowMs = Date.now();
+
+  // ── REPORT MODE ──────────────────────────────────────────────────────────
+  // Runs Mon 10am PT, ~25h before Tue's send. Polls Resend for LAST week's
+  // "Your Weekly Listening" send, stamps each user's `lastWeeklyRecOpenedLast`
+  // (read by the send run to gate rotation), and emails Cap a recap.
+  if (doReport) {
+    return runReport(db, nowMs, { dryRun, previewTo, shard, shardCount });
+  }
 
   try {
     // Featured fallback matrix, built ONCE (excludes very_fast = "Intense" → 6).
@@ -204,16 +231,44 @@ export async function GET(request: NextRequest) {
         const payload = await buildScenePayload(db, userDoc.id, prebuilt);
 
         const seen = (data.lastWeeklyRecShows as Record<string, string> | undefined) || {};
+        const prevShownIds = (data.lastWeeklyRecShownIds as string[] | undefined) || [];
+        // Open-gated rotation. The Mon report run stamps `lastWeeklyRecOpenedLast`
+        // for whoever opened last week's send. Only THEY get deduped/rotated;
+        // everyone else keeps seeing the strongest picks (they never saw them).
+        const openedLastWeek = data.lastWeeklyRecOpenedLast === true;
         const pickSection = (id: string): WeeklyRecArchiveRow[] => {
           const sec = payload.sections.find((s) => s.id === id);
           if (!sec) return [];
-          return sec.archives
-            .filter((a) => !seen[a.id]) // no-repeat vs last sends
-            .slice(0, SECTION_CAP)
-            .map((a) => {
-              const band = sec.bandByArchiveId[a.id];
-              return archiveToRow(a, band?.glyphSlug || undefined);
-            });
+          const toRow = (a: ArchiveSerialized) =>
+            archiveToRow(a, sec.bandByArchiveId[a.id]?.glyphSlug || undefined);
+
+          // Didn't open (or unknown) → best top-3, NO dedup.
+          if (!openedLastWeek) {
+            return sec.archives.slice(0, SECTION_CAP).map(toRow);
+          }
+
+          // Opened → rotate: fresh next-best first (suppress carryovers they
+          // already saw). Because the snapshot regenerated overnight, `fresh`
+          // naturally surfaces this week's new/risen picks.
+          const picks = sec.archives.filter((a) => !seen[a.id]).slice(0, SECTION_CAP);
+
+          // If a section runs thin, fill from what they were PREVIOUSLY shown,
+          // in original order — not the featured grid. Scope to ids still in
+          // this section's ranked list; skip ones already picked.
+          if (picks.length < SECTION_CAP) {
+            const pickedIds = new Set(picks.map((a) => a.id));
+            const byId = new Map(sec.archives.map((a) => [a.id, a]));
+            for (const prevId of prevShownIds) {
+              if (picks.length >= SECTION_CAP) break;
+              if (pickedIds.has(prevId)) continue;
+              const a = byId.get(prevId);
+              if (a) {
+                picks.push(a);
+                pickedIds.add(prevId);
+              }
+            }
+          }
+          return picks.map(toRow);
         };
 
         let section1 = pickSection("favorite-artists");
@@ -272,14 +327,27 @@ export async function GET(request: NextRequest) {
           if (Date.parse(iso) >= cutoff) updatedSeen[id] = iso;
         }
         const nowIso = new Date(nowMs).toISOString();
+        // Ordered record of exactly what we showed (for next week's
+        // fill-from-previous). Empty on the featured-fallback send.
+        const shownIds: string[] = [];
         if (!isFallback) {
           for (const r of [...section1, ...section2]) {
             const a = allArchives.find((x) => x.slug === r.slug);
-            if (a) updatedSeen[a.id] = nowIso;
+            if (a) {
+              updatedSeen[a.id] = nowIso;
+              shownIds.push(a.id);
+            }
           }
         }
         await userDoc.ref.set(
-          { lastWeeklyRecEmailAt: FieldValue.serverTimestamp(), lastWeeklyRecShows: updatedSeen },
+          {
+            lastWeeklyRecEmailAt: FieldValue.serverTimestamp(),
+            lastWeeklyRecShows: updatedSeen,
+            lastWeeklyRecShownIds: shownIds,
+            // Clear the open flag so a skipped Monday report run can never leak a
+            // stale "opened" into a later week. The next report run re-stamps it.
+            lastWeeklyRecOpenedLast: false,
+          },
           { merge: true },
         );
       } catch (e) {
@@ -410,4 +478,164 @@ export async function GET(request: NextRequest) {
     console.error("[weekly-recommendations] Error:", error);
     return NextResponse.json({ error: "Failed to process weekly recommendations" }, { status: 500 });
   }
+}
+
+// ── Report run ─────────────────────────────────────────────────────────────
+// The last weekly send went out the PREVIOUS Tuesday ~11am PT — i.e. roughly
+// 6 days before this Monday run. Window generously around that (created_at is
+// newest-first) so we catch the whole batch without pulling unrelated weeks.
+const LAST_SEND_WINDOW_START_MS = 8 * 24 * 60 * 60 * 1000; // now-8d
+const LAST_SEND_WINDOW_END_MS = 4 * 24 * 60 * 60 * 1000; //  now-4d
+
+type ReportParams = {
+  dryRun: boolean;
+  previewTo?: string;
+  shard: number | null;
+  shardCount: number;
+};
+
+async function runReport(
+  db: FirebaseFirestore.Firestore,
+  nowMs: number,
+  { dryRun, previewTo, shard, shardCount }: ReportParams,
+): Promise<NextResponse> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json({ error: "Resend not configured" }, { status: 500 });
+  }
+
+  try {
+    // Poll Resend for last week's "Your Weekly Listening" sends (read-only).
+    const { rows, truncated, pagesFetched } = await listResendEmails({
+      apiKey,
+      sinceMs: nowMs - LAST_SEND_WINDOW_START_MS,
+      untilMs: nowMs - LAST_SEND_WINDOW_END_MS,
+      subject: WEEKLY_REC_SUBJECT,
+    });
+    const byEmail = buildRecipientEventMap(rows);
+
+    // Aggregate counts + name lists for the recap.
+    let total = 0;
+    let opened = 0;
+    const unsubscribed: string[] = [];
+    const bounced: string[] = [];
+    for (const [email, ev] of Array.from(byEmail)) {
+      total++;
+      if (ev.opened) opened++;
+      if (ev.unsubscribed) unsubscribed.push(email);
+      if (ev.bounced) bounced.push(email);
+    }
+    unsubscribed.sort();
+    bounced.sort();
+
+    // Stamp `lastWeeklyRecOpenedLast` per user (matched by the doc's email).
+    // dryRun / previewTo skip all writes and the recap email — pure read.
+    let flagged = 0;
+    if (!dryRun && !previewTo && byEmail.size > 0) {
+      const usersSnap = await db.collection("users").get();
+      let batch = db.batch();
+      let pending = 0;
+      for (const userDoc of usersSnap.docs) {
+        if (shard != null && !uidInShard(userDoc.id, shard, shardCount)) continue;
+        const email = (userDoc.data().email as string | undefined)?.toLowerCase();
+        if (!email) continue;
+        const ev = byEmail.get(email);
+        if (!ev) continue; // not in last week's send → leave prior flag as cleared
+        batch.set(userDoc.ref, { lastWeeklyRecOpenedLast: ev.opened }, { merge: true });
+        flagged++;
+        if (++pending >= 400) {
+          await batch.commit();
+          batch = db.batch();
+          pending = 0;
+        }
+      }
+      if (pending > 0) await batch.commit();
+    }
+
+    // Email Cap the recap (skipped on dryRun/previewTo or an empty poll).
+    let reportSent = false;
+    if (!dryRun && !previewTo && byEmail.size > 0) {
+      const resend = new Resend(apiKey);
+      const sendDateLabel = new Date(nowMs - LAST_SEND_WINDOW_END_MS).toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        timeZone: "America/Los_Angeles",
+      });
+      await resend.emails.send({
+        from: REPORT_FROM,
+        to: REPORT_TO,
+        subject: `[weekly listening recap] ${total} sent — ${opened} opens, ${unsubscribed.length} unsubs, ${bounced.length} bounces`,
+        html: buildWeeklyRecReportHtml({
+          total,
+          opened,
+          unsubscribed,
+          bounced,
+          sendDateLabel,
+          truncated,
+        }),
+      });
+      reportSent = true;
+    }
+
+    return NextResponse.json({
+      mode: "report",
+      dryRun,
+      previewTo: previewTo ?? null,
+      pagesFetched,
+      truncated,
+      matched: byEmail.size,
+      total,
+      opened,
+      unsubscribed: unsubscribed.length,
+      bounced: bounced.length,
+      flagged,
+      reportSent,
+    });
+  } catch (error) {
+    console.error("[weekly-recommendations] report error:", error);
+    return NextResponse.json({ error: "Failed to run weekly rec report" }, { status: 500 });
+  }
+}
+
+function pct(n: number, d: number): string {
+  if (d === 0) return "—";
+  return `${((n / d) * 100).toFixed(1)}%`;
+}
+
+function buildWeeklyRecReportHtml(s: {
+  total: number;
+  opened: number;
+  unsubscribed: string[];
+  bounced: string[];
+  sendDateLabel: string;
+  truncated: boolean;
+}): string {
+  const list = (title: string, emails: string[]): string =>
+    emails.length === 0
+      ? ""
+      : `<h3 style="margin:20px 0 6px;font-size:14px;">${title} (${emails.length})</h3>
+         <ul style="margin:0;padding-left:18px;font-size:13px;color:#333;">
+           ${emails.map((e) => `<li>${e}</li>`).join("")}
+         </ul>`;
+  return `<!DOCTYPE html><html><body style="font-family:-apple-system,Arial,sans-serif;color:#111;">
+    <h2 style="margin:0 0 8px;">Weekly Listening recap — send of ${s.sendDateLabel}</h2>
+    <p style="margin:0 0 12px;font-size:13px;color:#555;">
+      Resend events for the last "Your Weekly Listening" send.
+    </p>
+    <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px;">
+      <tr><td style="padding:6px 12px;border:1px solid #ddd;font-weight:bold;">Sent</td><td style="padding:6px 12px;border:1px solid #ddd;">${s.total}</td></tr>
+      <tr><td style="padding:6px 12px;border:1px solid #ddd;font-weight:bold;">Opened</td><td style="padding:6px 12px;border:1px solid #ddd;">${s.opened} (${pct(s.opened, s.total)})</td></tr>
+      <tr><td style="padding:6px 12px;border:1px solid #ddd;font-weight:bold;">Unsubscribed</td><td style="padding:6px 12px;border:1px solid #ddd;">${s.unsubscribed.length}</td></tr>
+      <tr><td style="padding:6px 12px;border:1px solid #ddd;font-weight:bold;">Bounced</td><td style="padding:6px 12px;border:1px solid #ddd;">${s.bounced.length}</td></tr>
+    </table>
+    ${list("Unsubscribed", s.unsubscribed)}
+    ${list("Bounced / complained", s.bounced)}
+    ${s.truncated ? `<p style="margin:16px 0 0;font-size:12px;color:#b00;">⚠ Poll hit the page cap — counts may be incomplete.</p>` : ""}
+    <p style="margin:20px 0 0;font-size:12px;color:#888;line-height:1.5;">
+      Note: open rates count tracking-pixel hits. Apple Mail Privacy Protection
+      pre-loads images for iOS / macOS Mail users, which inflates opens.
+      Unsubscribes and bounces are not affected.
+    </p>
+  </body></html>`;
 }

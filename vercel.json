@@ -9,12 +9,16 @@
       "schedule": "0 10 * * *"
     },
     {
+      "path": "/api/cron/weekly-recommendations?mode=report",
+      "schedule": "0 17 * * 1"
+    },
+    {
       "path": "/api/cron/weekly-recommendations?mode=backfill",
       "schedule": "45 8 * * 2"
     },
     {
       "path": "/api/cron/weekly-recommendations?mode=send",
-      "schedule": "45 18 * * 2"
+      "schedule": "0 18 * * 2"
     },
     {
       "path": "/api/cron/complete-expired-slots",
