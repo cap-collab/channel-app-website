@@ -284,21 +284,27 @@ export async function GET(request: NextRequest) {
         const isFallback = section1.length === 0 && section2.length === 0;
         if (isFallback) section1 = featuredRows;
 
-        const comingUp: WeeklyRecComingUpRow[] = payload.comingUp.map((r) => ({
-          showName: r.eventName || r.djName || "",
-          djName: r.djName,
-          djUsername: r.djUsername,
-          djPhotoUrl: r.djPhotoUrl,
-          showImageUrl: r.eventPhotoUrl,
-          stationId: "broadcast",
-          startTime: new Date(r.startMs).toISOString(),
-          isIRL: r.isIRL,
-          linkUrl: r.isIRL ? (r.ticketUrl || r.linkUrl) : r.linkUrl,
-          // IRL lineups: full artist list for the sub-line (capped in the row builder).
-          allDjArtists: r.isIRL
-            ? (r.allDjs || []).map((d) => d.djName).filter((n): n is string => !!n)
-            : undefined,
-        }));
+        // Cap IRL events at the 5 nearest (mirrors the go-live email). Online
+        // shows are unbounded — comingUp is chronological, so keep every online
+        // row and only the first 5 IRL rows.
+        let irlSeen = 0;
+        const comingUp: WeeklyRecComingUpRow[] = payload.comingUp
+          .filter((r) => (r.isIRL ? ++irlSeen <= 5 : true))
+          .map((r) => ({
+            showName: r.eventName || r.djName || "",
+            djName: r.djName,
+            djUsername: r.djUsername,
+            djPhotoUrl: r.djPhotoUrl,
+            showImageUrl: r.eventPhotoUrl,
+            stationId: "broadcast",
+            startTime: new Date(r.startMs).toISOString(),
+            isIRL: r.isIRL,
+            linkUrl: r.isIRL ? (r.ticketUrl || r.linkUrl) : r.linkUrl,
+            // IRL lineups: full artist list for the sub-line (capped in the row builder).
+            allDjArtists: r.isIRL
+              ? (r.allDjs || []).map((d) => d.djName).filter((n): n is string => !!n)
+              : undefined,
+          }));
 
         if (dryRun && !previewTo) {
           if (trace.length < traceLimit) {
@@ -399,20 +405,25 @@ export async function GET(request: NextRequest) {
           const cached = comingUpByCity.get(city);
           if (cached) return cached;
           const rows = await fetchComingUp({ db, nowMs, userCity: city, engagedDjUsernames: new Set<string>() });
-          const mapped: WeeklyRecComingUpRow[] = rows.map((r) => ({
-            showName: r.eventName || r.djName || "",
-            djName: r.djName,
-            djUsername: r.djUsername,
-            djPhotoUrl: r.djPhotoUrl,
-            showImageUrl: r.eventPhotoUrl,
-            stationId: "broadcast",
-            startTime: new Date(r.startMs).toISOString(),
-            isIRL: r.isIRL,
-            linkUrl: r.isIRL ? (r.ticketUrl || r.linkUrl) : r.linkUrl,
-            allDjArtists: r.isIRL
-              ? (r.allDjs || []).map((d) => d.djName).filter((n): n is string => !!n)
-              : undefined,
-          }));
+          // Cap IRL events at the 5 nearest (mirrors the go-live email + the
+          // per-user path above). Online shows stay unbounded.
+          let irlSeen = 0;
+          const mapped: WeeklyRecComingUpRow[] = rows
+            .filter((r) => (r.isIRL ? ++irlSeen <= 5 : true))
+            .map((r) => ({
+              showName: r.eventName || r.djName || "",
+              djName: r.djName,
+              djUsername: r.djUsername,
+              djPhotoUrl: r.djPhotoUrl,
+              showImageUrl: r.eventPhotoUrl,
+              stationId: "broadcast",
+              startTime: new Date(r.startMs).toISOString(),
+              isIRL: r.isIRL,
+              linkUrl: r.isIRL ? (r.ticketUrl || r.linkUrl) : r.linkUrl,
+              allDjArtists: r.isIRL
+                ? (r.allDjs || []).map((d) => d.djName).filter((n): n is string => !!n)
+                : undefined,
+            }));
           comingUpByCity.set(city, mapped);
           return mapped;
         };
