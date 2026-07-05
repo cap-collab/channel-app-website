@@ -1073,7 +1073,7 @@ export async function GET(request: NextRequest) {
           rows = all
             .filter((r) => r.isIRL)
             .sort((a, b) => a.startMs - b.startMs)
-            .slice(0, 3)
+            .slice(0, 5)
             .map((r) => ({
               eventName: r.eventName || r.djName || "",
               djName: r.djName,
@@ -1323,11 +1323,15 @@ export async function GET(request: NextRequest) {
         // schedule row with no djUsername AND no djName has no artist to show,
         // so it shouldn't appear in the "coming up this week" list.
         if (!show.djUsername?.trim() && !show.dj?.trim()) { reject("no-dj"); continue; }
-        // Lighter gate than the primary's failsUniversalGates: a schedule row
-        // is identified by its showName/showImageUrl, so it does NOT require a
-        // resolved djUserId (restreams/anchors often lack one until they go
-        // live). Still skip muted DJs and the recipient's own / their
-        // collective's slots.
+        // Require the online show to be linked to a real DJ ID (resolved user
+        // UID), OR to be a collective slot (collective owner UIDs). Drops
+        // unlinked slots / restreams / anchors with no resolved DJ — same rule
+        // the primary show's universal gate uses (see failsUniversalGates).
+        if (!show.djUserId && !(show.collectiveOwnerUserIds && show.collectiveOwnerUserIds.length > 0)) {
+          reject("no-dj-id");
+          continue;
+        }
+        // Still skip muted DJs and the recipient's own / their collective's slots.
         if (show.djUsername && goLiveMutes.has(show.djUsername)) { reject("muted"); continue; }
         if (show.djUserId && show.djUserId === userId) { reject("own-slot"); continue; }
         if (show.collectiveOwnerUserIds?.includes(userId)) { reject("own-collective"); continue; }

@@ -267,15 +267,22 @@ function normalizeDjUsername(djUsername: string): string {
 //     chatUsernameNormalized) 404s and the image blanks. It's also just the
 //     most show-accurate art when a DJ uploaded one.
 //  2. proxy by djUsername — clean, short URL email clients handle reliably
-//     (no long tokens, spaces, or special chars).
-//  3. raw djPhotoUrl fallback.
+//     (no long tokens, spaces, or special chars). ONLY used when we KNOW a
+//     photo exists (djPhotoUrl was resolved). Returning the proxy for a DJ
+//     with no photo (or a collective slug) yields a 404 → broken <img>, so we
+//     must not guess it — return undefined instead so the caller renders the
+//     initial-letter placeholder.
+//  3. raw djPhotoUrl fallback (photo exists but no username to proxy it).
 function getEmailPhotoUrl(
   djUsername?: string,
   djPhotoUrl?: string,
   showImageUrl?: string,
 ): string | undefined {
   if (showImageUrl) return showImageUrl;
-  if (djUsername) {
+  // Only proxy when a real photo is known to exist; the proxy is a clean
+  // delivery URL for that photo, not a blind guess. No photo → undefined so
+  // the caller builds the initial-letter placeholder instead of a broken img.
+  if (djUsername && djPhotoUrl) {
     return `https://channel-app.com/api/dj-photo/${normalizeDjUsername(djUsername)}`;
   }
   if (djPhotoUrl) return djPhotoUrl;

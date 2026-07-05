@@ -107,6 +107,10 @@ interface SharedEvent {
   venueName?: string;
   collectiveSlug?: string; // event's collective (venue-collective or first linked), for a /dj/<slug> link
   djs: Array<{ djName?: string; djUsername?: string; djPhotoUrl?: string }>;
+  // Image fallback when the event has no `photo`: the tagged (first lineup) DJ's
+  // profile photo, then the event creator's. Resolved in loadComingUpShared.
+  taggedDjPhotoUrl?: string;
+  creatorPhotoUrl?: string;
 }
 export interface ComingUpShared {
   online: SharedOnlineCand[];
@@ -217,6 +221,7 @@ export async function loadComingUpShared(db: Firestore, nowMs: number): Promise<
     .where("date", "<=", windowEnd)
     .get();
   const events: SharedEvent[] = [];
+  const eventCreatorByIdx: Array<string | undefined> = []; // createdBy uid per event
   for (const doc of evSnap.docs) {
     const data = doc.data();
     const location = data.location as string | undefined;
@@ -238,7 +243,57 @@ export async function loadComingUpShared(db: Firestore, nowMs: number): Promise<
         undefined,
       djs: (data.djs as SharedEvent["djs"]) || [],
     });
+    eventCreatorByIdx.push((data.createdBy as string) || undefined);
   }
+
+  // Resolve event image fallbacks (when the event has no `photo`):
+  //  - tagged DJ = first lineup DJ's profile photo (by chatUsernameNormalized)
+  //  - creator   = the event creator's (createdBy uid) profile photo
+  // Event docs store lineups as {djUsername, djName} with NO photo, so these
+  // must be looked up. Batched over the users/pending collections.
+  const evNorms = Array.from(
+    new Set(
+      events
+        .map((e) => normUser(e.djs[0]?.djUsername))
+        .filter((n): n is string => !!n && !djPhotoByNorm.has(n)),
+    ),
+  );
+  for (const coll of ["users", "pending-dj-profiles"]) {
+    for (let i = 0; i < evNorms.length; i += 10) {
+      const batch = evNorms.slice(i, i + 10).filter((n) => !djPhotoByNorm.has(n));
+      if (batch.length === 0) continue;
+      const results = await Promise.all(
+        batch.map((n) => db.collection(coll).where("chatUsernameNormalized", "==", n).limit(1).get()),
+      );
+      results.forEach((snap, j) => {
+        if (snap.empty) return;
+        const photo = (snap.docs[0].data().djProfile as Record<string, unknown> | undefined)?.photoUrl as
+          | string
+          | undefined;
+        if (photo) djPhotoByNorm.set(batch[j], photo);
+      });
+    }
+  }
+  // Creator photos by uid (getAll on the distinct createdBy uids).
+  const creatorPhotoByUid = new Map<string, string>();
+  const creatorUids = Array.from(new Set(eventCreatorByIdx.filter((u): u is string => !!u)));
+  for (let i = 0; i < creatorUids.length; i += 10) {
+    const batch = creatorUids.slice(i, i + 10);
+    const refs = batch.map((uid) => db.collection("users").doc(uid));
+    const snaps = await db.getAll(...refs);
+    snaps.forEach((snap) => {
+      if (!snap.exists) return;
+      const photo = (snap.data()?.djProfile as Record<string, unknown> | undefined)?.photoUrl as
+        | string
+        | undefined;
+      if (photo) creatorPhotoByUid.set(snap.id, photo);
+    });
+  }
+  events.forEach((e, idx) => {
+    e.taggedDjPhotoUrl = djPhotoByNorm.get(normUser(e.djs[0]?.djUsername)) || undefined;
+    const creatorUid = eventCreatorByIdx[idx];
+    e.creatorPhotoUrl = creatorUid ? creatorPhotoByUid.get(creatorUid) : undefined;
+  });
 
   const data: ComingUpShared = { online, events };
   sharedCache = { at: nowMs, data };
@@ -303,12 +358,14 @@ export function filterComingUpForUser(
     rows.push({
       djUsername: firstDj?.djUsername || "",
       djName: firstDj?.djName || ev.name,
-      djPhotoUrl: firstDj?.djPhotoUrl,
+      djPhotoUrl: firstDj?.djPhotoUrl || ev.taggedDjPhotoUrl,
       eventName: ev.name,
       location: ev.location,
       ticketUrl: ev.ticketLink || "",
       date: ptDate(ev.date),
-      eventPhotoUrl: ev.photo,
+      // Image fallback: event photo → tagged (first) DJ's photo → creator's.
+      // Undefined when none → email builder renders the initial-letter avatar.
+      eventPhotoUrl: ev.photo || ev.taggedDjPhotoUrl || ev.creatorPhotoUrl,
       venueName: ev.venueName,
       allDjs: djs.filter((d) => d.djUsername && d.djName).map((d) => ({ djUsername: d.djUsername!, djName: d.djName! })),
       reason,
