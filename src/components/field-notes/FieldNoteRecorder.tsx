@@ -36,6 +36,7 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
   const [collectives, setCollectives] = useState<CollectiveRef[]>([]);
 
   const [city, setCity] = useState(DEFAULT_CITY_FALLBACK);
+  const [permission, setPermission] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -99,7 +100,7 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
   const canSubmit = () => {
     const hasEvent = Boolean(selectedEventId || eventFreeText.trim() || eventQuery.trim());
     const hasTag = djs.length > 0 || venues.length > 0 || collectives.length > 0;
-    return hasEvent || hasTag;
+    return permission && (hasEvent || hasTag);
   };
 
   const handleSubmit = async () => {
@@ -107,7 +108,7 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
     setSubmitError(null);
 
     try {
-      const extras: SubmitExtras = { djs, venues, collectives, city };
+      const extras: SubmitExtras = { djs, venues, collectives, city, usagePermission: permission };
       const selected = candidates.find((c) => `${c.type}:${c.id}` === selectedEventId);
       // Any text still in the box counts as free-text on submit (no extra tap).
       const freeText = eventFreeText.trim() || eventQuery.trim();
@@ -208,7 +209,18 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
           {submitError && <p className="text-sm text-red-400">{submitError}</p>}
         </div>
 
-        <div className="px-4 py-3 border-t border-[#333] shrink-0">
+        <div className="px-4 py-3 border-t border-[#333] shrink-0 space-y-3">
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={permission}
+              onChange={(e) => setPermission(e.target.checked)}
+              className="mt-0.5 shrink-0 accent-white w-4 h-4"
+            />
+            <span className="text-xs text-gray-300 leading-snug">
+              I give Channel permission to use this recording on Channel and across its social channels.
+            </span>
+          </label>
           <button
             onClick={handleSubmit}
             disabled={!canSubmit() || submitting}
@@ -216,7 +228,9 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
           >
             {submitting ? 'Submitting…' : 'Submit for review'}
           </button>
-          <p className="text-xs text-gray-500 text-center mt-2">Every field note is reviewed before it appears.</p>
+          <p className="text-[11px] text-gray-500 text-center leading-snug">
+            By submitting, you confirm this is your recording and that you have the right to share it.
+          </p>
         </div>
       </div>
     </div>

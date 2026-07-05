@@ -51,6 +51,9 @@ export interface FieldNoteDoc {
   // is otherwise a normal note that inherits the parent's attributions.
   parentNoteId?: string | null;
 
+  // Whether the submitter granted Channel usage rights (the submit checkbox).
+  usagePermission?: boolean;
+
   // Workflow
   status: FieldNoteStatus;                 // starts 'pending'
   uploadStatus: 'uploading' | 'ready';
@@ -81,6 +84,7 @@ export interface FieldNoteSubmitInput {
   city?: string | null;
   caption?: string | null;
   parentNoteId?: string | null;   // set for voice replies
+  usagePermission?: boolean;      // user granted Channel usage rights
 }
 
 // A candidate event/show for the "link to a recent event" picker.

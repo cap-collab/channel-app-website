@@ -13,6 +13,7 @@ export interface SubmitExtras {
   eventDate?: number | null;
   city?: string | null;
   parentNoteId?: string | null;
+  usagePermission?: boolean;   // user granted Channel usage rights at submit
 }
 
 // The single 3-step submit used by BOTH the recorder and voice replies, so the

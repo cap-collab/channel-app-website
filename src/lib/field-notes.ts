@@ -143,6 +143,7 @@ function serializeFieldNote(id: string, data: Record<string, unknown>): FieldNot
     upvotes: (data.upvotes as number) || 0,
     downvotes: (data.downvotes as number) || 0,
     parentNoteId: (data.parentNoteId as string | null) ?? null,
+    usagePermission: (data.usagePermission as boolean) ?? false,
     status: data.status as FieldNoteStatus,
     uploadStatus: (data.uploadStatus as 'uploading' | 'ready') || 'ready',
     createdAt: (data.createdAt as number) || 0,
@@ -338,6 +339,7 @@ export async function createPendingFieldNote(
     upvotes: 0,
     downvotes: 0,
     parentNoteId: input.parentNoteId || null,
+    usagePermission: input.usagePermission === true,
 
     status: 'pending' as FieldNoteStatus,
     uploadStatus: 'uploading',
