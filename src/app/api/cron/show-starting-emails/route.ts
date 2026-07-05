@@ -1107,10 +1107,13 @@ export async function GET(request: NextRequest) {
       // Daily cap: at most one go-live email per user per local calendar day.
       // Checked BEFORE per-show matching so a capped user short-circuits the
       // whole loop. Rolls over at user's local midnight, not UTC.
+      // Bypassed for the previewTo recipient (dry-run only) so an admin can
+      // always pull a preview even if they already got a real email today.
+      const isPreviewRecipient = !!previewTo && userEmail.toLowerCase() === previewTo;
       const userTz = (userData.timezone as string) || "America/Los_Angeles";
       const todayKey = startDayKey(now.getTime(), userTz);
       const lastDate = userData.lastShowStartingEmailDate as string | undefined;
-      if (lastDate === todayKey) { skipped++; continue; }
+      if (lastDate === todayKey && !isPreviewRecipient) { skipped++; continue; }
 
       // Dedup: track which show occurrences we've already emailed about
       // Key: showId (e.g. "nts1-2026-02-05T22:00:00Z") → timestamp
