@@ -18,7 +18,7 @@ export default function TermsPage() {
       <p className="last-updated">
         Channel Media, Inc.
         <br />
-        Last updated: March 2026
+        Last updated: July 2026
       </p>
 
       <h2>1. Acceptance of Terms</h2>
@@ -39,6 +39,10 @@ export default function TermsPage() {
         <li>view public pages for DJs, collectives, venues, and events (e.g. /dj/[username])</li>
         <li>interact with public chat rooms associated with DJs or radio stations</li>
         <li>discover show schedules, metadata, and listener indicators</li>
+        <li>
+          submit and discover short voice recordings (&ldquo;Field Notes&rdquo;) associated with
+          DJs, events, venues, or collectives
+        </li>
         <li>access external links shared by DJs (including promotional or support links)</li>
         <li>receive optional notifications and emails</li>
         <li>save favorites, watchlists, and searches</li>
@@ -48,8 +52,8 @@ export default function TermsPage() {
         <li>user preferences (such as selected cities or genres), or</li>
         <li>estimated location derived from the device or browser when available</li>
       </ul>
-      <p>Users may adjust their preferences in settings.</p>
-      <p>Channel does not own or control the content streamed by third-party radios or DJs.</p>
+      <p>Users may adjust their preferences in Settings.</p>
+      <p>Channel does not own or control the content streamed by third-party radio stations or DJs.</p>
 
       <h2>4. Accounts &amp; Authentication</h2>
 
@@ -146,7 +150,7 @@ export default function TermsPage() {
       </ul>
       <p>Violations may result in content removal, account restriction, or loss of access.</p>
 
-      <h2>9. User-Generated Content &amp; Chats</h2>
+      <h2>9. User-Generated Content</h2>
 
       <h3>9.1 Chat Rooms</h3>
       <p>Chat rooms on Channel may be associated with either:</p>
@@ -156,16 +160,41 @@ export default function TermsPage() {
       </ul>
       <p>Chat messages:</p>
       <ul>
-        <li>are public</li>
-        <li>are visible to other users</li>
-        <li>may persist beyond a single broadcast session</li>
+        <li>are public;</li>
+        <li>are visible to other users; and</li>
+        <li>may persist beyond a single broadcast session.</li>
       </ul>
 
-      <h3>9.2 Responsibility for Messages</h3>
-      <p>You are responsible for any content you post.</p>
+      <h3>9.2 Responsibility for User Content</h3>
+      <p>You are responsible for any content you submit or post on Channel.</p>
       <p>
-        Channel does not endorse or verify user-generated content and may remove content that
-        violates these Terms or Community Guidelines.
+        Channel does not endorse or verify user-generated content and may remove, restrict, or
+        moderate content that violates these Terms or the Community Guidelines.
+      </p>
+
+      <h3>9.3 Field Notes</h3>
+      <p>
+        Channel may allow users and guests to submit short voice recordings (&ldquo;Field
+        Notes&rdquo;) describing experiences at live events, DJ performances, venues, festivals, or
+        other music-related experiences.
+      </p>
+      <p>Field Notes are subject to manual moderation before publication.</p>
+      <p>Approved Field Notes may appear on:</p>
+      <ul>
+        <li>Field Notes pages</li>
+        <li>DJ pages</li>
+        <li>event pages</li>
+        <li>venue pages</li>
+        <li>collective pages</li>
+        <li>or other areas of the Channel platform.</li>
+      </ul>
+      <p>
+        Field Notes may also be featured in editorial content, recap shows, newsletters, social
+        media, or other promotional materials.
+      </p>
+      <p>
+        Submission of a Field Note is governed by the applicable Field Notes Submission Terms, which
+        are presented and accepted at the time of submission.
       </p>
 
       <h2>10. Automated Activity Messages</h2>
@@ -218,7 +247,7 @@ export default function TermsPage() {
       <ul>
         <li>broadcast interruptions or failures</li>
         <li>accuracy of DJ profile information</li>
-        <li>user-generated content or chat messages</li>
+        <li>user-generated content, including chat messages and Field Notes</li>
         <li>third-party services or external links</li>
         <li>transactions conducted outside of Channel</li>
         <li>data loss or unauthorized account access</li>
