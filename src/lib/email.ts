@@ -266,20 +266,21 @@ function normalizeDjUsername(djUsername: string): string {
 //     collective slug, so the /api/dj-photo proxy (keyed on a user's
 //     chatUsernameNormalized) 404s and the image blanks. It's also just the
 //     most show-accurate art when a DJ uploaded one.
-//  2. proxy by djUsername — clean, short URL email clients handle reliably
-//     (no long tokens, spaces, or special chars). The proxy does its OWN photo
-//     lookup by chatUsernameNormalized and 404s if there's none, so a real DJ
-//     (e.g. "BB Shaine" → "bbshaine") resolves even when the row didn't carry a
-//     djPhotoUrl. Collective slugs 404 here — but a collective slot always has
-//     showImageUrl, so it never reaches this branch.
-//  3. raw djPhotoUrl fallback.
+//  2. proxy by djUsername — clean, short URL email clients handle reliably.
+//     ONLY used when a photo is known to exist (djPhotoUrl resolved). The proxy
+//     404s for a DJ with no photo (or a collective slug) → broken <img>, so we
+//     never proxy blindly: no known photo → return undefined so the caller
+//     renders the initial-letter placeholder. The cron resolves djPhotoUrl for
+//     every show (solo → profile photo; collective → showImageUrl = collective
+//     picture) so this has the signal it needs.
+//  3. raw djPhotoUrl fallback (photo exists, no username to proxy through).
 function getEmailPhotoUrl(
   djUsername?: string,
   djPhotoUrl?: string,
   showImageUrl?: string,
 ): string | undefined {
   if (showImageUrl) return showImageUrl;
-  if (djUsername) {
+  if (djUsername && djPhotoUrl) {
     return `https://channel-app.com/api/dj-photo/${normalizeDjUsername(djUsername)}`;
   }
   if (djPhotoUrl) return djPhotoUrl;

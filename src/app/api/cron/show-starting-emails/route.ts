@@ -335,7 +335,7 @@ export async function GET(request: NextRequest) {
     // inline per slot when the schedule has many slots.
     const collectiveOwnerInfoBySlug = new Map<
       string,
-      { ownerUids: string[]; ownerUsernames: string[] }
+      { ownerUids: string[]; ownerUsernames: string[]; photoUrl?: string }
     >();
     const candidateSlugs = new Set<string>();
     for (const s of [...broadcastSlots, ...scheduledBroadcastSlots]) {
@@ -354,7 +354,8 @@ export async function GET(request: NextRequest) {
           1,
         );
         if (collectives.length === 0) continue;
-        const ownerUids = (collectives[0].data.owners as string[] | undefined) || [];
+        const cData = collectives[0].data;
+        const ownerUids = (cData.owners as string[] | undefined) || [];
         const ownerUsernames: string[] = [];
         for (const uid of ownerUids) {
           const u = await getUser(uid);
@@ -362,7 +363,12 @@ export async function GET(request: NextRequest) {
             || (u?.chatUsername as string | undefined);
           if (cu) ownerUsernames.push(cu);
         }
-        collectiveOwnerInfoBySlug.set(slug, { ownerUids, ownerUsernames });
+        // Collective picture — used as the show image fallback when a collective
+        // slot has no cover art (its djUsername is a slug, so the DJ-photo proxy
+        // would 404). Field is `photo`, with photoUrl/image variants.
+        const photoUrl =
+          (cData.photo as string) || (cData.photoUrl as string) || (cData.image as string) || undefined;
+        collectiveOwnerInfoBySlug.set(slug, { ownerUids, ownerUsernames, photoUrl });
       }
     }
 
@@ -395,7 +401,10 @@ export async function GET(request: NextRequest) {
         stationName: "Channel Radio",
         showId: `broadcast-${slot.id}`,
         djUsername: data.djUsername as string | undefined,
-        showImageUrl: (data.showImageUrl as string) || undefined,
+        // Cover art → collective picture (for collective slots whose slug can't
+        // resolve a DJ photo). DJ-solo shows have no collective info, so this
+        // stays their real showImageUrl (or undefined → DJ-photo proxy).
+        showImageUrl: (data.showImageUrl as string) || collectiveInfo?.photoUrl || undefined,
         djUserId: (data.liveDjUserId as string) || (data.djUserId as string) || undefined,
         collectiveOwnerUsernames: collectiveInfo?.ownerUsernames.length
           ? collectiveInfo.ownerUsernames
@@ -431,7 +440,10 @@ export async function GET(request: NextRequest) {
         stationName: "Channel Radio",
         showId: `broadcast-${slot.id}`,
         djUsername: data.djUsername as string | undefined,
-        showImageUrl: (data.showImageUrl as string) || undefined,
+        // Cover art → collective picture (for collective slots whose slug can't
+        // resolve a DJ photo). DJ-solo shows have no collective info, so this
+        // stays their real showImageUrl (or undefined → DJ-photo proxy).
+        showImageUrl: (data.showImageUrl as string) || collectiveInfo?.photoUrl || undefined,
         djUserId: (data.liveDjUserId as string) || (data.djUserId as string) || undefined,
         collectiveOwnerUsernames: collectiveInfo?.ownerUsernames.length
           ? collectiveInfo.ownerUsernames
@@ -687,6 +699,18 @@ export async function GET(request: NextRequest) {
       if (!show.djUsername && (effectiveProfileUsername || show.additionalProfileUsernames?.length)) {
         show.djUsername = effectiveProfileUsername || show.additionalProfileUsernames![0];
       }
+    }
+
+    // 4a. Resolve the DJ photo for shows the loop above skipped because they
+    // already had a djUsername (broadcast slots always do). The email image
+    // helper proxies a DJ photo ONLY when we know one exists — so a solo DJ
+    // with no resolvable photo (and no cover) falls through to the placeholder
+    // instead of a broken proxy image. Collective slugs won't resolve here and
+    // keep their collective-picture showImageUrl (set at slot-build time).
+    for (const show of allMatchableShows) {
+      if (show.djPhotoUrl || !show.djUsername) continue;
+      const profile = djNameToProfile.get(normalizeForLookup(show.djUsername));
+      if (profile?.photoUrl) show.djPhotoUrl = profile.photoUrl;
     }
 
     // 4b. Build affiliated-artist sets per live show.
