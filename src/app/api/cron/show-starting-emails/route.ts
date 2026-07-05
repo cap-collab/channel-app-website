@@ -701,13 +701,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 4a. Resolve the DJ photo for shows the loop above skipped because they
-    // already had a djUsername (broadcast slots always do). The email image
+    // 4a. Resolve the DJ photo for broadcast/schedule shows (their djUsername is
+    // already set, so the profile loop above skipped them). The email image
     // helper proxies a DJ photo ONLY when we know one exists — so a solo DJ
     // with no resolvable photo (and no cover) falls through to the placeholder
     // instead of a broken proxy image. Collective slugs won't resolve here and
     // keep their collective-picture showImageUrl (set at slot-build time).
-    for (const show of allMatchableShows) {
+    // Covers BOTH the matchable set AND the weekly bundle (weeklyBroadcastShows,
+    // built by pushScheduleRow, which doesn't set djPhotoUrl).
+    for (const show of [...allMatchableShows, ...weeklyBroadcastShows]) {
       if (show.djPhotoUrl || !show.djUsername) continue;
       const profile = djNameToProfile.get(normalizeForLookup(show.djUsername));
       if (profile?.photoUrl) show.djPhotoUrl = profile.photoUrl;
