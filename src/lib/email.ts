@@ -1177,7 +1177,7 @@ interface WeeklyRecommendationsEmailParams {
   isFallback?: boolean; // section1/2 came from the featured matrix
   recipientUid?: string; // known recipient → CTA deep-links their own /scene
   // Personalization state used to vary the top eyebrow title:
-  //  - opened last week      → title becomes "Really worth your time"
+  //  - opened last week      → title becomes "Worth your time"
   //  - was fallback last week + opened + NOT fallback now → DROP the title
   //    entirely (we know their recs are genuinely different this time).
   openedLastWeek?: boolean;
@@ -1361,7 +1361,7 @@ export async function sendWeeklyRecommendationsEmail({
   // Top eyebrow title:
   //  - DROP entirely when they were fallback last week, opened it, and are NOT
   //    fallback now (their recs are genuinely different — let the content speak).
-  //  - else "Really worth your time" for anyone who opened last week.
+  //  - else "Worth your time" for anyone who opened last week.
   //  - else the default: "Your Weekly Listening" on fallback, nothing on
   //    personalized (unchanged from before).
   const dropTitle = !!wasFallbackLastWeek && !!openedLastWeek && !isFallback;
@@ -1371,7 +1371,7 @@ export async function sendWeeklyRecommendationsEmail({
   } else if (openedLastWeek) {
     // Openers get a centered, black headline styled like our previous
     // "Your Weekly Listening" title (18px/600), 20% smaller → 14px.
-    eyebrowHtml = `<p style="margin: 0 0 20px; font-size: 14px; font-weight: 600; color: #1a1a1a; line-height: 1.3; text-align: center;">Really worth your time</p>`;
+    eyebrowHtml = `<p style="margin: 0 0 20px; font-size: 14px; font-weight: 600; color: #1a1a1a; line-height: 1.3; text-align: center;">Worth your time</p>`;
   } else if (isFallback) {
     // Non-opener fallback keeps the small grey monospace eyebrow.
     eyebrowHtml = `<p style="margin: 0 0 20px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">Your Weekly Listening</p>`;
@@ -1481,7 +1481,7 @@ export async function sendWeeklyRecommendationsEmail({
 
   try {
     // Subject is shared across variants; the in-body eyebrow varies (dropped /
-    // "Really worth your time" / "Your Weekly Listening") per personalization.
+    // "Worth your time" / "Your Weekly Listening") per personalization.
     const subject = "Your Weekly Listening";
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
