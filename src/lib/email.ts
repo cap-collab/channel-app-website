@@ -1793,10 +1793,10 @@ export async function sendBroadcast2HourReminderEmail({
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 12px 0 0;">
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;"><strong>&#8226; If the signal gets too hot, it WILL cause clipping and glitches in the recording. MAKE SURE YOU STAY IN THE GREEN, and have a little breathing room for when the music will naturally get hot.</strong></td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;"><strong>&#8226; If the signal gets too hot, it WILL cause clipping and glitches in the recording. MAKE SURE YOU STAY IN THE GREEN,</strong> and have a little breathing room for when the music will naturally get hot.</td>
             </tr>
             <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;"><strong>&#8226; Once live, double check AUDIO LEVELS ARE MOVING on your go live page. If they don't, REFRESH your page and restart the go live process.</strong></td>
+              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;"><strong>&#8226; Once live, double check AUDIO LEVELS ARE MOVING</strong> on your go live page. If they don't, REFRESH your page and restart the go live process.</td>
             </tr>
             <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; Select Stereo stream optimization if you're sending a stereo signal from your interface.</td>
