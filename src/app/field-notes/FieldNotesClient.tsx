@@ -180,9 +180,10 @@ export function FieldNotesClient() {
     setTake(captured);
   };
 
-  // Vote. Logged out → open the sign-in/up modal. Optimistic when logged in.
+  // Vote. Not signed in (or only an anonymous Firebase session) → open the
+  // sign-in/up modal. Optimistic when signed in with a real account.
   const handleVote = useCallback(async (noteId: string, value: 1 | -1) => {
-    if (!user) {
+    if (!isAuthenticated || !user) {
       setShowAuth(true);
       return;
     }
@@ -213,7 +214,7 @@ export function FieldNotesClient() {
     } catch {
       /* keep optimistic state */
     }
-  }, [user, notes]);
+  }, [user, isAuthenticated, notes]);
 
   // A captured voice reply → submit immediately with the parent's attributions,
   // no attribution UI. Then refresh (it's pending until admin approval).
