@@ -218,7 +218,17 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
               className="mt-0.5 shrink-0 accent-white w-4 h-4"
             />
             <span className="text-xs text-gray-300 leading-snug">
-              I give Channel permission to use this recording on Channel and across its social channels.
+              I give Channel permission to publish my recording and agree to the{' '}
+              <a
+                href="/field-notes-terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="underline hover:text-white"
+              >
+                Field Notes Terms
+              </a>
+              .
             </span>
           </label>
           <button
