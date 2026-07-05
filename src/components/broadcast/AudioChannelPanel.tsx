@@ -158,27 +158,6 @@ export function AudioChannelPanel({
           );
         })}
       </div>
-
-      {/* Persistent Stereo warning — amber, educational routing checklist.
-          The red conflict warning lives above the GO LIVE button, not here. */}
-      {choice === 'stereo' && (
-        <div className="mt-3 bg-amber-900/40 border border-amber-700 text-amber-200 text-xs px-3 py-2 rounded-lg">
-          <p className="font-semibold">
-            ⚠️ Use Stereo only if your mixer is sending true left and right audio channels.
-          </p>
-          <p className="mt-1">This usually means:</p>
-          <ul className="list-disc list-inside mt-0.5 space-y-0.5">
-            <li>2 separate outputs from your mixer</li>
-            <li>2 inputs into your audio interface</li>
-            <li>your mixer is NOT set to mono</li>
-          </ul>
-          <p className="mt-1">
-            If the same mono signal is being sent to both channels, listeners may hear
-            echoing or overlapping audio during your stream.
-          </p>
-          <p className="mt-1">Not sure? stay on mono</p>
-        </div>
-      )}
     </div>
   );
 }
