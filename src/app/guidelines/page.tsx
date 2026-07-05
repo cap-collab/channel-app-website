@@ -18,13 +18,13 @@ export default function GuidelinesPage() {
       <p className="last-updated">
         Channel Media, Inc.
         <br />
-        Last updated: March 2026
+        Last updated: July 2026
       </p>
 
       <p>
         Channel exists to support DJ culture, live radio, and shared music experiences. These
-        guidelines apply to listeners, chat participants, DJs, and anyone interacting with public
-        content on Channel.
+        guidelines apply to listeners, chat participants, DJs, Field Notes contributors, and anyone
+        interacting with public content on Channel.
       </p>
       <p>These rules apply across the platform, including:</p>
       <ul>
@@ -33,6 +33,7 @@ export default function GuidelinesPage() {
         <li>DJ profile pages</li>
         <li>collective, venue, and event pages</li>
         <li>live broadcasts and recordings</li>
+        <li>Field Notes</li>
       </ul>
       <p>Violations may result in content removal, restrictions, or account suspension.</p>
 
@@ -122,7 +123,21 @@ export default function GuidelinesPage() {
       </ul>
       <p>Channel may edit or remove content that violates these guidelines.</p>
 
-      <h2>9. External Links</h2>
+      <h2>9. Field Notes</h2>
+      <p>Field Notes are personal voice recordings submitted by members of the Channel community.</p>
+      <p>When submitting a Field Note, you must:</p>
+      <ul>
+        <li>submit only recordings you created or have permission to share;</li>
+        <li>
+          respect the privacy of others and obtain any permissions required to record or share
+          identifiable voices where required by applicable law;
+        </li>
+        <li>avoid misleading, fabricated, abusive, illegal, or infringing content.</li>
+      </ul>
+      <p>All Field Notes are manually reviewed before publication.</p>
+      <p>Channel may approve, reject, edit, feature, or remove any Field Note at its discretion.</p>
+
+      <h2>10. External Links</h2>
       <p>Channel may allow DJs and users to share external links.</p>
       <p>You may not use Channel to promote or link to content that involves:</p>
       <ul>
@@ -135,7 +150,7 @@ export default function GuidelinesPage() {
       <p>You are responsible for the links you share.</p>
       <p>Channel may remove links or restrict access if they violate these guidelines.</p>
 
-      <h2>10. Moderation</h2>
+      <h2>11. Moderation</h2>
       <p>Moderation is primarily manual.</p>
       <p>Channel may take actions including:</p>
       <ul>
@@ -147,7 +162,7 @@ export default function GuidelinesPage() {
       </ul>
       <p>Moderation decisions are made at Channel&apos;s discretion to maintain platform safety.</p>
 
-      <h2>11. Reporting</h2>
+      <h2>12. Reporting</h2>
       <p>You can report issues through:</p>
       <ul>
         <li>shake-to-report (mobile)</li>
