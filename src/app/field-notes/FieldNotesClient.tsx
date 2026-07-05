@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
+import { AuthModal } from '@/components/AuthModal';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { normalizeUsername } from '@/lib/dj-matching';
 import { FieldNoteRecorder } from '@/components/field-notes/FieldNoteRecorder';
@@ -112,6 +113,7 @@ function StatusLabel({ status, reason }: { status: string; reason?: string | nul
 export function FieldNotesClient() {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const [take, setTake] = useState<CapturedTake | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
   const [replyTo, setReplyTo] = useState<FieldNoteSerialized | null>(null);
   const [replyBusy, setReplyBusy] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
@@ -178,9 +180,12 @@ export function FieldNotesClient() {
     setTake(captured);
   };
 
-  // Vote (login required). Optimistic: apply locally, then confirm with the API.
+  // Vote. Logged out → open the sign-in/up modal. Optimistic when logged in.
   const handleVote = useCallback(async (noteId: string, value: 1 | -1) => {
-    if (!user) return; // logged-out: no-op (button is disabled visually below)
+    if (!user) {
+      setShowAuth(true);
+      return;
+    }
     const token = await user.getIdToken();
     // Optimistic local update.
     setNotes((prev) => prev.map((n) => {
@@ -279,7 +284,6 @@ export function FieldNotesClient() {
                           upvotes={note.upvotes || 0}
                           downvotes={note.downvotes || 0}
                           myVote={note.myVote || 0}
-                          canVote={isAuthenticated}
                           onVote={(value) => handleVote(note.id, value)}
                           onReply={() => setReplyTo(note)}
                         />
@@ -331,10 +335,10 @@ export function FieldNotesClient() {
           attributions (no attribution UI). */}
       {replyTo && (
         <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4">
-          <div className="w-full sm:max-w-lg bg-gray-900 rounded-t-2xl sm:rounded-2xl p-5">
+          <div className="w-full sm:max-w-lg bg-zinc-900 border border-white/10 rounded-t-2xl sm:rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Voice reply</h2>
-              <button onClick={() => setReplyTo(null)} className="text-gray-400 hover:text-white text-xl leading-none">×</button>
+              <button onClick={() => setReplyTo(null)} className="text-zinc-400 hover:text-white text-xl leading-none">×</button>
             </div>
             {replyBusy ? (
               <p className="text-zinc-400 text-sm py-6 text-center">Sending your reply…</p>
@@ -345,6 +349,8 @@ export function FieldNotesClient() {
           </div>
         </div>
       )}
+
+      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
     </div>
   );
 }

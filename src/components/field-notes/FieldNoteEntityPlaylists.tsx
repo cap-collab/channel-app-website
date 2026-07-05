@@ -60,7 +60,7 @@ export function FieldNoteEntityPlaylists({ notes }: Props) {
 
   return (
     <section>
-      <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
+      <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide mb-3">
         Listen to notes about…
       </h2>
       <div className="space-y-2">
@@ -69,11 +69,11 @@ export function FieldNoteEntityPlaylists({ notes }: Props) {
           return (
             <div
               key={g.key}
-              className="flex items-center justify-between rounded-lg bg-gray-800/60 px-4 py-3"
+              className="flex items-center justify-between rounded-lg bg-zinc-800/60 px-4 py-3"
             >
               <div className="min-w-0">
                 <p className="text-white font-medium truncate">{g.label}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-zinc-500">
                   {g.notes.length} note{g.notes.length === 1 ? '' : 's'}
                 </p>
               </div>

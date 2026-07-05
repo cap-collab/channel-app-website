@@ -8,7 +8,6 @@ interface Props {
   upvotes: number;
   downvotes: number;
   myVote: 1 | -1 | 0;
-  canVote: boolean;                  // false when logged out — buttons dimmed
   onVote: (value: 1 | -1) => void;   // parent handles auth + API + optimistic state
   onReply: () => void;               // parent opens the voice-reply capture
 }
@@ -28,7 +27,7 @@ function fmtDate(ms: number): string {
 // black header with mono technical data, transparent body with a square brand
 // thumbnail + bold-sans note text, and a line-style seek player. Self-contained
 // local <audio> so it plays the audio track of an audio OR video file.
-export function FieldNoteAudioPlayer({ src, createdAt, upvotes, downvotes, myVote, canVote, onVote, onReply }: Props) {
+export function FieldNoteAudioPlayer({ src, createdAt, upvotes, downvotes, myVote, onVote, onReply }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -99,10 +98,8 @@ export function FieldNoteAudioPlayer({ src, createdAt, upvotes, downvotes, myVot
         <div className="flex items-center gap-1">
           <button
             onClick={() => onVote(1)}
-            disabled={!canVote}
             aria-label="Upvote"
-            title={canVote ? 'Upvote' : 'Sign in to vote'}
-            className={`flex items-center gap-1 px-1.5 py-0.5 font-mono text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${myVote === 1 ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+            className={`flex items-center gap-1 px-1.5 py-0.5 font-mono text-xs transition-colors ${myVote === 1 ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
           >
             <svg className="w-4 h-4" fill={myVote === 1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m0-14 6 6m-6-6-6 6" />
@@ -111,10 +108,8 @@ export function FieldNoteAudioPlayer({ src, createdAt, upvotes, downvotes, myVot
           </button>
           <button
             onClick={() => onVote(-1)}
-            disabled={!canVote}
             aria-label="Downvote"
-            title={canVote ? 'Downvote' : 'Sign in to vote'}
-            className={`flex items-center gap-1 px-1.5 py-0.5 font-mono text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${myVote === -1 ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+            className={`flex items-center gap-1 px-1.5 py-0.5 font-mono text-xs transition-colors ${myVote === -1 ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
           >
             <svg className="w-4 h-4" fill={myVote === -1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 14 6-6m-6 6-6-6" />

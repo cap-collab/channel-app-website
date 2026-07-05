@@ -136,7 +136,7 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
       <div className="w-full sm:max-w-lg bg-black border border-[#333] max-h-[85dvh] flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#333] shrink-0">
           <h2 className="text-sm font-mono uppercase tracking-wider text-white">Field note details</h2>
-          <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-white text-2xl leading-none px-1">×</button>
+          <button onClick={onClose} aria-label="Close" className="text-zinc-400 hover:text-white text-2xl leading-none px-1">×</button>
         </div>
 
         <div className="px-4 py-4 space-y-5 overflow-y-auto">
@@ -145,9 +145,9 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
           <section className="space-y-2">
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <audio controls src={take.blobUrl} className="w-full" />
-            <div className="flex items-center justify-between text-sm text-gray-400">
+            <div className="flex items-center justify-between text-sm text-zinc-400">
               <span>{fmt(take.durationSec)}</span>
-              <button onClick={onClose} className="text-gray-400 hover:text-white underline">
+              <button onClick={onClose} className="text-zinc-400 hover:text-white underline">
                 Discard &amp; re-record
               </button>
             </div>
@@ -156,12 +156,12 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
           {/* Event — same picker logic as DJs: search recent events, free-text
               fallback that commits on blur/submit (no "add as new" button). */}
           <section>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Event</label>
+            <label className="block text-sm font-medium text-zinc-300 mb-1">Event</label>
             {selectedEventId || eventFreeText ? (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-gray-800 text-white text-sm px-3 py-1">
+                <span className="inline-flex items-center gap-1 rounded-full bg-zinc-800 text-white text-sm px-3 py-1">
                   {selectedEventLabel}
-                  <button type="button" onClick={clearEvent} className="text-gray-300 hover:text-white leading-none" aria-label="Remove event">×</button>
+                  <button type="button" onClick={clearEvent} className="text-zinc-300 hover:text-white leading-none" aria-label="Remove event">×</button>
                 </span>
               </div>
             ) : (
@@ -172,16 +172,16 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
                   onChange={(e) => setEventQuery(e.target.value)}
                   onBlur={commitEventFreeText}
                   placeholder="Search an event, or type a new name"
-                  className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-base"
+                  className="w-full rounded-lg bg-zinc-800 text-white px-3 py-2 text-base"
                 />
                 {filteredEvents.length > 0 && (
-                  <div className="mt-1 rounded-lg bg-gray-800 divide-y divide-gray-700 overflow-hidden">
+                  <div className="mt-1 rounded-lg bg-zinc-800 divide-y divide-white/10 overflow-hidden">
                     {filteredEvents.map((c) => (
                       <button
                         key={`${c.type}:${c.id}`}
                         type="button"
                         onClick={() => pickEvent(c)}
-                        className="block w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700"
+                        className="block w-full text-left px-3 py-2 text-sm text-white hover:bg-zinc-700"
                       >
                         {c.name}{c.djs[0] ? ` · ${c.djs[0].djName}` : ''}
                       </button>
@@ -204,7 +204,7 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
             }}
           />
 
-          <p className="text-xs text-gray-500">City: {city}</p>
+          <p className="text-xs text-zinc-500">City: {city}</p>
 
           {submitError && <p className="text-sm text-red-400">{submitError}</p>}
         </div>
@@ -217,7 +217,7 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
               onChange={(e) => setPermission(e.target.checked)}
               className="mt-0.5 shrink-0 accent-white w-4 h-4"
             />
-            <span className="text-xs text-gray-300 leading-snug">
+            <span className="text-xs text-zinc-300 leading-snug">
               I give Channel permission to publish my recording and agree to the{' '}
               <a
                 href="/field-notes-terms"
@@ -238,7 +238,7 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
           >
             {submitting ? 'Submitting…' : 'Submit for review'}
           </button>
-          <p className="text-[11px] text-gray-500 text-center leading-snug">
+          <p className="text-[11px] text-zinc-500 text-center leading-snug">
             By submitting, you confirm this is your recording and that you have the right to share it.
           </p>
         </div>

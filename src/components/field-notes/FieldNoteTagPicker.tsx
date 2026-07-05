@@ -14,12 +14,12 @@ interface Props {
 
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-gray-700 text-white text-sm px-3 py-1">
+    <span className="inline-flex items-center gap-1 rounded-full bg-zinc-700 text-white text-sm px-3 py-1">
       {label}
       <button
         type="button"
         onClick={onRemove}
-        className="text-gray-300 hover:text-white leading-none"
+        className="text-zinc-300 hover:text-white leading-none"
         aria-label={`Remove ${label}`}
       >
         ×
@@ -108,7 +108,7 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
     <div className="space-y-4">
       {/* DJs */}
       <div>
-        <label className="block text-sm font-medium text-gray-300 mb-1">DJ(s)</label>
+        <label className="block text-sm font-medium text-zinc-300 mb-1">DJ(s)</label>
         {djs.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {djs.map((d) => (
@@ -129,17 +129,17 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
             }
           }}
           placeholder={loading ? 'Loading DJs…' : 'Search a DJ, or type a new name'}
-          className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-base"
+          className="w-full rounded-lg bg-zinc-800 text-white px-3 py-2 text-base"
         />
         {filteredDjs.length > 0 && (
-          <div className="mt-1 rounded-lg bg-gray-800 divide-y divide-gray-700 overflow-hidden">
+          <div className="mt-1 rounded-lg bg-zinc-800 divide-y divide-white/10 overflow-hidden">
             {filteredDjs.map((o) => (
               <button
                 key={o.djUserId || o.djUsername || o.label}
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => addDj(o)}
-                className="block w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700"
+                className="block w-full text-left px-3 py-2 text-sm text-white hover:bg-zinc-700"
               >
                 {o.label}
               </button>
@@ -150,7 +150,7 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
 
       {/* Venue / Collective — one field for both */}
       <div>
-        <label className="block text-sm font-medium text-gray-300 mb-1">Venue / Collective</label>
+        <label className="block text-sm font-medium text-zinc-300 mb-1">Venue / Collective</label>
         {(venues.length > 0 || collectives.length > 0) && (
           <div className="flex flex-wrap gap-2 mb-2">
             {venues.map((v) => (
@@ -179,17 +179,17 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
             }
           }}
           placeholder={loading ? 'Loading…' : 'Search a venue or collective, or type a new name'}
-          className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-base"
+          className="w-full rounded-lg bg-zinc-800 text-white px-3 py-2 text-base"
         />
         {filteredPlaces.length > 0 && (
-          <div className="mt-1 rounded-lg bg-gray-800 divide-y divide-gray-700 overflow-hidden">
+          <div className="mt-1 rounded-lg bg-zinc-800 divide-y divide-white/10 overflow-hidden">
             {filteredPlaces.map((p) => (
               <button
                 key={`${p.kind}:${p.kind === 'venue' ? p.opt.venueId : p.opt.collectiveId}`}
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => (p.kind === 'venue' ? addVenue(p.opt) : addCollective(p.opt))}
-                className="flex items-center justify-between w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700"
+                className="flex items-center justify-between w-full text-left px-3 py-2 text-sm text-white hover:bg-zinc-700"
               >
                 <span>{p.opt.label}</span>
                 <span className="text-[10px] uppercase tracking-wider text-zinc-500">{p.kind}</span>
