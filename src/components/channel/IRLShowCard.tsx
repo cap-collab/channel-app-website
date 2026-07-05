@@ -51,6 +51,21 @@ export function IRLShowCard({
   // Compact /scene layout vs full discovery layout.
   const sceneLayout = profileMode || suggestionBridge !== undefined;
 
+  // Minimalist start time in the viewer's device timezone: "3 PM", "3:30 PM"
+  // (never "3:00 PM"). Only shown when the show carries an exact start (startMs).
+  const startTimeLabel = (() => {
+    if (typeof show.startMs !== 'number') return null;
+    const parts = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).formatToParts(new Date(show.startMs));
+    const hour = parts.find((p) => p.type === 'hour')?.value ?? '';
+    const minute = parts.find((p) => p.type === 'minute')?.value ?? '00';
+    const dayPeriod = (parts.find((p) => p.type === 'dayPeriod')?.value ?? '').toUpperCase();
+    return minute === '00' ? `${hour} ${dayPeriod}` : `${hour}:${minute} ${dayPeriod}`;
+  })();
+
   // ~20%-larger overlay vocabulary (only when enlargeOverlay is set):
   //   badge/date 11.9px→14.3px, badge icon 14px→16.8px,
   //   DJ name text-sm(14px)→16.8px, show name 10px→12px.
@@ -102,6 +117,7 @@ export function IRLShowCard({
           <span className="hidden md:inline">
             {new Date(show.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
           </span>
+          {startTimeLabel && <span>{` · ${startTimeLabel}`}</span>}
         </span>
       </div>
       {/* Bottom left: DJ/collective name + (scene mode) show name, else genres. */}

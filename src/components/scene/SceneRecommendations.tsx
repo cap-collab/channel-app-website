@@ -78,19 +78,49 @@ export function SceneRecommendations({
   const [diveBackIn, setDiveBackIn] = useState<ArchiveSerialized[]>([]);
   const [diveExpanded, setDiveExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Coming-up is (nearly) user-agnostic, so we can render it from the fast public
+  // endpoint the moment it lands — without waiting on the heavy personalized `me`
+  // request. Tracked separately from `loading` so the section shows first.
+  const [comingUpLoaded, setComingUpLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    // True once the authoritative personalized coming-up has arrived — so a
+    // slower public prefetch can't clobber it (whichever lands first wins for
+    // personalized, and the prefetch only fills the gap before it).
+    let personalizedComingUpApplied = false;
     (async () => {
       setLoading(true);
+      setComingUpLoaded(false);
+
+      // Kick off the fast, public coming-up immediately (logged-in own-scene only —
+      // the deep-link and logged-out paths already fetch it without an auth wait).
+      // This lets the "Coming up" section paint before the personalized `me`
+      // response (which recomputes it with the city gate + mutes) resolves.
+      if (!targetToken && isAuthenticated && user) {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        fetch(`/api/recommendations/featured?tz=${encodeURIComponent(tz)}`)
+          .then((r) => (r.ok ? (r.json() as Promise<FeaturedResponse>) : null))
+          .then((data) => {
+            // Don't clobber an already-arrived personalized coming-up.
+            if (cancelled || !data || personalizedComingUpApplied) return;
+            setComingUp(data.comingUp || []);
+            setComingUpTitle(data.comingUpTitle || 'Coming up this week');
+            setComingUpLoaded(true);
+          })
+          .catch(() => {});
+      }
+
       try {
         // Apply a personalized payload (own /scene or email-deep-linked recipient).
         const applyPersonalized = (data: MeResponse) => {
+          personalizedComingUpApplied = true;
           setSections(data.sections || []);
           // No-history users get a featured grid via startHere; otherwise null.
           setStartHere(data.startHere && data.startHere.length > 0 ? data.startHere : null);
           setComingUp(data.comingUp || []);
           setComingUpTitle(data.comingUpTitle || 'Coming up this week');
+          setComingUpLoaded(true);
           setDiveBackIn(data.diveBackIn || []);
         };
 
@@ -129,6 +159,7 @@ export function SceneRecommendations({
           setStartHere(data.archives || []);
           setComingUp(data.comingUp || []);
           setComingUpTitle(data.comingUpTitle || 'Coming up this week');
+          setComingUpLoaded(true);
           setDiveBackIn([]);
         }
       } catch {
@@ -136,6 +167,7 @@ export function SceneRecommendations({
           setSections([]);
           setStartHere([]);
           setComingUp([]);
+          setComingUpLoaded(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -156,10 +188,23 @@ export function SceneRecommendations({
     onCanEditChange(canEdit);
   }, [canEdit, onCanEditChange]);
 
+  // While the heavy personalized payload is still loading, paint the (fast,
+  // public) "Coming up" section if it's ready — but keep the spinner ABOVE it,
+  // mirroring the final layout (personalized sections render above coming-up).
+  // This means the section doesn't jump position when `me` lands; the spinner is
+  // simply replaced in place by the personalized sections. Fully-empty load
+  // still shows just the spinner.
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-10">
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
+        </div>
+        {comingUpLoaded && comingUp.length > 0 && (
+          <Section title={comingUpTitle}>
+            <ComingUpGrid rows={comingUp} onAuthRequired={onAuthRequired} onAdded={() => showToast('Added to watchlist')} />
+          </Section>
+        )}
       </div>
     );
   }

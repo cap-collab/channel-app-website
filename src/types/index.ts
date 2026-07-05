@@ -192,6 +192,7 @@ export interface IRLShowData {
   location: string;   // Event city
   ticketUrl: string;
   date: string;       // ISO date string (YYYY-MM-DD)
+  startMs?: number;   // Exact show start (ms). When set, the card shows the start time (device-local).
   eventPhotoUrl?: string; // Event-level photo (admin events)
   venueName?: string;     // Venue name to display
   venueSlug?: string;     // Venue page slug, when the venue has a /venue/[slug] page
