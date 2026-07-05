@@ -58,6 +58,7 @@ export async function POST(
 
     let djUserId: string | null = null;
     let djNameFromProfile: string | null = null;
+    let djUsername: string | null = null;
     let liveDjBio: string | null = null;
     let liveDjPhotoUrl: string | null = null;
 
@@ -66,6 +67,7 @@ export async function POST(
       const userData = userDoc.data();
       djUserId = userDoc.id;
       djNameFromProfile = userData.chatUsername || userData.displayName || null;
+      djUsername = userData.chatUsernameNormalized || null;
       liveDjBio = userData.djProfile?.bio || null;
       liveDjPhotoUrl = userData.djProfile?.photoUrl || null;
       // Also assign DJ role
@@ -152,6 +154,9 @@ export async function POST(
     // Set DJ profile info if user exists
     if (djUserId) {
       slotData.djUserId = djUserId;
+    }
+    if (djUsername) {
+      slotData.djUsername = djUsername;
     }
     if (liveDjBio) {
       slotData.liveDjBio = liveDjBio;
