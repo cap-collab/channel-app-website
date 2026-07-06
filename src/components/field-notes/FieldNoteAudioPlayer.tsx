@@ -56,15 +56,20 @@ export function FieldNoteAudioPlayer({ src, createdAt, name, upvotes, downvotes,
     <div className="border border-[#333] rounded-none overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
       {/* Header: solid black, mono — just the date. (The tagged entities are
           shown once as the group's category header, above the cards.) */}
-      <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-black border-b border-[#333] font-mono">
+      <div className="flex items-center px-3 py-1.5 bg-black border-b border-[#333] font-mono">
         <span className="text-zinc-500 text-[10px] uppercase tracking-wider">{date}</span>
-        {name && (
-          <span className="text-white text-[10px] uppercase tracking-wider truncate">{name}</span>
-        )}
       </div>
 
+      {/* Body: the tape's name, bold like a show title on a DJ recording card
+          (sits above the player line, not in the header). */}
+      {name && (
+        <div className="px-3 pt-2.5 pb-1">
+          <p className="text-sm font-bold text-white uppercase tracking-wide">{name}</p>
+        </div>
+      )}
+
       {/* Player: line seek bar on the transparent body */}
-      <div className="px-3 pb-2">
+      <div className="px-3 pb-2 pt-2">
         <div className="flex items-center">
           <button
             onClick={onPlayPause}

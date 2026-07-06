@@ -134,6 +134,13 @@ function FieldNoteCard({ note, onClick }: { note: FieldNoteSerialized; onClick: 
     ...note.venues.map((v) => v.venueName),
     ...note.collectives.map((c) => c.collectiveName),
   ];
+  // Title: admin name first, else the tagged entities, else the event, else a
+  // clear "Overheard" for attribution-free tapes (so rows aren't all "Tape").
+  const title =
+    (note.name && note.name.trim()) ||
+    (tags.length > 0 ? tags.join(', ') : '') ||
+    note.eventName ||
+    'Overheard';
   return (
     <button
       onClick={onClick}
@@ -141,14 +148,13 @@ function FieldNoteCard({ note, onClick }: { note: FieldNoteSerialized; onClick: 
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-white font-medium truncate">
-            {note.eventName || note.djs[0]?.djName || 'Tape'}
-          </p>
+          <p className="text-white font-medium truncate">{title}</p>
           <p className="text-xs text-gray-400 mt-0.5">
             by {note.recordedByUsername}
             {note.city ? ` · ${note.city}` : ''} · {note.durationSec}s
           </p>
-          {tags.length > 0 && (
+          {/* Show the entity list as a subtitle only when it's not already the title. */}
+          {tags.length > 0 && note.name && note.name.trim() && (
             <p className="text-xs text-gray-500 mt-1 truncate">{tags.join(' · ')}</p>
           )}
         </div>
