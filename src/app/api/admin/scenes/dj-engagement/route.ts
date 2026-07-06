@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { wordBoundaryMatch } from '@/lib/dj-matching';
+import { wordBoundaryMatch, normalizeUsername } from '@/lib/dj-matching';
 
 async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin: boolean }> {
   try {
@@ -53,18 +53,24 @@ export async function GET(request: NextRequest) {
       .where('role', 'in', ['dj', 'broadcaster', 'admin'])
       .get();
 
-    // Build name → uid lookup keyed by lowercased chatUsernameNormalized (or
-    // chatUsername fallback). This is the same key loveHistory/streamHistory
-    // use for djUsername / djUsernames entries.
+    // Build name → uid lookup keyed by the CANONICAL normalized username
+    // (normalizeUsername strips spaces/punctuation, e.g. "emerald cuts" →
+    // "emeraldcuts"). Both loveHistory and streamHistory store a spaced display
+    // form (djUsername / djUsernames) AND a normalized form; keying + looking up
+    // on the canonical form is the only way the two sides join for DJs whose
+    // username contains a space or dash — otherwise their streams count as 0.
     const uidByName = new Map<string, string>();
+    // `name` here is the DISPLAY username (spaces preserved) — used for the
+    // watchlist word-boundary match below, which must see "emerald cuts", not
+    // "emeraldcuts". The uid JOIN uses the canonical key in uidByName.
     const djs: Array<{ uid: string; name: string }> = [];
     djsSnap.forEach((doc) => {
       const data = doc.data();
       const raw = (data.chatUsernameNormalized || data.chatUsername || '') as string;
-      const name = raw.toLowerCase().trim();
-      if (!name) return;
-      uidByName.set(name, doc.id);
-      djs.push({ uid: doc.id, name });
+      const canonical = normalizeUsername(raw);
+      if (!canonical) return;
+      uidByName.set(canonical, doc.id);
+      djs.push({ uid: doc.id, name: raw.toLowerCase().trim() });
     });
 
     // listenersByUid: distinct user UIDs who hearted OR streamed this DJ.
@@ -75,10 +81,14 @@ export async function GET(request: NextRequest) {
       listenersByUid.set(djUid, set);
     };
 
-    // Hearts (loveHistory subcollection, keyed by djUsername field).
+    // Hearts (loveHistory subcollection). Prefer the stored normalized field,
+    // else normalize the display djUsername — must match uidByName's canonical key.
     const loveSnap = await db.collectionGroup('loveHistory').get();
     loveSnap.forEach((doc) => {
-      const djUsername = (doc.data().djUsername as string | undefined)?.toLowerCase().trim();
+      const data = doc.data();
+      const djUsername =
+        (data.djUsernameNormalized as string | undefined) ||
+        (data.djUsername ? normalizeUsername(data.djUsername as string) : undefined);
       if (!djUsername) return;
       const djUid = uidByName.get(djUsername);
       if (!djUid) return;
@@ -89,17 +99,25 @@ export async function GET(request: NextRequest) {
       addListener(djUid, userUid);
     });
 
-    // Streams (streamHistory subcollection — djUsernames is an array).
+    // Streams (streamHistory subcollection). Prefer the stored normalized array
+    // (djUsernamesNormalized); else normalize each spaced djUsernames entry — the
+    // key must match uidByName's canonical form, so a DJ like "emerald cuts"
+    // (stored spaced) still resolves to "emeraldcuts".
     const streamSnap = await db.collectionGroup('streamHistory').get();
     streamSnap.forEach((doc) => {
-      const usernames = doc.data().djUsernames;
-      if (!Array.isArray(usernames)) return;
+      const data = doc.data();
+      const normalized = Array.isArray(data.djUsernamesNormalized) ? data.djUsernamesNormalized : null;
+      const spaced = Array.isArray(data.djUsernames) ? data.djUsernames : null;
+      const usernames = normalized ?? spaced;
+      if (!usernames) return;
       const parentPath = doc.ref.parent.parent?.path;
       if (!parentPath?.startsWith('users/')) return;
       const userUid = parentPath.slice('users/'.length);
       for (const raw of usernames) {
         if (typeof raw !== 'string') continue;
-        const djUsername = raw.toLowerCase().trim();
+        // If we fell back to the spaced array, normalize; the normalized array is
+        // already canonical.
+        const djUsername = normalized ? raw : normalizeUsername(raw);
         const djUid = uidByName.get(djUsername);
         if (!djUid) continue;
         if (userUid === djUid) continue;
