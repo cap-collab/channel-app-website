@@ -61,6 +61,12 @@ export interface UserSignals {
   streamedArchiveIds: Set<string>;
   // Per-archive stream count for the penalty strength.
   archiveStreamCount: Record<string, number>;
+  // Archive ids the user PLAYED (pressed play, any duration) — a lightweight
+  // "played it" marker written on play-start, separate from streamHistory.
+  // EXCLUSION-ONLY: a played archive is dropped from New Favorites / Discovery
+  // (union with streamedArchiveIds), but a bare play contributes ZERO taste —
+  // it never feeds engagedDjs/Scenes/Tempos. (A play might mean they disliked it.)
+  playedArchiveIds: Set<string>;
   // goLiveMutes (normalized) + opt-outs, for exclusion + Section 3 matching.
   goLiveMutes: Set<string>;
   ownDjUsername?: string;

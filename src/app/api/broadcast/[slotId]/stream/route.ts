@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { normalizeUsername } from '@/lib/dj-matching';
+import { recordLivePlay } from '@/lib/played-archives';
 
 export async function POST(
   request: Request,
@@ -14,13 +15,27 @@ export async function POST(
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     }
 
-    // Parse optional userId from body
+    // Parse optional userId + played from body
     let userId: string | null = null;
+    let played = false;
     try {
       const body = await request.json();
       userId = body.userId || null;
+      played = body.played === true;
     } catch {
       // No body or invalid JSON — skip user tracking
+    }
+
+    // "Played" marker for a live/restream listen (fired on play-start, any
+    // duration): write a slot-keyed playedSlots doc that the reconcile cron
+    // transfers into the user's playedArchiveIds map once the archive exists.
+    // Does NOT touch the global streamCount or streamHistory (a bare play is
+    // not a stream). No slot read needed — reconcile resolves slot→archive.
+    if (played) {
+      if (userId) {
+        await recordLivePlay(db, userId, slotId);
+      }
+      return NextResponse.json({ success: true, played: !!userId });
     }
 
     const slotRef = db.collection('broadcast-slots').doc(slotId);

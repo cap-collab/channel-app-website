@@ -52,7 +52,18 @@ export async function GET(request: NextRequest) {
     .where("lastStreamedAt", ">=", cutoff)
     .get();
 
-  if (liveSnap.empty) {
+  // Parallel signal: live/restream PLAYS (any duration) live in a slot-keyed
+  // playedSlots subcollection. They transfer slot→archive into the user's
+  // playedArchiveIds map exactly like live streams transfer to archive-keyed
+  // streamHistory. Independent of the stream pass — queried + processed
+  // separately so neither can affect the other.
+  const playedSlotsSnap = await db
+    .collectionGroup("playedSlots")
+    .where("sourceType", "==", "live")
+    .where("playedAt", ">=", cutoff)
+    .get();
+
+  if (liveSnap.empty && playedSlotsSnap.empty) {
     try {
       await db.collection("system").doc("reconcile-live-streams-status").set({
         lastRunAt: Date.now(),
@@ -174,6 +185,52 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ── Independent PLAYED pass ────────────────────────────────────────────────
+  // Transfer live/restream PLAYS (playedSlots, slot-keyed) into each user's
+  // playedArchiveIds map (archive-keyed) once the archive exists. Reuses the
+  // archiveBySlot / archiveIdBySlot / archiveById maps built above. This pass:
+  //   - NEVER writes the archives collection (played has no streamCount),
+  //   - NEVER touches streamHistory or the stream pass above,
+  //   - is additive-only + idempotent (map-key existence is the guard),
+  //   - fails per-doc without affecting the already-committed stream pass.
+  const played = { playedDocsChecked: playedSlotsSnap.size, playedLinksCreated: 0, playedSkippedExisting: 0, playedSkippedNoArchive: 0, playedErrors: [] as string[] };
+  for (const playedDoc of playedSlotsSnap.docs) {
+    try {
+      const data = playedDoc.data();
+      const slotId = (data.slotId as string) || playedDoc.id;
+      const restreamArchiveId = archiveIdBySlot.get(slotId);
+      const archive = archiveBySlot.get(slotId) ?? (restreamArchiveId ? archiveById.get(restreamArchiveId) : undefined);
+      if (!archive) {
+        played.playedSkippedNoArchive++;
+        continue;
+      }
+      // users/{uid}/playedSlots/{slotId}
+      const uid = playedDoc.ref.parent.parent?.id;
+      if (!uid) continue;
+
+      const userRef = db.collection("users").doc(uid);
+      // playedAt (ms) for the map value; fall back to now if the stamp is odd.
+      const playedAtMs =
+        typeof (data.playedAt as { toMillis?: () => number } | undefined)?.toMillis === "function"
+          ? (data.playedAt as { toMillis: () => number }).toMillis()
+          : Date.now();
+
+      const created = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        const map = (snap.data()?.playedArchiveIds as Record<string, number> | undefined) ?? {};
+        if (map[archive.id] !== undefined) return false; // already transferred
+        // Single-key dot-path merge — leaves every other played entry intact.
+        tx.set(userRef, { playedArchiveIds: { [archive.id]: playedAtMs } }, { merge: true });
+        return true;
+      });
+
+      if (!created) { played.playedSkippedExisting++; continue; }
+      played.playedLinksCreated++;
+    } catch (e) {
+      played.playedErrors.push(`${playedDoc.ref.path}: ${String(e)}`);
+    }
+  }
+
   // Status doc for the Tech Health admin readout (best-effort).
   try {
     await db.collection("system").doc("reconcile-live-streams-status").set({
@@ -184,10 +241,11 @@ export async function GET(request: NextRequest) {
       skippedExisting: result.skippedExisting,
       skippedNoArchive: result.skippedNoArchive,
       errorCount: result.errors.length,
+      ...played,
     });
   } catch {
     // non-fatal
   }
 
-  return NextResponse.json(result);
+  return NextResponse.json({ ...result, ...played });
 }

@@ -116,6 +116,99 @@ describe("normalizeUser — taste profile from engagement", () => {
   });
 });
 
+describe("played signal — exclusion-only, never taste", () => {
+  // A bare "play" (any duration) excludes an archive from recs but must NOT
+  // pull its DJ/scene/tempo into taste — a play might mean they disliked it.
+  it("a played-only archive contributes ZERO taste but IS excluded", () => {
+    const u = normalizeUser({
+      uid: "u-played",
+      email: "p@x.com",
+      loveHistory: [],
+      streamHistory: [], // nothing streamed
+      searchFavorites: [],
+      archiveById: itemMap(),
+      playedArchiveIds: ["a-maria-new"], // played Maria's spiral/uptempo set
+    });
+    // Taste is empty: no engaged DJ, scene, or tempo from a bare play.
+    expect(u.engagedDjs.size).toBe(0);
+    expect(u.engagedScenes.size).toBe(0);
+    expect(u.engagedTempos.size).toBe(0);
+    // But the archive is tracked for exclusion.
+    expect(u.playedArchiveIds.has("a-maria-new")).toBe(true);
+    // And it is NOT counted as a stream (distinct sets).
+    expect(u.streamedArchiveIds.has("a-maria-new")).toBe(false);
+
+    // The candidate's already-heard count is >0 → rules.ts drops it from §1/§2.
+    const items = Array.from(itemMap().values());
+    const played = buildCandidateInputs(u, items, NO_AFFILIATION).find((i) => i.item.id === "a-maria-new")!;
+    expect(played.alreadyStreamedCount).toBeGreaterThan(0);
+  });
+
+  it("played + streamed union: streamed still drives taste, both exclude", () => {
+    const u = normalizeUser({
+      uid: "u-both",
+      email: "b@x.com",
+      loveHistory: [],
+      streamHistory: [
+        { archiveId: "a-maria-new", djUsernamesNormalized: ["maria"], streamCount: 2 },
+      ],
+      searchFavorites: [],
+      archiveById: itemMap(),
+      playedArchiveIds: ["a-luke-new"], // played but NOT streamed
+    });
+    // Streamed archive → taste. Played-only archive → NOT taste.
+    expect(u.engagedDjs.has("maria")).toBe(true);
+    expect(u.engagedDjs.has("luke")).toBe(false); // a bare play never engages the DJ
+    expect(u.engagedScenes.has("spiral")).toBe(true); // from streamed maria
+    expect(u.engagedScenes.has("star")).toBe(false); // luke's scene NOT pulled in
+    // Both are excluded from recs.
+    const items = Array.from(itemMap().values());
+    const inputs = buildCandidateInputs(u, items, NO_AFFILIATION);
+    expect(inputs.find((i) => i.item.id === "a-maria-new")!.alreadyStreamedCount).toBeGreaterThan(0);
+    expect(inputs.find((i) => i.item.id === "a-luke-new")!.alreadyStreamedCount).toBeGreaterThan(0);
+  });
+
+  it("legacy gate-only streamHistory doc (no streamCount) excludes but is NOT taste", () => {
+    const u = normalizeUser({
+      uid: "u-gate",
+      email: "g@x.com",
+      loveHistory: [],
+      streamHistory: [
+        // Legacy shape: gateTriggered, no real streamCount → exclusion-only.
+        { archiveId: "a-maria-new", djUsernamesNormalized: ["maria"], gateTriggered: true },
+      ],
+      searchFavorites: [],
+      archiveById: itemMap(),
+    });
+    // No taste from a gate-only doc.
+    expect(u.engagedDjs.size).toBe(0);
+    expect(u.engagedScenes.size).toBe(0);
+    // Still excluded (marked streamed/heard).
+    expect(u.streamedArchiveIds.has("a-maria-new")).toBe(true);
+    const items = Array.from(itemMap().values());
+    const c = buildCandidateInputs(u, items, NO_AFFILIATION).find((i) => i.item.id === "a-maria-new")!;
+    expect(c.alreadyStreamedCount).toBeGreaterThan(0);
+  });
+
+  it("a NEW gate-login (real streamCount, gateTriggered flag) DOES feed taste", () => {
+    // The gate-credit path now writes a real streamCount — indistinguishable
+    // from a normal 15-min stream, so taste must apply even if the doc still
+    // carries the gateTriggered/gateCreditedAt marker.
+    const u = normalizeUser({
+      uid: "u-gate-new",
+      email: "gn@x.com",
+      loveHistory: [],
+      streamHistory: [
+        { archiveId: "a-maria-new", djUsernamesNormalized: ["maria"], streamCount: 1, gateTriggered: true },
+      ],
+      searchFavorites: [],
+      archiveById: itemMap(),
+    });
+    expect(u.engagedDjs.has("maria")).toBe(true);
+    expect(u.engagedScenes.has("spiral")).toBe(true);
+  });
+});
+
 describe("buildCandidateInputs", () => {
   it("flags Section-1 ties (engaged DJ) and already-heard count", () => {
     const items = Array.from(itemMap().values());

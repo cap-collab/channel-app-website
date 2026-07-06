@@ -145,6 +145,8 @@ export function useBroadcastStream(
   const broadcastTimerShowIdRef = useRef<string | null>(null);
   const broadcastStreamCountedRef = useRef<string | null>(null);
   const broadcastLockedInFiredRef = useRef<string | null>(null);
+  // Fires the exclusion-only "played" marker once per live show, on play-start.
+  const broadcastPlayedFiredRef = useRef<string | null>(null);
   const [autoResumePending, setAutoResumePending] = useState(false);
   const playbackStartedAtRef = useRef<number | null>(null); // For posthog session_duration
 
@@ -1041,6 +1043,22 @@ export function useBroadcastStream(
       broadcastTimerShowIdRef.current = currentShow.id;
       broadcastCumulativeTimeRef.current = 0;
       broadcastLockedInFiredRef.current = null;
+    }
+
+    // Exclusion-only "played" marker (play-start, any duration): record this
+    // live/restream listen as a slot-keyed playedSlots doc so the daily
+    // reconcile transfers it into the user's played map once the archive
+    // exists. Once per show; authenticated users only.
+    if (broadcastPlayedFiredRef.current !== currentShow.id) {
+      const puid = getAuth(getFirebaseApp()).currentUser?.uid || null;
+      if (puid) {
+        broadcastPlayedFiredRef.current = currentShow.id;
+        fetch(`/api/broadcast/${currentShow.id}/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: puid, played: true }),
+        }).catch(() => {});
+      }
     }
 
     const interval = setInterval(() => {

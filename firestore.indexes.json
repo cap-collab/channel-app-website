@@ -105,6 +105,14 @@
         { "fieldPath": "sourceType", "order": "ASCENDING" },
         { "fieldPath": "lastStreamedAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "playedSlots",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "sourceType", "order": "ASCENDING" },
+        { "fieldPath": "playedAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

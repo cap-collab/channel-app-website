@@ -255,6 +255,8 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   const streamCountedForRef = useRef<string | null>(null);
   const lockedInFiredForRef = useRef<string | null>(null);
   const playingArchiveIdRef = useRef<string | null>(null);
+  // Fires the exclusion-only "played" marker once per archive the radio plays.
+  const playedFiredForRef = useRef<string | null>(null);
   useEffect(() => {
     const id = radio.currentItem?.archiveId ?? null;
     if (id !== playingArchiveIdRef.current) {
@@ -266,6 +268,20 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
       lockedInFiredForRef.current = null;
     }
   }, [radio.currentItem?.archiveId]);
+
+  // Exclusion-only "played" marker: when radio plays an archive for an
+  // authenticated user, record it so the rec engine stops re-recommending it
+  // (radio auto-plays count as played — "on everything"). Once per archive.
+  useEffect(() => {
+    if (!radio.isPlaying || !user?.uid || !currentArchive) return;
+    if (playedFiredForRef.current === currentArchive.id) return;
+    playedFiredForRef.current = currentArchive.id;
+    fetch(`/api/archives/${currentArchive.slug}/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.uid, played: true }),
+    }).catch(() => {});
+  }, [radio.isPlaying, currentArchive, user?.uid]);
 
   useEffect(() => {
     if (!radio.isPlaying) return;

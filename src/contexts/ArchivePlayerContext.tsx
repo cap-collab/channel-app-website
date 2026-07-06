@@ -93,6 +93,8 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const cumulativeTimeArchiveIdRef = useRef<string | null>(null);
   const gateSecondsRef = useRef(0);
   const streamCountedRef = useRef<string | null>(null);
+  // Fires the exclusion-only "played" marker once per archive, on play-start.
+  const playedFiredRef = useRef<string | null>(null);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -273,6 +275,22 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [isPlaying, currentArchive, user?.uid]);
 
+  // Exclusion-only "played" marker: the moment an authenticated user starts
+  // playing an archive (any duration), record it so the rec engine stops
+  // re-recommending it. Fired ONCE per archive per session (ref guard),
+  // independent of the 15-min stream/taste write above. Unauthenticated plays
+  // are handled by the gate-login credit path instead.
+  useEffect(() => {
+    if (!isPlaying || !currentArchive || !user?.uid) return;
+    if (playedFiredRef.current === currentArchive.id) return;
+    playedFiredRef.current = currentArchive.id;
+    fetch(`/api/archives/${currentArchive.slug}/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.uid, played: true }),
+    }).catch(() => {});
+  }, [isPlaying, currentArchive, user?.uid]);
+
   // Initialize gate counter from localStorage
   useEffect(() => {
     try {
@@ -281,7 +299,10 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
-  // Clear gate when user becomes authenticated; log the trigger archive to stream history
+  // Clear gate when user becomes authenticated; credit the archive they
+  // listened 16 min to before signing in. The gate only fires after 16 min of
+  // listening (GATE_THRESHOLD_SECONDS), so this is a genuine deep engagement —
+  // credit it as a full stream (taste) + play (exclusion) + love, server-side.
   useEffect(() => {
     if (!isAuthenticated || !user) return;
     if (isGated) setIsGated(false);
@@ -294,7 +315,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         fetch(`/api/archives/${trigger.slug}/stream`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.uid, gateTriggered: true }),
+          body: JSON.stringify({ userId: user.uid, gateCredit: true }),
         }).catch(() => {});
       }
       localStorage.removeItem(GATE_TRIGGER_KEY);

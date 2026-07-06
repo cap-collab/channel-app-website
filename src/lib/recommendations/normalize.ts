@@ -103,6 +103,11 @@ export interface RawStreamHistoryDoc {
   djUsernames?: { username?: string; name?: string }[];
   djUsernamesNormalized?: string[];
   streamCount?: number;
+  // Legacy gate-trigger docs: logged the archive on sign-in WITHOUT a real
+  // streamCount. These predate the gate-login fix (which now writes a full
+  // stream). Such a doc must NOT feed taste — only exclusion. New gate-logins
+  // write a real streamCount, so they're indistinguishable from a normal stream.
+  gateTriggered?: boolean;
 }
 export interface RawSearchFavoriteDoc {
   term?: string;
@@ -114,6 +119,9 @@ export interface NormalizeUserArgs {
   loveHistory: RawLoveHistoryDoc[];
   streamHistory: RawStreamHistoryDoc[];
   searchFavorites: RawSearchFavoriteDoc[];
+  // Archive ids from the user's playedArchives subcollection (play-start marker).
+  // Exclusion-only: NOT a taste input — see UserSignals.playedArchiveIds.
+  playedArchiveIds?: string[];
   // archive id → its tempo+scenes, so we can read taste off streamed archives.
   archiveById: Map<string, ContentItem>;
   goLiveMutes?: string[];
@@ -159,6 +167,15 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
 
   // Streamed DJs + scenes/tempos from the streamed archives.
   for (const d of args.streamHistory) {
+    // Legacy gate-trigger docs (logged on sign-in with NO real streamCount) are
+    // exclusion-only, never taste: they mark the archive as played/heard but do
+    // NOT credit the DJ/scene/tempo. (New gate-logins write a real streamCount,
+    // so streamCount>0 here means a genuine 15-min listen and DOES feed taste.)
+    const isGateOnly = d.gateTriggered === true && !(d.streamCount && d.streamCount > 0);
+    if (isGateOnly) {
+      if (d.archiveId) streamedArchiveIds.add(d.archiveId);
+      continue;
+    }
     for (const n of d.djUsernamesNormalized ?? []) {
       if (n) engagedDjs.add(n);
     }
@@ -249,6 +266,8 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
     watchlistArtists,
     streamedArchiveIds,
     archiveStreamCount,
+    // Exclusion-only: NOT merged into any engaged/taste set above.
+    playedArchiveIds: new Set(args.playedArchiveIds ?? []),
     goLiveMutes: new Set((args.goLiveMutes ?? []).map((m) => normalizeForLookup(m))),
     ownDjUsername,
     excludedDjUsernames,
@@ -359,7 +378,15 @@ export function buildCandidateInputs(
 
     return {
       item,
-      alreadyStreamedCount: user.archiveStreamCount[item.id] ?? 0,
+      // Exclusion signal = streamed OR played. rules.ts drops any candidate with
+      // alreadyStreamedCount>0 from New Favorites / Discovery. Covers three cases:
+      //   - a real stream (archiveStreamCount>0) → its actual count (for the damper),
+      //   - streamed-but-countless (e.g. a legacy gate-only doc in streamedArchiveIds),
+      //   - a played-only archive (no stream at all) → contributes 0 taste but excludes.
+      alreadyStreamedCount:
+        (user.archiveStreamCount[item.id] ?? 0) ||
+        (user.streamedArchiveIds.has(item.id) ? 1 : 0) ||
+        (user.playedArchiveIds.has(item.id) ? 1 : 0),
       matchedEngagedDjs,
       matchedWatchlistDjs,
       matchesOwnCrew,

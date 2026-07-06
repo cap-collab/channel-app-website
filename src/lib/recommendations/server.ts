@@ -354,6 +354,14 @@ async function buildUserResultAndComingUp(
   const streamHistory = streamSnap.docs.map((d) => d.data());
   const searchFavorites = favSnap.docs.map((d) => ({ term: d.data().term as string | undefined }));
 
+  // Played archives: a map on the user doc { archiveId: playedAtMs } written on
+  // play-start (any duration). Exclusion-only — dropped from New Favorites /
+  // Discovery, never taste. Mirrors dismissedArchiveIds' storage shape (no
+  // subcollection / CG query). Keys are the archive ids.
+  const playedArchiveIds = Object.keys(
+    (user.data.playedArchiveIds as Record<string, unknown> | undefined) ?? {},
+  );
+
   const ownChatUsername =
     (user.data.chatUsernameNormalized as string | undefined) ||
     (user.data.chatUsername as string | undefined);
@@ -396,6 +404,7 @@ async function buildUserResultAndComingUp(
     loveHistory,
     streamHistory,
     searchFavorites,
+    playedArchiveIds,
     archiveById: shared.archiveById,
     goLiveMutes: (user.data.goLiveMutes as string[] | undefined) || [],
     ownDjUsername: ownChatUsername,
