@@ -508,6 +508,14 @@ export function useBroadcastStream(
       const hlsUrl = `${HLS_URL}?t=${Date.now()}`;
       console.log('🎵 Using HLS stream:', hlsUrl);
       try {
+        // TEMP PROBE (remove after diagnosis): surface which playback path this
+        // browser takes, visibly, when ?pathprobe is in the URL. Lets us confirm
+        // whether iOS Chrome uses native HLS or hls.js/MSE without a console.
+        const canNative = !!audioElementRef.current.canPlayType('application/vnd.apple.mpegurl');
+        if (typeof window !== 'undefined' && window.location.search.includes('pathprobe')) {
+          // eslint-disable-next-line no-alert
+          window.alert(`playback path: ${canNative ? 'NATIVE HLS (audio.src)' : 'HLS.js / MSE'}\ncanPlayType=${audioElementRef.current.canPlayType('application/vnd.apple.mpegurl') || '(empty)'}`);
+        }
         // Check if Safari with native HLS support
         if (audioElementRef.current.canPlayType('application/vnd.apple.mpegurl')) {
           console.log('🎵 Using native HLS (Safari)');
