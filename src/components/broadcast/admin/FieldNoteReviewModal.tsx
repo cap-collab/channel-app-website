@@ -14,6 +14,7 @@ interface Props {
 export function FieldNoteReviewModal({ note, onClose }: Props) {
   const { user } = useAuthContext();
 
+  const [name, setName] = useState(note.name || '');
   const [djs, setDjs] = useState<EventDJRef[]>(note.djs);
   const [venues, setVenues] = useState<EventVenueRef[]>(note.venues);
   const [collectives, setCollectives] = useState<CollectiveRef[]>(note.collectives);
@@ -44,7 +45,7 @@ export function FieldNoteReviewModal({ note, onClose }: Props) {
     }
   };
 
-  const tagBody = () => ({ djs, venues, collectives, eventName: eventName.trim() || null });
+  const tagBody = () => ({ name: name.trim() || null, djs, venues, collectives, eventName: eventName.trim() || null });
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4">
@@ -69,6 +70,17 @@ export function FieldNoteReviewModal({ note, onClose }: Props) {
           )}
 
           {note.caption && <p className="text-sm text-gray-300">“{note.caption}”</p>}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Tape name (shown on the card)"
+              className="w-full rounded-lg bg-gray-800 text-white px-3 py-2 text-sm"
+            />
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Event</label>

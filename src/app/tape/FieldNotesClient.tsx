@@ -55,6 +55,7 @@ interface EntityGroup {
 
 // Title a note by the entities it tags — for the private "your notes" rows.
 function noteTitle(note: FieldNoteSerialized): string {
+  if (note.name && note.name.trim()) return note.name.trim();
   const labels = noteEntities(note).map((e) => e.label);
   if (labels.length > 0) return labels.join(', ');
   return note.eventName || 'Untitled note';
@@ -294,6 +295,7 @@ export function FieldNotesClient() {
                           key={note.id}
                           src={note.audioUrl}
                           createdAt={note.createdAt}
+                          name={note.name}
                           upvotes={note.upvotes || 0}
                           downvotes={note.downvotes || 0}
                           myVote={note.myVote || 0}
@@ -317,6 +319,7 @@ export function FieldNotesClient() {
                       key={note.id}
                       src={note.audioUrl}
                       createdAt={note.createdAt}
+                      name={note.name}
                       upvotes={note.upvotes || 0}
                       downvotes={note.downvotes || 0}
                       myVote={note.myVote || 0}

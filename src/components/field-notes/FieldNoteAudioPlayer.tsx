@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 interface Props {
   src: string;                 // audio OR video URL — we only play the audio track
   createdAt: number;           // unix ms
+  name?: string | null;        // admin-given tape name, shown in the header
   upvotes: number;
   downvotes: number;
   myVote: 1 | -1 | 0;
@@ -27,7 +28,7 @@ function fmtDate(ms: number): string {
 // black header with mono technical data, transparent body with a square brand
 // thumbnail + bold-sans note text, and a line-style seek player. Self-contained
 // local <audio> so it plays the audio track of an audio OR video file.
-export function FieldNoteAudioPlayer({ src, createdAt, upvotes, downvotes, myVote, onVote, onReply }: Props) {
+export function FieldNoteAudioPlayer({ src, createdAt, name, upvotes, downvotes, myVote, onVote, onReply }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -55,8 +56,11 @@ export function FieldNoteAudioPlayer({ src, createdAt, upvotes, downvotes, myVot
     <div className="border border-[#333] rounded-none overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
       {/* Header: solid black, mono — just the date. (The tagged entities are
           shown once as the group's category header, above the cards.) */}
-      <div className="flex items-center px-3 py-1.5 bg-black border-b border-[#333] font-mono">
+      <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-black border-b border-[#333] font-mono">
         <span className="text-zinc-500 text-[10px] uppercase tracking-wider">{date}</span>
+        {name && (
+          <span className="text-white text-[10px] uppercase tracking-wider truncate">{name}</span>
+        )}
       </div>
 
       {/* Player: line seek bar on the transparent body */}

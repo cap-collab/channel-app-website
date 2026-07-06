@@ -139,6 +139,7 @@ function serializeFieldNote(id: string, data: Record<string, unknown>): FieldNot
     taggedCollectiveIds: (data.taggedCollectiveIds as string[]) || [],
     city: (data.city as string) || '',
     caption: (data.caption as string | null) ?? null,
+    name: (data.name as string | null) ?? null,
     transcript: (data.transcript as string | null) ?? null,
     upvotes: (data.upvotes as number) || 0,
     downvotes: (data.downvotes as number) || 0,
@@ -329,6 +330,7 @@ export async function createPendingFieldNote(
 
     city: input.city?.trim() || '',
     caption: input.caption?.trim() || null,
+    name: null,
     transcript: null,
 
     upvotes: 0,
@@ -376,6 +378,7 @@ export interface FieldNotePatch {
   status?: FieldNoteStatus;
   rejectionReason?: string | null;
   adminNotes?: string | null;
+  name?: string | null;
   djs?: EventDJRef[];
   venues?: EventVenueRef[];
   collectives?: CollectiveRef[];
@@ -423,6 +426,7 @@ export async function updateFieldNote(
   if (patch.eventName !== undefined) update.eventName = patch.eventName?.trim() || null;
   if (patch.eventDate !== undefined) update.eventDate = typeof patch.eventDate === 'number' ? patch.eventDate : null;
   if (patch.adminNotes !== undefined) update.adminNotes = patch.adminNotes || null;
+  if (patch.name !== undefined) update.name = patch.name?.trim() || null;
 
   if (patch.status !== undefined) {
     if (patch.status === 'rejected' && !(patch.rejectionReason && patch.rejectionReason.trim())) {

@@ -41,6 +41,10 @@ export interface FieldNoteDoc {
   city: string;            // resolved at capture, not user-editable
   caption?: string | null;
 
+  // Admin-given display name for the tape, shown on its card on /tape. Optional;
+  // when unset the card falls back to its tagged entities / event / "Overheard".
+  name?: string | null;
+
   transcript?: string | null;   // RESERVED — never populated in MVP
 
   // Voting — denormalized counts; per-user vote lives in the `votes` subcollection.
