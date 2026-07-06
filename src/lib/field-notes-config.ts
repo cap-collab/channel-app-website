@@ -1,13 +1,13 @@
-// Field Notes access gate.
+// Tapes menu-link gate.
 //
-// While TRUE, the entire /field-notes page and all Field Notes API routes are
-// restricted to admin-dashboard access (isBroadcaster: role 'broadcaster' | 'admin').
-// This is the same check that gates /broadcast/admin, so the channelbroadcast
-// test/admin account passes.
+// While TRUE, the "Tapes" menu link is only shown to admin-dashboard accounts
+// (isBroadcaster: role 'broadcaster' | 'admin'). The /tape page and the Tapes
+// API routes are already public regardless of this flag — it only controls
+// whether the menu link is visible to everyone.
 //
-// To launch Field Notes publicly: flip this to false AND re-enable the public
-// read rule for published notes in firestore.rules (see the field-notes block).
-export const FIELD_NOTES_ADMIN_ONLY = true;
+// FALSE = launched publicly: the menu link shows for all users. The public read
+// rule for published notes in firestore.rules is already enabled.
+export const FIELD_NOTES_ADMIN_ONLY = false;
 
 // Max length of a field note recording, in seconds.
 export const MAX_FIELD_NOTE_DURATION_SEC = 60;
