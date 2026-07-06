@@ -150,7 +150,7 @@ export function getCityFromTimezone(timezone: string): string | undefined {
 
 // City aliases for flexible matching
 const CITY_ALIASES: Record<string, string[]> = {
-  'new york': ['ny', 'nyc', 'new york city', 'brooklyn', 'manhattan', 'queens', 'bronx'],
+  'new york': ['ny', 'nyc', 'new york city', 'brooklyn', 'bk', 'manhattan', 'queens', 'bronx'],
   'san francisco': ['sf', 'san fran', 'bay area', 'oakland'],
   'los angeles': ['la', 'l.a.', 'l.a', 'hollywood'],
   'london': ['ldn'],
