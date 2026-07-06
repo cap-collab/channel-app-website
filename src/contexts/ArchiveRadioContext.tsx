@@ -112,44 +112,23 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   // actively playing at the moment of the flip, resume the radio loop.
   // Applies to all live listeners regardless of how they joined. The
   // "was playing at flip" gate filters out users who manually paused.
-  const prevIsStreamingRef = useRef(false);
   const prevIsLiveRef = useRef(false);
   const prevBroadcastPlayingRef = useRef(false);
-  // True while waiting for broadcast.isPlaying to flip true after we
-  // called broadcast.play(). Used to coordinate the deferred radio.pause().
-  const handoffPendingRef = useRef(false);
 
-  // Stable refs to radio/broadcast control functions so the rule effects only
-  // re-run on actual state changes, not on every parent render. (radio is a
-  // fresh object each render of useArchiveRadio; we don't want it as a dep.)
+  // Stable refs to radio control functions so the rule effects only re-run on
+  // actual state changes, not on every parent render. (radio is a fresh object
+  // each render of useArchiveRadio; we don't want it as a dep.)
   const radioPlayRef = useRef(radio.play);
   const radioPauseRef = useRef(radio.pause);
-  const broadcastPlayRef = useRef(broadcast.play);
   useEffect(() => { radioPlayRef.current = radio.play; }, [radio.play]);
   useEffect(() => { radioPauseRef.current = radio.pause; }, [radio.pause]);
-  useEffect(() => { broadcastPlayRef.current = broadcast.play; }, [broadcast.play]);
 
-  // Rule A — fire broadcast.play() when isStreaming flips true with radio
-  // playing. Do NOT pause radio yet. Set a timeout: if live doesn't start
-  // playing within 10s (covers iOS HLS manifest fetch), abandon the
-  // handoff (listener stays on radio).
-  // Gated by NEXT_PUBLIC_DISABLE_RADIO_TO_LIVE_AUTO_SWITCH — the handoff
-  // doesn't work reliably on mobile yet, so kept off in prod.
-  useEffect(() => {
-    const wasStreaming = prevIsStreamingRef.current;
-    prevIsStreamingRef.current = broadcast.isStreaming;
-    if (process.env.NEXT_PUBLIC_DISABLE_RADIO_TO_LIVE_AUTO_SWITCH === 'true') return;
-    if (!wasStreaming && broadcast.isStreaming
-        && radio.isPlaying
-        && !archivePlayer.isPlaying) {
-      handoffPendingRef.current = true;
-      broadcastPlayRef.current();
-      const abortTimer = setTimeout(() => {
-        handoffPendingRef.current = false;
-      }, 10000);
-      return () => clearTimeout(abortTimer);
-    }
-  }, [broadcast.isStreaming, radio.isPlaying, archivePlayer.isPlaying]);
+  // Rule A (radio → live auto-handoff) REMOVED 2026-07-05: the handoff never
+  // worked reliably on mobile (it force-started the live <audio> element on a
+  // radio listener, which iOS/mobile would stall). Listeners on radio now stay
+  // on radio when a DJ goes live and tap into the live show themselves. The
+  // NEXT_PUBLIC_DISABLE_RADIO_TO_LIVE_AUTO_SWITCH env var that used to gate it
+  // is deleted too. Rule B (live → radio) below is independent and unaffected.
 
   // Rule B — Live → Radio: fire BEFORE the prevBroadcastPlayingRef tracking
   // effect below, so we read the previous value (from before this render's
@@ -192,19 +171,14 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     };
   }, [broadcast.isLive]);
 
-  // Track broadcast.isPlaying. When it flips true while a handoff is
-  // pending, pause the radio (live is now confirmed producing audio).
-  // Must run AFTER Rule B so the ref still holds the pre-flip value when
-  // Rule B reads it on the same render where isLive and isPlaying both
-  // flip false (which happens when statusIsLive turns off — the context
-  // returns a hardcoded {isPlaying:false,isLive:false} object).
+  // Track broadcast.isPlaying edges so Rule B (above) can read the PREVIOUS
+  // value. Must run AFTER Rule B so the ref still holds the pre-flip value
+  // when Rule B reads it on the render where isLive+isPlaying both flip false.
+  // (This effect previously also coordinated Rule A's deferred radio-pause via
+  // handoffPendingRef; Rule A was removed 2026-07-05, but this tracking must
+  // stay — Rule B's "was live audio playing at the flip?" gate depends on it.)
   useEffect(() => {
-    const wasPlaying = prevBroadcastPlayingRef.current;
     prevBroadcastPlayingRef.current = broadcast.isPlaying;
-    if (!wasPlaying && broadcast.isPlaying && handoffPendingRef.current) {
-      handoffPendingRef.current = false;
-      radioPauseRef.current();
-    }
   }, [broadcast.isPlaying]);
 
   // Analytics: one play per radio start. Track radio.isPlaying edges so we
