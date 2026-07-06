@@ -11,7 +11,11 @@ interface Props {
   myVote: 1 | -1 | 0;
   onVote: (value: 1 | -1) => void;   // parent handles auth + API + optimistic state
   onReply: () => void;               // parent opens the voice-reply capture
+  onReached?: () => void;            // fired once when playback passes the 7s mark
 }
+
+// A tape counts as "played through" once the listener streams past this mark.
+const REACHED_THRESHOLD_SEC = 7;
 
 function fmtClock(sec: number): string {
   if (!isFinite(sec)) return '0:00';
@@ -23,11 +27,20 @@ function fmtClock(sec: number): string {
 // "Tape Archive" style card (mirrors the DJ-profile recording card): transparent
 // body with the tape's name + a line-style seek player. Self-contained local
 // <audio> so it plays the audio track of an audio OR video file.
-export function FieldNoteAudioPlayer({ src, name, upvotes, downvotes, myVote, onVote, onReply }: Props) {
+export function FieldNoteAudioPlayer({ src, name, upvotes, downvotes, myVote, onVote, onReply, onReached }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const reachedFiredRef = useRef(false);   // fire the play-through count at most once
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+
+  const onTime = (t: number) => {
+    setCurrentTime(t);
+    if (!reachedFiredRef.current && t >= REACHED_THRESHOLD_SEC) {
+      reachedFiredRef.current = true;
+      onReached?.();
+    }
+  };
 
   const onPlayPause = () => {
     const a = audioRef.current;
@@ -131,7 +144,7 @@ export function FieldNoteAudioPlayer({ src, name, upvotes, downvotes, myVote, on
         preload="none"
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
-        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+        onTimeUpdate={(e) => onTime(e.currentTarget.currentTime)}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
         onEnded={() => { setIsPlaying(false); setCurrentTime(0); }}
       />

@@ -152,6 +152,7 @@ function FieldNoteCard({ note, onClick }: { note: FieldNoteSerialized; onClick: 
           <p className="text-xs text-gray-400 mt-0.5">
             by {note.recordedByUsername}
             {note.city ? ` · ${note.city}` : ''} · {note.durationSec}s
+            {' · '}{note.reachedCount || 0} played
           </p>
           {/* Show the entity list as a subtitle only when it's not already the title. */}
           {tags.length > 0 && note.name && note.name.trim() && (

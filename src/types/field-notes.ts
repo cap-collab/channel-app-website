@@ -51,6 +51,11 @@ export interface FieldNoteDoc {
   upvotes?: number;
   downvotes?: number;
 
+  // How many times a listener streamed past the 7s mark (a real play-through,
+  // not a tap-and-skip). Denormalized counter, incremented once per playback.
+  // Admin-only signal. Tapes shorter than 7s can never reach it (stay 0).
+  reachedCount?: number;
+
   // If this note is a voice reply, the id of the note it replies to. The reply
   // is otherwise a normal note that inherits the parent's attributions.
   parentNoteId?: string | null;

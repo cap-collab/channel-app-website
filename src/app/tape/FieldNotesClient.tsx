@@ -193,6 +193,12 @@ export function FieldNotesClient() {
     setTake(captured);
   };
 
+  // A tape was streamed past the 7s mark — bump its play-through counter.
+  // Fire-and-forget; open to everyone (no auth). A dropped count is harmless.
+  const handleReached = useCallback((noteId: string) => {
+    fetch(`/api/field-notes/${noteId}/reached`, { method: 'POST', keepalive: true }).catch(() => {});
+  }, []);
+
   // Vote. Not signed in (or only an anonymous Firebase session) → open the
   // sign-in/up modal. Optimistic when signed in with a real account.
   const handleVote = useCallback(async (noteId: string, value: 1 | -1) => {
@@ -301,6 +307,7 @@ export function FieldNotesClient() {
                           myVote={note.myVote || 0}
                           onVote={(value) => handleVote(note.id, value)}
                           onReply={() => setReplyTo(note)}
+                          onReached={() => handleReached(note.id)}
                         />
                       ))}
                     </div>
@@ -325,6 +332,7 @@ export function FieldNotesClient() {
                       myVote={note.myVote || 0}
                       onVote={(value) => handleVote(note.id, value)}
                       onReply={() => setReplyTo(note)}
+                      onReached={() => handleReached(note.id)}
                     />
                   ))}
                 </div>

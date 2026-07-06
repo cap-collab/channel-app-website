@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminDb, getAdminAuth } from './firebase-admin';
 import { normalizeUsername } from './dj-matching';
 import { MAX_FIELD_NOTE_DURATION_SEC } from './field-notes-config';
@@ -143,6 +144,7 @@ function serializeFieldNote(id: string, data: Record<string, unknown>): FieldNot
     transcript: (data.transcript as string | null) ?? null,
     upvotes: (data.upvotes as number) || 0,
     downvotes: (data.downvotes as number) || 0,
+    reachedCount: (data.reachedCount as number) || 0,
     parentNoteId: (data.parentNoteId as string | null) ?? null,
     usagePermission: (data.usagePermission as boolean) ?? false,
     status: data.status as FieldNoteStatus,
@@ -241,6 +243,17 @@ export async function voteOnFieldNote(noteId: string, userId: string, value: 1 |
     else tx.set(voteRef, { value: next, updatedAt: Date.now() });
 
     return { upvotes: up, downvotes: down, myVote: next };
+  });
+}
+
+// A listener streamed past the 7s mark — bump the play-through counter. Fired
+// at most once per playback by the client; anonymous is fine (no per-user
+// dedup — this is a coarse admin signal, not per-user analytics).
+export async function incrementFieldNoteReached(noteId: string): Promise<void> {
+  const db = getAdminDb();
+  if (!db) throw new Error('Firestore not initialized');
+  await db.collection(COLLECTION).doc(noteId).update({
+    reachedCount: FieldValue.increment(1),
   });
 }
 
