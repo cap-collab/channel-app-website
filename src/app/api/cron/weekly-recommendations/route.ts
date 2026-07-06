@@ -62,6 +62,24 @@ function verifyCronRequest(request: NextRequest): boolean {
 const SECTION_CAP = 3;
 const RECENT_RETENTION_MS = 21 * 24 * 60 * 60 * 1000; // prune lastWeeklyRecShows after ~3 weeks
 
+// Same-week dedup: skip any recipient already emailed within this window, so an
+// accidental re-run (or a manual pre-stamp) never double-sends. The weekly send
+// is 7 days apart, so 3 days safely catches a same-day/next-day duplicate while
+// never suppressing next week's legitimate send. Read off lastWeeklyRecEmailAt.
+const RECENT_SEND_DEDUP_MS = 3 * 24 * 60 * 60 * 1000;
+
+// Coerce a Firestore Timestamp / {_seconds} / ISO string / ms number to millis.
+function emailAtMs(v: unknown): number | null {
+  if (v == null) return null;
+  if (typeof v === "number") return v;
+  if (typeof v === "string") { const t = Date.parse(v); return Number.isNaN(t) ? null : t; }
+  const o = v as { toMillis?: () => number; _seconds?: number; seconds?: number };
+  if (typeof o.toMillis === "function") return o.toMillis();
+  if (typeof o._seconds === "number") return o._seconds * 1000;
+  if (typeof o.seconds === "number") return o.seconds * 1000;
+  return null;
+}
+
 // The SEND run only emails if the BACKFILL run completed within this window —
 // guards against sending stale/missing snapshots if the backfill failed or never
 // ran. Backfill is Wed 1AM PT, send Wed 10AM PT (~9h gap), so 18h is safe.
@@ -192,6 +210,7 @@ export async function GET(request: NextRequest) {
     let generated = 0;
     let skippedOptOut = 0;
     let skippedNoEmail = 0;
+    let skippedRecentSend = 0;
     let failed = 0;
     let fallbackExtraSent = 0;
     type Trace = { email: string; s1: number; s2: number; comingUp: number; fallback: boolean };
@@ -214,6 +233,14 @@ export async function GET(request: NextRequest) {
       // previewTo: only process the one preview recipient (sends a real email,
       // stamps nothing). All others are skipped entirely in preview mode.
       if (previewTo && email.toLowerCase() !== previewTo) continue;
+
+      // Same-week dedup (real sends only): skip if already emailed within the
+      // dedup window. Guards against re-runs and lets us pre-stamp a recipient
+      // to intentionally suppress them from an imminent send. Preview bypasses.
+      if (!previewTo && doSend) {
+        const lastMs = emailAtMs(data.lastWeeklyRecEmailAt);
+        if (lastMs != null && nowMs - lastMs < RECENT_SEND_DEDUP_MS) { skippedRecentSend++; continue; }
+      }
 
       try {
         // BACKFILL: generate+persist this user's snapshot (refresh if >24h old,
@@ -485,6 +512,15 @@ export async function GET(request: NextRequest) {
           // openers / no-history keep the shared strongest grid.
           const extraDoc = await findExtraDoc(r.id);
           const extraData = extraDoc?.data() || {};
+
+          // Same-week dedup (real sends only): skip if their source doc was
+          // stamped within the window. Mirrors the users loop; lets us pre-stamp
+          // a non-user to suppress them from an imminent send. Preview bypasses.
+          if (!previewTo) {
+            const lastMs = emailAtMs(extraData.lastWeeklyRecEmailAt);
+            if (lastMs != null && nowMs - lastMs < RECENT_SEND_DEDUP_MS) { skippedRecentSend++; continue; }
+          }
+
           const extraSeen = (extraData.lastWeeklyRecShows as Record<string, string> | undefined) || {};
           const extraOpened = extraData.lastWeeklyRecOpenedLast === true;
           let extraSection1 = featuredRows;
@@ -582,6 +618,7 @@ export async function GET(request: NextRequest) {
       fallbackExtraSent,
       skippedOptOut,
       skippedNoEmail,
+      skippedRecentSend,
       failed,
       featuredCount: featuredRows.length,
       trace: dryRun && !previewTo ? trace : undefined,
