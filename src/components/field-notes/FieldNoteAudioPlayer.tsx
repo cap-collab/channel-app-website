@@ -20,15 +20,10 @@ function fmtClock(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function fmtDate(ms: number): string {
-  return new Date(ms).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }).replace(/\//g, '.');
-}
-
-// "Tape Archive" style card (mirrors the DJ-profile recording card): solid
-// black header with mono technical data, transparent body with a square brand
-// thumbnail + bold-sans note text, and a line-style seek player. Self-contained
-// local <audio> so it plays the audio track of an audio OR video file.
-export function FieldNoteAudioPlayer({ src, createdAt, name, upvotes, downvotes, myVote, onVote, onReply }: Props) {
+// "Tape Archive" style card (mirrors the DJ-profile recording card): transparent
+// body with the tape's name + a line-style seek player. Self-contained local
+// <audio> so it plays the audio track of an audio OR video file.
+export function FieldNoteAudioPlayer({ src, name, upvotes, downvotes, myVote, onVote, onReply }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -50,16 +45,9 @@ export function FieldNoteAudioPlayer({ src, createdAt, name, upvotes, downvotes,
   };
 
   const pct = Math.min(100, (currentTime / (duration || 100)) * 100);
-  const date = fmtDate(createdAt);
 
   return (
     <div className="border border-[#333] rounded-none overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      {/* Header: solid black, mono — just the date. (The tagged entities are
-          shown once as the group's category header, above the cards.) */}
-      <div className="flex items-center px-3 py-1.5 bg-black border-b border-[#333] font-mono">
-        <span className="text-zinc-500 text-[10px] uppercase tracking-wider">{date}</span>
-      </div>
-
       {/* Body: the tape's name, a small lowercase label above the player line. */}
       {name && (
         <div className="px-3 pt-2 pb-0.5">
