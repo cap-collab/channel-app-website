@@ -1904,7 +1904,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           if (isNew) {
             return (
               <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center">
-                New Show
+                New Show For You
               </div>
             );
           }
@@ -1965,46 +1965,24 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         // The curated section renders only when the filter leaves it with cards.
         const showSceneSection = hasSceneSection && sceneItems.length > 0;
 
+        // Single "archives" section for everyone. The top-tier items (curated
+        // scene picks, else featured-tier archives) still lead — preserving the
+        // prior visual order — but now flow directly into the rest under one
+        // heading with no divider. Scene bands still render on curated picks.
+        const topItems = showSceneSection ? sceneItems : hasFeatured ? featuredList : [];
+        const topWithBands = showSceneSection;
+
         return (
           <div className="mt-6 max-w-7xl mx-auto">
-            {/* Curated "Find Your Scene" / "For You" grid — replaces the
-                Featured section on the homepage. The scene/tempo chips apply here
-                too; picks are de-duped out of More Archives. */}
-            {showSceneSection ? (
-              <div className="mb-10">
-                <div className="mb-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-2xl md:text-3xl font-semibold">{sceneSection!.title}</h2>
-                    {filterChips}
-                  </div>
-                </div>
-                {renderGrid(sceneItems, true)}
-              </div>
-            ) : hasFeatured ? (
-              /* Featured section — featured-tier archives only. Chips live here
-                 when present so they sit at the top of the archive area. */
-              <div className="mb-10">
-                <div className="mb-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-2xl md:text-3xl font-semibold">Featured</h2>
-                    {filterChips}
-                  </div>
-                  <p className="text-sm md:text-base text-zinc-400 mt-1">Intentional shows by DJs and producers</p>
-                </div>
-                {renderGrid(featuredList)}
-              </div>
-            ) : null}
-
-            {/* All-archives section — everything not shown in the top section.
-                The filter chips are repeated here (in addition to the curated
-                section header) and share the same filter state, so both rows stay
-                in sync — toggling either updates both sections at once. */}
             <div className="mb-4">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-2xl md:text-3xl font-semibold">More Archives</h2>
+                <h2 className="text-2xl md:text-3xl font-semibold">Archives</h2>
                 {filterChips}
               </div>
             </div>
+            {topItems.length > 0 && (
+              <div className="mb-4">{renderGrid(topItems, topWithBands)}</div>
+            )}
             {renderGrid(ordered)}
           </div>
         );
