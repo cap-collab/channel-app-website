@@ -93,6 +93,12 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const cumulativeTimeArchiveIdRef = useRef<string | null>(null);
   const gateSecondsRef = useRef(0);
   const streamCountedRef = useRef<string | null>(null);
+  // Wall-clock anchor for the 15-min milestone: the last tick's timestamp, so we
+  // accumulate REAL elapsed listening (not tick count). Mobile throttles/freezes
+  // setInterval when backgrounded/screen-locked, so counting ticks under-counts
+  // and the milestone never fires; wall-clock survives that (fires on the next
+  // tick after the user returns). Lets us tick slowly (10s) with no accuracy loss.
+  const listenLastTickAtRef = useRef<number | null>(null);
   // Fires the exclusion-only "played" marker once per archive, on play-start.
   const playedFiredRef = useRef<string | null>(null);
   const retryCountRef = useRef(0);
@@ -249,9 +255,17 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       cumulativeTimeRef.current = 0;
       archiveLockedInFiredRef.current = null;
     }
+    // Anchor wall-clock accumulation to now (covers first mount + resume after
+    // pause — we only add elapsed time while actually playing, never across a
+    // pause, because the effect re-runs and re-anchors when isPlaying flips).
+    listenLastTickAtRef.current = Date.now();
 
     const interval = setInterval(() => {
-      cumulativeTimeRef.current += 1;
+      // Add REAL elapsed seconds since the last tick, not a flat +1 — so a
+      // throttled/frozen mobile timer still totals correct listening time.
+      const now = Date.now();
+      cumulativeTimeRef.current += (now - (listenLastTickAtRef.current ?? now)) / 1000;
+      listenLastTickAtRef.current = now;
       if (
         cumulativeTimeRef.current >= 900 &&
         streamCountedRef.current !== currentArchive.id
@@ -270,7 +284,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         archiveLockedInFiredRef.current = currentArchive.id;
         onLockedInRef.current?.();
       }
-    }, 1000);
+    }, 10000); // 10s: wall-clock math stays accurate while ticking 10× less often
 
     return () => clearInterval(interval);
   }, [isPlaying, currentArchive, user?.uid]);

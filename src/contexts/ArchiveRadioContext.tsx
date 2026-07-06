@@ -255,6 +255,10 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   const streamCountedForRef = useRef<string | null>(null);
   const lockedInFiredForRef = useRef<string | null>(null);
   const playingArchiveIdRef = useRef<string | null>(null);
+  // Wall-clock anchor for the 15-min milestone (see ArchivePlayerContext): mobile
+  // throttles/freezes setInterval when backgrounded, so we accumulate REAL elapsed
+  // time from timestamps rather than counting ticks. Lets us tick slowly (10s).
+  const listenLastTickAtRef = useRef<number | null>(null);
   // Fires the exclusion-only "played" marker once per archive the radio plays.
   const playedFiredForRef = useRef<string | null>(null);
   useEffect(() => {
@@ -266,6 +270,7 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
       cumulativeSecRef.current = 0;
       streamCountedForRef.current = null;
       lockedInFiredForRef.current = null;
+      listenLastTickAtRef.current = Date.now(); // re-anchor for the new archive
     }
   }, [radio.currentItem?.archiveId]);
 
@@ -285,8 +290,13 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
 
   useEffect(() => {
     if (!radio.isPlaying) return;
+    // Re-anchor on play-start / resume so paused time isn't counted.
+    listenLastTickAtRef.current = Date.now();
     const interval = setInterval(() => {
-      cumulativeSecRef.current += 1;
+      // Accumulate REAL elapsed seconds, not a flat +1 (survives mobile throttling).
+      const now = Date.now();
+      cumulativeSecRef.current += (now - (listenLastTickAtRef.current ?? now)) / 1000;
+      listenLastTickAtRef.current = now;
       const id = playingArchiveIdRef.current;
       if (!id) return;
       if (cumulativeSecRef.current >= 900 && streamCountedForRef.current !== id) {
@@ -304,7 +314,7 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
         lockedInFiredForRef.current = id;
         onLockedInRef.current?.();
       }
-    }, 1000);
+    }, 10000); // 10s: wall-clock math stays accurate while ticking 10× less often
     return () => clearInterval(interval);
   }, [radio.isPlaying, currentArchive, user?.uid]);
 

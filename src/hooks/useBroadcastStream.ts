@@ -147,6 +147,10 @@ export function useBroadcastStream(
   const broadcastLockedInFiredRef = useRef<string | null>(null);
   // Fires the exclusion-only "played" marker once per live show, on play-start.
   const broadcastPlayedFiredRef = useRef<string | null>(null);
+  // Wall-clock anchor for the 15-min milestone (see ArchivePlayerContext): mobile
+  // throttles/freezes setInterval when backgrounded, so we accumulate REAL elapsed
+  // listening from timestamps rather than counting ticks. Lets us tick slowly (10s).
+  const broadcastListenLastTickAtRef = useRef<number | null>(null);
   const [autoResumePending, setAutoResumePending] = useState(false);
   const playbackStartedAtRef = useRef<number | null>(null); // For posthog session_duration
 
@@ -1044,6 +1048,10 @@ export function useBroadcastStream(
       broadcastCumulativeTimeRef.current = 0;
       broadcastLockedInFiredRef.current = null;
     }
+    // Anchor wall-clock accumulation to now (covers play-start / resume-after-
+    // pause / show-change; paused time is never counted because the effect
+    // re-runs and re-anchors when isPlaying flips).
+    broadcastListenLastTickAtRef.current = Date.now();
 
     // Exclusion-only "played" marker (play-start, any duration): record this
     // live/restream listen as a slot-keyed playedSlots doc so the daily
@@ -1062,7 +1070,10 @@ export function useBroadcastStream(
     }
 
     const interval = setInterval(() => {
-      broadcastCumulativeTimeRef.current += 1;
+      // Accumulate REAL elapsed seconds, not a flat +1 (survives mobile throttling).
+      const now = Date.now();
+      broadcastCumulativeTimeRef.current += (now - (broadcastListenLastTickAtRef.current ?? now)) / 1000;
+      broadcastListenLastTickAtRef.current = now;
       if (
         broadcastCumulativeTimeRef.current >= 900 &&
         broadcastStreamCountedRef.current !== currentShow.id
@@ -1082,7 +1093,7 @@ export function useBroadcastStream(
         broadcastLockedInFiredRef.current = currentShow.id;
         onLockedInRef?.current?.();
       }
-    }, 1000);
+    }, 10000); // 10s: wall-clock math stays accurate while ticking 10× less often
 
     return () => clearInterval(interval);
   }, [isPlaying, currentShow, onLockedInRef]);
