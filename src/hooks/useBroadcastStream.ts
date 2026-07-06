@@ -566,24 +566,17 @@ export function useBroadcastStream(
 
         } else if (Hls.isSupported()) {
           console.log('🎵 Using HLS.js');
-          // lowLatencyMode:false + a fat forward buffer. Low-latency mode pins
-          // playback to the live edge with a tiny (~few-second) buffer; on
-          // mobile that buffer STARVES when the tab is backgrounded / scrolled
-          // out of view, because iOS/WebKit throttles the main-thread fetch
-          // loop (and network) for hidden pages — the buffer drains in ~10s and
+          // lowLatencyMode OFF. Low-latency mode pins playback to the live edge
+          // with a tiny (~few-second) buffer; on mobile that buffer STARVES when
+          // the tab is backgrounded / scrolled out of view, because iOS/WebKit
+          // throttles the hidden-page fetch loop — the buffer drains in ~10s and
           // playback silently stalls (element still "playing", crossed-out
-          // button). Radio survives the same backgrounding because it runs its
-          // timer in a Web Worker. Here we instead keep a large forward buffer
-          // so playback coasts through the throttling window. Trade-off: mobile
-          // listeners sit ~15-20s behind the live edge — fine for radio-style
-          // listening, and matches "clean audio > low latency".
+          // button). With it off, hls.js's normal default buffer (~30s) coasts
+          // through the throttling window. Desktop (WebRTC) + archive radio
+          // (Web-Worker timer) were never affected.
           const hls = new Hls({
             enableWorker: true,
             lowLatencyMode: false,
-            maxBufferLength: 30,        // seconds of forward buffer to hold
-            maxMaxBufferLength: 60,     // hard ceiling
-            backBufferLength: 30,       // keep some back-buffer (bounded, not the 90s default)
-            liveSyncDurationCount: 3,   // ~3 segments (~18s) back from edge — cushion without excess lag
           });
           hlsRef.current = hls;
 
