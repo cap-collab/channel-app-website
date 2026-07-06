@@ -466,7 +466,7 @@ function ComingUpRow({
   const meta = [row.djName, whenStr, row.venueName].filter(Boolean).join(' · ');
 
   const thumb = (
-    <div className="relative w-16 h-16 shrink-0 overflow-hidden border border-white/10 bg-gradient-to-br from-stone-800 to-amber-900">
+    <div className="relative w-16 h-16 shrink-0 overflow-hidden bg-white/5">
       {hasPhoto && (
         <Image
           src={photoUrl!}
