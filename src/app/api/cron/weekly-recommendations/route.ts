@@ -111,6 +111,11 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const dryRun = params.get("dryRun") === "1";
   const previewTo = params.get("previewTo")?.toLowerCase() || undefined;
+  // Preview a SPECIFIC user's exact email (their recs/flags/city) but redirect
+  // delivery to this address instead of the user's own. Lets an admin receive
+  // "what user X will get" in their own inbox without emailing X. Only honored
+  // alongside previewTo; still stamps nothing.
+  const deliverTo = params.get("deliverTo")?.toLowerCase() || undefined;
   const shard = params.get("shard") != null ? Number(params.get("shard")) : null;
   const shardCount = Number(params.get("shardCount")) || 1;
   const traceLimit = Number(params.get("traceLimit")) || 50;
@@ -334,7 +339,9 @@ export async function GET(request: NextRequest) {
         }
 
         const ok = await sendWeeklyRecommendationsEmail({
-          to: email,
+          // In preview mode, redirect delivery to deliverTo if given (render
+          // THIS user's content, send it to the admin's inbox).
+          to: previewTo && deliverTo ? deliverTo : email,
           userTimezone: data.timezone as string | undefined,
           section1,
           section2: isFallback ? [] : section2,
