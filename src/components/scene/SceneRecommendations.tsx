@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { ArchiveSerialized } from '@/types/broadcast';
 import { IRLShowData } from '@/types';
 import { ArchiveGridCard } from '@/components/channel/ArchiveHero';
-import { IRLShowCard } from '@/components/channel/IRLShowCard';
+import { CardActions } from '@/components/channel/CardActions';
 import { SceneGlyph } from '@/components/SceneGlyph';
 import { CardRemoveButton } from '@/components/CardRemoveButton';
 import { tempoLabel } from '@/lib/tempo';
@@ -397,8 +399,144 @@ function ArchiveGrid({
   );
 }
 
-// §3 cards reuse IRLShowCard. ticketUrl='' → only the Watchlist button renders;
-// reason → matchLabel.
+// §3 "Coming up" renders email-style horizontal rows on the dark page:
+//   [square thumb] [ show name / (badge · artists · time · venue) ]  [action]
+// The WHOLE row links to the event's ticket page (IRL w/ ticketUrl) or the DJ
+// profile; the right-edge CardActions (tickets → +watchlist → profile) sits on
+// top and stops propagation so its own action still wins over the row link.
+
+// "🌲 IRL" (green) / "☁️ Channel" (sky) badge — matches IRLShowCard's icon
+// colors, but inline in the second text line and always FIRST.
+function ComingUpBadge({ isIRL, station }: { isIRL: boolean; station?: string }) {
+  if (isIRL) {
+    return (
+      <span className="inline-flex items-center gap-1 shrink-0">
+        <svg className="w-3 h-3 text-green-300" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
+        </svg>
+        IRL
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 shrink-0">
+      <svg className="w-3 h-3 text-sky-300" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
+      </svg>
+      {station || 'Channel'}
+    </span>
+  );
+}
+
+function ComingUpRow({
+  row,
+  isFollowing,
+  isAdding,
+  onFollow,
+}: {
+  row: ComingUpRow;
+  isFollowing: boolean;
+  isAdding: boolean;
+  onFollow: () => void;
+}) {
+  const photoUrl = row.eventPhotoUrl || row.djPhotoUrl;
+  const [imgError, setImgError] = useState(false);
+  const hasPhoto = photoUrl && !imgError;
+
+  // Whole-row link: ticket page for IRL w/ tickets, else the click-through
+  // (collective/venue) or the DJ profile.
+  const rowHref =
+    row.ticketUrl ||
+    row.linkUrl ||
+    (row.djUsername ? `/dj/${row.djUsername}` : undefined);
+  const external = !!rowHref && /^https?:\/\//.test(rowHref);
+
+  // Date + start time (device-local), e.g. "Fri, Jan 15 · 8 PM".
+  const dateStr = new Date(row.date + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+  const timeStr = row.startMs
+    ? new Date(row.startMs).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    : null;
+  const whenStr = timeStr ? `${dateStr} · ${timeStr}` : dateStr;
+
+  // Meta line: artists · when · venue (the badge lives on its own line above).
+  const meta = [row.djName, whenStr, row.venueName].filter(Boolean).join(' · ');
+
+  const thumb = (
+    <div className="relative w-16 h-16 shrink-0 overflow-hidden border border-white/10 bg-gradient-to-br from-stone-800 to-amber-900">
+      {hasPhoto && (
+        <Image
+          src={photoUrl!}
+          alt={row.djName}
+          fill
+          className="object-cover"
+          unoptimized
+          onError={() => setImgError(true)}
+        />
+      )}
+    </div>
+  );
+
+  // 3 lines: badge · show name · meta — the thumbnail is sized to match.
+  const body = (
+    <div className="min-w-0 flex-1">
+      <div className="text-[13px] text-zinc-400 leading-tight truncate flex items-center">
+        <ComingUpBadge isIRL={row.isIRL} station={row.station} />
+      </div>
+      <div className="mt-0.5 text-white font-semibold text-sm leading-tight truncate">
+        {row.eventName || row.djName}
+      </div>
+      <div className="mt-0.5 text-[13px] text-zinc-400 leading-tight truncate">
+        {meta}
+      </div>
+    </div>
+  );
+
+  const inner = (
+    <>
+      {thumb}
+      {body}
+    </>
+  );
+
+  return (
+    <div className="relative flex items-center gap-3 py-3 group">
+      {rowHref ? (
+        external ? (
+          <a
+            href={rowHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 min-w-0 flex-1"
+          >
+            {inner}
+          </a>
+        ) : (
+          <Link href={rowHref} className="flex items-center gap-3 min-w-0 flex-1">
+            {inner}
+          </Link>
+        )
+      ) : (
+        <div className="flex items-center gap-3 min-w-0 flex-1">{inner}</div>
+      )}
+      {/* Action on the right, above the row link. CardActions' button already
+          stopPropagation()s the +watchlist click. */}
+      <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+        <CardActions
+          djUsername={row.djUsername}
+          ticketUrl={row.ticketUrl}
+          isFollowing={isFollowing}
+          onAddToWatchlist={onFollow}
+          isAddingWatchlist={isAdding}
+        />
+      </div>
+    </div>
+  );
+}
+
 function ComingUpGrid({
   rows,
   onAuthRequired,
@@ -432,24 +570,17 @@ function ComingUpGrid({
     }
   };
 
-  // profileMode → IRLShowCard renders the compact overlay action button. Its
-  // CardActions picks the action: tickets (IRL w/ ticketUrl) → +watchlist →
-  // profile. Same 2-col grid + card size as the archive sections.
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="divide-y divide-white/10 border-t border-white/10">
       {rows.map((row, i) => {
         const key = `${row.djUsername || row.eventName}-${row.date}-${i}`;
         const addKey = row.djUsername || row.eventName;
         return (
-          <IRLShowCard
+          <ComingUpRow
             key={key}
-            show={row}
-            profileMode
-            enlargeOverlay
-            isOnline={!row.isIRL}
-            stationLabel={row.station || 'Channel'}
+            row={row}
             isFollowing={isInWatchlist(row.djName)}
-            isAddingFollow={adding.has(addKey)}
+            isAdding={adding.has(addKey)}
             onFollow={() => handleFollow(row)}
           />
         );
