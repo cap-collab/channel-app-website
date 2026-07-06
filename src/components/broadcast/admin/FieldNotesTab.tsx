@@ -27,13 +27,13 @@ export function FieldNotesTab({ onPendingCountChange }: FieldNotesTabProps) {
       const res = await fetch('/api/field-notes/admin', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Failed to fetch field notes');
+      if (!res.ok) throw new Error('Failed to fetch tapes');
       const data = await res.json();
       const list: FieldNoteSerialized[] = data.notes || [];
       setNotes(list);
       onPendingCountChange(list.filter((n) => n.status === 'pending').length);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load field notes');
+      setError(err instanceof Error ? err.message : 'Failed to load tapes');
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +106,7 @@ export function FieldNotesTab({ onPendingCountChange }: FieldNotesTabProps) {
 
       {filtered.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
-          <p>No field notes found</p>
+          <p>No tapes found</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -142,7 +142,7 @@ function FieldNoteCard({ note, onClick }: { note: FieldNoteSerialized; onClick: 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-white font-medium truncate">
-            {note.eventName || note.djs[0]?.djName || 'Field note'}
+            {note.eventName || note.djs[0]?.djName || 'Tape'}
           </p>
           <p className="text-xs text-gray-400 mt-0.5">
             by {note.recordedByUsername}

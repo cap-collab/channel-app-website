@@ -411,7 +411,7 @@ export function AdminDashboard() {
                   : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
               }`}
             >
-              Field Notes
+              Tapes
               {fieldNoteCount > 0 && (
                 <span className={`px-2 py-0.5 text-xs rounded-full ${
                   activeTab === 'field-notes'

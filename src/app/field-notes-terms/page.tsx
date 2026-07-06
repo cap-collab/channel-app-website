@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Field Notes Terms",
-  description: "Submission terms for Field Notes on Channel.",
+  title: "Tapes Terms",
+  description: "Submission terms for Tapes on Channel.",
   alternates: { canonical: "/field-notes-terms" },
 };
 
@@ -14,7 +14,7 @@ export default function FieldNotesTermsPage() {
         &larr; Back to Channel
       </Link>
 
-      <h1>Field Notes Terms</h1>
+      <h1>Tapes Terms</h1>
       <p className="last-updated">
         Channel Media, Inc.
         <br />
@@ -23,25 +23,25 @@ export default function FieldNotesTermsPage() {
 
       <h2>1. Scope</h2>
       <p>
-        These Field Notes Submission Terms apply whenever you submit a Field Note to Channel, whether or not
+        These Tapes Submission Terms apply whenever you submit a Tape to Channel, whether or not
         you have a Channel account.
       </p>
-      <p>By submitting a Field Note, you agree to these Terms.</p>
+      <p>By submitting a Tape, you agree to these Terms.</p>
 
-      <h2>2. What is a Field Note?</h2>
+      <h2>2. What is a Tape?</h2>
       <p>
-        A Field Note is a short audio recording submitted by a listener describing their personal experience
+        A Tape is a short audio recording submitted by a listener describing their personal experience
         at a live event, DJ performance, venue, festival, or other music-related experience.
       </p>
-      <p>Field Notes may be recorded directly within Channel or uploaded from another source.</p>
+      <p>Tapes may be recorded directly within Channel or uploaded from another source.</p>
 
       <h2>3. Ownership</h2>
-      <p>You retain ownership of your Field Note.</p>
-      <p>Submitting a Field Note does not transfer ownership of your recording to Channel.</p>
+      <p>You retain ownership of your Tape.</p>
+      <p>Submitting a Tape does not transfer ownership of your recording to Channel.</p>
 
       <h2>4. License Granted to Channel</h2>
       <p>
-        By submitting a Field Note, you grant Channel Media, Inc. a worldwide, non-exclusive, royalty-free,
+        By submitting a Tape, you grant Channel Media, Inc. a worldwide, non-exclusive, royalty-free,
         perpetual, irrevocable license to:
       </p>
       <ul>
@@ -57,7 +57,7 @@ export default function FieldNotesTermsPage() {
         <li>publicly communicate</li>
         <li>promote</li>
       </ul>
-      <p>your Field Note in connection with operating and promoting Channel.</p>
+      <p>your Tape in connection with operating and promoting Channel.</p>
       <p>This includes use on:</p>
       <ul>
         <li>Channel mobile and web apps</li>
@@ -65,7 +65,7 @@ export default function FieldNotesTermsPage() {
         <li>Event pages</li>
         <li>Venue pages</li>
         <li>Collective pages</li>
-        <li>Field Notes pages</li>
+        <li>Tapes pages</li>
         <li>newsletters</li>
         <li>podcasts</li>
         <li>recap shows</li>
@@ -93,7 +93,7 @@ export default function FieldNotesTermsPage() {
       <p>You remain solely responsible for your submission.</p>
 
       <h2>6. Moderation</h2>
-      <p>Every Field Note is manually reviewed before publication.</p>
+      <p>Every Tape is manually reviewed before publication.</p>
       <p>Channel may, at its sole discretion:</p>
       <ul>
         <li>approve</li>
@@ -106,19 +106,19 @@ export default function FieldNotesTermsPage() {
         <li>unpublish</li>
         <li>remove</li>
       </ul>
-      <p>any Field Note.</p>
+      <p>any Tape.</p>
       <p>Channel has no obligation to explain moderation decisions.</p>
 
       <h2>7. Editorial Use</h2>
       <p>
-        Field Notes may be incorporated into editorial features, playlists, recap shows, documentaries,
+        Tapes may be incorporated into editorial features, playlists, recap shows, documentaries,
         podcasts, newsletters, promotional campaigns, and similar content produced by Channel.
       </p>
-      <p>Channel may combine multiple Field Notes with other editorial material.</p>
+      <p>Channel may combine multiple Tapes with other editorial material.</p>
 
       <h2>8. Removal Requests</h2>
       <p>
-        You may request that your Field Note be removed by contacting{" "}
+        You may request that your Tape be removed by contacting{" "}
         <a href="mailto:support@channel-app.com">support@channel-app.com</a>.
       </p>
       <p>
@@ -127,7 +127,7 @@ export default function FieldNotesTermsPage() {
       </p>
 
       <h2>9. Prohibited Content</h2>
-      <p>You may not submit Field Notes containing:</p>
+      <p>You may not submit Tapes containing:</p>
       <ul>
         <li>harassment or hate speech;</li>
         <li>explicit sexual content;</li>
@@ -139,8 +139,8 @@ export default function FieldNotesTermsPage() {
 
       <h2>10. Liability</h2>
       <p>
-        You agree to indemnify and hold harmless Channel Media, Inc. from claims arising from your Field
-        Note, including claims relating to copyright, privacy, publicity rights, or other legal rights.
+        You agree to indemnify and hold harmless Channel Media, Inc. from claims arising from your Tape,
+        including claims relating to copyright, privacy, publicity rights, or other legal rights.
       </p>
 
       <h2>11. Contact</h2>

@@ -197,7 +197,7 @@ export function FieldNoteCapture({ onCaptured }: Props) {
       }
       if (secs > MAX_FIELD_NOTE_DURATION_SEC + 0.5) {
         URL.revokeObjectURL(url);
-        setError(`That clip is ${Math.round(secs)}s — field notes must be ${MAX_FIELD_NOTE_DURATION_SEC} seconds or shorter. Please trim it and try again.`);
+        setError(`That clip is ${Math.round(secs)}s — tapes must be ${MAX_FIELD_NOTE_DURATION_SEC} seconds or shorter. Please trim it and try again.`);
         return;
       }
 
@@ -237,7 +237,7 @@ export function FieldNoteCapture({ onCaptured }: Props) {
             className="rounded-none bg-white hover:bg-zinc-200 text-black font-mono text-xs uppercase tracking-wider py-2.5 flex items-center justify-center gap-2"
           >
             <MicIcon />
-            Record
+            Tape it
           </button>
           {/* Upload — black/bordered, minimal upload icon */}
           <button

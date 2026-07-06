@@ -135,7 +135,7 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
     <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4">
       <div className="w-full sm:max-w-lg bg-black border border-[#333] max-h-[85dvh] flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#333] shrink-0">
-          <h2 className="text-sm font-mono uppercase tracking-wider text-white">Field note details</h2>
+          <h2 className="text-sm font-mono uppercase tracking-wider text-white">Tape details</h2>
           <button onClick={onClose} aria-label="Close" className="text-zinc-400 hover:text-white text-2xl leading-none px-1">×</button>
         </div>
 
@@ -226,7 +226,7 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
                 onClick={(e) => e.stopPropagation()}
                 className="underline hover:text-white"
               >
-                Field Notes Terms
+                Tapes Terms
               </a>
               .
             </span>

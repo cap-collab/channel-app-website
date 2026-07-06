@@ -251,8 +251,8 @@ export function FieldNotesClient() {
 
       <main className="max-w-2xl mx-auto px-6 py-6 pb-24 space-y-8">
         <div className="border-b border-white/10 pb-4">
-          <h1 className="text-2xl font-semibold text-white">Field Notes</h1>
-          <p className="text-zinc-400 text-sm mt-2">Voice impressions from people who were there.</p>
+          <h1 className="text-2xl font-semibold text-white">Tapes</h1>
+          <p className="text-zinc-400 text-sm mt-2">Voices from the people who were there.</p>
         </div>
 
         {authLoading ? (
@@ -271,7 +271,7 @@ export function FieldNotesClient() {
               {loading ? (
                 <p className="text-zinc-500 text-sm">Loading…</p>
               ) : entityGroups.length === 0 ? (
-                <p className="text-zinc-500 text-sm">No published field notes yet.</p>
+                <p className="text-zinc-500 text-sm">No published tapes yet.</p>
               ) : (
                 <div className="space-y-6">
                   {entityGroups.map((g) => (
@@ -299,7 +299,7 @@ export function FieldNotesClient() {
                 has at least one note. Hidden entirely otherwise. */}
             {isAuthenticated && myNotes.length > 0 && (
               <section>
-                <h2 className={SECTION_HEADER_CLS}>Your notes</h2>
+                <h2 className={SECTION_HEADER_CLS}>Your tapes</h2>
                 <div className="divide-y divide-white/10 border border-white/10 rounded-lg overflow-hidden">
                   {myNotes.map((note) => (
                     <div key={note.id} className="flex items-center justify-between px-4 py-3 gap-3 bg-zinc-900/40">

@@ -55,7 +55,7 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     // "Field notes" → the /field-notes page. The page itself is open, but the
     // menu link is only shown to admin-dashboard accounts (hidden, not secured).
     if (!FIELD_NOTES_ADMIN_ONLY || isBroadcaster(role)) {
-      items.push({ label: "Field notes", href: "/field-notes", active: currentPage === "field-notes" });
+      items.push({ label: "Tapes", href: "/field-notes", active: currentPage === "field-notes" });
     }
 
     // Studio - shown when signed out or when user is a DJ
