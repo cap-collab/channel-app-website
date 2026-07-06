@@ -146,12 +146,21 @@ export function FieldNotesClient() {
     if (!authLoading) loadFeed();
   }, [authLoading, loadFeed]);
 
-  // Group published notes by their FULL set of tagged entities — notes with the
-  // same entities share one category header (all those entities in a row), with
-  // thin cards below. Groups ordered by most-recent note; notes newest-first.
-  const entityGroups = useMemo(() => {
+  // A note is "overheard" when it's tied to nothing — no entities and no event.
+  const isOverheard = (note: FieldNoteSerialized) =>
+    noteEntities(note).length === 0 && !(note.eventName && note.eventName.trim());
+
+  // Group ATTRIBUTED published notes by their full set of tagged entities (or
+  // event name) — notes with the same attribution share one category header.
+  // Overheard notes are collected separately into their own section.
+  const { entityGroups, overheardNotes } = useMemo(() => {
     const map = new Map<string, EntityGroup>();
+    const overheard: FieldNoteSerialized[] = [];
     for (const note of notes) {
+      if (isOverheard(note)) {
+        overheard.push(note);
+        continue;
+      }
       const entities = noteEntities(note);
       const key = entities.length
         ? entities.map((e) => e.key).sort().join('|')
@@ -172,7 +181,10 @@ export function FieldNotesClient() {
     }
     const groups = Array.from(map.values());
     groups.forEach((g) => g.notes.sort((a, b) => b.createdAt - a.createdAt));
-    return groups.sort((a, b) => b.latest - a.latest);
+    groups.sort((a, b) => b.latest - a.latest);
+    overheard.sort((a, b) => b.createdAt - a.createdAt);
+    return { entityGroups: groups, overheardNotes: overheard };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notes]);
 
   // Submitting is allowed anonymously — no login prompt.
@@ -247,7 +259,7 @@ export function FieldNotesClient() {
   return (
     <div className="min-h-screen text-white relative overflow-x-clip">
       <AnimatedBackground />
-      <Header currentPage="field-notes" position="sticky" />
+      <Header currentPage="tape" position="sticky" />
 
       <main className="max-w-2xl mx-auto px-6 py-6 pb-24 space-y-8">
         <div className="border-b border-white/10 pb-4">
@@ -294,6 +306,27 @@ export function FieldNotesClient() {
                 </div>
               )}
             </section>
+
+            {/* Overheard: notes tied to nothing — no DJ/venue/collective, no event. */}
+            {overheardNotes.length > 0 && (
+              <section>
+                <h2 className={SECTION_HEADER_CLS}>Overheard</h2>
+                <div className="space-y-2">
+                  {overheardNotes.map((note) => (
+                    <FieldNoteAudioPlayer
+                      key={note.id}
+                      src={note.audioUrl}
+                      createdAt={note.createdAt}
+                      upvotes={note.upvotes || 0}
+                      downvotes={note.downvotes || 0}
+                      myVote={note.myVote || 0}
+                      onVote={(value) => handleVote(note.id, value)}
+                      onReply={() => setReplyTo(note)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* Your notes — with status. Only shown when logged in AND the user
                 has at least one note. Hidden entirely otherwise. */}

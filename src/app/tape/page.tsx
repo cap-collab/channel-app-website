@@ -4,9 +4,9 @@ import { FieldNotesClient } from './FieldNotesClient';
 export const metadata = makeOG({
   title: 'Tapes',
   description: 'Voices from the people who were there.',
-  path: '/field-notes',
+  path: '/tape',
 });
 
-export default function FieldNotesPage() {
+export default function TapePage() {
   return <FieldNotesClient />;
 }

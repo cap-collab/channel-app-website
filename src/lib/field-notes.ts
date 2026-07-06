@@ -298,14 +298,9 @@ export async function createPendingFieldNote(
   const venues = normalizeVenues(input.venues);
   const collectives = normalizeCollectives(input.collectives);
 
-  const hasEventLink = Boolean(
-    input.linkedSlotId || input.linkedArchiveId || input.linkedEventId ||
-    (input.eventName && input.eventName.trim())
-  );
-  const hasTag = djs.length > 0 || venues.length > 0 || collectives.length > 0;
-  if (!hasEventLink && !hasTag) {
-    throw new Error('Add at least an event, a DJ, a venue, or a collective.');
-  }
+  // Attribution is optional. A note tied to no event and no DJ/venue/collective
+  // is filed as "overheard" (derived from the empty attribution, not a stored
+  // flag). Only the recording itself is required.
 
   const { taggedDjKeys, taggedVenueIds, taggedCollectiveIds } = deriveTaggedKeys(djs, venues, collectives);
 

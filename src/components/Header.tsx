@@ -12,7 +12,7 @@ import { HeaderTuner } from "@/components/HeaderTuner";
 import { GlobalBroadcastBar } from "@/components/GlobalBroadcastBar";
 import { FloatingChat } from "@/components/channel/FloatingChat";
 
-type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "streaming-guide" | "stripe-setup" | "studio" | "archives" | "explore" | "field-notes";
+type CurrentPage = "home" | "djshows" | "apply" | "broadcast-admin" | "channel" | "dj-portal" | "radio-portal" | "streaming-guide" | "stripe-setup" | "studio" | "archives" | "explore" | "tape";
 
 interface HeaderProps {
   currentPage?: CurrentPage;
@@ -52,10 +52,10 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
     // "For You" tab → the /scene recommendations page.
     items.push({ label: "For You", href: "/scene", active: currentPage === "explore" });
 
-    // "Field notes" → the /field-notes page. The page itself is open, but the
-    // menu link is only shown to admin-dashboard accounts (hidden, not secured).
+    // "Tapes" → the /tape page. The page itself is open, but the menu link is
+    // only shown to admin-dashboard accounts (hidden, not secured).
     if (!FIELD_NOTES_ADMIN_ONLY || isBroadcaster(role)) {
-      items.push({ label: "Tapes", href: "/field-notes", active: currentPage === "field-notes" });
+      items.push({ label: "Tapes", href: "/tape", active: currentPage === "tape" });
     }
 
     // Studio - shown when signed out or when user is a DJ

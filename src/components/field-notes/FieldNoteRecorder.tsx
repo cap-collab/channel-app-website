@@ -97,11 +97,15 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
     setEventQuery('');
   };
 
-  const canSubmit = () => {
+  const hasAnyDetail = () => {
     const hasEvent = Boolean(selectedEventId || eventFreeText.trim() || eventQuery.trim());
     const hasTag = djs.length > 0 || venues.length > 0 || collectives.length > 0;
-    return permission && (hasEvent || hasTag);
+    return hasEvent || hasTag;
   };
+
+  // Details are optional — a tape with none is filed as "overheard". Only the
+  // usage-permission checkbox is required to submit.
+  const canSubmit = () => permission;
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -205,6 +209,12 @@ export function FieldNoteRecorder({ take, onClose, onSubmitted }: Props) {
           />
 
           <p className="text-xs text-zinc-500">City: {city}</p>
+
+          {!hasAnyDetail() && (
+            <p className="text-xs text-zinc-500">
+              No event or tags? That&apos;s fine — this will be filed as <span className="text-zinc-300">overheard</span>.
+            </p>
+          )}
 
           {submitError && <p className="text-sm text-red-400">{submitError}</p>}
         </div>
