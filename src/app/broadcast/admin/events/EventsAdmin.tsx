@@ -13,6 +13,8 @@ import { normalizeUrl } from '@/lib/url';
 import { uploadEventPhoto, deleteEventPhoto, validatePhoto } from '@/lib/photo-upload';
 import { Event, EventDJRef, EventVenueRef, Venue, Collective, CollectiveRef, CustomLink } from '@/types/events';
 import { ScenePillEditor } from '@/components/broadcast/admin/ScenePillEditor';
+import { CreatableChipField } from '@/components/events/CreatableChipField';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { useScenesData } from '@/hooks/useScenesData';
 
 interface DJOption {
@@ -35,16 +37,11 @@ export function EventsAdmin() {
 
   // Form state
   const [name, setName] = useState('');
-  const [date, setDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [date, setDate] = useState('');           // YYYY-MM-DD
+  const [startTime, setStartTime] = useState('20:00'); // HH:MM, defaults to 8:00 PM
   const [description, setDescription] = useState('');
   const [eventLinkedVenues, setEventLinkedVenues] = useState<EventVenueRef[]>([]);
   const [eventLinkedCollectives, setEventLinkedCollectives] = useState<CollectiveRef[]>([]);
-  // Collective picked as the event's "venue" via the unified picker. Stored
-  // separately so we can persist venueCollectiveId/Name/Slug and link the
-  // event card chip to /dj/<slug>.
-  const [venueCollective, setVenueCollective] = useState<{ id: string; name: string; slug: string } | null>(null);
-  const [manualVenueName, setManualVenueName] = useState('');
   const [location, setLocation] = useState('');
   const [genres, setGenres] = useState('');
   const [ticketLink, setTicketLink] = useState('');
@@ -57,7 +54,7 @@ export function EventsAdmin() {
   const [website, setWebsite] = useState('');
   const [residentAdvisor, setResidentAdvisor] = useState('');
   const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
-  const [djs, setDjs] = useState<EventDJRef[]>([{ djName: '' }]);
+  const [djs, setDjs] = useState<EventDJRef[]>([]);
   // Scene override: null = inherit from DJs + collectives; [] = pinned to no scene; [ids] = pinned.
   const [sceneIdsOverride, setSceneIdsOverride] = useState<string[] | null>(null);
 
@@ -288,12 +285,10 @@ export function EventsAdmin() {
   const resetForm = () => {
     setName('');
     setDate('');
-    setEndDate('');
+    setStartTime('20:00');
     setDescription('');
     setEventLinkedVenues([]);
     setEventLinkedCollectives([]);
-    setVenueCollective(null);
-    setManualVenueName('');
     setLocation('');
     setGenres('');
     setTicketLink('');
@@ -306,7 +301,7 @@ export function EventsAdmin() {
     setWebsite('');
     setResidentAdvisor('');
     setCustomLinks([]);
-    setDjs([{ djName: '' }]);
+    setDjs([]);
     setSceneIdsOverride(null);
     setPhotoUrl(null);
     setPhotoError(null);
@@ -318,31 +313,20 @@ export function EventsAdmin() {
   const startEditing = (event: Event) => {
     setEditingEvent(event);
     setName(event.name);
-    setDate(msToDatetimeLocal(event.date));
-    setEndDate(event.endDate ? msToDatetimeLocal(event.endDate) : '');
+    // Split the stored start ms (PDT-anchored "YYYY-MM-DDTHH:MM") into date + time.
+    const [datePart, timePart] = msToDatetimeLocal(event.date).split('T');
+    setDate(datePart || '');
+    setStartTime(timePart || '20:00');
     setDescription(event.description || '');
-    // Populate multi-select from arrays, or fall back to legacy single-select fields
+    // Populate venue chips from arrays, or fall back to legacy single fields
+    // (venueId/venueName, or a legacy manual venueName with no id).
     const lv = event.linkedVenues || [];
-    if (lv.length === 0 && event.venueId && event.venueName) {
-      setEventLinkedVenues([{ venueId: event.venueId, venueName: event.venueName }]);
-    } else {
+    if (lv.length > 0) {
       setEventLinkedVenues(lv);
-    }
-    // If venueName is set but no linked venues, it's a manual venue name
-    if (lv.length === 0 && !event.venueId && event.venueName) {
-      setManualVenueName(event.venueName);
+    } else if (event.venueName) {
+      setEventLinkedVenues([{ venueId: event.venueId || '', venueName: event.venueName }]);
     } else {
-      setManualVenueName('');
-    }
-    // Collective-as-venue (new field)
-    if (event.venueCollectiveId && event.venueCollectiveName && event.venueCollectiveSlug) {
-      setVenueCollective({
-        id: event.venueCollectiveId,
-        name: event.venueCollectiveName,
-        slug: event.venueCollectiveSlug,
-      });
-    } else {
-      setVenueCollective(null);
+      setEventLinkedVenues([]);
     }
     const lc = event.linkedCollectives || [];
     if (lc.length === 0 && event.collectiveId && event.collectiveName) {
@@ -414,25 +398,6 @@ export function EventsAdmin() {
     }
   };
 
-  // Handle selecting a DJ from the dropdown
-  const handleDJSelect = (index: number, value: string) => {
-    const updated = [...djs];
-    if (value === '__manual__') {
-      updated[index] = { djName: '' };
-    } else {
-      const option = djOptions.find(o => (o.djUsername || o.djName) === value);
-      if (option) {
-        updated[index] = {
-          djName: option.djName,
-          djUserId: option.djUserId,
-          djUsername: option.djUsername,
-          djPhotoUrl: option.djPhotoUrl,
-        };
-      }
-    }
-    setDjs(updated);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -475,15 +440,15 @@ export function EventsAdmin() {
       const payload = {
         ...(editingEvent ? { eventId: editingEvent.id } : {}),
         name: name.trim(),
-        date: datetimeLocalToMs(date),
-        endDate: endDate ? datetimeLocalToMs(endDate) : null,
+        date: datetimeLocalToMs(`${date}T${startTime || '20:00'}`),
+        endDate: null, // events no longer have an end time; clear any legacy value
         photo: photoUrl,
         description: description.trim() || null,
-        venueId: venueCollective ? null : (eventLinkedVenues.length > 0 ? eventLinkedVenues[0].venueId : null),
-        venueName: venueCollective ? null : (eventLinkedVenues.length > 0 ? eventLinkedVenues[0].venueName : (manualVenueName.trim() || null)),
-        venueCollectiveId: venueCollective?.id || null,
+        venueId: eventLinkedVenues.length > 0 ? (eventLinkedVenues[0].venueId || null) : null,
+        venueName: eventLinkedVenues.length > 0 ? eventLinkedVenues[0].venueName : null,
+        venueCollectiveId: null, // collective-as-venue removed; clear any legacy value
         collectiveId: eventLinkedCollectives.length > 0 ? eventLinkedCollectives[0].collectiveId : null,
-        linkedVenues: venueCollective ? [] : eventLinkedVenues,
+        linkedVenues: eventLinkedVenues,
         linkedCollectives: eventLinkedCollectives,
         djs: filteredDJs,
         sceneIdsOverride: sceneIdsOverride,
@@ -641,25 +606,25 @@ export function EventsAdmin() {
               />
             </div>
 
-            {/* Date / End Date */}
+            {/* Date + Time (start only) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Date & Time *</label>
+                <label className="block text-sm text-gray-400 mb-1">Date *</label>
                 <input
-                  type="datetime-local"
+                  type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white [color-scheme:dark]"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-1">End Date & Time</label>
+                <label className="block text-sm text-gray-400 mb-1">Start Time</label>
                 <input
-                  type="datetime-local"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white [color-scheme:dark]"
                 />
               </div>
             </div>
@@ -721,132 +686,41 @@ export function EventsAdmin() {
               )}
             </div>
 
-            {/* Venue (picker: venues OR collectives-as-venue) */}
+            {/* Venue — search available venues or type a new name */}
             <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-3">Venue</label>
-              {venueCollective && (
-                <div className="space-y-2 mb-3">
-                  <div className="flex items-center gap-2 bg-[#252525] rounded-lg px-4 py-2">
-                    <span className="flex-1 text-white text-sm">{venueCollective.name} <span className="text-gray-500 text-xs">(collective)</span></span>
-                    <button
-                      type="button"
-                      onClick={() => setVenueCollective(null)}
-                      className="text-red-400 hover:text-red-300 text-sm"
-                    >
-                      &times;
-                    </button>
-                  </div>
-                </div>
-              )}
-              {!venueCollective && eventLinkedVenues.length > 0 && (
-                <div className="space-y-2 mb-3">
-                  {eventLinkedVenues.map((lv) => (
-                    <div key={lv.venueId} className="flex items-center gap-2 bg-[#252525] rounded-lg px-4 py-2">
-                      <span className="flex-1 text-white text-sm">{lv.venueName}</span>
-                      <button
-                        type="button"
-                        onClick={() => setEventLinkedVenues(eventLinkedVenues.filter(v => v.venueId !== lv.venueId))}
-                        className="text-red-400 hover:text-red-300 text-sm"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {!venueCollective && (
-                <select
-                  value=""
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    if (!raw) return;
-                    if (raw.startsWith('venue:')) {
-                      const vId = raw.slice('venue:'.length);
-                      const venue = venues.find(v => v.id === vId);
-                      if (!venue) return;
-                      if (eventLinkedVenues.some(lv => lv.venueId === vId)) return;
-                      setEventLinkedVenues([...eventLinkedVenues, { venueId: venue.id, venueName: venue.name }]);
-                      if (!location && venue.location) setLocation(venue.location);
-                    } else if (raw.startsWith('collective:')) {
-                      const cId = raw.slice('collective:'.length);
-                      const coll = collectives.find(c => c.id === cId);
-                      if (!coll || !coll.slug) return;
-                      setVenueCollective({ id: coll.id, name: coll.name, slug: coll.slug });
-                      setEventLinkedVenues([]);
-                      setManualVenueName('');
-                      if (!location && coll.location) setLocation(coll.location);
-                    }
-                  }}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
-                >
-                  <option value="">Add a venue or collective…</option>
-                  {venues
-                    .filter(v => !eventLinkedVenues.some(lv => lv.venueId === v.id))
-                    .map((venue) => (
-                      <option key={`v-${venue.id}`} value={`venue:${venue.id}`}>
-                        {venue.name}{venue.location ? ` (${venue.location})` : ''}
-                      </option>
-                    ))}
-                  {collectives.map((coll) => (
-                    <option key={`c-${coll.id}`} value={`collective:${coll.id}`}>
-                      {coll.name} (collective){coll.location ? ` — ${coll.location}` : ''}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {!venueCollective && eventLinkedVenues.length === 0 && (
-                <input
-                  type="text"
-                  value={manualVenueName}
-                  onChange={(e) => setManualVenueName(e.target.value)}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white mt-2"
-                  placeholder="Or type a venue name..."
-                />
-              )}
+              <CreatableChipField<Venue, EventVenueRef>
+                label="Venue"
+                options={venues}
+                selected={eventLinkedVenues}
+                optionLabel={(v) => v.location ? `${v.name} (${v.location})` : v.name}
+                selectedLabel={(s) => s.venueName}
+                optionKey={(v) => v.id}
+                selectedKey={(s) => s.venueId || normalizeUsername(s.venueName)}
+                toSelected={(v) => {
+                  if (!location && v.location) setLocation(v.location);
+                  return { venueId: v.id, venueName: v.name };
+                }}
+                freeTextToSelected={(text) => ({ venueId: '', venueName: text })}
+                onChange={setEventLinkedVenues}
+                placeholder="Search a venue, or type a new name"
+              />
             </div>
 
-            {/* Linked Collectives */}
+            {/* Linked Collectives — search available collectives or type a new name */}
             <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-3">Linked Collectives</label>
-              {eventLinkedCollectives.length > 0 && (
-                <div className="space-y-2 mb-3">
-                  {eventLinkedCollectives.map((lc) => (
-                    <div key={lc.collectiveId} className="flex items-center gap-2 bg-[#252525] rounded-lg px-4 py-2">
-                      <span className="flex-1 text-white text-sm">{lc.collectiveName}</span>
-                      <button
-                        type="button"
-                        onClick={() => setEventLinkedCollectives(eventLinkedCollectives.filter(c => c.collectiveId !== lc.collectiveId))}
-                        className="text-red-400 hover:text-red-300 text-sm"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {collectives.filter(c => !eventLinkedCollectives.some(lc => lc.collectiveId === c.id)).length > 0 && (
-                <select
-                  value=""
-                  onChange={(e) => {
-                    const cId = e.target.value;
-                    if (!cId) return;
-                    const coll = collectives.find(c => c.id === cId);
-                    if (!coll) return;
-                    if (eventLinkedCollectives.some(lc => lc.collectiveId === cId)) return;
-                    setEventLinkedCollectives([...eventLinkedCollectives, { collectiveId: coll.id, collectiveName: coll.name, collectiveSlug: coll.slug, collectivePhoto: coll.photo || null }]);
-                  }}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
-                >
-                  <option value="">Add a collective...</option>
-                  {collectives
-                    .filter(c => !eventLinkedCollectives.some(lc => lc.collectiveId === c.id))
-                    .map((collective) => (
-                      <option key={collective.id} value={collective.id}>
-                        {collective.name}{collective.location ? ` (${collective.location})` : ''}
-                      </option>
-                    ))}
-                </select>
-              )}
+              <CreatableChipField<Collective, CollectiveRef>
+                label="Linked Collectives"
+                options={collectives}
+                selected={eventLinkedCollectives}
+                optionLabel={(c) => c.location ? `${c.name} (${c.location})` : c.name}
+                selectedLabel={(s) => s.collectiveName}
+                optionKey={(c) => c.id}
+                selectedKey={(s) => s.collectiveId || normalizeUsername(s.collectiveName)}
+                toSelected={(c) => ({ collectiveId: c.id, collectiveName: c.name, collectiveSlug: c.slug, collectivePhoto: c.photo || null })}
+                freeTextToSelected={(text) => ({ collectiveId: '', collectiveName: text })}
+                onChange={setEventLinkedCollectives}
+                placeholder="Search a collective, or type a new name"
+              />
             </div>
 
             {/* Location */}
@@ -1006,63 +880,21 @@ export function EventsAdmin() {
               </div>
             </div>
 
-            {/* DJs */}
+            {/* DJs — search available DJs or type a new name */}
             <div className="mb-6">
-              <label className="block text-sm text-gray-400 mb-3">DJs Playing</label>
-              {djs.map((dj, i) => {
-                const isManual = !djOptions.some(o => (o.djUsername || o.djName) === (dj.djUsername || dj.djName)) && dj.djName;
-                return (
-                  <div key={i} className="flex gap-2 mb-2">
-                    <select
-                      value={isManual ? '__manual__' : (dj.djUsername || dj.djName || '')}
-                      onChange={(e) => handleDJSelect(i, e.target.value)}
-                      className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
-                    >
-                      <option value="">Select DJ...</option>
-                      {djOptions.map((option) => (
-                        <option key={option.djUsername || option.djName} value={option.djUsername || option.djName}>
-                          {option.label}
-                        </option>
-                      ))}
-                      <option value="__manual__">Other (type name)</option>
-                    </select>
-                    {isManual && (
-                      <input
-                        type="text"
-                        value={dj.djName}
-                        onChange={(e) => {
-                          const updated = [...djs];
-                          updated[i] = { ...updated[i], djName: e.target.value };
-                          setDjs(updated);
-                        }}
-                        className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
-                        placeholder="DJ Name"
-                      />
-                    )}
-                    {dj.djUsername && (
-                      <span className="flex items-center text-green-400 text-xs px-2">
-                        @{dj.djUsername}
-                      </span>
-                    )}
-                    {djs.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setDjs(djs.filter((_, j) => j !== i))}
-                        className="text-red-400 hover:text-red-300 px-2"
-                      >
-                        &times;
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-              <button
-                type="button"
-                onClick={() => setDjs([...djs, { djName: '' }])}
-                className="text-sm text-gray-400 hover:text-white mt-1"
-              >
-                + Add DJ
-              </button>
+              <CreatableChipField<DJOption, EventDJRef>
+                label="DJs Playing"
+                options={djOptions}
+                selected={djs}
+                optionLabel={(o) => o.label}
+                selectedLabel={(s) => s.djUsername ? `${s.djName} @${s.djUsername}` : s.djName}
+                optionKey={(o) => o.djUserId || o.djUsername || normalizeUsername(o.djName)}
+                selectedKey={(s) => s.djUserId || s.djUsername || normalizeUsername(s.djName)}
+                toSelected={(o) => ({ djName: o.djName, djUserId: o.djUserId, djUsername: o.djUsername, djPhotoUrl: o.djPhotoUrl })}
+                freeTextToSelected={(text) => ({ djName: text })}
+                onChange={setDjs}
+                placeholder="Search a DJ, or type a new name"
+              />
             </div>
 
             {/* Scene assignment */}

@@ -13,7 +13,8 @@ import { AuthModal } from "@/components/AuthModal";
 import { Header } from "@/components/Header";
 import { normalizeUrl } from "@/lib/url";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEventPhoto, uploadShowImage, deleteShowImage, uploadArchiveImage } from "@/lib/photo-upload";
-import { wordBoundaryMatch } from "@/lib/dj-matching";
+import { wordBoundaryMatch, normalizeUsername } from "@/lib/dj-matching";
+import { CreatableChipField } from "@/components/events/CreatableChipField";
 import { getStationById } from "@/lib/stations";
 import { TEMPOS } from "@/lib/tempo";
 import type { Tempo } from "@/types/broadcast";
@@ -103,6 +104,7 @@ interface DJEvent {
   id?: string; // undefined = new event, string = existing event
   name: string;
   date: string; // YYYY-MM-DD for form input
+  startTime: string; // HH:MM for form input, defaults to 20:00 (8 PM)
   location: string;
   ticketLink: string;
   photo: string | null;
@@ -301,7 +303,7 @@ export function StudioProfileClient() {
   // Form state - IRL Events section
   const [djEvents, setDjEvents] = useState<DJEvent[]>([]);
   const [loadingDjEvents, setLoadingDjEvents] = useState(true);
-  const [newEvent, setNewEvent] = useState<DJEvent>({ name: "", date: "", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
+  const [newEvent, setNewEvent] = useState<DJEvent>({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
   const [showNewEventForm, setShowNewEventForm] = useState(false);
   const [savingNewEvent, setSavingNewEvent] = useState(false);
   const [eventError, setEventError] = useState<string | null>(null);
@@ -1382,11 +1384,14 @@ export function StudioProfileClient() {
         const data = d.data();
         if (data.createdBy === user.uid) {
           const dateObj = new Date(data.date);
-          const dateStr = dateObj.toISOString().split("T")[0];
+          const iso = dateObj.toISOString();
+          const dateStr = iso.split("T")[0];
+          const timeStr = iso.slice(11, 16); // HH:MM
           events.push({
             id: d.id,
             name: data.name || "",
             date: dateStr,
+            startTime: timeStr,
             location: data.location || "",
             ticketLink: data.ticketLink || "",
             photo: data.photo || null,
@@ -1434,6 +1439,15 @@ export function StudioProfileClient() {
     }
   };
 
+  // Compose the form's date + start time into a unix-ms timestamp (UTC), or
+  // undefined if no date is set (API then defaults to now). Matches the UTC
+  // basis used when reading events back in fetchDjEvents.
+  const eventDateMs = (): number | undefined => {
+    if (!newEvent.date) return undefined;
+    const ms = new Date(`${newEvent.date}T${newEvent.startTime || "20:00"}:00Z`).getTime();
+    return isNaN(ms) ? undefined : ms;
+  };
+
   // Create a new event via API
   const createEvent = async () => {
     if (!user || !newEvent.name.trim()) return;
@@ -1450,7 +1464,7 @@ export function StudioProfileClient() {
         },
         body: JSON.stringify({
           name: newEvent.name.trim(),
-          date: newEvent.date || undefined,
+          date: eventDateMs(),
           location: newEvent.location.trim() || undefined,
           ticketLink: newEvent.ticketLink.trim() ? normalizeUrl(newEvent.ticketLink.trim()) : undefined,
           photo: newEvent.photo || undefined,
@@ -1461,7 +1475,7 @@ export function StudioProfileClient() {
       });
 
       if (response.ok) {
-        setNewEvent({ name: "", date: "", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
+        setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
         setShowNewEventForm(false);
         await fetchDjEvents();
       } else {
@@ -1501,7 +1515,7 @@ export function StudioProfileClient() {
         body: JSON.stringify({
           eventId: editingEventId,
           name: newEvent.name.trim(),
-          date: newEvent.date || undefined,
+          date: eventDateMs(),
           location: newEvent.location.trim() || null,
           ticketLink: newEvent.ticketLink.trim() ? normalizeUrl(newEvent.ticketLink.trim()) : null,
           photo: newEvent.photo || null,
@@ -1512,7 +1526,7 @@ export function StudioProfileClient() {
       });
 
       if (response.ok) {
-        setNewEvent({ name: "", date: "", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
+        setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
         setShowNewEventForm(false);
         setEditingEventId(null);
         await fetchDjEvents();
@@ -3368,47 +3382,50 @@ export function StudioProfileClient() {
                   <div className="flex gap-2">
                     <input type="text" value={newEvent.ticketLink} onChange={(e) => setNewEvent(prev => ({ ...prev, ticketLink: e.target.value }))} placeholder="Ticket URL (e.g., ra.co/events/...)" className="flex-1 bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none" />
                     <input type="date" value={newEvent.date} onChange={(e) => setNewEvent(prev => ({ ...prev, date: e.target.value }))} className="w-36 bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none [color-scheme:dark]" />
+                    <input type="time" value={newEvent.startTime} onChange={(e) => setNewEvent(prev => ({ ...prev, startTime: e.target.value }))} className="w-28 bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none [color-scheme:dark]" />
                   </div>
-                  {/* Venue selector */}
-                  <select value={newEvent.linkedVenues[0]?.venueId || ""} onChange={(e) => { const vId = e.target.value; if (!vId) { setNewEvent(prev => ({ ...prev, linkedVenues: [] })); return; } const venue = venueOptions.find(v => v.id === vId); if (venue) setNewEvent(prev => ({ ...prev, linkedVenues: [{ venueId: venue.id, venueName: venue.name }] })); }} className="w-full bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none">
-                    <option value="">Select a venue...</option>
-                    {venueOptions.map((venue) => (<option key={venue.id} value={venue.id}>{venue.name}</option>))}
-                  </select>
-                  {/* Linked Collectives */}
-                  <div>
-                    {newEvent.linkedCollectives.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-1">
-                        {newEvent.linkedCollectives.map((lc) => (
-                          <span key={lc.collectiveId} className="inline-flex items-center gap-1 bg-[#1e1e1e] rounded px-2 py-1 text-xs text-white">
-                            {lc.collectiveName}
-                            <button type="button" onClick={() => setNewEvent(prev => ({ ...prev, linkedCollectives: prev.linkedCollectives.filter(c => c.collectiveId !== lc.collectiveId) }))} className="text-red-400 hover:text-red-300">&times;</button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <select value="" onChange={(e) => { const cId = e.target.value; if (!cId) return; const coll = collectiveOptions.find(c => c.id === cId); if (!coll || newEvent.linkedCollectives.some(lc => lc.collectiveId === cId)) return; setNewEvent(prev => ({ ...prev, linkedCollectives: [...prev.linkedCollectives, { collectiveId: coll.id, collectiveName: coll.name }] })); }} className="w-full bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none">
-                      <option value="">Add a collective...</option>
-                      {collectiveOptions.filter(c => !newEvent.linkedCollectives.some(lc => lc.collectiveId === c.id)).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-                    </select>
-                  </div>
-                  {/* Tagged DJs */}
-                  <div>
-                    {newEvent.djs.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-1">
-                        {newEvent.djs.map((dj, djIdx) => (
-                          <span key={djIdx} className="inline-flex items-center gap-1 bg-[#1e1e1e] rounded px-2 py-1 text-xs text-white">
-                            {dj.djName}{dj.djUsername ? ` @${dj.djUsername}` : ""}
-                            <button type="button" onClick={() => setNewEvent(prev => ({ ...prev, djs: prev.djs.filter((_, j) => j !== djIdx) }))} className="text-red-400 hover:text-red-300">&times;</button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <select value="" onChange={(e) => { const val = e.target.value; if (!val) return; if (val === "__manual__") { setNewEvent(prev => ({ ...prev, djs: [...prev.djs, { djName: "" }] })); return; } const option = djOptions.find(o => (o.djUsername || o.djName) === val); if (!option || newEvent.djs.some(d => (d.djUsername || d.djName) === (option.djUsername || option.djName))) return; setNewEvent(prev => ({ ...prev, djs: [...prev.djs, { djName: option.djName, djUserId: option.djUserId, djUsername: option.djUsername, djPhotoUrl: option.djPhotoUrl }] })); }} className="w-full bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none">
-                      <option value="">Tag a DJ...</option>
-                      {djOptions.filter(o => !newEvent.djs.some(d => (d.djUsername || d.djName) === (o.djUsername || o.djName))).map((o) => (<option key={o.djUsername || o.djName} value={o.djUsername || o.djName}>{o.label}</option>))}
-                      <option value="__manual__">Other (type name)</option>
-                    </select>
-                  </div>
+                  {/* Venue — search available venues or type a new name */}
+                  <CreatableChipField<{ id: string; name: string }, { venueId: string; venueName: string }>
+                    label="Venue"
+                    options={venueOptions}
+                    selected={newEvent.linkedVenues}
+                    optionLabel={(v) => v.name}
+                    selectedLabel={(s) => s.venueName}
+                    optionKey={(v) => v.id}
+                    selectedKey={(s) => s.venueId || normalizeUsername(s.venueName)}
+                    toSelected={(v) => ({ venueId: v.id, venueName: v.name })}
+                    freeTextToSelected={(text) => ({ venueId: "", venueName: text })}
+                    onChange={(next) => setNewEvent(prev => ({ ...prev, linkedVenues: next }))}
+                    placeholder="Search a venue, or type a new name"
+                  />
+                  {/* Linked Collectives — search available collectives or type a new name */}
+                  <CreatableChipField<{ id: string; name: string }, { collectiveId: string; collectiveName: string }>
+                    label="Collectives"
+                    options={collectiveOptions}
+                    selected={newEvent.linkedCollectives}
+                    optionLabel={(c) => c.name}
+                    selectedLabel={(s) => s.collectiveName}
+                    optionKey={(c) => c.id}
+                    selectedKey={(s) => s.collectiveId || normalizeUsername(s.collectiveName)}
+                    toSelected={(c) => ({ collectiveId: c.id, collectiveName: c.name })}
+                    freeTextToSelected={(text) => ({ collectiveId: "", collectiveName: text })}
+                    onChange={(next) => setNewEvent(prev => ({ ...prev, linkedCollectives: next }))}
+                    placeholder="Search a collective, or type a new name"
+                  />
+                  {/* Tagged DJs — search available DJs or type a new name */}
+                  <CreatableChipField<{ label: string; djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }, { djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }>
+                    label="Tagged DJs"
+                    options={djOptions}
+                    selected={newEvent.djs}
+                    optionLabel={(o) => o.label}
+                    selectedLabel={(s) => s.djUsername ? `${s.djName} @${s.djUsername}` : s.djName}
+                    optionKey={(o) => o.djUserId || o.djUsername || normalizeUsername(o.djName)}
+                    selectedKey={(s) => s.djUserId || s.djUsername || normalizeUsername(s.djName)}
+                    toSelected={(o) => ({ djName: o.djName, djUserId: o.djUserId, djUsername: o.djUsername, djPhotoUrl: o.djPhotoUrl })}
+                    freeTextToSelected={(text) => ({ djName: text })}
+                    onChange={(next) => setNewEvent(prev => ({ ...prev, djs: next }))}
+                    placeholder="Search a DJ, or type a new name"
+                  />
                   {/* Error display */}
                   {eventError && (
                     <p className="text-red-400 text-xs">{eventError}</p>
@@ -3418,7 +3435,7 @@ export function StudioProfileClient() {
                     <button type="button" onClick={editingEventId ? updateEvent : createEvent} disabled={savingNewEvent || !newEvent.name.trim()} className="px-4 py-2 bg-white text-black text-xs font-medium rounded hover:bg-gray-200 transition-colors disabled:opacity-50">
                       {savingNewEvent ? "Saving..." : editingEventId ? "Update Event" : "Create Event"}
                     </button>
-                    <button type="button" onClick={() => { setShowNewEventForm(false); setEditingEventId(null); setEventError(null); setNewEvent({ name: "", date: "", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] }); }} className="px-4 py-2 text-gray-400 hover:text-white text-xs transition-colors">
+                    <button type="button" onClick={() => { setShowNewEventForm(false); setEditingEventId(null); setEventError(null); setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] }); }} className="px-4 py-2 text-gray-400 hover:text-white text-xs transition-colors">
                       Cancel
                     </button>
                   </div>
