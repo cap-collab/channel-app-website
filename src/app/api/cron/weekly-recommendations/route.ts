@@ -506,7 +506,9 @@ export async function GET(request: NextRequest) {
 
           try {
             const ok = await sendWeeklyRecommendationsEmail({
-              to: r.email,
+              // In preview mode, redirect delivery to deliverTo (send the
+              // rendered non-user email to the admin, never the real person).
+              to: previewTo && deliverTo ? deliverTo : r.email,
               userTimezone: undefined, // no users doc → default PT
               section1: extraSection1,
               section2: [],
