@@ -19,6 +19,10 @@ export const FEATURED_SCENE_ORDER = ["spiral", "star"];
 export interface FeaturedMatrixOpts {
   // Tempos to drop from the grid (e.g. ["very_fast"] = exclude "Intense").
   excludeTempos?: Tempo[];
+  // Archive ids to skip when filling each cell — so a cell falls through to the
+  // NEXT-best archive of that scene×tempo. Used by the weekly email to rotate
+  // fresh featured picks for fallback recipients who already saw the top pick.
+  excludeArchiveIds?: Set<string>;
 }
 
 /**
@@ -33,6 +37,7 @@ export function buildFeaturedMatrix(
 ): ArchiveSerialized[] {
   const exclude = new Set(opts.excludeTempos ?? []);
   const tempos = FEATURED_TEMPO_ORDER.filter((t) => !exclude.has(t));
+  const excludeIds = opts.excludeArchiveIds;
 
   const fullById = new Map<string, ArchiveSerialized>();
   const items = docs.map((doc) => {
@@ -55,7 +60,12 @@ export function buildFeaturedMatrix(
     });
 
   const pickLatest = (scene: string, tempo: Tempo) =>
-    eligible.find((it) => it.tempo === tempo && it.sceneSlugs.includes(scene));
+    eligible.find(
+      (it) =>
+        it.tempo === tempo &&
+        it.sceneSlugs.includes(scene) &&
+        !(excludeIds && excludeIds.has(it.id)),
+    );
 
   const out: ArchiveSerialized[] = [];
   for (const tempo of tempos) {

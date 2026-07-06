@@ -282,7 +282,26 @@ export async function GET(request: NextRequest) {
         // featured matrix in section 1 (isFallback hides section 2 so we don't
         // double-render the same grid).
         const isFallback = section1.length === 0 && section2.length === 0;
-        if (isFallback) section1 = featuredRows;
+        if (isFallback) {
+          // Openers who got the fallback last week already saw the top pick in
+          // each scene×tempo cell — rotate them to the NEXT-best archive per
+          // cell by excluding what they were shown (`seen` = lastWeeklyRecShows).
+          // Non-openers (or anyone with no history) keep the shared strongest
+          // grid — they never saw it, so burning it would be wrong (mirrors the
+          // personalized non-opener rule).
+          if (openedLastWeek && Object.keys(seen).length > 0) {
+            const rotated = buildFeaturedMatrix(allArchives, {
+              excludeTempos: ["very_fast"],
+              excludeArchiveIds: new Set(Object.keys(seen)),
+            });
+            // If exclusion empties a cell entirely (tiny catalog for that
+            // scene×tempo), fall back to the shared grid so we never send an
+            // empty email.
+            section1 = rotated.length > 0 ? rotated.map((a) => archiveToRow(a)) : featuredRows;
+          } else {
+            section1 = featuredRows;
+          }
+        }
 
         // Cap IRL events at the 5 nearest (mirrors the go-live email). Online
         // shows are unbounded — comingUp is chronological, so keep every online
@@ -339,16 +358,18 @@ export async function GET(request: NextRequest) {
           if (Date.parse(iso) >= cutoff) updatedSeen[id] = iso;
         }
         const nowIso = new Date(nowMs).toISOString();
-        // Ordered record of exactly what we showed (for next week's
-        // fill-from-previous). Empty on the featured-fallback send.
+        // Ordered record of exactly what we showed (for next week's rotation).
+        // Recorded for BOTH the personalized and the fallback grid — the
+        // fallback needs it so openers rotate to fresh featured picks next week
+        // (excludeArchiveIds above reads exactly these ids back as `seen`).
+        // section2 is empty on a fallback send, so this naturally records just
+        // the featured grid there.
         const shownIds: string[] = [];
-        if (!isFallback) {
-          for (const r of [...section1, ...section2]) {
-            const a = allArchives.find((x) => x.slug === r.slug);
-            if (a) {
-              updatedSeen[a.id] = nowIso;
-              shownIds.push(a.id);
-            }
+        for (const r of [...section1, ...section2]) {
+          const a = allArchives.find((x) => x.slug === r.slug);
+          if (a) {
+            updatedSeen[a.id] = nowIso;
+            shownIds.push(a.id);
           }
         }
         await userDoc.ref.set(
