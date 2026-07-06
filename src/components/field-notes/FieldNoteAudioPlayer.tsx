@@ -60,11 +60,10 @@ export function FieldNoteAudioPlayer({ src, createdAt, name, upvotes, downvotes,
         <span className="text-zinc-500 text-[10px] uppercase tracking-wider">{date}</span>
       </div>
 
-      {/* Body: the tape's name, bold like a show title on a DJ recording card
-          (sits above the player line, not in the header). */}
+      {/* Body: the tape's name, a small lowercase label above the player line. */}
       {name && (
-        <div className="px-3 pt-2.5 pb-1">
-          <p className="text-sm font-bold text-white uppercase tracking-wide">{name}</p>
+        <div className="px-3 pt-2 pb-0.5">
+          <p className="text-xs font-normal text-white lowercase">{name}</p>
         </div>
       )}
 
