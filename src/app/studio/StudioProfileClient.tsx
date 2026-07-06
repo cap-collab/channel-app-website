@@ -1383,10 +1383,12 @@ export function StudioProfileClient() {
       eventsSnap.forEach((d) => {
         const data = d.data();
         if (data.createdBy === user.uid) {
+          // Split the stored ms into date + time in LOCAL time, matching how
+          // eventDateMs composes and saves it (and the local date label below).
           const dateObj = new Date(data.date);
-          const iso = dateObj.toISOString();
-          const dateStr = iso.split("T")[0];
-          const timeStr = iso.slice(11, 16); // HH:MM
+          const pad = (n: number) => String(n).padStart(2, "0");
+          const dateStr = `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}`;
+          const timeStr = `${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}`;
           events.push({
             id: d.id,
             name: data.name || "",
@@ -1439,13 +1441,19 @@ export function StudioProfileClient() {
     }
   };
 
-  // Compose the form's date + start time into a unix-ms timestamp (UTC), or
-  // undefined if no date is set (API then defaults to now). Matches the UTC
-  // basis used when reading events back in fetchDjEvents.
-  const eventDateMs = (): number | undefined => {
-    if (!newEvent.date) return undefined;
-    const ms = new Date(`${newEvent.date}T${newEvent.startTime || "20:00"}:00Z`).getTime();
-    return isNaN(ms) ? undefined : ms;
+  // Compose the form's date + start time into a unix-ms timestamp, interpreting
+  // the entry in the browser's LOCAL timezone (a bare datetime string with no
+  // trailing Z parses as local). Start time defaults to 20:00 (8 PM local) when
+  // the user leaves it untouched; if no date is picked, default to today so the
+  // API never falls back to the current time. Matches the local basis used in
+  // fetchDjEvents read-back.
+  const eventDateMs = (): number => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const now = new Date();
+    const dateStr = newEvent.date ||
+      `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const ms = new Date(`${dateStr}T${newEvent.startTime || "20:00"}:00`).getTime();
+    return isNaN(ms) ? now.getTime() : ms;
   };
 
   // Create a new event via API
