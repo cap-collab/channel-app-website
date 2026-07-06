@@ -3,9 +3,9 @@ import { makeOG } from '@/lib/og';
 import { SceneClient } from './SceneClient';
 
 export const metadata = makeOG({
-  title: 'Your scene',
-  description: 'Manage your scene on Channel — the DJs and shows you follow.',
-  path: '/scene',
+  title: 'For You',
+  description: 'Your For You page on Channel — the DJs and shows you follow.',
+  path: '/foryou',
 });
 
 export default function ScenePage() {

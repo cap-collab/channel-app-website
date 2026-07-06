@@ -22,7 +22,7 @@ type UserRow = { uid: string; email: string; displayName: string; chatUsername?:
 // Picker label: chatUsername → displayName → email.
 const userLabel = (u: UserRow) => u.label || u.chatUsername || u.displayName || u.email;
 
-// base64url(uid) — matches the weekly email's /scene?u= deep-link token. Browser
+// base64url(uid) — matches the weekly email's /foryou?u= deep-link token. Browser
 // btoa + URL-safe substitutions (no Node Buffer in client code).
 function sceneTokenForUid(uid: string): string {
   return btoa(uid).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -213,16 +213,16 @@ export function RecommendationsTab() {
           Force regenerate & save
         </button>
         {selectedUid && (
-          // Same deep-link the weekly "Explore the scene" email uses:
-          // /scene?u=base64url(uid) — renders this user's personalized /scene.
+          // Same deep-link the weekly "Explore For You" email uses:
+          // /foryou?u=base64url(uid) — renders this user's personalized /foryou.
           <a
-            href={`https://channel-app.com/scene?u=${sceneTokenForUid(selectedUid)}`}
+            href={`https://channel-app.com/foryou?u=${sceneTokenForUid(selectedUid)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="px-4 py-2 rounded-lg font-medium border border-gray-600 text-gray-200 hover:bg-gray-800"
-            title="Open this user's personalized /scene (same link as their weekly email)"
+            title="Open this user's personalized /foryou (same link as their weekly email)"
           >
-            Open /scene ↗
+            Open /foryou ↗
           </a>
         )}
       </div>
@@ -371,7 +371,7 @@ function ScenePreviewView({ scene }: { scene: ScenePreview }) {
   );
   return (
     <div className="mb-8 space-y-6 border-b border-white/10 pb-8">
-      <div className="text-xs uppercase tracking-[0.2em] text-emerald-400/80">As seen on /scene</div>
+      <div className="text-xs uppercase tracking-[0.2em] text-emerald-400/80">As seen on /foryou</div>
       {scene.sections.map((s) =>
         block(s.title, s.archives.slice(0, visible).map(archiveRow), s.archives.length),
       )}

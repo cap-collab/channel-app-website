@@ -1459,21 +1459,21 @@ export async function sendWeeklyRecommendationsEmail({
   }
   const block3 = renderBlock("Coming up this week", rows3);
 
-  // We know who this recipient is, so deep-link their OWN /scene via a
+  // We know who this recipient is, so deep-link their OWN /foryou via a
   // non-credential uid token (same base64 trust model as the unsubscribe /
-  // go-live-mute links above). The page renders their personalized scene
-  // read-only — no login, no session. Falls back to a bare /scene link if the
+  // go-live-mute links above). The page renders their personalized picks
+  // read-only — no login, no session. Falls back to a bare /foryou link if the
   // uid is missing for any reason.
   const ctaUrl = recipientUid
-    ? `https://channel-app.com/scene?u=${encodeURIComponent(Buffer.from(recipientUid).toString("base64url"))}`
-    : "https://channel-app.com/scene";
-  // No-history (fallback) emails are HEADED "Explore the scene" (the featured
-  // grid), so the redundant bottom "Explore the scene" button is dropped there.
+    ? `https://channel-app.com/foryou?u=${encodeURIComponent(Buffer.from(recipientUid).toString("base64url"))}`
+    : "https://channel-app.com/foryou";
+  // No-history (fallback) emails lead with the featured grid, so the redundant
+  // bottom "Explore For You" button is dropped there.
   const ctaHtml = isFallback
     ? ""
     : `
     <div style="margin-top: 28px; text-align: center;">
-      <a href="${ctaUrl}" style="${BUTTON_STYLE}">Explore the scene</a>
+      <a href="${ctaUrl}" style="${BUTTON_STYLE}">Explore For You</a>
     </div>
   `;
 

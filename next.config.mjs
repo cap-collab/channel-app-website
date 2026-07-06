@@ -10,6 +10,14 @@ const nextConfig = {
         destination: '/',
         permanent: true,
       },
+      // /scene was renamed to /foryou. Live weekly emails already in inboxes
+      // deep-link /scene?u=<token>; this 301 keeps them working (Next.js
+      // preserves the ?u= query string) and consolidates SEO to /foryou.
+      {
+        source: '/scene',
+        destination: '/foryou',
+        permanent: true,
+      },
     ];
   },
   async rewrites() {

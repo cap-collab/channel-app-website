@@ -49,8 +49,8 @@ export function Header({ currentPage = "home", position = "fixed" }: HeaderProps
       });
     }
 
-    // "For You" tab → the /scene recommendations page.
-    items.push({ label: "For You", href: "/scene", active: currentPage === "explore" });
+    // "For You" tab → the /foryou recommendations page.
+    items.push({ label: "For You", href: "/foryou", active: currentPage === "explore" });
 
     // "Tapes" → the /tape page. The page itself is open, but the menu link is
     // only shown to admin-dashboard accounts (hidden, not secured).
