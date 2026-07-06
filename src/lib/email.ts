@@ -1171,6 +1171,7 @@ export interface WeeklyRecComingUpRow {
   // IRL events often have a full lineup — the sub-line lists these (capped with
   // "+N more" so the row height never grows). Online shows: omit / single DJ.
   allDjArtists?: string[];
+  venueName?: string; // IRL only — shown in the meta line right after the badge
 }
 
 interface WeeklyRecommendationsEmailParams {
@@ -1316,7 +1317,7 @@ function buildWeeklyComingUpRowHtml(row: WeeklyRecComingUpRow, timezone: string)
           <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
           <td valign="top">
             <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 3px; line-height: 1.3;">${row.showName}</div>
-            <div style="font-size: 12px; color: #999; line-height: 1.3;">${badge} · ${artistStr} · ${timeStr}</div>
+            <div style="font-size: 12px; color: #999; line-height: 1.3;">${[badge, row.isIRL && row.venueName ? row.venueName : null, artistStr, timeStr].filter(Boolean).join(" · ")}</div>
           </td>
         </tr>
       </table>

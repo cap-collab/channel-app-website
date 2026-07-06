@@ -328,6 +328,7 @@ export async function GET(request: NextRequest) {
             allDjArtists: r.isIRL
               ? (r.allDjs || []).map((d) => d.djName).filter((n): n is string => !!n)
               : undefined,
+            venueName: r.isIRL ? r.venueName : undefined,
           }));
 
         if (dryRun && !previewTo) {
@@ -451,9 +452,23 @@ export async function GET(request: NextRequest) {
               allDjArtists: r.isIRL
                 ? (r.allDjs || []).map((d) => d.djName).filter((n): n is string => !!n)
                 : undefined,
+              venueName: r.isIRL ? r.venueName : undefined,
             }));
           comingUpByCity.set(city, mapped);
           return mapped;
+        };
+
+        // Non-users have no `users` doc, but they DO have a writable
+        // pending-dj-profiles / radio-notify-waitlist doc keyed by r.id. We
+        // store their fallback open/seen history THERE so they rotate the
+        // featured grid week-over-week just like the users loop. Locate the doc
+        // across both source collections (whichever exists).
+        const findExtraDoc = async (id: string) => {
+          for (const coll of ["pending-dj-profiles", "radio-notify-waitlist"]) {
+            const snap = await db.collection(coll).doc(id).get();
+            if (snap.exists) return snap;
+          }
+          return null;
         };
 
         for (const r of extras) {
@@ -465,9 +480,25 @@ export async function GET(request: NextRequest) {
           const recipientCity = r.city || DEFAULT_FEATURED_CITY;
           const comingUp = await comingUpForCity(recipientCity);
 
+          // Read their fallback history off their own source doc. Openers with a
+          // seeded seen-map rotate to a fresh grid (exclude what they saw); non-
+          // openers / no-history keep the shared strongest grid.
+          const extraDoc = await findExtraDoc(r.id);
+          const extraData = extraDoc?.data() || {};
+          const extraSeen = (extraData.lastWeeklyRecShows as Record<string, string> | undefined) || {};
+          const extraOpened = extraData.lastWeeklyRecOpenedLast === true;
+          let extraSection1 = featuredRows;
+          if (extraOpened && Object.keys(extraSeen).length > 0) {
+            const rotated = buildFeaturedMatrix(allArchives, {
+              excludeTempos: ["very_fast"],
+              excludeArchiveIds: new Set(Object.keys(extraSeen)),
+            });
+            extraSection1 = rotated.length > 0 ? rotated.map((a) => archiveToRow(a)) : featuredRows;
+          }
+
           if (dryRun && !previewTo) {
             if (trace.length < traceLimit) {
-              trace.push({ email: r.email, s1: featuredRows.length, s2: 0, comingUp: comingUp.length, fallback: true });
+              trace.push({ email: r.email, s1: extraSection1.length, s2: 0, comingUp: comingUp.length, fallback: true });
             }
             fallbackExtraSent++;
             continue;
@@ -477,14 +508,44 @@ export async function GET(request: NextRequest) {
             const ok = await sendWeeklyRecommendationsEmail({
               to: r.email,
               userTimezone: undefined, // no users doc → default PT
-              section1: featuredRows,
+              section1: extraSection1,
               section2: [],
               comingUp,
               isFallback: true,
               recipientUid: r.id, // hidden CTA in fallback; harmless if it doesn't resolve
+              openedLastWeek: extraOpened, // openers get the "Worth your time" eyebrow
             });
             if (!ok) { failed++; continue; }
             fallbackExtraSent++;
+
+            // previewTo sends but never stamps. Stamp the shown grid onto their
+            // source doc so next week rotates (mirrors the users loop). Prune to
+            // the 3-week window. Non-openers who were never seeded still get
+            // stamped here once they've been sent to — that's fine, it just
+            // starts their history; it does NOT retroactively mark them opened.
+            if (!previewTo && extraDoc) {
+              const updated: Record<string, string> = {};
+              const cutoff = nowMs - RECENT_RETENTION_MS;
+              for (const [id, iso] of Object.entries(extraSeen)) {
+                if (Date.parse(iso) >= cutoff) updated[id] = iso;
+              }
+              const nowIso = new Date(nowMs).toISOString();
+              const shown: string[] = [];
+              for (const row of extraSection1) {
+                const a = allArchives.find((x) => x.slug === row.slug);
+                if (a) { updated[a.id] = nowIso; shown.push(a.id); }
+              }
+              await extraDoc.ref.set(
+                {
+                  lastWeeklyRecEmailAt: FieldValue.serverTimestamp(),
+                  lastWeeklyRecShows: updated,
+                  lastWeeklyRecShownIds: shown,
+                  lastWeeklyRecOpenedLast: false, // report/backfill re-stamps opens
+                  lastWeeklyRecLastWasFallback: true, // non-users are always fallback
+                },
+                { merge: true },
+              );
+            }
           } catch (e) {
             failed++;
             console.error(`[weekly-recommendations] extra ${r.id} (${r.email}):`, e);
