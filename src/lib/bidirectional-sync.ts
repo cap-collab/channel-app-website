@@ -251,6 +251,7 @@ export async function syncEventToVenues(
   const selfRef: EventRef = { eventId: selfEventId, eventName: selfEventName, eventSlug: selfEventSlug, eventDate: selfEventDate };
 
   for (const target of added) {
+    if (!target.venueId) continue; // free-text venue: no doc to reverse-link
     const snap = await db.collection('venues').doc(target.venueId).get();
     if (!snap.exists) continue;
     const data = snap.data()!;
@@ -260,6 +261,7 @@ export async function syncEventToVenues(
   }
 
   for (const target of removed) {
+    if (!target.venueId) continue; // free-text venue: nothing was reverse-linked
     const snap = await db.collection('venues').doc(target.venueId).get();
     if (!snap.exists) continue;
     const data = snap.data()!;
@@ -289,6 +291,7 @@ export async function syncEventToCollectives(
   const selfRef: EventRef = { eventId: selfEventId, eventName: selfEventName, eventSlug: selfEventSlug, eventDate: selfEventDate };
 
   for (const target of added) {
+    if (!target.collectiveId) continue; // free-text collective: no doc to reverse-link
     const snap = await db.collection('collectives').doc(target.collectiveId).get();
     if (!snap.exists) continue;
     const data = snap.data()!;
@@ -298,6 +301,7 @@ export async function syncEventToCollectives(
   }
 
   for (const target of removed) {
+    if (!target.collectiveId) continue; // free-text collective: nothing was reverse-linked
     const snap = await db.collection('collectives').doc(target.collectiveId).get();
     if (!snap.exists) continue;
     const data = snap.data()!;
