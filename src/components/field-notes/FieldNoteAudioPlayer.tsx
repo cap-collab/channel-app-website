@@ -51,7 +51,7 @@ export function FieldNoteAudioPlayer({ src, name, upvotes, downvotes, myVote, on
       {/* Body: the tape's name, a small lowercase label above the player line. */}
       {name && (
         <div className="px-3 pt-2 pb-0.5">
-          <p className="text-xs font-normal text-white lowercase">{name}</p>
+          <p className="text-sm font-normal text-white lowercase">{name}</p>
         </div>
       )}
 
@@ -60,13 +60,13 @@ export function FieldNoteAudioPlayer({ src, name, upvotes, downvotes, myVote, on
         <div className="flex items-center">
           <button
             onClick={onPlayPause}
-            className="w-7 h-7 flex items-center justify-center transition-colors flex-shrink-0 text-white"
+            className="w-6 h-6 flex items-center justify-center transition-colors flex-shrink-0 text-white"
             aria-label={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? (
-              <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M6 3h4v18H6V3zm8 0h4v18h-4V3z" /></svg>
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 3h4v18H6V3zm8 0h4v18h-4V3z" /></svg>
             ) : (
-              <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3v18l15-9z" /></svg>
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3v18l15-9z" /></svg>
             )}
           </button>
           <div className="relative flex-1 min-w-0 h-3 flex items-center">
@@ -83,7 +83,7 @@ export function FieldNoteAudioPlayer({ src, name, upvotes, downvotes, myVote, on
             />
           </div>
         </div>
-        <div className="mt-1 pl-7 flex justify-between font-mono text-[10px] text-zinc-500 leading-none">
+        <div className="mt-1 pl-6 flex justify-between font-mono text-[10px] text-zinc-500 leading-none">
           <span>{fmtClock(currentTime)}</span>
           <span>{fmtClock(duration)}</span>
         </div>
