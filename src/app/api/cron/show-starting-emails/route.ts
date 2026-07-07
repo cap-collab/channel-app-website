@@ -1365,10 +1365,11 @@ export async function GET(request: NextRequest) {
           reject("no-dj-id");
           continue;
         }
-        // Still skip muted DJs and the recipient's own / their collective's slots.
+        // Still skip muted DJs. A DJ SHOULD see their OWN upcoming show in the
+        // "coming up this week" bundle (it's a schedule, not a recommendation) —
+        // the currently-live primary is still de-duped separately via is-primary
+        // above, so we never double-list the show they're being notified about.
         if (show.djUsername && goLiveMutes.has(show.djUsername)) { reject("muted"); continue; }
-        if (show.djUserId && show.djUserId === userId) { reject("own-slot"); continue; }
-        if (show.collectiveOwnerUserIds?.includes(userId)) { reject("own-collective"); continue; }
         bundleTrace.push(`${show.djUsername || show.name}:MATCHED(schedule)`);
         bundled.push({
           showId: show.showId,

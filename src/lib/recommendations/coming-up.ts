@@ -73,7 +73,10 @@ interface FetchComingUpArgs {
   engagedDjUsernames: Set<string>;
   // normalized DJ usernames the user muted → hide their shows/events.
   goLiveMutes?: Set<string>;
-  // the user's own normalized username → hide their own shows.
+  // The user's own normalized username. Accepted for API compatibility (callers
+  // still pass it) but NO LONGER used to filter coming-up — a DJ sees their own
+  // upcoming shows here, same as their own IRL events. Own-show taste shaping
+  // lives in the rec sections, not this list.
   ownDjUsername?: string;
 }
 
@@ -307,7 +310,7 @@ export function filterComingUpForUser(
   shared: ComingUpShared,
   args: Omit<FetchComingUpArgs, "db">,
 ): ComingUpRow[] {
-  const { nowMs, userCity, engagedDjUsernames, goLiveMutes, ownDjUsername } = args;
+  const { nowMs, userCity, engagedDjUsernames, goLiveMutes } = args;
   const muted = goLiveMutes ?? new Set<string>();
   const rows: ComingUpRow[] = [];
 
@@ -317,7 +320,9 @@ export function filterComingUpForUser(
     // left as-is — today's IRL events still show).
     if (s.startMs < nowMs) continue;
     if (muted.has(s.norm)) continue; // user muted this DJ
-    if (ownDjUsername && s.norm === ownDjUsername) continue; // user's own show
+    // A DJ SHOULD see their own upcoming online show in "coming up" — matches
+    // the IRL branch below, which already keeps own events. (Own-show taste
+    // shaping still happens in the rec sections, not here.)
     rows.push({
       djUsername: s.djUsername,
       djName: s.displayName,
