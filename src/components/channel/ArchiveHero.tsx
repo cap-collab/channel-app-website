@@ -969,7 +969,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         </h2>
         {!hideSubtitle && (
           <p className="text-sm md:text-base text-zinc-400 mt-1">
-            No ads. No algorithms. Just people with great taste.
+            no ads. no algorithms. just people with great taste.
           </p>
         )}
       </div>
