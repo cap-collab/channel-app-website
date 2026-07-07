@@ -372,15 +372,27 @@ export function buildCandidateInputs(
 
     // Strict discovery tier (Suggestions). First matching tier wins. ALL tiers
     // require featured/high priority — "In Your Scene" never shows medium/low, so
-    // the section stays a high-quality, editorially-curated set. Un-engaged Intense
-    // isn't excluded here; it's mildly damped in scoring so featured/high still
-    // lead within a tier and Intense just sorts to the back.
+    // the section stays a high-quality, editorially-curated set.
+    //
+    // Un-engaged Intense (very_fast the user has never played) is kept OUT of
+    // tier 3 (featured/high in the user's TOP SCENE) — that tier matches on scene
+    // only, so without this guard a spiral+Intense archive rides the scene match
+    // into a high tier and outranks real taste (tier beats score, so the scoring
+    // damper alone can't demote it). Only tier 3 is guarded: tier 1 & 4 already
+    // require a tempo match, and tier 2 (affiliated) is a DJ-relationship signal
+    // where the tempo is intentionally irrelevant. Anything Intense that falls
+    // through lands in the fallback pool, where the score damper sinks it.
     let discoveryTier: 1 | 2 | 3 | 4 | null = null;
     if (sceneTempoMatch && isHighFeatured(item.priority)) {
       discoveryTier = 1; // engaged this EXACT scene+tempo
     } else if (isAffiliated && isHighFeatured(item.priority)) {
       discoveryTier = 2; // affiliated / same crew / same audience
-    } else if (isHighFeatured(item.priority) && topScene && item.sceneSlugs.includes(topScene)) {
+    } else if (
+      isHighFeatured(item.priority) &&
+      topScene &&
+      item.sceneSlugs.includes(topScene) &&
+      !unengagedIntense
+    ) {
       discoveryTier = 3; // featured/high in the user's top scene
     } else if (isHighFeatured(item.priority) && topTempo && item.tempo === topTempo) {
       discoveryTier = 4; // featured/high in the user's top tempo
