@@ -1934,13 +1934,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         // so cards flow continuously — an odd number of curated picks lets the next
         // (un-banded) card fill the empty column instead of forcing a new row.
         const renderGrid = (items: typeof filteredArchives, bandCount = 0) => (
-          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mx-auto ${homepage ? 'max-w-[90%]' : ''}`}>
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mx-auto items-end ${homepage ? 'max-w-[90%]' : ''}`}>
             {items.map(({ archive, sceneIds }, i) => (
-              // Flex column with the card pushed to the bottom so cards align on
-              // their bottom edge regardless of whether a band sits on top. Grid
-              // stretches cells to equal height per row; the band floats at the
-              // top of the cell and the card hugs the bottom.
-              <div key={archive.id} className="relative flex flex-col justify-end">
+              // items-end aligns every cell to the bottom of its row, so a card
+              // with a band on top sits at the same bottom edge as an un-banded
+              // card in the same row — cards bottom-align without being resized.
+              <div key={archive.id} className="relative">
                 {i < bandCount && (isNoPrefSeed
                   ? <FeaturedBand archive={archive} djSceneMap={djSceneMap} />
                   : renderSceneBand(archive.id))}
