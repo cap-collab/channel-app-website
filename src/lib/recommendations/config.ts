@@ -47,7 +47,11 @@ export const DEFAULT_RECOMMENDATION_CONFIG: RecommendationConfig = {
   },
   minimums: {
     "favorite-artists": 2,
-    discovery: 2,
+    // Fill discovery ("In Your Scene") up to 8 from the taste-scored fallback
+    // pool so a thin user still sees a full section of their OWN scene/tempo
+    // matches (not featured filler). Capped by context: website cap 8 → fills to
+    // 8; weekly-email cap 4 → fills to 4 (then the email slices to its top 3).
+    discovery: 8,
     "coming-up": 0, // never fallback-filled — it's scheduled shows, not archives
     "start-here": 0, // built directly from featured-per-type, no fallback
   },
