@@ -1471,12 +1471,12 @@ export async function sendWeeklyRecommendationsEmail({
     ? `https://channel-app.com/foryou?u=${encodeURIComponent(Buffer.from(recipientUid).toString("base64url"))}`
     : "https://channel-app.com/foryou";
   // No-history (fallback) emails lead with the featured grid, so the redundant
-  // bottom "Explore For You" button is dropped there.
+  // bottom "Keep exploring" button is dropped there.
   const ctaHtml = isFallback
     ? ""
     : `
     <div style="margin-top: 28px; text-align: center;">
-      <a href="${ctaUrl}" style="${BUTTON_STYLE}">Explore For You</a>
+      <a href="${ctaUrl}" style="${BUTTON_STYLE}">Keep exploring</a>
     </div>
   `;
 
