@@ -264,27 +264,22 @@ export function SceneRecommendations({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-10">
-      {/* Logged-out / no-preference: shared scene+tempo filter chips (same as `/`)
-          drive the Start-here + More-archives grids. Logged-in users with
-          preferences never see the filter. */}
-      {isNoPref && (
-        <div className="flex justify-end">
-          <SceneTempoChips filter={filter} />
-        </div>
-      )}
-
       {/* Start here — the featured scene×tempo grid, each card banded with
-          [glyph] TEMPO FAVORITE. Filtered by the chips above. */}
+          [glyph] TEMPO FAVORITE. The scene+tempo filter chips (same as `/`) live
+          in the heading and drive both this grid and More archives; logged-in
+          users with preferences never see them. */}
       {isNoPref && startHereFiltered.length > 0 && (
-        <Section title="Start here">
+        <Section title="Start here" headerRight={<SceneTempoChips filter={filter} />}>
           <ArchiveGrid archives={startHereFiltered} featuredBand />
         </Section>
       )}
 
       {/* More archives — everything else (same source/order as the homepage
-          Archives grid), minus what's already in Start here. Filtered too. */}
+          Archives grid), minus what's already in Start here. Filtered too. The
+          chips repeat here (in the heading) and share the same filter state as
+          the top row, so toggling either updates both grids at once. */}
       {isNoPref && moreArchivesFiltered.length > 0 && (
-        <Section title="More archives">
+        <Section title="More archives" headerRight={<SceneTempoChips filter={filter} />}>
           <ArchiveGrid archives={moreArchivesFiltered} />
         </Section>
       )}
@@ -356,10 +351,21 @@ export function SceneRecommendations({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  headerRight,
+  children,
+}: {
+  title: string;
+  headerRight?: React.ReactNode; // e.g. filter chips aligned with the heading
+  children: React.ReactNode;
+}) {
   return (
     <section>
-      <h2 className="text-2xl md:text-3xl font-semibold mb-4 lowercase">{title}</h2>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h2 className="text-2xl md:text-3xl font-semibold lowercase">{title}</h2>
+        {headerRight}
+      </div>
       {children}
     </section>
   );
