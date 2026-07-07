@@ -354,11 +354,12 @@ export function buildCandidateInputs(
     const tempoEngaged = item.tempo != null && user.engagedTempos.has(item.tempo);
     const sceneTempoMatch = matchedScenes.length > 0 && tempoEngaged;
 
-    // Off-taste: the user HAS taste signal, but this archive matches neither an
-    // engaged scene nor an engaged tempo. Damped hard in scoring so it never
-    // outranks an on-taste pick (e.g. Intense for a chill-only listener).
-    const hasTasteSignal = user.engagedScenes.size > 0 || user.engagedTempos.size > 0;
-    const offTaste = hasTasteSignal && matchedScenes.length === 0 && !tempoEngaged;
+    // Un-engaged Intense: Intense (very_fast) is the one tempo we deprioritize
+    // when the user has never engaged with it — an Intense archive is jarring for
+    // a listener who's only ever played chill/mid material. Mildly damped in
+    // scoring so it ranks below their real taste (regardless of scene match).
+    // Only Intense is treated this way; other tempos are never penalized.
+    const unengagedIntense = item.tempo === "very_fast" && !user.engagedTempos.has("very_fast");
 
     // DJ self-taste: archive shares a scene OR tempo with the DJ's own archives.
     const matchesSelfTaste =
@@ -376,7 +377,12 @@ export function buildCandidateInputs(
       discoveryTier = 1; // engaged this EXACT scene+tempo
     } else if (isAffiliated && notLowHidden(item.priority)) {
       discoveryTier = 2; // affiliated / same crew / same audience
-    } else if (isHighFeatured(item.priority) && topScene && item.sceneSlugs.includes(topScene)) {
+    } else if (
+      isHighFeatured(item.priority) &&
+      topScene &&
+      item.sceneSlugs.includes(topScene) &&
+      !unengagedIntense // don't let un-engaged Intense claim the scene-only tier
+    ) {
       discoveryTier = 3; // featured/high in the user's top scene
     } else if (isHighFeatured(item.priority) && topTempo && item.tempo === topTempo) {
       discoveryTier = 4; // featured/high in the user's top tempo
@@ -402,7 +408,7 @@ export function buildCandidateInputs(
       sceneTempoMatch,
       matchedScenes,
       matchedTempo: tempoEngaged ? item.tempo : null,
-      offTaste,
+      unengagedIntense,
       sceneTempoAffinity,
       discoveryTier,
       matchesSelfTaste,

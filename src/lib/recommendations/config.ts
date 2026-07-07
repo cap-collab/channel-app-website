@@ -26,11 +26,11 @@ export const DEFAULT_RECOMMENDATION_CONFIG: RecommendationConfig = {
   alreadyHeard: {
     penaltyStrength: 1, // score /= (1 + count) — the house base/(1+recent) shape
   },
-  offTaste: {
-    // Discovery candidates matching neither an engaged scene nor tempo are
-    // damped to 15% — they rank below every on-taste pick (so e.g. Intense
-    // never fills a chill listener's section unless nothing on-taste remains).
-    penaltyFactor: 0.15,
+  unengagedIntense: {
+    // An Intense (very_fast) archive is damped to 50% when the user has never
+    // engaged with Intense — a mild nudge so their real scenes/tempos rank
+    // above it, without hiding Intense entirely. Only Intense is penalized.
+    penaltyFactor: 0.5,
   },
   diversity: {
     maxPerDj: 2,

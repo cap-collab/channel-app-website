@@ -111,27 +111,27 @@ export function scoreCandidate(
 
   const additiveBase = components.reduce((sum, c) => sum + c.contribution, 0);
 
-  // Off-taste damper (discovery): a candidate matching neither an engaged scene
-  // nor tempo is multiplied down so it ranks below every on-taste pick. Recorded
-  // as a signed component so the breakdown still reconciles to the final score.
-  const offTasteFactor = input.offTaste ? config.offTaste.penaltyFactor : 1;
-  const afterOffTaste = additiveBase * offTasteFactor;
+  // Un-engaged Intense damper (discovery): an Intense archive is multiplied down
+  // when the user has never engaged with Intense, so it ranks below their real
+  // taste. Recorded as a signed component so the breakdown still reconciles.
+  const intenseFactor = input.unengagedIntense ? config.unengagedIntense.penaltyFactor : 1;
+  const afterIntense = additiveBase * intenseFactor;
   components.push({
-    name: "offTastePenalty",
-    rawValue: input.offTaste ? 1 : 0,
-    weight: config.offTaste.penaltyFactor,
-    contribution: afterOffTaste - additiveBase, // signed (≤ 0)
+    name: "unengagedIntensePenalty",
+    rawValue: input.unengagedIntense ? 1 : 0,
+    weight: config.unengagedIntense.penaltyFactor,
+    contribution: afterIntense - additiveBase, // signed (≤ 0)
   });
 
   // Already-heard damper: score /= (1 + count * strength). Recorded so the
   // breakdown reconciles to the damped score.
   const damper = 1 / (1 + input.alreadyStreamedCount * config.alreadyHeard.penaltyStrength);
-  const dampedScore = afterOffTaste * damper;
+  const dampedScore = afterIntense * damper;
   components.push({
     name: "alreadyHeardPenalty",
     rawValue: input.alreadyStreamedCount,
     weight: config.alreadyHeard.penaltyStrength,
-    contribution: dampedScore - afterOffTaste, // signed (≤ 0)
+    contribution: dampedScore - afterIntense, // signed (≤ 0)
   });
 
   return {
