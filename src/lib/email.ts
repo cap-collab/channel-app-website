@@ -1470,11 +1470,10 @@ export async function sendWeeklyRecommendationsEmail({
   const ctaUrl = recipientUid
     ? `https://channel-app.com/foryou?u=${encodeURIComponent(Buffer.from(recipientUid).toString("base64url"))}`
     : "https://channel-app.com/foryou";
-  // No-history (fallback) emails lead with the featured grid, so the redundant
-  // bottom "Keep exploring" button is dropped there.
-  const ctaHtml = isFallback
-    ? ""
-    : `
+  // Bottom "Keep exploring" CTA on every variant (personalized + fallback). The
+  // uid deep-links their own /foryou; if it doesn't resolve to personalized
+  // picks (e.g. a non-user fallback recipient) the page degrades gracefully.
+  const ctaHtml = `
     <div style="margin-top: 28px; text-align: center;">
       <a href="${ctaUrl}" style="${BUTTON_STYLE}">Keep exploring</a>
     </div>
