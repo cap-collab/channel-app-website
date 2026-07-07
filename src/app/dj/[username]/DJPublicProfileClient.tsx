@@ -2101,6 +2101,9 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                 bio: g.bio,
                 isCollective: false,
               }));
+            // Newest adds first (guests are appended in admin, so reverse the
+            // stored order), but keep guests without a photo at the bottom.
+            guestItems.reverse();
             guestItems.sort(photoFirst);
 
             if (residentSectionItems.length === 0 && guestItems.length === 0) return null;
