@@ -143,7 +143,7 @@ export async function buildScenePayload(
     if (refs.length > 0) archiveSnapsByChunk.push(db.getAll(...refs));
   }
 
-  const [archiveChunks, comingUp, ownArchiveSnap] = await Promise.all([
+  const [archiveChunks, comingUp, ownArchiveSnap, ownedCollectivesSnap] = await Promise.all([
     Promise.all(archiveSnapsByChunk),
     fetchComingUp({ db, nowMs, userCity, engagedDjUsernames, goLiveMutes, ownDjUsername }),
     // The signed-in DJ's OWN archives — uploaded OR live-recorded, both stamp
@@ -151,6 +151,9 @@ export async function buildScenePayload(
     // priority (low/medium included; hidden filtered below), so a DJ always sees
     // their own back-catalogue there even if they never streamed it themselves.
     db.collection("archives").where("uploadedBy", "==", uid).get(),
+    // Collectives this user owns — their archives (credited via djs[].username ===
+    // <collective slug>) also join "Dive back in".
+    db.collection("collectives").where("owners", "array-contains", uid).get(),
   ]);
   for (const chunk of archiveChunks) {
     for (const snap of chunk) {
@@ -162,6 +165,29 @@ export async function buildScenePayload(
   for (const snap of ownArchiveSnap.docs) {
     ownArchiveIds.add(snap.id);
     archiveById.set(snap.id, { id: snap.id, ...(snap.data() as Omit<Archive, "id">) });
+  }
+
+  // Owned-collective archives: an archive credits a collective under
+  // djs[].username === <slug> (slug compared lowercased, hyphens preserved — same
+  // rule as the DJ profile page). Firestore can't array-contains on an array of
+  // objects, so scan the archives collection once and match in memory.
+  const ownedCollectiveSlugs = new Set<string>();
+  for (const d of ownedCollectivesSnap.docs) {
+    const slug = d.data().slug;
+    if (typeof slug === "string" && slug.length > 0) ownedCollectiveSlugs.add(slug.toLowerCase());
+  }
+  const collectiveArchiveIds = new Set<string>();
+  if (ownedCollectiveSlugs.size > 0) {
+    const allArchivesSnap = await db.collection("archives").get();
+    for (const snap of allArchivesSnap.docs) {
+      const data = snap.data() as Omit<Archive, "id">;
+      const credited = (data.djs ?? []).some(
+        (dj) => typeof dj.username === "string" && ownedCollectiveSlugs.has(dj.username.toLowerCase()),
+      );
+      if (!credited) continue;
+      collectiveArchiveIds.add(snap.id);
+      archiveById.set(snap.id, { id: snap.id, ...data });
+    }
   }
 
   const sections = (snapshot?.sections ?? [])
@@ -206,11 +232,14 @@ export async function buildScenePayload(
     })
     .filter((s) => s.archives.length > 0);
 
-  // "Dive back in" = archives the user streamed + the DJ's own archives. Union
-  // the two id sets so a DJ's own back-catalogue shows here even when unstreamed.
+  // "Dive back in" = archives the user streamed + the DJ's own archives + their
+  // owned collectives' archives. Union the id sets so a DJ's (and their
+  // collective's) back-catalogue shows here even when unstreamed. HIDDEN archives
+  // are filtered out below regardless of source.
   const diveBackInIds = new Set<string>([
     ...Array.from(streamedArchiveIds),
     ...Array.from(ownArchiveIds),
+    ...Array.from(collectiveArchiveIds),
   ]);
   const diveBackIn = Array.from(diveBackInIds)
     .filter((id) => !dismissedArchiveIds.has(id))
