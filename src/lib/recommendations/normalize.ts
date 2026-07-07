@@ -322,7 +322,6 @@ export function buildCandidateInputs(
   const temposTied = tCounts.length >= 2 && tCounts[0].count === tCounts[1].count;
   const topScene = scenesTied ? undefined : sCounts[0]?.scene;
   const topTempo = temposTied ? undefined : tCounts[0]?.tempo;
-  const notLowHidden = (p: ContentItem["priority"]) => p !== "low" && p !== "hidden";
   const isHighFeatured = (p: ContentItem["priority"]) => p === "featured" || p === "high";
 
   return items.map((item) => {
@@ -371,18 +370,17 @@ export function buildCandidateInputs(
     const tc = item.tempo ? tempoCount.get(item.tempo) ?? 0 : 0;
     const sceneTempoAffinity = maxAffinity > 0 ? (sc + tc) / maxAffinity : 0;
 
-    // Strict discovery tier (Suggestions). First matching tier wins.
+    // Strict discovery tier (Suggestions). First matching tier wins. ALL tiers
+    // require featured/high priority — "In Your Scene" never shows medium/low, so
+    // the section stays a high-quality, editorially-curated set. Un-engaged Intense
+    // isn't excluded here; it's mildly damped in scoring so featured/high still
+    // lead within a tier and Intense just sorts to the back.
     let discoveryTier: 1 | 2 | 3 | 4 | null = null;
-    if (sceneTempoMatch && notLowHidden(item.priority)) {
+    if (sceneTempoMatch && isHighFeatured(item.priority)) {
       discoveryTier = 1; // engaged this EXACT scene+tempo
-    } else if (isAffiliated && notLowHidden(item.priority)) {
+    } else if (isAffiliated && isHighFeatured(item.priority)) {
       discoveryTier = 2; // affiliated / same crew / same audience
-    } else if (
-      isHighFeatured(item.priority) &&
-      topScene &&
-      item.sceneSlugs.includes(topScene) &&
-      !unengagedIntense // don't let un-engaged Intense claim the scene-only tier
-    ) {
+    } else if (isHighFeatured(item.priority) && topScene && item.sceneSlugs.includes(topScene)) {
       discoveryTier = 3; // featured/high in the user's top scene
     } else if (isHighFeatured(item.priority) && topTempo && item.tempo === topTempo) {
       discoveryTier = 4; // featured/high in the user's top tempo

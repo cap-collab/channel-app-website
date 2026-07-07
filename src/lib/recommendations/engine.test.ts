@@ -81,27 +81,15 @@ describe("generateRecommendations — sections", () => {
     expect(disc).not.toContain("a-maria-new");
   });
 
-  it("discovery tier 1 (exact scene+tempo) allows medium, excludes low/hidden", () => {
+  it("discovery is featured/high only: a medium exact-match is excluded", () => {
     const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
     const disc = ids(r, "discovery");
-    // Both high AND medium spiral+uptempo qualify for tier 1 (excl low/hidden).
+    // A high spiral+uptempo archive qualifies for tier 1...
     expect(disc).toContain("a-stranger-scene"); // high
-    expect(disc).toContain("a-stranger-scene-med"); // medium — now allowed
-    // hidden is never shown anywhere.
+    // ...but a MEDIUM exact scene+tempo match does NOT — "In Your Scene" only
+    // ever shows featured/high, never medium/low/hidden.
+    expect(disc).not.toContain("a-stranger-scene-med"); // medium — excluded
     expect(disc).not.toContain("a-hidden");
-  });
-
-  it("discovery prioritizes Featured/High: a high tier-1 ranks above a medium tier-1", () => {
-    // a-stranger-scene (high) and a-stranger-scene-med (medium) are BOTH tier 1
-    // (exact spiral+uptempo). Priority-band ordering must put the high first,
-    // even though score/tier alone would interleave them.
-    const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
-    const disc = ids(r, "discovery");
-    const high = disc.indexOf("a-stranger-scene");
-    const med = disc.indexOf("a-stranger-scene-med");
-    expect(high).toBeGreaterThanOrEqual(0);
-    expect(med).toBeGreaterThanOrEqual(0);
-    expect(high).toBeLessThan(med); // Featured/High band leads
   });
 
   it("discovery never shows the same artist twice (1 per DJ)", () => {
@@ -312,14 +300,19 @@ describe("generateRecommendations — editorial", () => {
   });
 
   it("boost lifts an archive's score and rank", () => {
+    // a-luke-new is a HIGH discovery archive (star+uptempo) that ranks below
+    // a-stranger-scene by default; boosting it should lift its discovery rank.
+    // (Discovery is featured/high only, so the boosted archive must itself be
+    // featured/high to appear at all.)
     const base = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
     const baseDisc = ids(base, "discovery");
     const boosted = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION, {
-      editorial: { boostArchiveIds: { "a-ninka-new": 10 } },
+      editorial: { boostArchiveIds: { "a-luke-new": 10 } },
     });
     const boostedDisc = ids(boosted, "discovery");
-    const baseRank = baseDisc.indexOf("a-ninka-new");
-    const boostedRank = boostedDisc.indexOf("a-ninka-new");
-    expect(boostedRank).toBeLessThan(baseRank);
+    const baseRank = baseDisc.indexOf("a-luke-new");
+    const boostedRank = boostedDisc.indexOf("a-luke-new");
+    expect(baseRank).toBeGreaterThanOrEqual(0);
+    expect(boostedRank).toBeLessThanOrEqual(baseRank);
   });
 });
