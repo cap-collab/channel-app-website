@@ -1928,13 +1928,16 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           !(sceneSection?.fixedNewIds && sceneSection.fixedNewIds.length > 0) &&
           Object.keys(sceneSection?.bandByArchiveId || {}).length === 0;
 
-        // Card-grid renderer shared by both sections. `withBands` = render the
-        // curated recommendation banner above each card (curated scene grid only).
-        const renderGrid = (items: typeof filteredArchives, withBands = false) => (
+        // Card-grid renderer shared by both sections. `bandCount` = how many of
+        // the leading items are curated picks that render a recommendation banner
+        // (curated scene grid only). The curated picks and the rest share ONE grid
+        // so cards flow continuously — an odd number of curated picks lets the next
+        // (un-banded) card fill the empty column instead of forcing a new row.
+        const renderGrid = (items: typeof filteredArchives, bandCount = 0) => (
           <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mx-auto ${homepage ? 'max-w-[90%]' : ''}`}>
-            {items.map(({ archive, sceneIds }) => (
+            {items.map(({ archive, sceneIds }, i) => (
               <div key={archive.id} className="relative">
-                {withBands && (isNoPrefSeed
+                {i < bandCount && (isNoPrefSeed
                   ? <FeaturedBand archive={archive} djSceneMap={djSceneMap} />
                   : renderSceneBand(archive.id))}
                 <ArchiveGridCard
@@ -1975,6 +1978,13 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         const topItems = showSceneSection ? sceneItems : hasFeatured ? featuredList : [];
         const topWithBands = showSceneSection;
 
+        // Both sections flow into ONE grid: the curated (banded) picks lead, then
+        // the rest. Because it's a single grid, an odd number of curated picks
+        // doesn't strand a card on its own row — the first un-banded card fills the
+        // empty column. `bandCount` bands only the leading curated items.
+        const combined = [...topItems, ...ordered];
+        const bandCount = topWithBands ? topItems.length : 0;
+
         return (
           <div className="mt-6 max-w-7xl mx-auto">
             <div className="mb-4">
@@ -1983,10 +1993,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 {filterChips}
               </div>
             </div>
-            {topItems.length > 0 && (
-              <div className="mb-4">{renderGrid(topItems, topWithBands)}</div>
-            )}
-            {renderGrid(ordered)}
+            {renderGrid(combined, bandCount)}
           </div>
         );
       })()}
