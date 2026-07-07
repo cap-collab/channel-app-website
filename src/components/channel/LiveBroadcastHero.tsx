@@ -174,10 +174,10 @@ export function HeroChatMessage({
   const timeAgo = formatTimeAgo(message.timestamp);
   const isCurrentlyLiveDJ = !!(currentLiveDjUsername && message.username.toLowerCase() === currentLiveDjUsername.toLowerCase());
 
-  if (message.messageType === 'love' || message.message?.includes(' is ❤️')) {
+  if (message.messageType === 'love' || message.message?.includes(' is ❤️') || message.message?.includes(' is 🤍')) {
     const heartCount = Math.min(message.heartCount || 1, 10);
-    const hearts = '❤️'.repeat(heartCount);
-    const displayMessage = message.message.replace(' is ❤️', ` is ${hearts}`);
+    const hearts = '🤍'.repeat(heartCount);
+    const displayMessage = message.message.replace(/ is (❤️|🤍)/, ` is ${hearts}`);
     return (
       <div className="py-2 px-4 flex items-center justify-between">
         <span className="text-white">{displayMessage}</span>

@@ -73,10 +73,10 @@ function ChatMessage({
   const isDJMessage = message.isDJ || message.username.toLowerCase() === djUsername.toLowerCase();
 
   // Love reaction message - show multiple hearts based on heartCount
-  if (message.messageType === 'love' || message.message?.includes(' is ❤️')) {
+  if (message.messageType === 'love' || message.message?.includes(' is ❤️') || message.message?.includes(' is 🤍')) {
     const heartCount = Math.min(message.heartCount || 1, 10);
-    const hearts = '❤️'.repeat(heartCount);
-    const displayMessage = message.message.replace(' is ❤️', ` is ${hearts}`);
+    const hearts = '🤍'.repeat(heartCount);
+    const displayMessage = message.message.replace(/ is (❤️|🤍)/, ` is ${hearts}`);
 
     return (
       <div className="py-2 px-4 flex items-center justify-between">

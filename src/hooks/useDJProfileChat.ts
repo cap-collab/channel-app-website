@@ -25,7 +25,7 @@ function getFirebaseApp() {
 
 interface UseDJProfileChatOptions {
   chatUsernameNormalized: string;  // Used as stationId
-  djUsername: string;               // For love messages: "user is ❤️ {djUsername}"
+  djUsername: string;               // For love messages: "user is 🤍 {djUsername}"
   username?: string;
   enabled?: boolean;                // Only subscribe when authenticated
   isOwner?: boolean;                // True if current user is the DJ
@@ -139,7 +139,7 @@ export function useDJProfileChat({
           newMessages.push(msg);
 
           // Sum up hearts from love reactions
-          if (data.messageType === 'love' || data.message?.includes(' is ❤️')) {
+          if (data.messageType === 'love' || data.message?.includes(' is ❤️') || data.message?.includes(' is 🤍')) {
             // For channelbroadcast: only count since 7am PT; for all others: count all
             const isAfterDailyReset = !dailyResetCutoff || msgTimestamp >= dailyResetCutoff;
             if (isAfterDailyReset) {
@@ -341,7 +341,7 @@ export function useDJProfileChat({
       // First love - create new message
       const messagesRef = collection(db, 'chats', chatUsernameNormalized, 'messages');
       const displayName = username || 'Someone';
-      const message = `${displayName} is ❤️ ${djUsername}`;
+      const message = `${displayName} is 🤍 ${djUsername}`;
 
       const loveData = {
         stationId: chatUsernameNormalized,
