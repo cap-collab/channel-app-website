@@ -80,6 +80,13 @@ export async function buildScenePayload(
   const dismissedArchiveIds = new Set(
     Object.keys((userData.dismissedArchiveIds as Record<string, unknown>) || {}),
   );
+  // Played archives (play-start marker, exclusion-only). Read at SERVE time so a
+  // show the user played TODAY drops out of the recs immediately — the cached
+  // snapshot may be up to the freshness-floor stale, but this filter reflects the
+  // live playedArchiveIds map on the user doc, so exclusion isn't gated on regen.
+  const playedArchiveIds = new Set(
+    Object.keys((userData.playedArchiveIds as Record<string, unknown>) || {}),
+  );
   const goLiveMutes = new Set(((userData.goLiveMutes as string[] | undefined) || []).map(normU));
   const ownDjUsername = userData.chatUsernameNormalized
     ? (userData.chatUsernameNormalized as string)
@@ -155,7 +162,12 @@ export async function buildScenePayload(
       // Already-streamed archives belong in "Dive back in", not in the
       // recommendation sections — drop them from both favorite-artists and
       // discovery so a just-listened archive doesn't appear in two places.
-      items = items.filter((it) => !streamedArchiveIds.has(it.archiveId));
+      // Played archives (pressed play, any duration) are likewise dropped here at
+      // serve time, so a show played TODAY vanishes from the recs on the next
+      // load without waiting for the snapshot to regenerate.
+      items = items.filter(
+        (it) => !streamedArchiveIds.has(it.archiveId) && !playedArchiveIds.has(it.archiveId),
+      );
       const archives: ArchiveSerialized[] = [];
       for (const it of items) {
         const full = archiveById.get(it.archiveId);
