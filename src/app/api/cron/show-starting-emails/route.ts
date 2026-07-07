@@ -1306,6 +1306,11 @@ export async function GET(request: NextRequest) {
       let primary: LiveShow | null = null;
       let primaryMatch: NonNullable<ReturnType<typeof matchShow>> | null = null;
       for (const show of liveShows) {
+        // Channel Radio only: external-station + dj-radio go-lives no longer
+        // trigger a listener email. (Their engagement fan-out was already
+        // gated to `broadcast`; this closes the remaining watchlist/favorite
+        // path so external shows never become the primary either.)
+        if (show.stationId !== "broadcast") continue;
         const m = matchShow(show);
         if (!m) continue;
         if (failsUniversalGates(show)) continue;

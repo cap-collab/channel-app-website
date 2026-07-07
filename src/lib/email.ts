@@ -444,18 +444,20 @@ export async function sendShowStartingEmail({
     ? buildIrlNearYouSection(irlEvents)
     : "";
 
-  // Subject line is always about the PRIMARY live show only — "{DJ} is live on
-  // channel" (or "airing" for a restream). The bundle below is the week's full
+  // Subject line is always about the PRIMARY live show only — "{DJ} is live"
+  // (or "airing" for a restream). The bundle below is the week's full
   // schedule, not a crew who are also live right now, so it must NOT inflate
   // the subject with a week of names.
   // Prefer the human-readable djName ("etc radio") over the normalized
   // djUsername slug ("etcradio") in the subject; fall back to the slug, then
   // the show name.
   const primarySubjectName = djName || djUsername || displayName;
-  const stationSuffix = isChannelRadio ? "channel" : stationName;
+  // Channel Radio shows omit the "on channel" suffix (recipients already know
+  // where they subscribed); external stations keep "on {station}" as real info.
+  const stationSuffix = isChannelRadio ? "" : ` on ${stationName}`;
   const subject = isRestream
-    ? `${primarySubjectName} airing on ${stationSuffix}`
-    : `${primarySubjectName} is live on ${stationSuffix}`;
+    ? `${primarySubjectName} airing${stationSuffix}`
+    : `${primarySubjectName} is live${stationSuffix}`;
 
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
