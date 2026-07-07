@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/weekly-recommendations?mode=report",
-      "schedule": "0 17 * * 2"
+      "schedule": "0 17 * * 1"
     },
     {
       "path": "/api/cron/weekly-recommendations?mode=backfill",
