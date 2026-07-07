@@ -270,8 +270,7 @@ export function FieldNotesClient() {
 
       <main className="max-w-2xl mx-auto px-6 py-6 pb-24 space-y-8">
         <div className="border-b border-white/10 pb-4">
-          <h1 className="text-2xl font-semibold text-white">tapes</h1>
-          <p className="text-zinc-400 text-sm mt-2">voices from the people who were there.</p>
+          <h1 className="text-2xl font-semibold text-white">voices from the people who were there</h1>
         </div>
 
         {authLoading ? (
