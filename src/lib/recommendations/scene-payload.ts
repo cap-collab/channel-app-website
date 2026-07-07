@@ -16,6 +16,7 @@ import type { Firestore } from "firebase-admin/firestore";
 import type { Archive, ArchiveSerialized } from "@/types/broadcast";
 import { getOrGenerateWebsiteSnapshot } from "./delivery";
 import { fetchComingUp, type ComingUpRow } from "./coming-up";
+import { getFeaturedPayload } from "./featured-payload";
 import { getCityFromTimezone } from "@/lib/city-detection";
 import type { SnapshotSection, RecommendationSnapshot } from "./types";
 
@@ -195,6 +196,39 @@ export async function buildScenePayload(
       return { id: section.id, title: SECTION_TITLE[section.id] ?? section.title, archives, bandByArchiveId };
     })
     .filter((s) => s.archives.length > 0);
+
+  // Backfill "In Your Scene" (discovery) so favorites + discovery reach ≥ 8 cards.
+  // favorite-artists is never padded (it's exactly the user's engaged artists),
+  // and a thin user's discovery fills to only its minimum — so top discovery up
+  // from the featured grid (latest per scene+tempo, already cached) to a floor of
+  // max(6, 8 − favorites). Backfill picks carry a glyph+tempo band like the rest.
+  const favCount = sections.find((s) => s.id === "favorite-artists")?.archives.length ?? 0;
+  const discovery = sections.find((s) => s.id === "discovery");
+  const discoveryTarget = Math.max(6, 8 - favCount);
+  if (discovery && discovery.archives.length < discoveryTarget) {
+    const shownIds = new Set<string>();
+    for (const s of sections) for (const a of s.archives) shownIds.add(a.id);
+    const featured = await getFeaturedPayload(db, nowMs, null);
+    for (const a of featured.archives) {
+      if (discovery.archives.length >= discoveryTarget) break;
+      if (
+        shownIds.has(a.id) ||
+        streamedArchiveIds.has(a.id) ||
+        playedArchiveIds.has(a.id) ||
+        dismissedArchiveIds.has(a.id) ||
+        a.priority === "hidden"
+      )
+        continue;
+      shownIds.add(a.id);
+      discovery.archives.push(a);
+      const sceneSlugs =
+        (a.sceneIdsOverride && a.sceneIdsOverride.length ? a.sceneIdsOverride : a.sceneSlugs) || [];
+      discovery.bandByArchiveId[a.id] = {
+        glyphSlug: sceneSlugs.find((s) => s !== "grid"),
+        tempo: a.tempo ?? undefined,
+      };
+    }
+  }
 
   const diveBackIn = Array.from(streamedArchiveIds)
     .filter((id) => !dismissedArchiveIds.has(id))

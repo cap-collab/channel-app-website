@@ -24,21 +24,14 @@ import { ArchiveSerialized, type Tempo } from '@/types/broadcast';
 import { TEMPOS, tempoLabel } from '@/lib/tempo';
 import { priorityIsHigh, priorityIsFeatured, priorityRank } from '@/lib/archive-priority';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
+import { TempoFilterDropdown, FeaturedBand } from './SceneTempoChips';
+import { STATIC_SCENE_CHIPS } from './useSceneTempoFilter';
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
-
-// Known scene chips for the filter row, used as an instant fallback before
-// useScenesData()'s async fetch resolves — spiral + star are a fixed set, so
-// the glyphs paint on page load instead of popping in. Grid is intentionally
-// excluded (hidden from the filter row). Kept in sync with seed-scenes.ts.
-const STATIC_SCENE_CHIPS: ReadonlyArray<{ id: string; name: string }> = [
-  { id: 'spiral', name: 'Spiral' },
-  { id: 'star', name: 'Star' },
-];
 
 // Tiny string→int hash. Used to pick a stable-but-rotating slide-1 archive
 // keyed off the radio's current archive id, so slide 1 changes naturally as
@@ -971,7 +964,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     <>
     <section className="relative z-10 px-4 pt-6 pb-2">
       <div className="max-w-7xl mx-auto mb-4">
-        <h2 className="text-2xl md:text-3xl font-semibold flex items-center gap-2">
+        <h2 className={`text-2xl md:text-3xl font-semibold flex items-center gap-2 ${homepage ? 'lowercase' : ''}`}>
           {titleOverride ?? 'Human Radio'}
         </h2>
         {!hideSubtitle && (
@@ -1776,11 +1769,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         // as no filter — so the default state (all chips on) shows everything with the
         // curated hero-first placement intact.
         const allSelected =
-          availableScenes.length > 0 && availableScenes.every((s) => sceneFilter.has(s.id));
+          availableScenes.length > 0 && availableScenes.every((s: { id: string }) => sceneFilter.has(s.id));
         // "None selected" = no *visible* chip is on. `sceneFilter` may still contain
         // hidden slugs like 'grid', so checking its size alone isn't enough.
         const noneSelected =
-          availableScenes.length > 0 && availableScenes.every((s) => !sceneFilter.has(s.id));
+          availableScenes.length > 0 && availableScenes.every((s: { id: string }) => !sceneFilter.has(s.id));
         const filteringActive = !allSelected && !noneSelected;
 
         const sceneFiltered = filteringActive
@@ -1863,7 +1856,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         const filterChips =
           (availableScenes.length > 0 || availableTempos.length > 0) ? (
             <div className="flex flex-wrap items-center justify-end gap-1 md:gap-2 shrink-0">
-              {availableScenes.map((s) => {
+              {availableScenes.map((s: { id: string; name: string }) => {
                 // Empty selection means "show everything" (same behavior as all
                 // selected), so render all chips active in both cases.
                 const active = noneSelected || sceneFilter.has(s.id);
@@ -1927,13 +1920,23 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           );
         };
 
+        // The curated top grid is either personalized ("For You" — has bands /
+        // fixedNewIds) or the logged-out / no-preference featured seed (no bands).
+        // The no-pref seed gets a [glyph] TEMPO FAVORITE band on every card.
+        const isNoPrefSeed =
+          hasSceneSection &&
+          !(sceneSection?.fixedNewIds && sceneSection.fixedNewIds.length > 0) &&
+          Object.keys(sceneSection?.bandByArchiveId || {}).length === 0;
+
         // Card-grid renderer shared by both sections. `withBands` = render the
         // curated recommendation banner above each card (curated scene grid only).
         const renderGrid = (items: typeof filteredArchives, withBands = false) => (
           <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mx-auto ${homepage ? 'max-w-[90%]' : ''}`}>
             {items.map(({ archive, sceneIds }) => (
               <div key={archive.id} className="relative">
-                {withBands && renderSceneBand(archive.id)}
+                {withBands && (isNoPrefSeed
+                  ? <FeaturedBand archive={archive} djSceneMap={djSceneMap} />
+                  : renderSceneBand(archive.id))}
                 <ArchiveGridCard
                   archive={archive}
                   isActive={archivePlayer.currentArchive?.id === archive.id}
@@ -1976,7 +1979,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           <div className="mt-6 max-w-7xl mx-auto">
             <div className="mb-4">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-2xl md:text-3xl font-semibold">Archives</h2>
+                <h2 className="text-2xl md:text-3xl font-semibold lowercase">Archives</h2>
                 {filterChips}
               </div>
             </div>
@@ -2116,87 +2119,6 @@ function HeroSlide({
   );
 }
 
-// "ALL TEMPOS" filter: one button that opens a checklist popover. Unchecking a
-// tempo narrows the Archives grid. All checked (the default) == no filter.
-function TempoFilterDropdown({
-  tempos,
-  tempoFilter,
-  noneSelected,
-  onToggle,
-}: {
-  tempos: ReadonlyArray<{ id: Tempo; label: string }>;
-  tempoFilter: Set<Tempo>;
-  noneSelected: boolean;
-  onToggle: (tempo: Tempo) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (ref.current && !e.composedPath().includes(ref.current)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [open]);
-
-  // A tempo counts as "on" when its chip is checked (or nothing is selected,
-  // which we treat as "all on"). The button reads TEMPO when everything's on,
-  // the single tempo's name when exactly one is selected, otherwise the count.
-  const isOn = (id: Tempo) => noneSelected || tempoFilter.has(id);
-  const selectedTempos = tempos.filter((t) => isOn(t.id));
-  const selectedCount = selectedTempos.length;
-  const allOn = selectedCount === tempos.length;
-  const buttonLabel = allOn
-    ? 'TEMPO'
-    : selectedCount === 1
-      ? selectedTempos[0].label
-      : `${selectedCount} TEMPOS`;
-
-  return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className="h-[27px] px-2.5 flex items-center gap-1.5 text-[14.3px] font-mono uppercase tracking-tighter whitespace-nowrap bg-white text-black transition-colors"
-      >
-        {buttonLabel}
-        <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {open && (
-        <div
-          role="listbox"
-          className="absolute right-0 mt-1 z-50 min-w-[160px] bg-black border border-white/15 shadow-xl"
-        >
-          {tempos.map((t) => {
-            const checked = isOn(t.id);
-            return (
-              <button
-                key={t.id}
-                onClick={() => onToggle(t.id)}
-                role="option"
-                aria-selected={checked}
-                className={`w-full text-left px-3 py-2 text-[14.3px] font-mono uppercase tracking-tighter flex items-center justify-between transition-colors ${
-                  checked ? 'text-white' : 'text-white/40 hover:text-white/70'
-                }`}
-              >
-                {t.label}
-                {checked && (
-                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function ArchiveGridCard({
   archive,

@@ -12,12 +12,18 @@ import { CardRemoveButton } from '@/components/CardRemoveButton';
 import { tempoLabel } from '@/lib/tempo';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useArchives } from '@/hooks/useArchives';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
+import { useSceneTempoFilter } from '@/components/channel/useSceneTempoFilter';
+import { SceneTempoChips, FeaturedBand } from '@/components/channel/SceneTempoChips';
 
 // Archive sections show 4 cards; the API returns extras (cap 8) so removing a
 // card in edit mode reveals the next-best already-loaded item.
 const VISIBLE_PER_SECTION = 4;
+// "In Your Scene" (discovery) shows more — the server backfills it so favorites +
+// discovery reach ≥ 8 total, and those extra cards need to actually render.
+const DISCOVERY_VISIBLE = 8;
 
 interface RecBand {
   glyphSlug?: string;
@@ -190,6 +196,24 @@ export function SceneRecommendations({
     onCanEditChange(canEdit);
   }, [canEdit, onCanEditChange]);
 
+  // Logged-out / no-preference branch: a "Start here" featured grid with no
+  // personalized sections. This drives the shared scene/tempo filter chips (like
+  // `/`) and a "More archives" browse grid — both shown ONLY here.
+  const isNoPref = !!startHere && startHere.length > 0 && sections.length === 0;
+
+  // Shared scene/tempo filter (same behavior as the homepage). Local-only state,
+  // no URL seeding, no persistence. Consumed only in the no-pref branch.
+  const filter = useSceneTempoFilter('local');
+
+  // "More archives" — same source as the homepage archive grid (`/api/archives`
+  // via useArchives), minus whatever's already in the Start-here grid.
+  const { archives: allArchives } = useArchives();
+  const startHereIds = useMemo(() => new Set((startHere || []).map((a) => a.id)), [startHere]);
+  const startHereFiltered = (startHere || []).filter(filter.matchesArchive);
+  const moreArchivesFiltered = allArchives.filter(
+    (a) => !startHereIds.has(a.id) && filter.matchesArchive(a),
+  );
+
   // While the heavy personalized payload is still loading, paint the (fast,
   // public) "Coming up" section if it's ready — but keep the spinner ABOVE it,
   // mirroring the final layout (personalized sections render above coming-up).
@@ -240,18 +264,41 @@ export function SceneRecommendations({
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-10">
-      {startHere && startHere.length > 0 && (
-        <Section title="Explore The Scene">
-          <ArchiveGrid archives={startHere} />
+      {/* Logged-out / no-preference: shared scene+tempo filter chips (same as `/`)
+          drive the Start-here + More-archives grids. Logged-in users with
+          preferences never see the filter. */}
+      {isNoPref && (
+        <div className="flex justify-end">
+          <SceneTempoChips filter={filter} />
+        </div>
+      )}
+
+      {/* Start here — the featured scene×tempo grid, each card banded with
+          [glyph] TEMPO FAVORITE. Filtered by the chips above. */}
+      {isNoPref && startHereFiltered.length > 0 && (
+        <Section title="Start here">
+          <ArchiveGrid archives={startHereFiltered} featuredBand />
+        </Section>
+      )}
+
+      {/* More archives — everything else (same source/order as the homepage
+          Archives grid), minus what's already in Start here. Filtered too. */}
+      {isNoPref && moreArchivesFiltered.length > 0 && (
+        <Section title="More archives">
+          <ArchiveGrid archives={moreArchivesFiltered} />
         </Section>
       )}
 
       {sections.map((section) => (
         <Section key={section.id} title={section.title}>
           <ArchiveGrid
-            // Show 4; the API pre-loads extras so removing a card reveals the
-            // next-best already-loaded item.
-            archives={section.archives.slice(0, VISIBLE_PER_SECTION)}
+            // Most sections show 4 (extras pre-loaded so removing a card reveals
+            // the next-best). "In Your Scene" (discovery) shows up to 8 — the
+            // server backfills it so favorites + discovery reach ≥ 8 total.
+            archives={section.archives.slice(
+              0,
+              section.id === 'discovery' ? DISCOVERY_VISIBLE : VISIBLE_PER_SECTION,
+            )}
             bandByArchiveId={section.bandByArchiveId}
             // §1 "Your Scene" → a "New Show" black bar on every card (these are
             // not-yet-streamed archives from your favorite artists).
@@ -263,12 +310,7 @@ export function SceneRecommendations({
         </Section>
       ))}
 
-      {comingUp.length > 0 && (
-        <Section title={comingUpTitle}>
-          <ComingUpGrid rows={comingUp} onAuthRequired={onAuthRequired} onAdded={() => showToast('Added to watchlist')} />
-        </Section>
-      )}
-
+      {/* Dive back in renders ABOVE Coming up. */}
       {diveBackIn.length > 0 && (
         <Section title="Dive back in">
           <ArchiveGrid
@@ -292,6 +334,12 @@ export function SceneRecommendations({
         </Section>
       )}
 
+      {comingUp.length > 0 && (
+        <Section title={comingUpTitle}>
+          <ComingUpGrid rows={comingUp} onAuthRequired={onAuthRequired} onAdded={() => showToast('Added to watchlist')} />
+        </Section>
+      )}
+
       {/* Transient confirmation toast — same frosted-glass + mono-uppercase +
           squared vocabulary as the card/Edit buttons. Green check = done. */}
       {toast && (
@@ -311,7 +359,7 @@ export function SceneRecommendations({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="text-2xl md:text-3xl font-semibold mb-4">{title}</h2>
+      <h2 className="text-2xl md:text-3xl font-semibold mb-4 lowercase">{title}</h2>
       {children}
     </section>
   );
@@ -324,6 +372,7 @@ function ArchiveGrid({
   archives,
   bandByArchiveId,
   fixedBandLabel,
+  featuredBand,
   editMode,
   removing,
   onRemove,
@@ -331,6 +380,7 @@ function ArchiveGrid({
   archives: ArchiveSerialized[];
   bandByArchiveId?: Record<string, RecBand>;
   fixedBandLabel?: string; // same label on every card's black bar (e.g. §1 "New Show")
+  featuredBand?: boolean; // render [glyph] TEMPO FAVORITE on every card (Start here)
   editMode?: boolean;
   removing?: Set<string>;
   onRemove?: (archive: ArchiveSerialized) => void;
@@ -355,7 +405,9 @@ function ArchiveGrid({
         const tempoText = band?.tempo ? tempoLabel(band.tempo) : null;
         return (
           <div key={archive.id} className="relative">
-            {fixedBandLabel ? (
+            {featuredBand ? (
+              <FeaturedBand archive={archive} djSceneMap={djSceneMap} />
+            ) : fixedBandLabel ? (
               <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center">
                 {fixedBandLabel}
               </div>
