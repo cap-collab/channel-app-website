@@ -47,7 +47,10 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
   const { stationBPM } = useBPM();
   const archivePlayer = useArchivePlayer();
   const { isGated, gateAttempt, clearGate } = archivePlayer;
-  const { archives: rawArchives, featuredArchive: rawFeaturedArchive, loading: archivesLoading } = useArchives(initialHeroArchives);
+  // includeLow: surface low-priority archives too — they sort to the very bottom
+  // of the grid (priorityRank) and arrive on the same idle/low-priority fetch, so
+  // they never block the hero or above-the-fold load.
+  const { archives: rawArchives, featuredArchive: rawFeaturedArchive, loading: archivesLoading } = useArchives(initialHeroArchives, true);
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 

@@ -11,7 +11,13 @@ interface UseArchivesReturn {
   loading: boolean;
 }
 
-export function useArchives(initial?: ArchiveSerialized[]): UseArchivesReturn {
+export function useArchives(
+  initial?: ArchiveSerialized[],
+  // When true, low-priority archives are kept (they sort to the bottom of the
+  // grid via priorityRank). Off by default so other surfaces are unchanged; the
+  // homepage opts in to show its full back-catalogue at the very bottom.
+  includeLow = false,
+): UseArchivesReturn {
   const hasSeed = Boolean(initial && initial.length > 0);
   const [archives, setArchives] = useState<ArchiveSerialized[]>(initial ?? []);
   // If we have an initial seed (featured + high, SSR'd), render with it
@@ -30,7 +36,7 @@ export function useArchives(initial?: ArchiveSerialized[]): UseArchivesReturn {
         const data = await res.json();
         if (cancelled) return;
         const filtered = (data.archives as ArchiveSerialized[]).filter(
-          (a) => a.duration >= MIN_DURATION_SECONDS && a.priority !== 'low'
+          (a) => a.duration >= MIN_DURATION_SECONDS && (includeLow || a.priority !== 'low')
         );
         setArchives(filtered);
       } catch {
@@ -53,7 +59,7 @@ export function useArchives(initial?: ArchiveSerialized[]): UseArchivesReturn {
 
     fetchArchives();
     return () => { cancelled = true; };
-  }, [hasSeed]);
+  }, [hasSeed, includeLow]);
 
   const featuredArchive = archives.length > 0 ? archives[0] : null;
 
