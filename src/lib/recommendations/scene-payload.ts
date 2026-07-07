@@ -143,15 +143,25 @@ export async function buildScenePayload(
     if (refs.length > 0) archiveSnapsByChunk.push(db.getAll(...refs));
   }
 
-  const [archiveChunks, comingUp] = await Promise.all([
+  const [archiveChunks, comingUp, ownArchiveSnap] = await Promise.all([
     Promise.all(archiveSnapsByChunk),
     fetchComingUp({ db, nowMs, userCity, engagedDjUsernames, goLiveMutes, ownDjUsername }),
+    // The signed-in DJ's OWN archives — uploaded OR live-recorded, both stamp
+    // uploadedBy with the DJ's uid. These join "Dive back in" regardless of
+    // priority (low/medium included; hidden filtered below), so a DJ always sees
+    // their own back-catalogue there even if they never streamed it themselves.
+    db.collection("archives").where("uploadedBy", "==", uid).get(),
   ]);
   for (const chunk of archiveChunks) {
     for (const snap of chunk) {
       if (!snap.exists) continue;
       archiveById.set(snap.id, { id: snap.id, ...(snap.data() as Omit<Archive, "id">) });
     }
+  }
+  const ownArchiveIds = new Set<string>();
+  for (const snap of ownArchiveSnap.docs) {
+    ownArchiveIds.add(snap.id);
+    archiveById.set(snap.id, { id: snap.id, ...(snap.data() as Omit<Archive, "id">) });
   }
 
   const sections = (snapshot?.sections ?? [])
@@ -196,10 +206,18 @@ export async function buildScenePayload(
     })
     .filter((s) => s.archives.length > 0);
 
-  const diveBackIn = Array.from(streamedArchiveIds)
+  // "Dive back in" = archives the user streamed + the DJ's own archives. Union
+  // the two id sets so a DJ's own back-catalogue shows here even when unstreamed.
+  const diveBackInIds = new Set<string>([
+    ...Array.from(streamedArchiveIds),
+    ...Array.from(ownArchiveIds),
+  ]);
+  const diveBackIn = Array.from(diveBackInIds)
     .filter((id) => !dismissedArchiveIds.has(id))
     .map((id) => archiveById.get(id))
     .filter((a): a is ArchiveSerialized => !!a && a.priority !== "hidden")
+    // Streamed archives order by last-listened (oldest first). Own archives that
+    // were never streamed have no lastStreamedAt (0) → they sort to the front.
     .sort((a, b) => (streamedAtMs.get(a.id) ?? 0) - (streamedAtMs.get(b.id) ?? 0))
     .slice(0, 50);
 
