@@ -106,6 +106,10 @@ export interface CandidateInput {
   sceneTempoMatch: boolean; // scene ∈ engagedScenes AND tempo ∈ engagedTempos
   matchedScenes: string[];
   matchedTempo: Tempo | null;
+  // True when the user HAS taste signal but this archive matches neither an
+  // engaged scene nor an engaged tempo → off-taste, damped hard in scoring.
+  // False for users with no taste signal (nothing to be off-taste against).
+  offTaste: boolean;
   // 0..1: how strongly the user engaged with THIS archive's scene+tempo,
   // relative to their most-engaged scene+tempo. Drives discovery ranking so a
   // user's dominant taste (e.g. spiral+uptempo) surfaces first.
@@ -131,7 +135,8 @@ export type ScoreComponentName =
   | "sceneTempoAffinity"
   | "selfTasteBoost"
   | "editorialBoost"
-  | "alreadyHeardPenalty";
+  | "alreadyHeardPenalty"
+  | "offTastePenalty";
 
 export interface ScoreComponent {
   name: ScoreComponentName;
@@ -180,6 +185,13 @@ export interface RecommendationConfig {
   };
   alreadyHeard: {
     penaltyStrength: number; // score /= (1 + count * strength)
+  };
+  // Discovery only: a candidate that matches NEITHER an engaged scene NOR an
+  // engaged tempo is off-taste — its score is multiplied by this factor so it
+  // sinks below every on-taste pick (appears only if nothing on-taste is left).
+  // 1 = no penalty; smaller = harsher. Skipped for users with no taste signal.
+  offTaste: {
+    penaltyFactor: number;
   };
   diversity: {
     maxPerDj: number; // cap per DJ within a section

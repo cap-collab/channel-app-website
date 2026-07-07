@@ -354,6 +354,12 @@ export function buildCandidateInputs(
     const tempoEngaged = item.tempo != null && user.engagedTempos.has(item.tempo);
     const sceneTempoMatch = matchedScenes.length > 0 && tempoEngaged;
 
+    // Off-taste: the user HAS taste signal, but this archive matches neither an
+    // engaged scene nor an engaged tempo. Damped hard in scoring so it never
+    // outranks an on-taste pick (e.g. Intense for a chill-only listener).
+    const hasTasteSignal = user.engagedScenes.size > 0 || user.engagedTempos.size > 0;
+    const offTaste = hasTasteSignal && matchedScenes.length === 0 && !tempoEngaged;
+
     // DJ self-taste: archive shares a scene OR tempo with the DJ's own archives.
     const matchesSelfTaste =
       item.sceneSlugs.some((s) => user.selfScenes.has(s)) ||
@@ -396,6 +402,7 @@ export function buildCandidateInputs(
       sceneTempoMatch,
       matchedScenes,
       matchedTempo: tempoEngaged ? item.tempo : null,
+      offTaste,
       sceneTempoAffinity,
       discoveryTier,
       matchesSelfTaste,

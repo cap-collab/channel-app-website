@@ -111,15 +111,27 @@ export function scoreCandidate(
 
   const additiveBase = components.reduce((sum, c) => sum + c.contribution, 0);
 
+  // Off-taste damper (discovery): a candidate matching neither an engaged scene
+  // nor tempo is multiplied down so it ranks below every on-taste pick. Recorded
+  // as a signed component so the breakdown still reconciles to the final score.
+  const offTasteFactor = input.offTaste ? config.offTaste.penaltyFactor : 1;
+  const afterOffTaste = additiveBase * offTasteFactor;
+  components.push({
+    name: "offTastePenalty",
+    rawValue: input.offTaste ? 1 : 0,
+    weight: config.offTaste.penaltyFactor,
+    contribution: afterOffTaste - additiveBase, // signed (≤ 0)
+  });
+
   // Already-heard damper: score /= (1 + count * strength). Recorded so the
   // breakdown reconciles to the damped score.
   const damper = 1 / (1 + input.alreadyStreamedCount * config.alreadyHeard.penaltyStrength);
-  const dampedScore = additiveBase * damper;
+  const dampedScore = afterOffTaste * damper;
   components.push({
     name: "alreadyHeardPenalty",
     rawValue: input.alreadyStreamedCount,
     weight: config.alreadyHeard.penaltyStrength,
-    contribution: dampedScore - additiveBase, // signed (≤ 0)
+    contribution: dampedScore - afterOffTaste, // signed (≤ 0)
   });
 
   return {

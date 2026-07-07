@@ -17,6 +17,7 @@ function candidate(over: Partial<CandidateInput> & { item: ContentItem }): Candi
     sceneTempoMatch: false,
     matchedScenes: [],
     matchedTempo: null,
+    offTaste: false,
     sceneTempoAffinity: 0,
     discoveryTier: null,
     matchesSelfTaste: false,
@@ -51,6 +52,18 @@ describe("scoreCandidate", () => {
     // strength=1 → count=1 gives damper 1/2 of base.
     const once = scoreCandidate(candidate({ item, matchedEngagedDjs: ["maria"], alreadyStreamedCount: 1 }), cfg, NOW_MS);
     expect(once.score).toBeCloseTo(base.score / 2, 9);
+  });
+
+  it("off-taste damper multiplies the score down and reconciles", () => {
+    const item = normalizeArchive(archiveById("a-stranger-cold"));
+    const onTaste = scoreCandidate(candidate({ item, offTaste: false }), cfg, NOW_MS);
+    const offTaste = scoreCandidate(candidate({ item, offTaste: true }), cfg, NOW_MS);
+    // Off-taste is damped to penaltyFactor of the on-taste score.
+    expect(offTaste.score).toBeCloseTo(onTaste.score * cfg.offTaste.penaltyFactor, 9);
+    expect(offTaste.score).toBeLessThan(onTaste.score);
+    // Breakdown still reconciles.
+    const sum = offTaste.scoreBreakdown.reduce((s, x) => s + x.contribution, 0);
+    expect(sum).toBeCloseTo(offTaste.score, 9);
   });
 
   it("recency decays by half-life and clamps to 0 outside the window", () => {
