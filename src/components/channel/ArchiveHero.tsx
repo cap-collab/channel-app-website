@@ -1936,7 +1936,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         const renderGrid = (items: typeof filteredArchives, bandCount = 0) => (
           <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mx-auto ${homepage ? 'max-w-[90%]' : ''}`}>
             {items.map(({ archive, sceneIds }, i) => (
-              <div key={archive.id} className="relative">
+              // Flex column with the card pushed to the bottom so cards align on
+              // their bottom edge regardless of whether a band sits on top. Grid
+              // stretches cells to equal height per row; the band floats at the
+              // top of the cell and the card hugs the bottom.
+              <div key={archive.id} className="relative flex flex-col justify-end">
                 {i < bandCount && (isNoPrefSeed
                   ? <FeaturedBand archive={archive} djSceneMap={djSceneMap} />
                   : renderSceneBand(archive.id))}
