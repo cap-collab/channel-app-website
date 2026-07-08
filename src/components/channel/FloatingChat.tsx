@@ -229,8 +229,9 @@ export function FloatingChat() {
   }, [chatInput, isSending, sendMessage, maybeReplyWithTracklist]);
 
   // Hide on /dj/*, /studio/*, /broadcast/*
-  // Only shown on these surfaces: DJ profiles, collective pages, /foryou, /tape.
+  // Only shown on these surfaces: homepage, DJ profiles, collective pages, /foryou, /tape.
   const showFloatingChat =
+    pathname === '/' ||
     pathname.startsWith('/dj/') ||
     pathname.startsWith('/collective/') ||
     pathname === '/foryou' ||
