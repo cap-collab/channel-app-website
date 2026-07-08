@@ -198,34 +198,22 @@ export function FloatingChat() {
     }
   }, [usernameInput, setChatUsername]);
 
-  // "track id" chat trigger → channelbroadcast replies with the current
-  // archive's tracklist. ONLY fires for archive playback (archive player or
-  // archive radio) — never live, never restream. Matches "track id", "track
-  // ids", "trackid", with optional trailing "?".
+  // "track id" chat trigger → channelbroadcast replies with the currently
+  // playing archive's tracklist. Fires whenever an archive is playing (archive
+  // player or archive radio loop). Matches "track id", "track ids", "trackid",
+  // with optional trailing "?".
   const maybeReplyWithTracklist = useCallback(async (text: string) => {
-    const matched = /track\s*ids?\??/i.test(text);
-    console.log('[tracklist] send:', JSON.stringify(text), 'matched:', matched);
-    if (!matched) return;
-    // Archive-sources only: bail if a LIVE broadcast is the active source
-    // (covers both live and restream — both run through isLivePlaying).
-    console.log('[tracklist] isLivePlaying:', isLivePlaying, {
-      currentArchive: archivePlayer.currentArchive?.showName ?? null,
-      featuredArchive: archivePlayer.featuredArchive?.showName ?? null,
-      radioCurrentArchive: radioCtx?.currentArchive?.showName ?? null,
-      radioEnabled: radioCtx?.enabled,
-    });
-    if (isLivePlaying) return;
-    // Resolve the archive the listener is actually hearing. Try every archive
-    // source rather than gating on one branch's currentArchive being non-null:
-    //  - archive player (currentArchive, else the featured fallback it renders)
-    //  - archive radio loop (currentArchive resolved from the schedule item)
+    if (!/track\s*ids?\??/i.test(text)) return;
+    // Resolve the archive the listener is currently hearing, across both
+    // archive-playback sources (the archive player and the archive radio loop).
+    // sourceType is irrelevant here — a live-RECORDED archive played back is
+    // still archive playback.
     const archive =
       archivePlayer.currentArchive ||
       archivePlayer.featuredArchive ||
       radioCtx?.currentArchive ||
       null;
-    console.log('[tracklist] resolved archive:', archive?.showName ?? null, 'trackIds:', archive?.trackIds?.length ?? 'none');
-    if (!archive) return; // nothing archive-y is playing → stay silent
+    if (!archive) return; // no archive playing → nothing to answer with
 
     const showName = archive.showName || 'this show';
     const djName = archive.djs?.map((d) => d.name).filter(Boolean).join(', ');
@@ -243,7 +231,7 @@ export function FloatingChat() {
     // for archive writes elsewhere in this component.
     const djRoom = archive.djs?.[0]?.username?.replace(/\s+/g, '').toLowerCase() || '';
     await postSystemMessage(reply, djRoom);
-  }, [isLivePlaying, archivePlayer.currentArchive, archivePlayer.featuredArchive, radioCtx, postSystemMessage]);
+  }, [archivePlayer.currentArchive, archivePlayer.featuredArchive, radioCtx, postSystemMessage]);
 
   const handleSendMessage = useCallback(async (e: FormEvent) => {
     e.preventDefault();
