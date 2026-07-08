@@ -105,7 +105,7 @@ export function FloatingChat() {
   // Displayed chat is always the unified channelbroadcast feed. All DJ-room
   // writes (messages, loves, locked-in) cross-post into channelbroadcast, so
   // activity from the DJ the listener is on still surfaces here.
-  const { messages } = useDJProfileChat({
+  const { messages, postSystemMessage } = useDJProfileChat({
     chatUsernameNormalized: 'channelbroadcast',
     djUsername: 'Channel Radio',
     username: chatUsername || undefined,
@@ -198,17 +198,55 @@ export function FloatingChat() {
     }
   }, [usernameInput, setChatUsername]);
 
+  // "track id" chat trigger → channelbroadcast replies with the current
+  // archive's tracklist. ONLY fires for archive playback (archive player or
+  // archive radio) — never live, never restream. Matches "track id", "track
+  // ids", "trackid", with optional trailing "?".
+  const maybeReplyWithTracklist = useCallback(async (text: string) => {
+    if (!/track\s*ids?\??/i.test(text)) return;
+    // Resolve the active archive, archive-sources only. Live/restream both go
+    // through isLivePlaying/isLiveReady, which we deliberately skip here.
+    const archive = isArchivePlaying
+      ? archivePlayer.currentArchive
+      : isRadioPlaying
+        ? radioCtx?.currentArchive ?? null
+        : null;
+    if (!archive) return; // not an archive source → stay silent
+
+    const showName = archive.showName || 'this show';
+    const djName = archive.djs?.map((d) => d.name).filter(Boolean).join(', ');
+    const header = djName
+      ? `Tracklist for ${showName} by ${djName}:`
+      : `Tracklist for ${showName}:`;
+
+    const tracks = archive.trackIds ?? [];
+    const reply = tracks.length > 0
+      ? `${header}\n${tracks.join('\n')}`
+      : `No tracklist available for ${showName} yet.`;
+
+    // Post to the archive's DJ room too (shows on their profile chat) plus the
+    // global channelbroadcast feed. Same normalized-username room mapping used
+    // for archive writes elsewhere in this component.
+    const djRoom = archive.djs?.[0]?.username?.replace(/\s+/g, '').toLowerCase() || '';
+    await postSystemMessage(reply, djRoom);
+  }, [isArchivePlaying, isRadioPlaying, archivePlayer.currentArchive, radioCtx, postSystemMessage]);
+
   const handleSendMessage = useCallback(async (e: FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || isSending) return;
+    const text = chatInput.trim();
     setIsSending(true);
     try {
-      await sendMessage(chatInput.trim());
+      await sendMessage(text);
       setChatInput('');
+      // Fire-and-forget the tracklist auto-reply (don't block the input reset).
+      maybeReplyWithTracklist(text).catch((err) =>
+        console.error('Tracklist auto-reply failed:', err)
+      );
     } finally {
       setIsSending(false);
     }
-  }, [chatInput, isSending, sendMessage]);
+  }, [chatInput, isSending, sendMessage, maybeReplyWithTracklist]);
 
   // Hide on /dj/*, /studio/*, /broadcast/*
   if (pathname.startsWith('/dj/') || pathname.startsWith('/studio') || pathname.startsWith('/broadcast')) return null;

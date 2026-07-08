@@ -47,6 +47,7 @@ interface UseDJProfileChatReturn {
   sendMessage: (text: string) => Promise<void>;
   sendLove: () => Promise<void>;
   sendLockedIn: () => Promise<void>;
+  postSystemMessage: (text: string, djRoom?: string) => Promise<void>;
 }
 
 export function useDJProfileChat({
@@ -255,6 +256,51 @@ export function useDJProfileChat({
   }, [username, chatUsernameNormalized, isOwner, broadcastSlotId]);
 
 
+  // Post an automated reply as the "channelbroadcast" bot. Used by the "track
+  // id" chat trigger to answer with the current archive's tracklist. Fans out
+  // like a normal message: writes to the given DJ room (so it shows on that
+  // DJ's profile chat) AND cross-posts into channelbroadcast (the global feed
+  // the floating chat displays). Pass djRoom = the normalized DJ username; if
+  // omitted or already 'channelbroadcast', it only writes the global feed.
+  const postSystemMessage = useCallback(async (text: string, djRoom?: string) => {
+    if (!text.trim()) return;
+
+    const app = getFirebaseApp();
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    await auth.authStateReady();
+    if (!auth.currentUser) {
+      try { await signInAnonymously(auth); } catch { return; }
+    }
+
+    const body = {
+      username: 'channelbroadcast',
+      message: text.trim(),
+      isDJ: false,
+      messageType: 'chat' as const,
+    };
+
+    try {
+      // DJ room first (if any), so it surfaces on that DJ's profile chat.
+      if (djRoom && djRoom !== 'channelbroadcast') {
+        await addDoc(collection(db, 'chats', djRoom, 'messages'), {
+          ...body,
+          stationId: djRoom,
+          timestamp: serverTimestamp(),
+        });
+      }
+      // Always post to the unified channelbroadcast feed.
+      await addDoc(collection(db, 'chats', 'channelbroadcast', 'messages'), {
+        ...body,
+        stationId: 'channelbroadcast',
+        timestamp: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error('Failed to post system message:', err);
+    }
+  }, []);
+
   // Send a love reaction - increment heartCount if user already has a love message
   // Anyone can send love — if no username, post as "Someone" (no chat message username)
   const sendLove = useCallback(async () => {
@@ -433,5 +479,6 @@ export function useDJProfileChat({
     sendMessage,
     sendLove,
     sendLockedIn,
+    postSystemMessage,
   };
 }
