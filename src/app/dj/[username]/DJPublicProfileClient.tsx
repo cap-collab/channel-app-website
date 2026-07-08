@@ -904,6 +904,31 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
         : [];
       const residentUsernameSet = new Set(residentUsernames);
 
+      // Collective fan-out (owner direction): when viewing a USER profile, also
+      // surface upcoming shows scheduled to a collective this user owns. A
+      // collective slot stores the collective's slug as djUsername (no djUserId),
+      // so it never matches the user's own username/uid/email. Mirror of the
+      // owned-collective slug lookup used for archives below.
+      const myCollectiveSlugs = new Set<string>();
+      const isRealUserUid =
+        djProfile.profileType === 'user' && djProfile.uid &&
+        !djProfile.uid.startsWith('pending-') && !djProfile.uid.startsWith('collective-');
+      if (db && isRealUserUid) {
+        try {
+          const ownedQ = query(
+            collection(db, "collectives"),
+            where("owners", "array-contains", djProfile.uid)
+          );
+          const ownedSnap = await getDocs(ownedQ);
+          ownedSnap.forEach(d => {
+            const slug = d.data().slug;
+            if (typeof slug === "string") myCollectiveSlugs.add(slug);
+          });
+        } catch (err) {
+          console.error("Error fetching user's owned collectives:", err);
+        }
+      }
+
       // 1. Fetch broadcast slots from Firebase (Channel Radio)
       if (db) {
         try {
@@ -928,12 +953,20 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                 (dj.username && containsMatch(dj.username, djProfile.chatUsername)) ||
                 (dj.email && djProfile.email && dj.email.toLowerCase() === djProfile.email.toLowerCase())
               );
+            // Owned-collective slot: djUsername stores the collective's slug
+            // (generateSlug — strips ALL non-alphanumerics), matched directly
+            // against the slugs of collectives this user owns.
+            const matchesOwnedCollective = !!(
+              data.djUsername && myCollectiveSlugs.size > 0 &&
+              myCollectiveSlugs.has(String(data.djUsername).toLowerCase().replace(/[^a-z0-9]/g, ""))
+            );
             const isMatch =
               (data.djUsername && containsMatch(data.djUsername, djProfile.chatUsername)) ||
               (data.djName && containsMatch(data.djName, djProfile.chatUsername)) ||
               (data.liveDjUsername && containsMatch(data.liveDjUsername, djProfile.chatUsername)) ||
               data.djUserId === djProfile.uid ||
               (data.djEmail && djProfile.email && data.djEmail.toLowerCase() === djProfile.email.toLowerCase()) ||
+              matchesOwnedCollective ||
               restreamDjMatch;
 
             // Collective profile: also match any slot whose DJ (or one of the
