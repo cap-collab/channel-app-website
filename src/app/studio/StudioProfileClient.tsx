@@ -12,6 +12,7 @@ import { useUserRole, isDJ } from "@/hooks/useUserRole";
 import { AuthModal } from "@/components/AuthModal";
 import { Header } from "@/components/Header";
 import { normalizeUrl } from "@/lib/url";
+import { normalizeTrackIds, type TrackId } from "@/lib/track-ids";
 import { uploadDJPhoto, deleteDJPhoto, validatePhoto, uploadRecImage, uploadEventPhoto, uploadShowImage, deleteShowImage, uploadArchiveImage } from "@/lib/photo-upload";
 import { wordBoundaryMatch, normalizeUsername } from "@/lib/dj-matching";
 import { CreatableChipField } from "@/components/events/CreatableChipField";
@@ -367,6 +368,7 @@ export function StudioProfileClient() {
     source?: 'archive' | 'session'; // which collection this came from
     showImageUrl?: string;
     ownerUserId?: string; // djs[0].userId — only the owner may delete. Absent for session recs (uploader is owner).
+    trackIds?: TrackId[]; // editable tracklist (archive recordings only)
   }
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loadingRecordings, setLoadingRecordings] = useState(true);
@@ -381,6 +383,11 @@ export function StudioProfileClient() {
   const [playingRecordingId, setPlayingRecordingId] = useState<string | null>(null);
   const [recordingCurrentTime, setRecordingCurrentTime] = useState<Record<string, number>>({});
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
+  // Tracklist editor: per-recording working draft (keyed by recording id) while
+  // editing, plus save/error state. `null` draft = not currently editing that card.
+  const [tracklistDrafts, setTracklistDrafts] = useState<Record<string, TrackId[]>>({});
+  const [savingTracklistId, setSavingTracklistId] = useState<string | null>(null);
+  const [tracklistErrors, setTracklistErrors] = useState<Record<string, string | null>>({});
 
   // Pre-recording upload state
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -921,6 +928,7 @@ export function StudioProfileClient() {
             source: 'archive',
             showImageUrl: data.showImageUrl,
             ownerUserId: data.djs?.[0]?.userId,
+            trackIds: normalizeTrackIds(data.trackIds),
           });
         });
         archivesLoaded = true;
@@ -1163,6 +1171,73 @@ export function StudioProfileClient() {
       setSavingRecordingName(false);
     }
   }, [db, editingRecordingName]);
+
+  // ---- Tracklist editor (artist edits their own archive's trackIds) ----
+  // Enter edit mode for a card: seed the draft from the recording's tracklist.
+  const handleStartEditTracklist = useCallback((rec: Recording) => {
+    setTracklistDrafts(prev => ({ ...prev, [rec.id]: (rec.trackIds || []).map(t => ({ ...t })) }));
+    setTracklistErrors(prev => ({ ...prev, [rec.id]: null }));
+  }, []);
+
+  const handleCancelEditTracklist = useCallback((recordingId: string) => {
+    setTracklistDrafts(prev => { const next = { ...prev }; delete next[recordingId]; return next; });
+    setTracklistErrors(prev => ({ ...prev, [recordingId]: null }));
+  }, []);
+
+  // Edit one row's text.
+  const handleTracklistRowText = useCallback((recordingId: string, index: number, text: string) => {
+    setTracklistDrafts(prev => {
+      const rows = prev[recordingId] ? [...prev[recordingId]] : [];
+      if (!rows[index]) return prev;
+      rows[index] = { ...rows[index], text };
+      return { ...prev, [recordingId]: rows };
+    });
+  }, []);
+
+  // Toggle one row's private flag.
+  const handleTracklistRowPrivate = useCallback((recordingId: string, index: number) => {
+    setTracklistDrafts(prev => {
+      const rows = prev[recordingId] ? [...prev[recordingId]] : [];
+      if (!rows[index]) return prev;
+      rows[index] = { ...rows[index], private: !rows[index].private };
+      return { ...prev, [recordingId]: rows };
+    });
+  }, []);
+
+  // Insert a new blank row at a given index (the "+ add track here" affordance) —
+  // this is how a track is placed anywhere; there is no reorder control.
+  const handleTracklistInsert = useCallback((recordingId: string, index: number) => {
+    setTracklistDrafts(prev => {
+      const rows = prev[recordingId] ? [...prev[recordingId]] : [];
+      rows.splice(index, 0, { text: '', private: false });
+      return { ...prev, [recordingId]: rows };
+    });
+  }, []);
+
+  // Save the draft to the archive doc (owner-authorized by firestore.rules
+  // uploadedBy == uid). Reject if any row is blank/whitespace — tracks can't be
+  // deleted or emptied (make them private instead), so blanks never persist.
+  const handleSaveTracklist = useCallback(async (recordingId: string) => {
+    if (!db) return;
+    const draft = tracklistDrafts[recordingId] || [];
+    const cleaned = draft.map(t => ({ text: t.text.trim(), private: !!t.private }));
+    if (cleaned.some(t => t.text.length === 0)) {
+      setTracklistErrors(prev => ({ ...prev, [recordingId]: "Track can't be blank — make it private instead" }));
+      return;
+    }
+    setSavingTracklistId(recordingId);
+    setTracklistErrors(prev => ({ ...prev, [recordingId]: null }));
+    try {
+      await updateDoc(doc(db, 'archives', recordingId), { trackIds: cleaned });
+      setRecordings(prev => prev.map(r => r.id === recordingId ? { ...r, trackIds: cleaned } : r));
+      setTracklistDrafts(prev => { const next = { ...prev }; delete next[recordingId]; return next; });
+    } catch (error) {
+      console.error('Error saving tracklist:', error);
+      setTracklistErrors(prev => ({ ...prev, [recordingId]: 'Failed to save tracklist' }));
+    } finally {
+      setSavingTracklistId(null);
+    }
+  }, [db, tracklistDrafts]);
 
   // Handle recording playback
   const handlePlayPauseRecording = useCallback((recordingId: string) => {
@@ -2913,6 +2988,104 @@ export function StudioProfileClient() {
                           Remove image
                         </button>
                       )}
+
+                      {/* Tracklist editor — archive recordings only (owner-editable
+                          via firestore.rules uploadedBy == uid). Rows are editable
+                          text; a row can be made private (shown as "Private track
+                          ID" publicly) but not deleted or left blank. New tracks are
+                          slid in via the "+ add" buttons between rows. */}
+                      {canEditImage && (() => {
+                        const draft = tracklistDrafts[recording.id];
+                        const isEditing = draft !== undefined;
+                        const rows = isEditing ? draft : (recording.trackIds || []);
+                        const err = tracklistErrors[recording.id];
+                        return (
+                          <div className="mt-3 pt-3 border-t border-[#333]">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-gray-400 text-[10px] uppercase tracking-wide">Tracklist</span>
+                              {!isEditing ? (
+                                <button
+                                  onClick={() => handleStartEditTracklist(recording)}
+                                  className="text-gray-400 hover:text-white text-xs transition-colors"
+                                >
+                                  Edit
+                                </button>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleCancelEditTracklist(recording.id)}
+                                    className="text-gray-400 hover:text-white text-xs transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => handleSaveTracklist(recording.id)}
+                                    disabled={savingTracklistId === recording.id}
+                                    className="text-green-400 hover:text-green-300 text-xs transition-colors disabled:opacity-50"
+                                  >
+                                    {savingTracklistId === recording.id ? 'Saving…' : 'Save'}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {!isEditing ? (
+                              rows.length > 0 ? (
+                                <ol className="space-y-1">
+                                  {rows.map((t, i) => (
+                                    <li key={i} className={`flex gap-2 text-xs ${t.private ? 'text-gray-500 italic' : 'text-gray-300'}`}>
+                                      <span className="text-gray-600 tabular-nums">{i + 1}.</span>
+                                      <span>{t.text}</span>
+                                      {t.private && <span className="text-gray-600">(private)</span>}
+                                    </li>
+                                  ))}
+                                </ol>
+                              ) : (
+                                <p className="text-gray-600 text-xs">No tracklist yet — click Edit to add tracks.</p>
+                              )
+                            ) : (
+                              <div className="space-y-1.5">
+                                {/* insert-at-top */}
+                                <button
+                                  onClick={() => handleTracklistInsert(recording.id, 0)}
+                                  className="w-full text-gray-600 hover:text-gray-300 text-[11px] transition-colors text-left"
+                                >
+                                  + add track here
+                                </button>
+                                {rows.map((t, i) => (
+                                  <div key={i}>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-gray-600 tabular-nums text-xs w-5">{i + 1}.</span>
+                                      <input
+                                        value={t.text}
+                                        onChange={(e) => handleTracklistRowText(recording.id, i, e.target.value)}
+                                        placeholder="Artist – Track"
+                                        className={`flex-1 bg-[#2a2a2a] border border-gray-700 focus:border-white rounded px-2 py-1 text-xs text-white focus:outline-none ${t.private ? 'italic text-gray-400' : ''}`}
+                                      />
+                                      <button
+                                        onClick={() => handleTracklistRowPrivate(recording.id, i)}
+                                        title={t.private ? 'Private — click to make public' : 'Make private'}
+                                        className={`text-xs px-1.5 py-1 rounded transition-colors ${t.private ? 'text-yellow-500 hover:text-yellow-400' : 'text-gray-500 hover:text-gray-300'}`}
+                                      >
+                                        {t.private ? '🔒 Private' : '👁 Public'}
+                                      </button>
+                                    </div>
+                                    {/* insert-after-this-row */}
+                                    <button
+                                      onClick={() => handleTracklistInsert(recording.id, i + 1)}
+                                      className="w-full text-gray-600 hover:text-gray-300 text-[11px] transition-colors text-left pl-7 mt-1"
+                                    >
+                                      + add track here
+                                    </button>
+                                  </div>
+                                ))}
+                                {err && <p className="text-red-400 text-xs mt-1">{err}</p>}
+                                <p className="text-gray-600 text-[10px] mt-1">Tracks can&apos;t be deleted or left blank — make one private to hide it.</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                     );
                   })}

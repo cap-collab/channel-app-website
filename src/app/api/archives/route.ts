@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { ArchiveSerialized } from '@/types/broadcast';
+import { normalizeTrackIds, publicTrackIds } from '@/lib/track-ids';
 
 export const dynamic = 'force-dynamic';
 
@@ -355,7 +356,9 @@ export async function GET(request: Request) {
         venueSlug: data.venueSlug ?? null,
         crossListUserIds: Array.isArray(data.crossListUserIds) ? data.crossListUserIds : undefined,
         crossListUsernames: Array.isArray(data.crossListUsernames) ? data.crossListUsernames : undefined,
-        trackIds: Array.isArray(data.trackIds) ? data.trackIds : undefined,
+        // Mask private tracks BEFORE the payload leaves the server — the real
+        // text of a private track never reaches a public listener.
+        trackIds: publicTrackIds(normalizeTrackIds(data.trackIds)),
       };
     });
 

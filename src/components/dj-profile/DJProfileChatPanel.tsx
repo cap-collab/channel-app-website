@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
 import { useNowPlayingArchive } from '@/hooks/useNowPlayingArchive';
-import { isTrackIdRequest, buildTracklistReply } from '@/lib/track-ids';
+import { isTrackIdRequest, buildTracklistReply, recordTracklistView } from '@/lib/track-ids';
 import { ChatMessageSerialized } from '@/types/broadcast';
 import { AuthModal } from '@/components/AuthModal';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
@@ -327,6 +327,8 @@ export function DJProfileChatPanel({
     if (!isTrackIdRequest(text)) return;
     if (nowPlaying.isLive || !nowPlaying.archive) return;
     await postSystemMessage(buildTracklistReply(nowPlaying.archive), nowPlaying.djRoom);
+    // Count the chat-triggered view too (fire-and-forget, authed only).
+    recordTracklistView(userId, nowPlaying.archive.slug);
   };
 
   useEffect(() => {

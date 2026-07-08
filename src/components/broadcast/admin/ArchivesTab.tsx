@@ -10,7 +10,7 @@ import { ShareableArchiveCard } from './ShareableArchiveCard';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
 import { ScenePillEditor } from './ScenePillEditor';
 import { TEMPOS } from '@/lib/tempo';
-import { parseTrackIds } from '@/lib/track-ids';
+import { parseTrackIds, type TrackId } from '@/lib/track-ids';
 import type { SceneSerialized } from '@/types/scenes';
 
 interface VenueOption {
@@ -698,7 +698,7 @@ function ArchiveCard({
   // Track IDs: raw paste (YouTube copyright claim) → Generate → preview list.
   // The preview is what gets saved; parsing is decoupled from saving.
   const [trackIdsRaw, setTrackIdsRaw] = useState('');
-  const [trackIdsPreview, setTrackIdsPreview] = useState<string[]>(archive.trackIds || []);
+  const [trackIdsPreview, setTrackIdsPreview] = useState<TrackId[]>(archive.trackIds || []);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -999,7 +999,8 @@ function ArchiveCard({
                         {trackIdsPreview.map((t, i) => (
                           <li key={i} className="flex gap-2 text-xs text-gray-300">
                             <span className="text-gray-600 tabular-nums">{i + 1}.</span>
-                            <span>{t}</span>
+                            <span>{t.text}</span>
+                            {t.private && <span className="text-gray-500 italic">(private)</span>}
                           </li>
                         ))}
                       </ol>

@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { parseTrackIds } from "./track-ids";
+import {
+  parseTrackIds,
+  normalizeTrackIds,
+  publicTrackIds,
+  buildTracklistReply,
+  PRIVATE_TRACK_LABEL,
+} from "./track-ids";
+
+// parseTrackIds now returns TrackId[] ({ text, private }). These tests assert
+// on the display text; parse output is never private (private is artist-set later).
+const texts = (raw: string) => parseTrackIds(raw).map((t) => t.text);
 
 describe("parseTrackIds", () => {
   it("parses a real YouTube Content-ID claim blob into 'Artist – Track'", () => {
@@ -65,7 +75,7 @@ Swin
 Copyright
 Audio`;
 
-    expect(parseTrackIds(raw)).toEqual([
+    expect(texts(raw)).toEqual([
       "Jovonn – Nite Roads",
       "Mr. Ho – Bail-E (Original Mix)",
       "No Moon – Exoplanet Vibe Cult",
@@ -77,7 +87,7 @@ Audio`;
   });
 
   it("preserves a colon that is part of a real track title", () => {
-    expect(parseTrackIds("Escape: The Remix\nSome Artist\nCopyright")).toEqual([
+    expect(texts("Escape: The Remix\nSome Artist\nCopyright")).toEqual([
       "Some Artist – Escape: The Remix",
     ]);
   });
@@ -112,7 +122,7 @@ No impact to your video.
 View details
 
 Take action`;
-    expect(parseTrackIds(raw)).toEqual([
+    expect(texts(raw)).toEqual([
       "Innerspace Halflife – Phazzled",
       'Evelyn "Champagne" King – Shame (12" Disco Version)',
       "Suntrust – Red Trip",
@@ -120,7 +130,7 @@ Take action`;
   });
 
   it("keeps a dangling track with only one header line before Copyright", () => {
-    expect(parseTrackIds("Lonely Track\nCopyright")).toEqual(["Lonely Track"]);
+    expect(texts("Lonely Track\nCopyright")).toEqual(["Lonely Track"]);
   });
 
   it("captures a final track with NO trailing Copyright (cut-off paste)", () => {
@@ -144,7 +154,7 @@ View details
 Take action
 talking it out
 glob deejay`;
-    expect(parseTrackIds(raw)).toEqual([
+    expect(texts(raw)).toEqual([
       "Oasis – Oasis Thirteen",
       "Placid Angles – That Feeling Again",
       "glob deejay – talking it out",
@@ -152,7 +162,94 @@ glob deejay`;
   });
 
   it("returns an empty array for pure noise / whitespace", () => {
-    expect(parseTrackIds("   \n\n  ")).toEqual([]);
-    expect(parseTrackIds("Just some text with no anchor")).toEqual([]);
+    expect(texts("   \n\n  ")).toEqual([]);
+    expect(texts("Just some text with no anchor")).toEqual([]);
+  });
+
+  it("returns TrackId objects (not bare strings), all non-private", () => {
+    expect(parseTrackIds("Nite Roads\nJovonn\nCopyright")).toEqual([
+      { text: "Jovonn – Nite Roads", private: false },
+    ]);
+  });
+});
+
+describe("normalizeTrackIds", () => {
+  it("coerces a legacy string[] into non-private TrackId objects", () => {
+    expect(normalizeTrackIds(["Jovonn – Nite Roads", "Mr. Ho – Bail-E"])).toEqual([
+      { text: "Jovonn – Nite Roads", private: false },
+      { text: "Mr. Ho – Bail-E", private: false },
+    ]);
+  });
+
+  it("passes objects through, coercing private to boolean, dropping blanks/junk", () => {
+    expect(
+      normalizeTrackIds([
+        { text: "A – B", private: true },
+        { text: "C – D" },
+        { text: "   " },
+        "",
+        42,
+        null,
+        { nope: 1 },
+      ])
+    ).toEqual([
+      { text: "A – B", private: true },
+      { text: "C – D", private: false },
+    ]);
+  });
+
+  it("returns [] for non-array input", () => {
+    expect(normalizeTrackIds(undefined)).toEqual([]);
+    expect(normalizeTrackIds(null)).toEqual([]);
+  });
+});
+
+describe("publicTrackIds", () => {
+  it("masks private track text with the public label, leaves others intact", () => {
+    expect(
+      publicTrackIds([
+        { text: "Jovonn – Nite Roads", private: false },
+        { text: "Secret – Hidden", private: true },
+      ])
+    ).toEqual([
+      { text: "Jovonn – Nite Roads", private: false },
+      { text: PRIVATE_TRACK_LABEL, private: true },
+    ]);
+  });
+
+  it("is idempotent (masking already-masked data is a no-op)", () => {
+    const once = publicTrackIds([{ text: "Secret", private: true }]);
+    expect(publicTrackIds(once)).toEqual(once);
+  });
+});
+
+describe("buildTracklistReply", () => {
+  it("headers with show + dj and lists each track, masking private ones", () => {
+    const reply = buildTracklistReply({
+      showName: "Dissolved Sound",
+      djs: [{ name: "J. Albert" }],
+      trackIds: [
+        { text: "J. Albert – Warped Mirror", private: false },
+        { text: "Secret – Hidden", private: true },
+      ],
+    });
+    expect(reply).toBe(
+      `Tracklist for Dissolved Sound by J. Albert:\nJ. Albert – Warped Mirror\n${PRIVATE_TRACK_LABEL}`
+    );
+  });
+
+  it("accepts legacy string[] trackIds", () => {
+    const reply = buildTracklistReply({
+      showName: "Old Show",
+      djs: [{ name: "DJ X" }],
+      trackIds: ["A – B"] as unknown as never,
+    });
+    expect(reply).toBe("Tracklist for Old Show by DJ X:\nA – B");
+  });
+
+  it("falls back gracefully when there is no tracklist", () => {
+    expect(buildTracklistReply({ showName: "Empty", djs: [], trackIds: [] })).toBe(
+      "No tracklist available for Empty yet."
+    );
   });
 });

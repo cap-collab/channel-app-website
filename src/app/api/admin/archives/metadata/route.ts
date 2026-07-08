@@ -61,11 +61,23 @@ export async function PATCH(request: NextRequest) {
     if (body.tempo !== undefined) {
       updates.tempo = isTempo(body.tempo) ? body.tempo : null;
     }
-    // Track IDs (admin-set tracklist, already parsed to "Artist – Track" strings
-    // client-side). Route just sanity-checks it's a string[]; anything else clears.
+    // Track IDs (admin-set tracklist of { text, private } entries, parsed
+    // client-side). Sanitize: keep entries with a non-empty string `text`,
+    // coerce `private` to boolean, drop blanks/junk. Anything else clears.
     if (body.trackIds !== undefined) {
+      type CleanTrack = { text: string; private: boolean };
       updates.trackIds = Array.isArray(body.trackIds)
-        ? body.trackIds.filter((v: unknown) => typeof v === 'string')
+        ? body.trackIds
+            .map((v: unknown): CleanTrack | null => {
+              if (v && typeof v === 'object' && typeof (v as { text?: unknown }).text === 'string') {
+                const t = v as { text: string; private?: unknown };
+                return { text: t.text.trim(), private: !!t.private };
+              }
+              // Back-compat: a bare string becomes a non-private entry.
+              if (typeof v === 'string') return { text: v.trim(), private: false };
+              return null;
+            })
+            .filter((v: CleanTrack | null): v is CleanTrack => !!v && v.text.length > 0)
         : [];
     }
     // Cross-listed DJ UIDs (admin-set). Surfaces this archive on the listed

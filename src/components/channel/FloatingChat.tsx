@@ -11,7 +11,7 @@ import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 import { computeDJChatRoom } from '@/lib/broadcast-utils';
 import { useNowPlayingArchive } from '@/hooks/useNowPlayingArchive';
-import { isTrackIdRequest, buildTracklistReply } from '@/lib/track-ids';
+import { isTrackIdRequest, buildTracklistReply, recordTracklistView } from '@/lib/track-ids';
 import { HeroChatMessage } from './LiveBroadcastHero';
 import { AuthModal } from '@/components/AuthModal';
 
@@ -209,7 +209,9 @@ export function FloatingChat() {
     if (nowPlaying.isLive || !nowPlaying.archive) return; // no archive → nothing to answer
     const reply = buildTracklistReply(nowPlaying.archive);
     await postSystemMessage(reply, nowPlaying.djRoom);
-  }, [nowPlaying, postSystemMessage]);
+    // Count the chat-triggered view too (fire-and-forget, authed only).
+    recordTracklistView(user?.uid, nowPlaying.archive.slug);
+  }, [nowPlaying, postSystemMessage, user?.uid]);
 
   const handleSendMessage = useCallback(async (e: FormEvent) => {
     e.preventDefault();

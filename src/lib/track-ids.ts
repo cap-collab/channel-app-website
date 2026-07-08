@@ -15,6 +15,18 @@
 // entry, and a stray leading ":". We strip all noise + blanks, then pair the
 // surviving lines as [track, artist] and emit "Artist – Track" (en-dash).
 
+// A single tracklist entry. `text` is the display string "Artist – Track".
+// `private` (artist-set) hides the real text from the public — it renders as
+// PRIVATE_TRACK_LABEL on the profile card and in the chat reply, and the real
+// text is masked server-side before it ever reaches a listener.
+export interface TrackId {
+  text: string;
+  private?: boolean;
+}
+
+// Public label shown in place of a private track's real text.
+export const PRIVATE_TRACK_LABEL = 'Private track ID';
+
 // Boilerplate lines to drop (compared case-insensitively, trimmed).
 export const TRACK_ID_NOISE = [
   'Copyright',
@@ -60,7 +72,7 @@ function stripLeadingNoisePrefix(line: string): string {
  * two lines immediately BEFORE each "Copyright" as [track, artist]. Any
  * boilerplate between one "Copyright" and the next track is ignored entirely.
  */
-export function parseTrackIds(raw: string): string[] {
+export function parseTrackIds(raw: string): TrackId[] {
   const lines = raw
     .split('\n')
     .map((line) => line.trim())
@@ -69,7 +81,7 @@ export function parseTrackIds(raw: string): string[] {
     .map((line) => stripLeadingNoisePrefix(line))
     .filter((line) => line.length > 0);
 
-  const tracks: string[] = [];
+  const texts: string[] = [];
   let lastCopyright = -1;
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].toLowerCase() !== 'copyright') continue;
@@ -79,10 +91,10 @@ export function parseTrackIds(raw: string): string[] {
     const track = lines[i - 2];
     const artist = lines[i - 1];
     if (track && artist) {
-      tracks.push(`${artist} – ${track}`);
+      texts.push(`${artist} – ${track}`);
     } else if (artist) {
       // Only one header line present (truncated paste) — keep it alone.
-      tracks.push(artist);
+      texts.push(artist);
     }
   }
 
@@ -108,12 +120,43 @@ export function parseTrackIds(raw: string): string[] {
     tail.push(line);
   }
   if (tail.length >= 2) {
-    tracks.push(`${tail[1]} – ${tail[0]}`);
+    texts.push(`${tail[1]} – ${tail[0]}`);
   } else if (tail.length === 1) {
-    tracks.push(tail[0]);
+    texts.push(tail[0]);
   }
 
-  return tracks;
+  return texts.map((text) => ({ text, private: false }));
+}
+
+/**
+ * Coerce a raw stored `trackIds` value into TrackId[]. Handles back-compat:
+ * legacy archives stored a plain string[] (each already "Artist – Track"), so
+ * a string becomes { text, private:false }; objects with a string `text` pass
+ * through (coercing `private` to boolean); anything else is dropped.
+ */
+export function normalizeTrackIds(raw: unknown): TrackId[] {
+  if (!Array.isArray(raw)) return [];
+  const out: TrackId[] = [];
+  for (const entry of raw) {
+    if (typeof entry === 'string') {
+      if (entry.trim()) out.push({ text: entry, private: false });
+    } else if (entry && typeof entry === 'object' && typeof (entry as TrackId).text === 'string') {
+      const e = entry as TrackId;
+      if (e.text.trim()) out.push({ text: e.text, private: !!e.private });
+    }
+  }
+  return out;
+}
+
+/**
+ * Public-safe projection: replace each private track's real text with
+ * PRIVATE_TRACK_LABEL so it never leaves the server. Non-private tracks pass
+ * through unchanged. Call this at every public read boundary.
+ */
+export function publicTrackIds(tracks: TrackId[]): TrackId[] {
+  return tracks.map((t) =>
+    t.private ? { text: PRIVATE_TRACK_LABEL, private: true } : { text: t.text, private: false }
+  );
 }
 
 // Chat trigger: a message asking for the tracklist. Matches "track id",
@@ -126,13 +169,15 @@ export function isTrackIdRequest(text: string): boolean {
 interface TracklistArchive {
   showName?: string;
   djs?: { name?: string }[];
-  trackIds?: string[];
+  trackIds?: unknown; // TrackId[] | legacy string[]; normalized internally
 }
 
 /**
  * Build the channelbroadcast reply for a "track id" request about a given
  * archive. Returns the header + one track per line, or a graceful fallback
- * when the archive has no tracklist yet.
+ * when the archive has no tracklist yet. Private tracks render as
+ * PRIVATE_TRACK_LABEL (publicTrackIds is idempotent, so this is safe whether
+ * the archive arrived already-masked from /api/archives or raw).
  */
 export function buildTracklistReply(archive: TracklistArchive): string {
   const showName = archive.showName || 'this show';
@@ -140,8 +185,21 @@ export function buildTracklistReply(archive: TracklistArchive): string {
   const header = djName
     ? `Tracklist for ${showName} by ${djName}:`
     : `Tracklist for ${showName}:`;
-  const tracks = archive.trackIds ?? [];
+  const tracks = publicTrackIds(normalizeTrackIds(archive.trackIds));
   return tracks.length > 0
-    ? `${header}\n${tracks.join('\n')}`
+    ? `${header}\n${tracks.map((t) => t.text).join('\n')}`
     : `No tracklist available for ${showName} yet.`;
+}
+
+// Fire-and-forget: record that a signed-in user viewed an archive's tracklist.
+// Reuses the stream analytics route with a tracklistView flag (dual write:
+// per-user subcollection + archive tally). NEVER awaited — analytics must not
+// block or slow the expand.
+export function recordTracklistView(userId: string | undefined, slug: string): void {
+  if (!userId || !slug) return;
+  fetch(`/api/archives/${slug}/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, tracklistView: true }),
+  }).catch(() => { /* analytics best-effort */ });
 }

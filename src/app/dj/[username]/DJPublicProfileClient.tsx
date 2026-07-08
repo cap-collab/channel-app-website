@@ -18,6 +18,7 @@ import { useBroadcastStreamContext } from "@/contexts/BroadcastStreamContext";
 import { useArchivePlayer } from "@/contexts/ArchivePlayerContext";
 import { Show } from "@/types";
 import { Archive } from "@/types/broadcast";
+import { recordTracklistView } from "@/lib/track-ids";
 import { getStationById, getMetadataKeyByStationId, getStationLogoUrl } from "@/lib/stations";
 import { useBPM } from "@/contexts/BPMContext";
 import { SceneGlyph } from "@/components/SceneGlyph";
@@ -498,13 +499,25 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   const [upcomingExpanded, setUpcomingExpanded] = useState(false);
   // Per-recording-card tracklist expand state, keyed by archive.id.
   const [expandedTracklists, setExpandedTracklists] = useState<Set<string>>(new Set());
-  const toggleTracklist = (archiveId: string) => {
+  const toggleTracklist = (archive: Archive) => {
+    // Gate opening a tracklist behind login. Logged-out → open the auth modal
+    // with a tracklist-specific message; the list stays collapsed. After login
+    // the modal closes and the listener taps again (now authed → normal path).
+    const willOpen = !expandedTracklists.has(archive.id);
+    if (willOpen && !isAuthenticated) {
+      setAuthModalMessage('Login or create an account to see tracklist');
+      setShowAuthModal(true);
+      return;
+    }
     setExpandedTracklists((prev) => {
       const next = new Set(prev);
-      if (next.has(archiveId)) next.delete(archiveId);
-      else next.add(archiveId);
+      if (next.has(archive.id)) next.delete(archive.id);
+      else next.add(archive.id);
       return next;
     });
+    // Record the view (recs signal + popularity tally). Fire-and-forget, only
+    // on open, only when authed — never blocks the expand.
+    if (willOpen) recordTracklistView(user?.uid, archive.slug);
   };
   const [shareCopied, setShareCopied] = useState(false);
   const [loveCount, setLoveCount] = useState(0);
@@ -2475,7 +2488,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                     return (
                       <div className="bg-black border-t border-[#333]">
                         <button
-                          onClick={() => toggleTracklist(archive.id)}
+                          onClick={() => toggleTracklist(archive)}
                           aria-expanded={expanded}
                           className="w-full flex items-center justify-center gap-1.5 px-3 py-2 font-mono text-[11px] uppercase tracking-wider text-zinc-500 hover:text-zinc-300 transition-colors"
                         >
@@ -2495,9 +2508,9 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                             {archive.trackIds.map((track, i) => (
                               <li
                                 key={i}
-                                className="px-3 py-1.5 border-t border-[#333] text-sm text-white"
+                                className={`px-3 py-1.5 border-t border-[#333] text-sm ${track.private ? 'text-zinc-500 italic' : 'text-white'}`}
                               >
-                                {track}
+                                {track.text}
                               </li>
                             ))}
                           </ul>

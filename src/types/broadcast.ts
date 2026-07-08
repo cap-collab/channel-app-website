@@ -1,3 +1,5 @@
+import type { TrackId } from '@/lib/track-ids';
+
 // Audio input methods for DJ broadcasting
 export type AudioInputMethod = 'system' | 'device' | 'rtmp';
 
@@ -374,11 +376,18 @@ export interface Archive {
   // claims a real account (the username is stable). djs[] untouched — no
   // re-credit. Empty/absent = none.
   crossListUsernames?: string[];
-  // Admin-set tracklist, parsed from a pasted YouTube Content-ID copyright
-  // claim (see src/lib/track-ids.ts). Each entry is already the display string
-  // "Artist – Track". Surfaced as an expandable list on the DJ profile
-  // recording cards. Empty/absent = no tracklist shown.
-  trackIds?: string[];
+  // Tracklist (see src/lib/track-ids.ts). Each entry is { text: "Artist –
+  // Track", private?: boolean }. Admin-set via paste-to-generate, or artist-set
+  // in /studio. Private entries are masked to "Private track ID" at every
+  // public boundary. Legacy archives may hold a plain string[]; read via
+  // normalizeTrackIds() to coerce. Empty/absent = no tracklist shown.
+  trackIds?: TrackId[];
+  // Aggregate count of tracklist views (popularity signal, like streamCount).
+  tracklistViewCount?: number;
+  // Firebase uid of the uploader — the archive owner. Authorizes the DJ to edit
+  // their own archive (firestore.rules: update if uploadedBy == request.auth.uid).
+  // Present on the Firestore doc; declared here for type-safe reads/writes.
+  uploadedBy?: string;
 }
 
 // Serialized version for API responses (same as Archive since all fields are already serialized)

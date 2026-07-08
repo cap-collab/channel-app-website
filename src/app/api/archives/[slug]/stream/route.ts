@@ -20,13 +20,15 @@ export async function POST(
     let gateTriggered = false;
     let played = false;
     let gateCredit = false;
+    let tracklistView = false;
     try {
       const body = await request.json();
       userId = body.userId || null;
       gateTriggered = body.gateTriggered === true;
       played = body.played === true;
       gateCredit = body.gateCredit === true;
-      console.log('[archive/stream] userId from body:', userId, 'gateTriggered:', gateTriggered, 'played:', played, 'gateCredit:', gateCredit);
+      tracklistView = body.tracklistView === true;
+      console.log('[archive/stream] userId from body:', userId, 'gateTriggered:', gateTriggered, 'played:', played, 'gateCredit:', gateCredit, 'tracklistView:', tracklistView);
     } catch {
       console.log('[archive/stream] No body or invalid JSON, skipping user tracking');
     }
@@ -47,6 +49,29 @@ export async function POST(
     const archiveData = archiveDoc.data();
 
     const djsArr = (archiveData.djs || []) as { name?: string; username?: string; photoUrl?: string }[];
+
+    // Tracklist view (fired when a signed-in user opens an archive's tracklist,
+    // via the profile card or the chat "track id" reply). Dual write, mirroring
+    // the streamCount/streamHistory shape below: a per-user record (recs signal)
+    // + an archive-doc tally (popularity). Writes a DISJOINT field
+    // (tracklistViewCount) so it can never collide with the recording pipeline
+    // or the streamCount path. Requires an authenticated user.
+    if (tracklistView) {
+      if (userId) {
+        const viewRef = db
+          .collection('users').doc(userId)
+          .collection('tracklistViews').doc(archiveDoc.id);
+        const existing = await viewRef.get();
+        await viewRef.set({
+          archiveId: archiveDoc.id,
+          viewCount: FieldValue.increment(1),
+          lastViewedAt: FieldValue.serverTimestamp(),
+          ...(existing.exists ? {} : { firstViewedAt: FieldValue.serverTimestamp() }),
+        }, { merge: true });
+        await archiveRef.update({ tracklistViewCount: FieldValue.increment(1) });
+      }
+      return NextResponse.json({ success: true, tracklistView: !!userId });
+    }
 
     // "Played" marker (fired on play-start, any duration): record an
     // exclusion-only signal so the rec engine stops re-recommending this
