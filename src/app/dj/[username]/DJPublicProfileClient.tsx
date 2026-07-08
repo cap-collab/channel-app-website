@@ -2491,19 +2491,16 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                           </svg>
                         </button>
                         {expanded && (
-                          <ol>
+                          <ul>
                             {archive.trackIds.map((track, i) => (
                               <li
                                 key={i}
-                                className="flex gap-3 px-3 py-1.5 border-t border-[#333]"
+                                className="px-3 py-1.5 border-t border-[#333] text-sm text-white"
                               >
-                                <span className="font-mono text-[10px] text-zinc-500 leading-relaxed tabular-nums">
-                                  {String(i + 1).padStart(2, '0')}
-                                </span>
-                                <span className="text-sm text-white">{track}</span>
+                                {track}
                               </li>
                             ))}
-                          </ol>
+                          </ul>
                         )}
                       </div>
                     );
