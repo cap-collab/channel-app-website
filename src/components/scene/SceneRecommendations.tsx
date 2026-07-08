@@ -18,12 +18,11 @@ import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
 import { useSceneTempoFilter } from '@/components/channel/useSceneTempoFilter';
 import { SceneTempoChips, FeaturedBand } from '@/components/channel/SceneTempoChips';
 
-// Archive sections show 4 cards; the API returns extras (cap 8) so removing a
-// card in edit mode reveals the next-best already-loaded item.
+// Archive sections show 4 cards collapsed; a "See more" button expands to at
+// most 8. The API returns extras (cap 8) so removing a card in edit mode reveals
+// the next-best already-loaded item.
 const VISIBLE_PER_SECTION = 4;
-// "In Your Scene" (discovery) shows more — the server backfills it so favorites +
-// discovery reach ≥ 8 total, and those extra cards need to actually render.
-const DISCOVERY_VISIBLE = 8;
+const EXPANDED_PER_SECTION = 8;
 
 interface RecBand {
   glyphSlug?: string;
@@ -269,9 +268,13 @@ export function SceneRecommendations({
           in the heading and drive both this grid and More archives; logged-in
           users with preferences never see them. */}
       {isNoPref && startHereFiltered.length > 0 && (
-        <Section title="Start here" headerRight={<SceneTempoChips filter={filter} />}>
-          <ArchiveGrid archives={startHereFiltered} featuredBand />
-        </Section>
+        <ExpandableSection
+          title="Start here"
+          headerRight={<SceneTempoChips filter={filter} />}
+          count={startHereFiltered.length}
+        >
+          {(limit) => <ArchiveGrid archives={startHereFiltered.slice(0, limit)} featuredBand />}
+        </ExpandableSection>
       )}
 
       {/* More archives — everything else (same source/order as the homepage
@@ -279,30 +282,30 @@ export function SceneRecommendations({
           chips repeat here (in the heading) and share the same filter state as
           the top row, so toggling either updates both grids at once. */}
       {isNoPref && moreArchivesFiltered.length > 0 && (
-        <Section title="More archives" headerRight={<SceneTempoChips filter={filter} />}>
-          <ArchiveGrid archives={moreArchivesFiltered} />
-        </Section>
+        <ExpandableSection
+          title="More archives"
+          headerRight={<SceneTempoChips filter={filter} />}
+          count={moreArchivesFiltered.length}
+        >
+          {(limit) => <ArchiveGrid archives={moreArchivesFiltered.slice(0, limit)} />}
+        </ExpandableSection>
       )}
 
       {sections.map((section) => (
-        <Section key={section.id} title={section.title}>
-          <ArchiveGrid
-            // Most sections show 4 (extras pre-loaded so removing a card reveals
-            // the next-best). "In Your Scene" (discovery) shows up to 8 — the
-            // server backfills it so favorites + discovery reach ≥ 8 total.
-            archives={section.archives.slice(
-              0,
-              section.id === 'discovery' ? DISCOVERY_VISIBLE : VISIBLE_PER_SECTION,
-            )}
-            bandByArchiveId={section.bandByArchiveId}
-            // §1 "Your Scene" → a "New Show" black bar on every card (these are
-            // not-yet-streamed archives from your favorite artists).
-            fixedBandLabel={section.id === 'favorite-artists' ? 'New Show' : undefined}
-            editMode={editMode}
-            removing={removing}
-            onRemove={handleRemove}
-          />
-        </Section>
+        <ExpandableSection key={section.id} title={section.title} count={section.archives.length}>
+          {(limit) => (
+            <ArchiveGrid
+              archives={section.archives.slice(0, limit)}
+              bandByArchiveId={section.bandByArchiveId}
+              // §1 "Your Scene" → a "New Show" black bar on every card (these are
+              // not-yet-streamed archives from your favorite artists).
+              fixedBandLabel={section.id === 'favorite-artists' ? 'New Show' : undefined}
+              editMode={editMode}
+              removing={removing}
+              onRemove={handleRemove}
+            />
+          )}
+        </ExpandableSection>
       ))}
 
       {/* Dive back in renders ABOVE Coming up. */}
@@ -368,6 +371,43 @@ function Section({
       </div>
       {children}
     </section>
+  );
+}
+
+// A Section that shows at most VISIBLE_PER_SECTION cards, with a "See more"
+// button that expands to at most EXPANDED_PER_SECTION (same pattern/vocabulary
+// as Dive back in). `children` is a render-prop given the current visible limit
+// so the caller can slice its own archive list. Applied to every archive section
+// EXCEPT "Dive back in" (which owns its own expansion state).
+function ExpandableSection({
+  title,
+  headerRight,
+  count,
+  children,
+}: {
+  title: string;
+  headerRight?: React.ReactNode;
+  count: number; // total available items (drives whether "See more" shows)
+  children: (limit: number) => React.ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const limit = expanded ? EXPANDED_PER_SECTION : VISIBLE_PER_SECTION;
+  return (
+    <Section title={title} headerRight={headerRight}>
+      {children(limit)}
+      {!expanded && count > VISIBLE_PER_SECTION && (
+        <button
+          onClick={() => setExpanded(true)}
+          // Not an exit-edit-mode click — see SceneClient's handler.
+          data-scene-keep-edit
+          className="mt-4 mx-auto block px-4 py-2 text-[11px] font-mono uppercase tracking-[0.2em]
+                     text-white bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md
+                     transition-colors"
+        >
+          See more
+        </button>
+      )}
+    </Section>
   );
 }
 

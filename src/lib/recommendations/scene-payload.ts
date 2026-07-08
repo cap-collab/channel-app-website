@@ -233,24 +233,57 @@ export async function buildScenePayload(
     })
     .filter((s) => s.archives.length > 0);
 
-  // "Dive back in" = archives the user streamed + the DJ's own archives + their
-  // owned collectives' archives. Union the id sets so a DJ's (and their
-  // collective's) back-catalogue shows here even when unstreamed. HIDDEN and
-  // PRIVATE archives are filtered out below regardless of source — these ids
-  // come straight from stream history / ownership and never pass through the
-  // recommendation eligibility gate (exclusionReason), so they'd otherwise leak.
+  // Played-but-not-streamed archives also belong in "Dive back in" (the user
+  // pressed play but didn't reach the 15-min stream threshold). Fetch the full
+  // docs for any played id we haven't already loaded, so they can render.
+  const playedRefIds = Array.from(playedArchiveIds).filter(
+    (id) => !dismissedArchiveIds.has(id) && !archiveById.has(id),
+  );
+  if (playedRefIds.length > 0) {
+    const playedSnapsByChunk: Promise<FirebaseFirestore.DocumentSnapshot[]>[] = [];
+    for (let i = 0; i < playedRefIds.length; i += CHUNK) {
+      const refs = playedRefIds.slice(i, i + CHUNK).map((id) => db.collection("archives").doc(id));
+      if (refs.length > 0) playedSnapsByChunk.push(db.getAll(...refs));
+    }
+    const playedChunks = await Promise.all(playedSnapsByChunk);
+    for (const chunk of playedChunks) {
+      for (const snap of chunk) {
+        if (!snap.exists) continue;
+        archiveById.set(snap.id, { id: snap.id, ...(snap.data() as Omit<Archive, "id">) });
+      }
+    }
+  }
+
+  // "Dive back in" = the DJ's own archives + their owned collectives' archives +
+  // archives the user streamed + archives the user merely played. Union the id
+  // sets so a DJ's (and their collective's) back-catalogue shows here even when
+  // unstreamed. HIDDEN and PRIVATE archives are filtered out below regardless of
+  // source — these ids come straight from stream/play history / ownership and
+  // never pass through the recommendation eligibility gate (exclusionReason), so
+  // they'd otherwise leak.
+  const ownedIds = new Set<string>([...Array.from(ownArchiveIds), ...Array.from(collectiveArchiveIds)]);
   const diveBackInIds = new Set<string>([
+    ...Array.from(ownedIds),
     ...Array.from(streamedArchiveIds),
-    ...Array.from(ownArchiveIds),
-    ...Array.from(collectiveArchiveIds),
+    ...Array.from(playedArchiveIds),
   ]);
+  // Ordering tiers: (a) own archives first, (b) then streamed, (c) then merely
+  // played. Within a tier, streamed archives order by last-listened (oldest
+  // first); owned/played have no lastStreamedAt so they keep insertion order.
+  const diveRank = (id: string): number => {
+    if (ownedIds.has(id)) return 0;
+    if (streamedArchiveIds.has(id)) return 1;
+    return 2; // played-only
+  };
   const diveBackIn = Array.from(diveBackInIds)
     .filter((id) => !dismissedArchiveIds.has(id))
     .map((id) => archiveById.get(id))
     .filter((a): a is ArchiveSerialized => !!a && isListenerVisibleArchive(a))
-    // Streamed archives order by last-listened (oldest first). Own archives that
-    // were never streamed have no lastStreamedAt (0) → they sort to the front.
-    .sort((a, b) => (streamedAtMs.get(a.id) ?? 0) - (streamedAtMs.get(b.id) ?? 0))
+    .sort((a, b) => {
+      const rankDiff = diveRank(a.id) - diveRank(b.id);
+      if (rankDiff !== 0) return rankDiff;
+      return (streamedAtMs.get(a.id) ?? 0) - (streamedAtMs.get(b.id) ?? 0);
+    })
     .slice(0, 50);
 
   return {
