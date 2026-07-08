@@ -1222,6 +1222,18 @@ export function StudioProfileClient() {
     setTracklistErrors(prev => ({ ...prev, [recordingId]: null }));
   }, []);
 
+  // Remove a row — ONLY allowed for a blank (empty/whitespace) row, so an
+  // accidental "+ add track" can be undone. A real (non-empty) track has no ×
+  // and can't be deleted (make it private instead).
+  const handleTracklistRemoveBlank = useCallback((recordingId: string, index: number) => {
+    setTracklistDrafts(prev => {
+      const rows = prev[recordingId] ? [...prev[recordingId]] : [];
+      if (!rows[index] || rows[index].text.trim() !== '') return prev; // guard: blanks only
+      rows.splice(index, 1);
+      return { ...prev, [recordingId]: rows };
+    });
+  }, []);
+
   // Edit one row's text.
   const handleTracklistRowText = useCallback((recordingId: string, index: number, text: string) => {
     setTracklistDrafts(prev => {
@@ -1258,11 +1270,11 @@ export function StudioProfileClient() {
   const handleSaveTracklist = useCallback(async (recordingId: string) => {
     if (!db) return;
     const draft = tracklistDrafts[recordingId] || [];
-    const cleaned = draft.map(t => ({ text: t.text.trim(), private: !!t.private }));
-    if (cleaned.some(t => t.text.length === 0)) {
-      setTracklistErrors(prev => ({ ...prev, [recordingId]: "Track can't be blank — make it private instead" }));
-      return;
-    }
+    // Drop blank rows (an accidental "+ add" or a row left empty) — they carry
+    // no data, so we simply don't persist them rather than blocking the save.
+    const cleaned = draft
+      .map(t => ({ text: t.text.trim(), private: !!t.private }))
+      .filter(t => t.text.length > 0);
     setSavingTracklistId(recordingId);
     setTracklistErrors(prev => ({ ...prev, [recordingId]: null }));
     try {
@@ -3116,6 +3128,19 @@ export function StudioProfileClient() {
                                       >
                                         {t.private ? '🔒 Private' : '👁 Public'}
                                       </button>
+                                      {/* Remove — only for a blank row (undo an
+                                          accidental add). Non-empty tracks can't be
+                                          deleted; make them private instead. */}
+                                      {t.text.trim() === '' && (
+                                        <button
+                                          onClick={() => handleTracklistRemoveBlank(recording.id, i)}
+                                          title="Remove empty row"
+                                          aria-label="Remove empty row"
+                                          className="text-gray-500 hover:text-red-400 text-sm px-1.5 py-1 transition-colors"
+                                        >
+                                          ×
+                                        </button>
+                                      )}
                                     </div>
                                     {/* insert-after-this-row */}
                                     <button
@@ -3127,7 +3152,7 @@ export function StudioProfileClient() {
                                   </div>
                                 ))}
                                 {err && <p className="text-red-400 text-xs mt-1">{err}</p>}
-                                <p className="text-gray-600 text-[10px] mt-1">Tracks can&apos;t be deleted or left blank — make one private to hide it.</p>
+                                <p className="text-gray-600 text-[10px] mt-1">Empty rows are removed on save. To hide a track, make it private rather than deleting it.</p>
                               </div>
                             )}
                           </div>
