@@ -42,25 +42,46 @@ function stripLeadingNoisePrefix(line: string): string {
 /**
  * Parse a raw YouTube Content-ID claim blob into a tracklist.
  * Each returned entry is the display string "Artist – Track".
+ *
+ * We anchor on the word "Copyright", which reliably terminates every track's
+ * 2-line (track, artist) header and begins the boilerplate for that block:
+ *
+ *   Track name
+ *   Artist name
+ *   Copyright                 ← anchor
+ *   Audio
+ *   <status line — VARIABLE>  e.g. "No impact to your video." OR
+ *                                  "Blocking the video in some territories."
+ *   View details
+ *   Take action
+ *
+ * The status line's text varies per claim, so we can't strip it by a fixed
+ * noise list (doing so desynced the naive line-pairing). Instead we take the
+ * two lines immediately BEFORE each "Copyright" as [track, artist]. Any
+ * boilerplate between one "Copyright" and the next track is ignored entirely.
  */
 export function parseTrackIds(raw: string): string[] {
   const lines = raw
     .split('\n')
     .map((line) => line.trim())
-    // The first real track can be glued onto the tail of the cut-off prior
-    // entry via a ": " separator (e.g. "View details : Nite Roads"). Strip a
-    // leading known-noise token followed by ":" so only the track remains.
-    // Also handles a bare leading ":". We do NOT strip on any arbitrary colon —
-    // real track/artist text may legitimately contain one.
+    // A track can be glued onto the tail of a cut-off prior entry via a ": "
+    // separator (e.g. "View details : Nite Roads"); strip a leading noise+":".
     .map((line) => stripLeadingNoisePrefix(line))
-    .filter((line) => line.length > 0 && !NOISE_SET.has(line.toLowerCase()));
+    .filter((line) => line.length > 0);
 
   const tracks: string[] = [];
-  for (let i = 0; i < lines.length; i += 2) {
-    const track = lines[i];
-    const artist = lines[i + 1];
-    // Dangling odd final line (track with no artist) — keep it alone.
-    tracks.push(artist ? `${artist} – ${track}` : track);
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].toLowerCase() !== 'copyright') continue;
+    // The two non-empty lines immediately before this "Copyright" are the
+    // track (i-2) and artist (i-1). Guard against a truncated first block.
+    const track = lines[i - 2];
+    const artist = lines[i - 1];
+    if (track && artist) {
+      tracks.push(`${artist} – ${track}`);
+    } else if (artist) {
+      // Only one header line present (truncated paste) — keep it alone.
+      tracks.push(artist);
+    }
   }
   return tracks;
 }

@@ -82,12 +82,49 @@ Audio`;
     ]);
   });
 
-  it("keeps a dangling track with no artist line", () => {
-    expect(parseTrackIds("Lonely Track")).toEqual(["Lonely Track"]);
+  it("handles a variable status line (e.g. 'Blocking...') without desyncing", () => {
+    // The 3rd boilerplate line varies per claim; anchoring on "Copyright"
+    // keeps every block aligned even when it's not "No impact to your video."
+    const raw = `Phazzled
+Innerspace Halflife
+Copyright
+Audio
+No impact to your video.
+
+View details
+
+Take action
+Shame (12" Disco Version)
+Evelyn "Champagne" King
+Copyright
+Audio
+Blocking the video in some territories.
+
+View details
+
+Take action
+Red Trip
+Suntrust
+Copyright
+Audio
+No impact to your video.
+
+View details
+
+Take action`;
+    expect(parseTrackIds(raw)).toEqual([
+      "Innerspace Halflife – Phazzled",
+      'Evelyn "Champagne" King – Shame (12" Disco Version)',
+      "Suntrust – Red Trip",
+    ]);
+  });
+
+  it("keeps a dangling track with only one header line before Copyright", () => {
+    expect(parseTrackIds("Lonely Track\nCopyright")).toEqual(["Lonely Track"]);
   });
 
   it("returns an empty array for pure noise / whitespace", () => {
-    expect(parseTrackIds("Copyright\nAudio\n\nView details")).toEqual([]);
     expect(parseTrackIds("   \n\n  ")).toEqual([]);
+    expect(parseTrackIds("Just some text with no anchor")).toEqual([]);
   });
 });
