@@ -123,6 +123,34 @@ Take action`;
     expect(parseTrackIds("Lonely Track\nCopyright")).toEqual(["Lonely Track"]);
   });
 
+  it("captures a final track with NO trailing Copyright (cut-off paste)", () => {
+    const raw = `Oasis Thirteen
+Oasis
+Copyright
+Audio
+No impact to your video.
+
+View details
+
+Take action
+That Feeling Again
+Placid Angles
+Copyright
+Audio
+No impact to your video.
+
+View details
+
+Take action
+talking it out
+glob deejay`;
+    expect(parseTrackIds(raw)).toEqual([
+      "Oasis – Oasis Thirteen",
+      "Placid Angles – That Feeling Again",
+      "glob deejay – talking it out",
+    ]);
+  });
+
   it("returns an empty array for pure noise / whitespace", () => {
     expect(parseTrackIds("   \n\n  ")).toEqual([]);
     expect(parseTrackIds("Just some text with no anchor")).toEqual([]);

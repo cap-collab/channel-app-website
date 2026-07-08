@@ -70,8 +70,10 @@ export function parseTrackIds(raw: string): string[] {
     .filter((line) => line.length > 0);
 
   const tracks: string[] = [];
+  let lastCopyright = -1;
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].toLowerCase() !== 'copyright') continue;
+    lastCopyright = i;
     // The two non-empty lines immediately before this "Copyright" are the
     // track (i-2) and artist (i-1). Guard against a truncated first block.
     const track = lines[i - 2];
@@ -83,6 +85,34 @@ export function parseTrackIds(raw: string): string[] {
       tracks.push(artist);
     }
   }
+
+  // Trailing block: the paste can end mid-block with a final track that has NO
+  // "Copyright" after it (e.g. "talking it out" / "glob deejay"). Everything
+  // after the last "Copyright" is that block's boilerplate followed by the
+  // orphan track+artist. Strip the known boilerplate anchors (and the single
+  // variable status line, which sits between "Audio" and "View details"); any
+  // real lines left over are the final [track, artist].
+  // Only recover a trailing block when the paste actually looked like a claim
+  // list (had at least one "Copyright"). Without any anchor, stray lines are
+  // treated as noise, not tracks.
+  const tail: string[] = [];
+  let sawAudio = false;
+  for (let i = lastCopyright >= 0 ? lastCopyright + 1 : lines.length; i < lines.length; i++) {
+    const line = lines[i];
+    const lower = line.toLowerCase();
+    if (lower === 'audio') { sawAudio = true; continue; }
+    // The status line is the one variable line immediately after "Audio";
+    // drop it, then stop treating subsequent lines as status.
+    if (sawAudio) { sawAudio = false; continue; }
+    if (NOISE_SET.has(lower)) continue; // View details / Take action / Copyright
+    tail.push(line);
+  }
+  if (tail.length >= 2) {
+    tracks.push(`${tail[1]} – ${tail[0]}`);
+  } else if (tail.length === 1) {
+    tracks.push(tail[0]);
+  }
+
   return tracks;
 }
 
