@@ -164,11 +164,27 @@ service cloud.firestore {
 
     // Archives (recordings and broadcast archives)
     // - Anyone can read (needed for /archives, /dj/[username] pages)
-    // - DJs can update/delete their own uploaded recordings
+    // - DJs can update/delete their own UPLOADED recordings (owned via
+    //   uploadedBy) — full field access for studio ops (name, image, publish).
+    // - DJs can edit ONLY the tracklist (trackIds) on archives they are the
+    //   primary credited DJ of (djs[0].userId). This covers LIVE recordings,
+    //   which carry no uploadedBy — the owner lives in djs[]. Scoped to
+    //   trackIds so a DJ can't rewrite recordingUrl / priority / djs / etc.
     match /archives/{archiveId} {
       allow read: if true;
       allow update: if request.auth != null
-        && resource.data.uploadedBy == request.auth.uid;
+        && (
+          // Uploaded-recording owner: full update.
+          resource.data.uploadedBy == request.auth.uid
+          // Credited primary DJ: tracklist-only update (covers live recordings).
+          || (
+            resource.data.djs is list
+            && resource.data.djs.size() > 0
+            && resource.data.djs[0].userId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['trackIds'])
+          )
+        );
       allow delete: if request.auth != null
         && resource.data.uploadedBy == request.auth.uid
         && resource.data.sourceType != 'live';
