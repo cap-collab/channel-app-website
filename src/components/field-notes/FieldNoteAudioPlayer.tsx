@@ -68,10 +68,15 @@ export function FieldNoteAudioPlayer({ src, name, captions, upvotes, downvotes, 
 
   const pct = Math.min(100, (currentTime / (duration || 100)) * 100);
 
+  // While a caption is showing, it takes over the header slot — the title is
+  // hidden so the card reads as the spoken line, centered and quoted.
+  const showingCaption = isPlaying && !!activeCaption;
+
   return (
     <div className="border border-[#333] rounded-none overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      {/* Body: the tape's name, a small lowercase label above the player line. */}
-      {name && (
+      {/* Body: the tape's name, a small lowercase label above the player line.
+          Hidden while a caption is showing (the caption replaces it). */}
+      {name && !showingCaption && (
         <div className="px-3 pt-2 pb-0.5">
           <p className="text-sm font-normal text-white lowercase">{name}</p>
         </div>
@@ -79,11 +84,12 @@ export function FieldNoteAudioPlayer({ src, name, captions, upvotes, downvotes, 
 
       {/* Captions: the active line, subtitle-style, synced to playback. Only
           rendered while playing and a cue is active — keeps an idle card clean.
-          Reserves no height when absent (the player line sits directly under
-          the name otherwise). */}
-      {isPlaying && activeCaption && (
-        <div className="px-3 pt-1.5 pb-0.5">
-          <p className="text-[13px] leading-snug text-white/90">{activeCaption.text}</p>
+          Centered, italic, and quoted; replaces the title while playing. */}
+      {showingCaption && (
+        <div className="px-3 pt-2 pb-0.5">
+          <p className="text-[13px] leading-snug italic text-white/90 text-center">
+            “{activeCaption.text}”
+          </p>
         </div>
       )}
 
