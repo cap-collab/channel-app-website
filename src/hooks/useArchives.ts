@@ -35,8 +35,16 @@ export function useArchives(
         if (!res.ok) throw new Error('Failed to fetch');
         const data = await res.json();
         if (cancelled) return;
+        // Hard guard: never surface hidden or private archives in a browsable
+        // grid. /api/archives already drops these by default, but its anchor
+        // allow-list can force an active radio-anchor archive through even when
+        // hidden/private — re-filter here so no consumer grid ever shows one.
         const filtered = (data.archives as ArchiveSerialized[]).filter(
-          (a) => a.duration >= MIN_DURATION_SECONDS && (includeLow || a.priority !== 'low')
+          (a) =>
+            a.duration >= MIN_DURATION_SECONDS &&
+            a.priority !== 'hidden' &&
+            a.isPublic !== false &&
+            (includeLow || a.priority !== 'low')
         );
         setArchives(filtered);
       } catch {

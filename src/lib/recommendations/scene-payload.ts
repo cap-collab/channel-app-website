@@ -234,8 +234,10 @@ export async function buildScenePayload(
 
   // "Dive back in" = archives the user streamed + the DJ's own archives + their
   // owned collectives' archives. Union the id sets so a DJ's (and their
-  // collective's) back-catalogue shows here even when unstreamed. HIDDEN archives
-  // are filtered out below regardless of source.
+  // collective's) back-catalogue shows here even when unstreamed. HIDDEN and
+  // PRIVATE archives are filtered out below regardless of source — these ids
+  // come straight from stream history / ownership and never pass through the
+  // recommendation eligibility gate (exclusionReason), so they'd otherwise leak.
   const diveBackInIds = new Set<string>([
     ...Array.from(streamedArchiveIds),
     ...Array.from(ownArchiveIds),
@@ -244,7 +246,7 @@ export async function buildScenePayload(
   const diveBackIn = Array.from(diveBackInIds)
     .filter((id) => !dismissedArchiveIds.has(id))
     .map((id) => archiveById.get(id))
-    .filter((a): a is ArchiveSerialized => !!a && a.priority !== "hidden")
+    .filter((a): a is ArchiveSerialized => !!a && a.priority !== "hidden" && a.isPublic !== false)
     // Streamed archives order by last-listened (oldest first). Own archives that
     // were never streamed have no lastStreamedAt (0) → they sort to the front.
     .sort((a, b) => (streamedAtMs.get(a.id) ?? 0) - (streamedAtMs.get(b.id) ?? 0))
