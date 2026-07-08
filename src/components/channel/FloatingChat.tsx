@@ -10,6 +10,8 @@ import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 import { computeDJChatRoom } from '@/lib/broadcast-utils';
+import { useNowPlayingArchive } from '@/hooks/useNowPlayingArchive';
+import { isTrackIdRequest, buildTracklistReply } from '@/lib/track-ids';
 import { HeroChatMessage } from './LiveBroadcastHero';
 import { AuthModal } from '@/components/AuthModal';
 
@@ -20,6 +22,7 @@ export function FloatingChat() {
   const { isLive, isStreaming, isPlaying, currentShow, currentDJ } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
   const radioCtx = useArchiveRadioContext();
+  const nowPlaying = useNowPlayingArchive();
 
   const [isOpen, setIsOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -199,39 +202,14 @@ export function FloatingChat() {
   }, [usernameInput, setChatUsername]);
 
   // "track id" chat trigger → channelbroadcast replies with the currently
-  // playing archive's tracklist. Fires whenever an archive is playing (archive
-  // player or archive radio loop). Matches "track id", "track ids", "trackid",
-  // with optional trailing "?".
+  // playing archive's tracklist. Uses the shared now-playing resolver so it
+  // agrees with the write room and never names the featured/hero show.
   const maybeReplyWithTracklist = useCallback(async (text: string) => {
-    if (!/track\s*ids?\??/i.test(text)) return;
-    // Resolve the archive the listener is currently hearing, across both
-    // archive-playback sources (the archive player and the archive radio loop).
-    // sourceType is irrelevant here — a live-RECORDED archive played back is
-    // still archive playback.
-    const archive =
-      archivePlayer.currentArchive ||
-      archivePlayer.featuredArchive ||
-      radioCtx?.currentArchive ||
-      null;
-    if (!archive) return; // no archive playing → nothing to answer with
-
-    const showName = archive.showName || 'this show';
-    const djName = archive.djs?.map((d) => d.name).filter(Boolean).join(', ');
-    const header = djName
-      ? `Tracklist for ${showName} by ${djName}:`
-      : `Tracklist for ${showName}:`;
-
-    const tracks = archive.trackIds ?? [];
-    const reply = tracks.length > 0
-      ? `${header}\n${tracks.join('\n')}`
-      : `No tracklist available for ${showName} yet.`;
-
-    // Post to the archive's DJ room too (shows on their profile chat) plus the
-    // global channelbroadcast feed. Same normalized-username room mapping used
-    // for archive writes elsewhere in this component.
-    const djRoom = archive.djs?.[0]?.username?.replace(/\s+/g, '').toLowerCase() || '';
-    await postSystemMessage(reply, djRoom);
-  }, [archivePlayer.currentArchive, archivePlayer.featuredArchive, radioCtx, postSystemMessage]);
+    if (!isTrackIdRequest(text)) return;
+    if (nowPlaying.isLive || !nowPlaying.archive) return; // no archive → nothing to answer
+    const reply = buildTracklistReply(nowPlaying.archive);
+    await postSystemMessage(reply, nowPlaying.djRoom);
+  }, [nowPlaying, postSystemMessage]);
 
   const handleSendMessage = useCallback(async (e: FormEvent) => {
     e.preventDefault();

@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
+import { useNowPlayingArchive } from '@/hooks/useNowPlayingArchive';
+import { isTrackIdRequest, buildTracklistReply } from '@/lib/track-ids';
 import { ChatMessageSerialized } from '@/types/broadcast';
 import { AuthModal } from '@/components/AuthModal';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
@@ -305,7 +307,7 @@ export function DJProfileChatPanel({
 }: DJProfileChatPanelProps) {
   const isBroadcasting = !!broadcastToken;
 
-  const { messages, error, sendMessage, sendLove, loveCount } = useDJProfileChat({
+  const { messages, error, sendMessage, sendLove, loveCount, postSystemMessage } = useDJProfileChat({
     chatUsernameNormalized,
     djUsername,
     username,
@@ -315,6 +317,17 @@ export function DJProfileChatPanel({
     currentShowStartTime,
     userId,
   });
+
+  // Shared now-playing resolver — the "track id" chat trigger replies with the
+  // tracklist of whatever archive is actually playing (never live radio), and
+  // posts to that archive's room + channelbroadcast, exactly like the floating
+  // chat. Independent of which DJ's chat this panel is.
+  const nowPlaying = useNowPlayingArchive();
+  const maybeReplyWithTracklist = async (text: string) => {
+    if (!isTrackIdRequest(text)) return;
+    if (nowPlaying.isLive || !nowPlaying.archive) return;
+    await postSystemMessage(buildTracklistReply(nowPlaying.archive), nowPlaying.djRoom);
+  };
 
   useEffect(() => {
     onLoveCountChange?.(loveCount);
@@ -345,10 +358,15 @@ export function DJProfileChatPanel({
     e.preventDefault();
     if (!inputValue.trim() || isSending || !username) return;
 
+    const text = inputValue.trim();
     setIsSending(true);
     try {
-      await sendMessage(inputValue.trim());
+      await sendMessage(text);
       setInputValue('');
+      // Fire-and-forget the tracklist auto-reply (don't block the input reset).
+      maybeReplyWithTracklist(text).catch((err) =>
+        console.error('Tracklist auto-reply failed:', err)
+      );
     } catch (err) {
       console.error('Failed to send:', err);
     } finally {

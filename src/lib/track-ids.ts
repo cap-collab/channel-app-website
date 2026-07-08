@@ -64,3 +64,33 @@ export function parseTrackIds(raw: string): string[] {
   }
   return tracks;
 }
+
+// Chat trigger: a message asking for the tracklist. Matches "track id",
+// "track ids", "trackid", "track id?", case-insensitive.
+export function isTrackIdRequest(text: string): boolean {
+  return /track\s*ids?\??/i.test(text);
+}
+
+// Minimal shape needed to build the reply — matches the Archive fields used.
+interface TracklistArchive {
+  showName?: string;
+  djs?: { name?: string }[];
+  trackIds?: string[];
+}
+
+/**
+ * Build the channelbroadcast reply for a "track id" request about a given
+ * archive. Returns the header + one track per line, or a graceful fallback
+ * when the archive has no tracklist yet.
+ */
+export function buildTracklistReply(archive: TracklistArchive): string {
+  const showName = archive.showName || 'this show';
+  const djName = archive.djs?.map((d) => d.name).filter(Boolean).join(', ');
+  const header = djName
+    ? `Tracklist for ${showName} by ${djName}:`
+    : `Tracklist for ${showName}:`;
+  const tracks = archive.trackIds ?? [];
+  return tracks.length > 0
+    ? `${header}\n${tracks.join('\n')}`
+    : `No tracklist available for ${showName} yet.`;
+}
