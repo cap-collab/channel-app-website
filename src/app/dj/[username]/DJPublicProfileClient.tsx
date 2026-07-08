@@ -2477,9 +2477,9 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                         <button
                           onClick={() => toggleTracklist(archive.id)}
                           aria-expanded={expanded}
-                          className="w-full flex items-center justify-between px-3 py-2 font-mono text-[11px] uppercase tracking-wider text-zinc-500 hover:text-zinc-300 transition-colors"
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 font-mono text-[11px] uppercase tracking-wider text-zinc-500 hover:text-zinc-300 transition-colors"
                         >
-                          <span>Tracklist</span>
+                          <span>Track IDs</span>
                           <svg
                             className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`}
                             fill="none"
