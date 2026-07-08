@@ -884,28 +884,49 @@ export function StudioProfileClient() {
     }
 
     let archiveRecs: Recording[] = [];
+    let liveRecs: Recording[] = [];
     let sessionRecs: Recording[] = [];
     let archiveSlotIds = new Set<string>();
+    let liveSlotIds = new Set<string>();
     let archivesLoaded = false;
+    let liveLoaded = false;
     let sessionsLoaded = false;
 
+    // Map an archive doc to a studio Recording row.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const toRecording = (id: string, data: any): Recording => ({
+      id,
+      showName: data.showName || 'Untitled Recording',
+      djName: data.djs?.[0]?.name,
+      createdAt: data.recordedAt || data.createdAt || Date.now(),
+      duration: data.duration || 0,
+      isPublic: data.isPublic !== false,
+      slug: data.slug || id,
+      audioUrl: data.recordingUrl,
+      sourceType: data.sourceType,
+      source: 'archive',
+      showImageUrl: data.showImageUrl,
+      ownerUserId: data.djs?.[0]?.userId,
+      trackIds: normalizeTrackIds(data.trackIds),
+    });
+
     const mergeAndSet = () => {
-      if (!archivesLoaded || !sessionsLoaded) return;
+      if (!archivesLoaded || !liveLoaded || !sessionsLoaded) return;
+      const slotIds = new Set<string>([...Array.from(archiveSlotIds), ...Array.from(liveSlotIds)]);
       // Deduplicate: only include studio-sessions that don't already have an archive
-      const filtered = sessionRecs.filter(r => !archiveSlotIds.has(r.id));
-      const merged = [...archiveRecs, ...filtered];
+      const filteredSessions = sessionRecs.filter(r => !slotIds.has(r.id));
+      const merged = [...archiveRecs, ...liveRecs, ...filteredSessions];
       merged.sort((a, b) => b.createdAt - a.createdAt);
       setRecordings(merged);
       setLoadingRecordings(false);
     };
 
-    // Query 1: archives collection (primary source). Include BOTH uploaded
-    // recordings and past LIVE recordings owned by this DJ — live shows are the
-    // ones that get YouTube claims, so the artist needs to edit their tracklist.
-    // Live recordings are shown but not deletable/publishable (guards below).
+    // Query 1: UPLOADED recordings (sourceType 'recording'). These reliably
+    // carry `uploadedBy` (set at upload time), so a direct query works and stays
+    // realtime (the Publish toggle / name edits update live).
     const archivesQ = query(
       collection(db, "archives"),
-      where("sourceType", "in", ["recording", "live"]),
+      where("sourceType", "==", "recording"),
       where("uploadedBy", "==", user.uid)
     );
 
@@ -917,26 +938,8 @@ export function StudioProfileClient() {
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
           if (data.uploadStatus === 'uploading') return;
-          // Hide admin-hidden LIVE recordings (priority:'hidden') from the studio.
-          // Uploaded recordings always show (the DJ manages their own via the
-          // Publish toggle regardless of priority).
-          if (data.sourceType === 'live' && data.priority === 'hidden') return;
           if (data.broadcastSlotId) archiveSlotIds.add(data.broadcastSlotId);
-          archiveRecs.push({
-            id: docSnap.id,
-            showName: data.showName || 'Untitled Recording',
-            djName: data.djs?.[0]?.name,
-            createdAt: data.recordedAt || data.createdAt || Date.now(),
-            duration: data.duration || 0,
-            isPublic: data.isPublic !== false,
-            slug: data.slug || docSnap.id,
-            audioUrl: data.recordingUrl,
-            sourceType: data.sourceType,
-            source: 'archive',
-            showImageUrl: data.showImageUrl,
-            ownerUserId: data.djs?.[0]?.userId,
-            trackIds: normalizeTrackIds(data.trackIds),
-          });
+          archiveRecs.push(toRecording(docSnap.id, data));
         });
         archivesLoaded = true;
         mergeAndSet();
@@ -947,6 +950,34 @@ export function StudioProfileClient() {
         mergeAndSet();
       }
     );
+
+    // Query 1b: LIVE recordings. Live archives do NOT carry `uploadedBy` — the
+    // owner lives only in djs[].userId (not directly queryable in Firestore), so
+    // we mirror the DJ profile page: fetch live archives and filter by
+    // djs[].userId === uid in memory. One-shot getDocs (live archives are static
+    // once recorded; small collection). Skip admin-hidden (priority:'hidden').
+    getDocs(query(collection(db, "archives"), where("sourceType", "==", "live")))
+      .then((snapshot) => {
+        liveRecs = [];
+        liveSlotIds = new Set();
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const owned = (data.djs || []).some(
+            (dj: { userId?: string }) => dj.userId === user.uid
+          );
+          if (!owned) return;
+          if (data.priority === 'hidden') return; // admin-hidden → keep out of studio
+          if (data.broadcastSlotId) liveSlotIds.add(data.broadcastSlotId);
+          liveRecs.push(toRecording(docSnap.id, data));
+        });
+        liveLoaded = true;
+        mergeAndSet();
+      })
+      .catch((err) => {
+        console.error("Error loading live recordings:", err);
+        liveLoaded = true;
+        mergeAndSet();
+      });
 
     // Query 2: studio-sessions fallback (catches recordings without archive docs)
     const sessionsQ = query(
