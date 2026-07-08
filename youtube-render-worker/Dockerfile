@@ -13,12 +13,15 @@ RUN apt-get update && \
 # the ~148MB base.en model dropped at $WHISPER_MODEL_PATH. Build deps are purged
 # after to keep the image lean. CPU-only inference at runtime.
 ENV WHISPER_MODEL_PATH=/opt/whisper/ggml-base.en.bin
+# At tag v1.7.2 the CLI example builds as the `main` target → build/bin/main
+# (the rename to `whisper-cli` landed in a later release). We build `main` and
+# install it AS `whisper-cli` so the code's `whisper-cli` invocation works.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends git build-essential cmake curl ca-certificates && \
     git clone --depth 1 --branch v1.7.2 https://github.com/ggerganov/whisper.cpp /tmp/whisper.cpp && \
     cmake -S /tmp/whisper.cpp -B /tmp/whisper.cpp/build -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build /tmp/whisper.cpp/build --config Release -j --target whisper-cli && \
-    cp /tmp/whisper.cpp/build/bin/whisper-cli /usr/local/bin/whisper-cli && \
+    cmake --build /tmp/whisper.cpp/build --config Release -j --target main && \
+    cp /tmp/whisper.cpp/build/bin/main /usr/local/bin/whisper-cli && \
     mkdir -p /opt/whisper && \
     curl -fsSL -o "$WHISPER_MODEL_PATH" \
       https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin && \
