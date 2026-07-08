@@ -1731,10 +1731,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
       {/* Past shows — full-width cards */}
       {(() => {
-        // The "hero pin" used to be heroArchives[0] (the spiral pick). With
-        // the new layout, slide 1 of the carousel is whatever we featured —
-        // pin that one to position 3 of the past-shows grid for continuity.
-        const heroFirstId = secondHeroArchive?.id ?? heroArchives[0]?.id;
         // Rank by priority tier first (featured above high above medium),
         // recency as the tiebreaker within a tier — matching the grid order
         // ChannelClient computes.
@@ -1823,17 +1819,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
             : !priorityIsFeatured(archive.priority),
         );
 
-        // Move hero first to position 3 of the Archives grid (only when neither
-        // filter is active, so the curated order is preserved). The pin runs on
-        // the non-featured list since featured items live in their own section.
-        const anyFilteringActive = filteringActive || tempoFilteringActive;
-        const heroItem = heroFirstId ? nonFeatured.find((x) => x.archive.id === heroFirstId) : null;
-        const ordered = heroItem && !anyFilteringActive
-          ? (() => {
-              const rest = nonFeatured.filter((x) => x.archive.id !== heroFirstId);
-              return [...rest.slice(0, 2), heroItem, ...rest.slice(2)];
-            })()
-          : nonFeatured;
+        // The Archives grid keeps its natural (curated) order — the
+        // currently-playing/hero archive is no longer pinned to position 3.
+        const ordered = nonFeatured;
 
         // Resolve the curated scene grid to the same {archive, sceneIds} tuple
         // shape renderGrid expects, preserving the server's pick order. The
