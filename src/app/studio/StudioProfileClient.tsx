@@ -917,6 +917,10 @@ export function StudioProfileClient() {
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
           if (data.uploadStatus === 'uploading') return;
+          // Hide admin-hidden LIVE recordings (priority:'hidden') from the studio.
+          // Uploaded recordings always show (the DJ manages their own via the
+          // Publish toggle regardless of priority).
+          if (data.sourceType === 'live' && data.priority === 'hidden') return;
           if (data.broadcastSlotId) archiveSlotIds.add(data.broadcastSlotId);
           archiveRecs.push({
             id: docSnap.id,
