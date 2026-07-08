@@ -228,17 +228,8 @@ export function FloatingChat() {
     }
   }, [chatInput, isSending, sendMessage, maybeReplyWithTracklist]);
 
-  // Hide on /dj/*, /studio/*, /broadcast/*
-  // Only shown on these surfaces: homepage, DJ profiles, collective pages, /foryou, /tape.
-  const showFloatingChat =
-    pathname === '/' ||
-    pathname.startsWith('/dj/') ||
-    pathname.startsWith('/collective/') ||
-    pathname === '/foryou' ||
-    pathname.startsWith('/foryou/') ||
-    pathname === '/tape' ||
-    pathname.startsWith('/tape/');
-  if (!showFloatingChat) return null;
+  // Shown everywhere except the DJ-facing broadcast surfaces (studio + go-live console).
+  if (pathname.startsWith('/studio') || pathname.startsWith('/broadcast')) return null;
 
   return (
     <>
