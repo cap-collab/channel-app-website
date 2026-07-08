@@ -1,11 +1,13 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { FieldNoteCaption } from '@/types/field-notes';
 
 interface Props {
   src: string;                 // audio OR video URL — we only play the audio track
   createdAt: number;           // unix ms
   name?: string | null;        // admin-given tape name, shown in the header
+  captions?: FieldNoteCaption[] | null;  // line-by-line captions, synced to playback
   upvotes: number;
   downvotes: number;
   myVote: 1 | -1 | 0;
@@ -27,12 +29,19 @@ function fmtClock(sec: number): string {
 // "Tape Archive" style card (mirrors the DJ-profile recording card): transparent
 // body with the tape's name + a line-style seek player. Self-contained local
 // <audio> so it plays the audio track of an audio OR video file.
-export function FieldNoteAudioPlayer({ src, name, upvotes, downvotes, myVote, onVote, onReply, onReached }: Props) {
+export function FieldNoteAudioPlayer({ src, name, captions, upvotes, downvotes, myVote, onVote, onReply, onReached }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const reachedFiredRef = useRef(false);   // fire the play-through count at most once
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+
+  // The caption line active at the current playback position (film-subtitle
+  // style, one at a time). Only shown while playing so an idle card stays clean.
+  const activeCaption = useMemo(() => {
+    if (!captions || captions.length === 0) return null;
+    return captions.find((c) => currentTime >= c.from && currentTime < c.to) ?? null;
+  }, [captions, currentTime]);
 
   const onTime = (t: number) => {
     setCurrentTime(t);
@@ -65,6 +74,16 @@ export function FieldNoteAudioPlayer({ src, name, upvotes, downvotes, myVote, on
       {name && (
         <div className="px-3 pt-2 pb-0.5">
           <p className="text-sm font-normal text-white lowercase">{name}</p>
+        </div>
+      )}
+
+      {/* Captions: the active line, subtitle-style, synced to playback. Only
+          rendered while playing and a cue is active — keeps an idle card clean.
+          Reserves no height when absent (the player line sits directly under
+          the name otherwise). */}
+      {isPlaying && activeCaption && (
+        <div className="px-3 pt-1.5 pb-0.5">
+          <p className="text-[13px] leading-snug text-white/90">{activeCaption.text}</p>
         </div>
       )}
 

@@ -2,6 +2,14 @@ import { EventDJRef, EventVenueRef, CollectiveRef } from '@/types/events';
 
 export type FieldNoteStatus = 'pending' | 'published' | 'rejected';
 
+// A single caption cue: a line of text active over [from, to) seconds of the
+// tape. Shown one at a time, film-subtitle style, synced to playback currentTime.
+export interface FieldNoteCaption {
+  from: number;   // seconds
+  to: number;     // seconds
+  text: string;
+}
+
 // A field note: a short (<=90s) voice impression a listener records after a
 // live music experience, linked to an event/DJ(s)/venue(s)/collective(s)/city.
 // Stored in the `field-notes` Firestore collection. Audio lives in R2 under the
@@ -45,7 +53,16 @@ export interface FieldNoteDoc {
   // when unset the card falls back to its tagged entities / event / "Overheard".
   name?: string | null;
 
-  transcript?: string | null;   // RESERVED — never populated in MVP
+  // Transcript + timed captions, populated on demand by the admin "Transcribe"
+  // action (whisper on the restream-worker). `transcript` is the raw full text;
+  // `captions` are line-by-line cues (seconds) shown synced to playback on the
+  // /tape card. Both absent until an admin transcribes the tape.
+  transcript?: string | null;
+  captions?: FieldNoteCaption[] | null;
+  transcribedAt?: number | null;      // unix ms
+  transcriptModel?: string | null;    // e.g. 'base.en'
+  transcribeStatus?: 'in-progress' | 'done' | 'failed' | null;
+  transcribeError?: string | null;
 
   // Voting — denormalized counts; per-user vote lives in the `votes` subcollection.
   upvotes?: number;

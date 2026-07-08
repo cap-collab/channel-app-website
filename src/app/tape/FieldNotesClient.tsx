@@ -301,6 +301,7 @@ export function FieldNotesClient() {
                           src={note.audioUrl}
                           createdAt={note.createdAt}
                           name={note.name}
+                          captions={note.captions}
                           upvotes={note.upvotes || 0}
                           downvotes={note.downvotes || 0}
                           myVote={note.myVote || 0}
@@ -326,6 +327,7 @@ export function FieldNotesClient() {
                       src={note.audioUrl}
                       createdAt={note.createdAt}
                       name={note.name}
+                      captions={note.captions}
                       upvotes={note.upvotes || 0}
                       downvotes={note.downvotes || 0}
                       myVote={note.myVote || 0}

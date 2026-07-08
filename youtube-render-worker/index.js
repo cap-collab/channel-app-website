@@ -1032,6 +1032,153 @@ async function scanZombieJobs() {
   }
 }
 
+// ─── POST /transcribe ────────────────────────────────────────────────────
+// On-demand transcription of a /tape field note → line-by-line captions.
+// Admin-triggered (see /api/field-notes/admin/transcribe). Read-only w.r.t. the
+// audio — downloads it, runs whisper, returns text + timed caption cues.
+//
+// Async-callback contract (mirrors /start + restream-worker /normalize): when
+// callbackUrl is set we respond 202 immediately and POST the result to it when
+// done. The app's /api/field-notes/transcribe-callback writes it onto the note.
+//
+// Body: { audioUrl, callbackUrl?, callbackContext? }
+// Requires whisper-cli + WHISPER_MODEL_PATH baked into the image (Dockerfile).
+const WHISPER_MODEL_PATH = process.env.WHISPER_MODEL_PATH || '/opt/whisper/ggml-base.en.bin';
+const WHISPER_MODEL_NAME = 'base.en';
+const CAPTION_MAX_SEC = 5.5;
+const CAPTION_MAX_WORDS = 9;
+
+function tr_joinWords(parts) {
+  return parts
+    .join(' ')
+    .replace(/\s+([,.?!])/g, '$1')
+    .replace(/\s+'/g, "'")
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+function tr_isPunctuationOnly(text) {
+  return !/[A-Za-z0-9]/.test(text);
+}
+// Group whisper word-offsets into caption lines. Break on a sentence-ender, or
+// ~5.5s / ~9 words. A line that ends up punctuation-only (whisper emitted "." as
+// its own token) is merged into the previous line rather than standing alone.
+function groupWordsIntoCaptions(words) {
+  const lines = [];
+  let cur = [];
+  let start = null;
+  const flush = (endTo) => {
+    const text = tr_joinWords(cur);
+    if (text) {
+      if (tr_isPunctuationOnly(text) && lines.length > 0) {
+        const prev = lines[lines.length - 1];
+        prev.text = tr_joinWords([prev.text, text]);
+        prev.to = Number(endTo.toFixed(2));
+      } else {
+        lines.push({ from: Number(start.toFixed(2)), to: Number(endTo.toFixed(2)), text });
+      }
+    }
+    cur = [];
+    start = null;
+  };
+  for (const w of words) {
+    if (start === null) start = w.from;
+    cur.push(w.text);
+    const dur = w.to - start;
+    const endsSentence = /[.?!]$/.test(w.text);
+    if (endsSentence || dur >= CAPTION_MAX_SEC || cur.length >= CAPTION_MAX_WORDS) {
+      flush(w.to);
+    }
+  }
+  if (cur.length && start !== null) flush(words[words.length - 1].to);
+  return lines;
+}
+
+app.post('/transcribe', authenticate, async (req, res) => {
+  const { audioUrl, callbackUrl, callbackContext } = req.body || {};
+  if (!audioUrl) return res.status(400).json({ error: 'audioUrl required' });
+
+  const isAsyncMode = !!callbackUrl;
+  if (isAsyncMode) res.status(202).json({ accepted: true });
+
+  const fireCallback = (payload) => {
+    if (!callbackUrl) return;
+    if (!SHARED_SECRET) {
+      console.warn('[transcribe] callbackUrl set but SHARED_SECRET missing; skipping callback');
+      return;
+    }
+    fetch(callbackUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SHARED_SECRET}` },
+      body: JSON.stringify({ ...payload, callbackContext }),
+    })
+      .then((r) => {
+        if (!r.ok) console.error(`[transcribe] callback ${callbackUrl} returned ${r.status}`);
+        else console.log(`[transcribe] callback delivered to ${callbackUrl}`);
+      })
+      .catch((e) => console.error(`[transcribe] callback ${callbackUrl} failed:`, e?.message || e));
+  };
+  const respond = (status, payload) => {
+    if (!res.headersSent) res.status(status).json(payload);
+    fireCallback(payload);
+    recordJob(status === 200, payload && payload.error);
+  };
+
+  const stamp = Date.now();
+  const dir = join(tmpdir(), `transcribe-${stamp}`);
+  const tmpWav = join(dir, 'audio.wav');
+  const tmpJsonBase = join(dir, 'out'); // whisper appends .json
+  const tmpJson = `${tmpJsonBase}.json`;
+  const cleanup = () => {
+    [tmpWav, tmpJson].forEach((p) => { try { unlinkSync(p); } catch {} });
+    try { rmdirSync(dir); } catch {}
+  };
+
+  try {
+    mkdirSync(dir, { recursive: true });
+    console.log(`[transcribe] Processing: ${audioUrl}`);
+
+    // Download + extract to 16kHz mono wav in one ffmpeg pass, straight from the
+    // R2 public URL. Reconnect flags mirror extractAudio() — Cloudflare drops
+    // mid-stream and silently exits 0 without them.
+    execSync(
+      `ffmpeg -y -reconnect 1 -reconnect_streamed 1 -reconnect_at_eof 1 -reconnect_delay_max 5 ` +
+      `-i "${audioUrl}" -vn -ar 16000 -ac 1 "${tmpWav}" 2>&1`,
+      { encoding: 'utf-8' }
+    );
+
+    // Whisper with word timestamps (-ml 1) → JSON.
+    execSync(
+      `whisper-cli -m ${WHISPER_MODEL_PATH} -f "${tmpWav}" -ml 1 -oj -of "${tmpJsonBase}" 2>&1`,
+      { encoding: 'utf-8' }
+    );
+
+    const parsed = JSON.parse(readFileSync(tmpJson, 'utf-8'));
+    const segs = Array.isArray(parsed.transcription) ? parsed.transcription : [];
+    const words = [];
+    for (const s of segs) {
+      const text = (s.text || '').trim();
+      if (!text) continue;
+      words.push({ from: (s.offsets?.from ?? 0) / 1000, to: (s.offsets?.to ?? 0) / 1000, text });
+    }
+    const transcript = tr_joinWords(words.map((w) => w.text));
+    const captions = groupWordsIntoCaptions(words);
+
+    const durProbe = execSync(
+      `ffprobe -v error -show_entries format=duration -of csv=p=0 "${tmpWav}"`,
+      { encoding: 'utf-8' }
+    );
+    const durationSec = parseFloat(durProbe.trim()) || 0;
+
+    cleanup();
+    console.log(`[transcribe] Done: ${captions.length} caption lines, ${transcript.length} chars`);
+    respond(200, { success: true, transcript, captions, model: WHISPER_MODEL_NAME, durationSec });
+  } catch (err) {
+    cleanup();
+    console.error('[transcribe] Failed:', err?.message || err);
+    respond(500, { error: (err && err.message) || String(err) });
+  }
+});
+
 // ─── Boot ───────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`[youtube-render-worker] Listening on port ${PORT}`);

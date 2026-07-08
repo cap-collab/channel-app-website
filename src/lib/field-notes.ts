@@ -4,6 +4,7 @@ import { getAdminDb, getAdminAuth } from './firebase-admin';
 import { normalizeUsername } from './dj-matching';
 import { MAX_FIELD_NOTE_DURATION_SEC } from './field-notes-config';
 import {
+  FieldNoteCaption,
   FieldNoteSerialized,
   FieldNoteStatus,
   FieldNoteSubmitInput,
@@ -142,6 +143,11 @@ function serializeFieldNote(id: string, data: Record<string, unknown>): FieldNot
     caption: (data.caption as string | null) ?? null,
     name: (data.name as string | null) ?? null,
     transcript: (data.transcript as string | null) ?? null,
+    captions: (data.captions as FieldNoteCaption[] | null) ?? null,
+    transcribedAt: (data.transcribedAt as number | null) ?? null,
+    transcriptModel: (data.transcriptModel as string | null) ?? null,
+    transcribeStatus: (data.transcribeStatus as 'in-progress' | 'done' | 'failed' | null) ?? null,
+    transcribeError: (data.transcribeError as string | null) ?? null,
     upvotes: (data.upvotes as number) || 0,
     downvotes: (data.downvotes as number) || 0,
     reachedCount: (data.reachedCount as number) || 0,
@@ -400,6 +406,7 @@ export interface FieldNotePatch {
   linkedEventId?: string | null;
   eventName?: string | null;
   eventDate?: number | null;
+  captions?: FieldNoteCaption[] | null;   // admin-edited caption lines
 }
 
 export async function updateFieldNote(
@@ -440,6 +447,18 @@ export async function updateFieldNote(
   if (patch.eventDate !== undefined) update.eventDate = typeof patch.eventDate === 'number' ? patch.eventDate : null;
   if (patch.adminNotes !== undefined) update.adminNotes = patch.adminNotes || null;
   if (patch.name !== undefined) update.name = patch.name?.trim() || null;
+
+  // Admin-edited captions: sanitize to {from,to,text} and drop empty lines.
+  if (patch.captions !== undefined) {
+    if (patch.captions === null) {
+      update.captions = null;
+    } else {
+      const clean = patch.captions
+        .map((c) => ({ from: Number(c.from) || 0, to: Number(c.to) || 0, text: String(c.text || '').trim() }))
+        .filter((c) => c.text.length > 0);
+      update.captions = clean.length ? clean : null;
+    }
+  }
 
   if (patch.status !== undefined) {
     if (patch.status === 'rejected' && !(patch.rejectionReason && patch.rejectionReason.trim())) {

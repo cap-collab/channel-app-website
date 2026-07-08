@@ -3,8 +3,15 @@
 import { useState } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { FieldNoteTagPicker } from '@/components/field-notes/FieldNoteTagPicker';
-import { FieldNoteSerialized } from '@/types/field-notes';
+import { FieldNoteCaption, FieldNoteSerialized } from '@/types/field-notes';
 import { EventDJRef, EventVenueRef, CollectiveRef } from '@/types/events';
+
+// Render caption cues as one editable line per cue: "m:ss  text". Admins fix
+// whisper mistakes here; timings are preserved, only the text is editable.
+function captionsToText(captions: FieldNoteCaption[] | null | undefined): string {
+  if (!captions || captions.length === 0) return '';
+  return captions.map((c) => c.text).join('\n');
+}
 
 interface Props {
   note: FieldNoteSerialized;
@@ -23,6 +30,70 @@ export function FieldNoteReviewModal({ note, onClose }: Props) {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Captions: the cues (with timings) and an editable text-per-line view. The
+  // textarea has one line per cue; edits map back onto the cues positionally so
+  // timings are preserved. Adding/removing lines is not supported (keeps the
+  // 1:1 cue↔timing mapping simple) — fix wording, not structure.
+  const [captions, setCaptions] = useState<FieldNoteCaption[] | null>(note.captions ?? null);
+  const [captionText, setCaptionText] = useState(captionsToText(note.captions));
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcribeMsg, setTranscribeMsg] = useState<string | null>(null);
+
+  const runTranscribe = async () => {
+    if (!user) return;
+    setTranscribing(true);
+    setTranscribeMsg(null);
+    setError(null);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/field-notes/admin/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ noteId: note.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to start transcription');
+      // The worker runs async and POSTs captions to the callback. Poll the note
+      // until captions land (or time out) so the admin sees the result inline.
+      setTranscribeMsg('Transcribing…');
+      const started = Date.now();
+      const poll = async (): Promise<void> => {
+        await new Promise((r) => setTimeout(r, 2500));
+        const t = await user.getIdToken();
+        const r = await fetch(`/api/field-notes/${note.id}`, { headers: { Authorization: `Bearer ${t}` } });
+        const d = await r.json();
+        const n = d?.note as FieldNoteSerialized | undefined;
+        if (n?.transcribeStatus === 'done' && n.captions) {
+          setCaptions(n.captions);
+          setCaptionText(captionsToText(n.captions));
+          setTranscribeMsg(`Done — ${n.captions.length} caption lines. Edit below, then Save.`);
+          return;
+        }
+        if (n?.transcribeStatus === 'failed') {
+          throw new Error(n.transcribeError || 'Transcription failed on the worker');
+        }
+        if (Date.now() - started > 90_000) {
+          setTranscribeMsg('Still processing — reopen this tape shortly to see the result.');
+          return;
+        }
+        return poll();
+      };
+      await poll();
+    } catch (err) {
+      setTranscribeMsg(null);
+      setError(err instanceof Error ? err.message : 'Transcription error.');
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  // Map the edited textarea (one line per cue) back onto the cue timings.
+  const editedCaptions = (): FieldNoteCaption[] | null => {
+    if (!captions) return null;
+    const lines = captionText.split('\n');
+    return captions.map((c, i) => ({ ...c, text: (lines[i] ?? c.text).trim() }));
+  };
 
   const patch = async (body: Record<string, unknown>) => {
     if (!user) return;
@@ -45,7 +116,14 @@ export function FieldNoteReviewModal({ note, onClose }: Props) {
     }
   };
 
-  const tagBody = () => ({ name: name.trim() || null, djs, venues, collectives, eventName: eventName.trim() || null });
+  const tagBody = () => ({
+    name: name.trim() || null,
+    djs,
+    venues,
+    collectives,
+    eventName: eventName.trim() || null,
+    ...(captions ? { captions: editedCaptions() } : {}),
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4">
@@ -70,6 +148,42 @@ export function FieldNoteReviewModal({ note, onClose }: Props) {
           )}
 
           {note.caption && <p className="text-sm text-gray-300">“{note.caption}”</p>}
+
+          {/* Transcription: on-demand whisper → line-by-line captions shown on
+              the /tape card during playback. Edit wording to fix mistakes; the
+              timings are kept. Saved with Publish or "Save tags only". */}
+          <div className="rounded-lg border border-gray-800 bg-gray-800/40 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium text-gray-300">Captions</label>
+              <button
+                onClick={runTranscribe}
+                disabled={transcribing || busy}
+                className="rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3 py-1.5 disabled:opacity-40"
+              >
+                {transcribing ? 'Transcribing…' : captions ? 'Re-transcribe' : 'Transcribe'}
+              </button>
+            </div>
+            {transcribeMsg && <p className="text-xs text-gray-400">{transcribeMsg}</p>}
+            {captions ? (
+              <textarea
+                value={captionText}
+                onChange={(e) => setCaptionText(e.target.value)}
+                rows={Math.min(12, Math.max(3, captions.length))}
+                spellCheck
+                className="w-full rounded-md bg-gray-900 text-white px-3 py-2 text-sm leading-relaxed font-mono"
+                placeholder="One caption line per row"
+              />
+            ) : (
+              <p className="text-xs text-gray-500">
+                No captions yet. Click Transcribe to generate them from the audio.
+              </p>
+            )}
+            {captions && (
+              <p className="text-[11px] text-gray-500">
+                {captions.length} lines · edit wording only (timings preserved) · line count must stay the same
+              </p>
+            )}
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Name</label>
