@@ -355,6 +355,7 @@ export async function GET(request: Request) {
         venueSlug: data.venueSlug ?? null,
         crossListUserIds: Array.isArray(data.crossListUserIds) ? data.crossListUserIds : undefined,
         crossListUsernames: Array.isArray(data.crossListUsernames) ? data.crossListUsernames : undefined,
+        trackIds: Array.isArray(data.trackIds) ? data.trackIds : undefined,
       };
     });
 
