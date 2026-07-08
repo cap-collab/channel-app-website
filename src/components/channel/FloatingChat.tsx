@@ -229,7 +229,15 @@ export function FloatingChat() {
   }, [chatInput, isSending, sendMessage, maybeReplyWithTracklist]);
 
   // Hide on /dj/*, /studio/*, /broadcast/*
-  if (pathname.startsWith('/dj/') || pathname.startsWith('/studio') || pathname.startsWith('/broadcast')) return null;
+  // Only shown on these surfaces: DJ profiles, collective pages, /foryou, /tape.
+  const showFloatingChat =
+    pathname.startsWith('/dj/') ||
+    pathname.startsWith('/collective/') ||
+    pathname === '/foryou' ||
+    pathname.startsWith('/foryou/') ||
+    pathname === '/tape' ||
+    pathname.startsWith('/tape/');
+  if (!showFloatingChat) return null;
 
   return (
     <>
