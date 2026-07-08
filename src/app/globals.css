@@ -19,6 +19,20 @@ a {
   transition: color 0.2s;
 }
 
+/*
+ * Prevent iOS Safari/Chrome from auto-zooming when focusing an input.
+ * iOS zooms whenever the focused field's font-size is < 16px. Scoped to
+ * touch devices so desktop keeps its smaller (text-sm / text-xs) inputs.
+ * Covers all chats (incl. floating chat), search bars, etc.
+ */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 /* Legal pages styles */
 .legal-container {
   max-width: 700px;
