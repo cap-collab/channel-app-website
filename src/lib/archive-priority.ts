@@ -19,6 +19,21 @@ export function priorityIsFeatured(p?: string): boolean {
   return p === 'featured';
 }
 
+// True when an archive may be shown to a GENERAL LISTENER — any list, grid,
+// card, single-archive page, picker, search result, or external render
+// (YouTube/SoundCloud). HIDDEN (`priority === 'hidden'`) and PRIVATE
+// (`isPublic === false`) archives must NEVER be listener-visible.
+//
+// `isPublic !== false` treats undefined/true as public (legacy archives predate
+// the flag) — matches normalize.ts and api/archives/route.ts.
+//
+// The ONLY places allowed to bypass this are the sanctioned exceptions:
+// the archive-radio loop (generator + player), restream scheduling, the admin
+// archive/schedule pickers, and a DJ viewing their OWN archives in their studio.
+export function isListenerVisibleArchive(a: { priority?: string; isPublic?: boolean }): boolean {
+  return a.priority !== 'hidden' && a.isPublic !== false;
+}
+
 // True when an archive is eligible for the radio loop / daily schedule.
 // Featured + high + medium are eligible; low + hidden are not.
 export function priorityIsLoopEligible(p?: string): boolean {

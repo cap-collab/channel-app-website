@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { isListenerVisibleArchive } from '@/lib/archive-priority';
 
 export const runtime = 'nodejs';
 
@@ -115,6 +116,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Archive not found' }, { status: 404 });
     }
     const archiveData = archiveSnap.data() || {};
+    // Hard backstop: a hidden or private archive must never be rendered to
+    // YouTube/SoundCloud regardless of how the request was made (the picker
+    // already excludes them, but this can't depend on the client).
+    if (!isListenerVisibleArchive(archiveData)) {
+      return NextResponse.json(
+        { error: 'Cannot render a hidden or private archive.' },
+        { status: 403 }
+      );
+    }
     const primaryDj = (archiveData.djs as Array<{ userId?: string; username?: string }> | undefined)?.[0];
     const readProfile = async (): Promise<Record<string, unknown> | null> => {
       if (primaryDj?.userId) {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ArchiveSerialized } from '@/types/broadcast';
+import { isListenerVisibleArchive } from '@/lib/archive-priority';
 
 const MIN_DURATION_SECONDS = 2700; // 45 minutes
 
@@ -42,8 +43,7 @@ export function useArchives(
         const filtered = (data.archives as ArchiveSerialized[]).filter(
           (a) =>
             a.duration >= MIN_DURATION_SECONDS &&
-            a.priority !== 'hidden' &&
-            a.isPublic !== false &&
+            isListenerVisibleArchive(a) &&
             (includeLow || a.priority !== 'low')
         );
         setArchives(filtered);

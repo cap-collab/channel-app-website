@@ -3,6 +3,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { coerceSlotTimeMs } from '@/lib/broadcast-slots';
 import { RecentEventCandidate } from '@/types/field-notes';
 import { EventDJRef } from '@/types/events';
+import { isListenerVisibleArchive } from '@/lib/archive-priority';
 
 // Events that started today or in the past 7 days (not future).
 const WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -104,6 +105,8 @@ export async function GET() {
 
     for (const doc of archivesSnap.docs) {
       const data = doc.data();
+      // Never surface a hidden/private archive's title or lineup in this picker.
+      if (!isListenerVisibleArchive(data)) continue;
       const recMs = coerceSlotTimeMs(data.recordedAt);
       if (!recMs || recMs < min || recMs > max) continue;
       add({

@@ -18,6 +18,7 @@ import { getOrGenerateWebsiteSnapshot } from "./delivery";
 import { fetchComingUp, type ComingUpRow } from "./coming-up";
 import { getCityFromTimezone } from "@/lib/city-detection";
 import type { SnapshotSection, RecommendationSnapshot } from "./types";
+import { isListenerVisibleArchive } from "@/lib/archive-priority";
 
 export interface RecBand {
   glyphSlug?: string;
@@ -246,7 +247,7 @@ export async function buildScenePayload(
   const diveBackIn = Array.from(diveBackInIds)
     .filter((id) => !dismissedArchiveIds.has(id))
     .map((id) => archiveById.get(id))
-    .filter((a): a is ArchiveSerialized => !!a && a.priority !== "hidden" && a.isPublic !== false)
+    .filter((a): a is ArchiveSerialized => !!a && isListenerVisibleArchive(a))
     // Streamed archives order by last-listened (oldest first). Own archives that
     // were never streamed have no lastStreamedAt (0) → they sort to the front.
     .sort((a, b) => (streamedAtMs.get(a.id) ?? 0) - (streamedAtMs.get(b.id) ?? 0))

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { makeOG } from '@/lib/og';
 import { fetchSceneBySlugServer } from '@/lib/scenes';
-import { priorityRank } from '@/lib/archive-priority';
+import { priorityRank, isListenerVisibleArchive } from '@/lib/archive-priority';
 import {
   ScenePublicClient,
   type SceneCollective,
@@ -225,10 +225,12 @@ async function getScenePageData(slug: string): Promise<ScenePageData | null> {
     );
     if (!effective.includes(slug)) return;
 
-    // Hidden archives are the strongest exclusion tier — drop them from
-    // public scene pages entirely (admin keeps visibility via the Archives
-    // tab, which calls /api/archives?includeHidden=true).
-    if (data.priority === 'hidden') return;
+    // Hidden AND private archives must never appear on a public scene page.
+    // (Admin keeps visibility via the Archives tab, which calls
+    // /api/archives?includeHidden=true&includePrivate=true.) This page reads
+    // Firestore directly, so it must self-filter — don't rely on a downstream
+    // component (ArchiveHero) to drop private.
+    if (!isListenerVisibleArchive(data)) return;
 
     const enrichedDjs = djList.map((d) => ({
       name: d.name,

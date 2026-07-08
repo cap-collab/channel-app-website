@@ -108,7 +108,10 @@ export function SocialRenderTab() {
 
   const fetchArchives = useCallback(async () => {
     try {
-      const res = await fetch('/api/archives?includePrivate=true');
+      // Plain /api/archives: excludes BOTH hidden and private. A hidden/private
+      // archive must never be rendered to YouTube/SoundCloud (that publishes it
+      // externally + permanently). The jobs route enforces this server-side too.
+      const res = await fetch('/api/archives');
       if (!res.ok) throw new Error('Failed to load archives');
       const data = await res.json();
       setArchives(data.archives || []);
@@ -202,9 +205,9 @@ export function SocialRenderTab() {
       if ((a.duration || 0) < 25 * 60) return false;
       // Note: 'low' priority archives DO appear here. Admin can either
       // render them or click Skip (creates a status='skipped' marker job
-      // that drops to the bottom of the queue). 'hidden' archives are
-      // already filtered out upstream by /api/archives — they never
-      // reach this picker because we don't pass includeHidden=true.
+      // that drops to the bottom of the queue). 'hidden' AND private
+      // (isPublic===false) archives are already filtered out upstream by
+      // /api/archives — we pass neither includeHidden nor includePrivate.
       // Hide archives where the primary DJ has opted out of BOTH platforms.
       // If at least one of YouTube/SoundCloud is opted in, the archive
       // belongs in the picker (the render produces the relevant outputs

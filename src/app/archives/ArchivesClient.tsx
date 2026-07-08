@@ -7,6 +7,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { ArchiveSerialized } from '@/types/broadcast';
 import { ArchiveCard } from '@/components/ArchiveCard';
+import { isListenerVisibleArchive } from '@/lib/archive-priority';
 
 const STREAM_COUNT_THRESHOLD = 300; // 5 minutes in seconds
 
@@ -32,7 +33,10 @@ export function ArchivesClient() {
           throw new Error('Failed to fetch archives');
         }
         const data = await response.json();
-        setArchives(data.archives || []);
+        // Belt-and-suspenders: /api/archives drops hidden/private by default,
+        // but its radio-anchor allow-list can force an anchored hidden/private
+        // archive through. Never render one as a browsable card here.
+        setArchives((data.archives || []).filter(isListenerVisibleArchive));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load archives');
       } finally {

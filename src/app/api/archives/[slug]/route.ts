@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { ArchiveSerialized } from '@/types/broadcast';
+import { isListenerVisibleArchive } from '@/lib/archive-priority';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,16 @@ export async function GET(
 
     const doc = snapshot.docs[0];
     const data = doc.data();
+
+    // Hidden/private archives are never listener-visible — not even by direct
+    // slug. Return 404 (indistinguishable from not-found) so a shared or guessed
+    // slug can't reach the show or its recordingUrl. The radio loop and restream
+    // resolve archives via Firestore / the /stream endpoint, NOT this route, so
+    // the sanctioned exceptions are unaffected.
+    if (!isListenerVisibleArchive(data)) {
+      return NextResponse.json({ error: 'Archive not found' }, { status: 404 });
+    }
+
     let djs: DJInfo[] = data.djs || [];
 
     // Check if any DJ is missing both username AND email (need to look up slot)

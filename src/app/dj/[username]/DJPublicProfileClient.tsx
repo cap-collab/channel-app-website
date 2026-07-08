@@ -1232,8 +1232,10 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           }
 
           const djArchives = archives.filter((archive) => {
-            // Must have recording URL and be public
-            if (!archive.recordingUrl || archive.isPublic === false) return false;
+            // Must have a recording, and be neither private nor hidden. (Hidden
+            // is normally dropped by /api/archives, but its anchor allow-list can
+            // pass this DJ's own anchored hidden archive through — exclude here.)
+            if (!archive.recordingUrl || archive.isPublic === false || archive.priority === 'hidden') return false;
 
             // Check if this is the DJ's archive:
             // 1. For recordings (sourceType === 'recording'): match by userId or username in djs array
