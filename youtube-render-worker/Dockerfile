@@ -19,7 +19,7 @@ ENV WHISPER_MODEL_PATH=/opt/whisper/ggml-base.en.bin
 RUN apt-get update && \
     apt-get install -y --no-install-recommends git build-essential cmake curl ca-certificates && \
     git clone --depth 1 --branch v1.7.2 https://github.com/ggerganov/whisper.cpp /tmp/whisper.cpp && \
-    cmake -S /tmp/whisper.cpp -B /tmp/whisper.cpp/build -DCMAKE_BUILD_TYPE=Release && \
+    cmake -S /tmp/whisper.cpp -B /tmp/whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF && \
     cmake --build /tmp/whisper.cpp/build --config Release -j --target main && \
     cp /tmp/whisper.cpp/build/bin/main /usr/local/bin/whisper-cli && \
     mkdir -p /opt/whisper && \
