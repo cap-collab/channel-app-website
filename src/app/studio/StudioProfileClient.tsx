@@ -899,10 +899,13 @@ export function StudioProfileClient() {
       setLoadingRecordings(false);
     };
 
-    // Query 1: archives collection (primary source)
+    // Query 1: archives collection (primary source). Include BOTH uploaded
+    // recordings and past LIVE recordings owned by this DJ — live shows are the
+    // ones that get YouTube claims, so the artist needs to edit their tracklist.
+    // Live recordings are shown but not deletable/publishable (guards below).
     const archivesQ = query(
       collection(db, "archives"),
-      where("sourceType", "==", "recording"),
+      where("sourceType", "in", ["recording", "live"]),
       where("uploadedBy", "==", user.uid)
     );
 
@@ -2783,6 +2786,9 @@ export function StudioProfileClient() {
                 <div className="space-y-2 p-2">
                   {recordings.map((recording) => {
                     const canEditImage = recording.source === 'archive' && recording.sourceType !== 'live';
+                    // Tracklist is editable on ANY of the artist's own archive
+                    // recordings — including live ones (they get YouTube claims).
+                    const canEditTracklist = recording.source === 'archive';
                     const isUploadingImage = uploadingRecordingImageId === recording.id;
                     const imageError = recordingImageErrors[recording.id];
                     return (
@@ -2898,7 +2904,9 @@ export function StudioProfileClient() {
                               )}
                               <p className="text-gray-500 text-xs">
                                 {formatRecordingDate(recording.createdAt)} · {formatDuration(recording.duration)}
-                                {recording.isPublic ? (
+                                {recording.sourceType === 'live' ? (
+                                  <span className="text-red-400 ml-2">· Live recording</span>
+                                ) : recording.isPublic ? (
                                   <span className="text-green-400 ml-2">· Published</span>
                                 ) : (
                                   <span className="text-gray-500 ml-2">· Private</span>
@@ -2907,7 +2915,9 @@ export function StudioProfileClient() {
                             </div>
                             {/* Action buttons */}
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              {/* Publish/Unpublish button */}
+                              {/* Publish/Unpublish button — not for live recordings
+                                  (they're already public broadcasts). */}
+                              {recording.sourceType !== 'live' && (
                               <button
                                 onClick={() => handlePublishRecording(recording.id, !recording.isPublic)}
                                 disabled={publishingRecording === recording.id}
@@ -2931,6 +2941,7 @@ export function StudioProfileClient() {
                                   </svg>
                                 )}
                               </button>
+                              )}
 
                               {/* Delete button — hidden for live broadcast
                                   recordings, and for archives this user no
@@ -2989,12 +3000,13 @@ export function StudioProfileClient() {
                         </button>
                       )}
 
-                      {/* Tracklist editor — archive recordings only (owner-editable
-                          via firestore.rules uploadedBy == uid). Rows are editable
+                      {/* Tracklist editor — any of the artist's own archive
+                          recordings, INCLUDING live (owner-editable via
+                          firestore.rules uploadedBy == uid). Rows are editable
                           text; a row can be made private (shown as "Private track
                           ID" publicly) but not deleted or left blank. New tracks are
                           slid in via the "+ add" buttons between rows. */}
-                      {canEditImage && (() => {
+                      {canEditTracklist && (() => {
                         const draft = tracklistDrafts[recording.id];
                         const isEditing = draft !== undefined;
                         const rows = isEditing ? draft : (recording.trackIds || []);
