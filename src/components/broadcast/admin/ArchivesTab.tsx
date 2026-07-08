@@ -10,6 +10,7 @@ import { ShareableArchiveCard } from './ShareableArchiveCard';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
 import { ScenePillEditor } from './ScenePillEditor';
 import { TEMPOS } from '@/lib/tempo';
+import { parseTrackIds } from '@/lib/track-ids';
 import type { SceneSerialized } from '@/types/scenes';
 
 interface VenueOption {
@@ -694,6 +695,10 @@ function ArchiveCard({
     ...(archive.crossListUsernames || []).map((u) => `name:${u}`),
   ];
   const [crossListInput, setCrossListInput] = useState<string[]>(initialContributors);
+  // Track IDs: raw paste (YouTube copyright claim) → Generate → preview list.
+  // The preview is what gets saved; parsing is decoupled from saving.
+  const [trackIdsRaw, setTrackIdsRaw] = useState('');
+  const [trackIdsPreview, setTrackIdsPreview] = useState<string[]>(archive.trackIds || []);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -729,6 +734,7 @@ function ArchiveCard({
       venueId: venueIdInput,
       crossListUserIds,
       crossListUsernames,
+      trackIds: trackIdsPreview,
     });
     setIsSaving(false);
     setIsEditing(false);
@@ -772,6 +778,8 @@ function ArchiveCard({
       ...(archive.crossListUserIds || []),
       ...(archive.crossListUsernames || []).map((u) => `name:${u}`),
     ]);
+    setTrackIdsRaw('');
+    setTrackIdsPreview(archive.trackIds || []);
     setIsEditing(true);
   };
 
@@ -949,6 +957,57 @@ function ArchiveCard({
                       <option key={d.value} value={d.value}>{d.label}</option>
                     ))}
                 </select>
+              </div>
+              {/* Track IDs — paste a YouTube Content-ID copyright claim, click
+                  Generate to parse it into a tracklist preview, then Save. */}
+              <div>
+                <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">
+                  Track IDs — paste YouTube copyright claim
+                </label>
+                <textarea
+                  value={trackIdsRaw}
+                  onChange={(e) => setTrackIdsRaw(e.target.value)}
+                  placeholder="Paste the raw copyright-claim text here…"
+                  rows={5}
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500 font-mono"
+                />
+                <div className="flex items-center gap-2 mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setTrackIdsPreview(parseTrackIds(trackIdsRaw))}
+                    className="px-3 py-1.5 rounded-lg text-xs bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+                  >
+                    Generate
+                  </button>
+                  {(trackIdsRaw || trackIdsPreview.length > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => { setTrackIdsRaw(''); setTrackIdsPreview([]); }}
+                      className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="mt-2">
+                  {trackIdsPreview.length > 0 ? (
+                    <>
+                      <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">
+                        {trackIdsPreview.length} track{trackIdsPreview.length === 1 ? '' : 's'}
+                      </p>
+                      <ol className="space-y-0.5">
+                        {trackIdsPreview.map((t, i) => (
+                          <li key={i} className="flex gap-2 text-xs text-gray-300">
+                            <span className="text-gray-600 tabular-nums">{i + 1}.</span>
+                            <span>{t}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-600">No tracks yet — paste and click Generate.</p>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2 justify-end">
                 <button

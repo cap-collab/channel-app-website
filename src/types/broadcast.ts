@@ -374,6 +374,11 @@ export interface Archive {
   // claims a real account (the username is stable). djs[] untouched — no
   // re-credit. Empty/absent = none.
   crossListUsernames?: string[];
+  // Admin-set tracklist, parsed from a pasted YouTube Content-ID copyright
+  // claim (see src/lib/track-ids.ts). Each entry is already the display string
+  // "Artist – Track". Surfaced as an expandable list on the DJ profile
+  // recording cards. Empty/absent = no tracklist shown.
+  trackIds?: string[];
 }
 
 // Serialized version for API responses (same as Archive since all fields are already serialized)

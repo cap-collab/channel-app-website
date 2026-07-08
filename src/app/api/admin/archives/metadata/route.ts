@@ -61,6 +61,13 @@ export async function PATCH(request: NextRequest) {
     if (body.tempo !== undefined) {
       updates.tempo = isTempo(body.tempo) ? body.tempo : null;
     }
+    // Track IDs (admin-set tracklist, already parsed to "Artist – Track" strings
+    // client-side). Route just sanity-checks it's a string[]; anything else clears.
+    if (body.trackIds !== undefined) {
+      updates.trackIds = Array.isArray(body.trackIds)
+        ? body.trackIds.filter((v: unknown) => typeof v === 'string')
+        : [];
+    }
     // Cross-listed DJ UIDs (admin-set). Surfaces this archive on the listed
     // DJs' individual /dj/<username> pages WITHOUT touching djs[] — so the
     // public credit, scenes, hero, social render, SEO, and delete-ownership

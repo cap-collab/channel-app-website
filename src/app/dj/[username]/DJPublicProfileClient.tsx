@@ -496,6 +496,16 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   const [activeTab, setActiveTab] = useState<'timeline' | 'chat'>('timeline');
   const [pastActivitiesExpanded, setPastActivitiesExpanded] = useState(false);
   const [upcomingExpanded, setUpcomingExpanded] = useState(false);
+  // Per-recording-card tracklist expand state, keyed by archive.id.
+  const [expandedTracklists, setExpandedTracklists] = useState<Set<string>>(new Set());
+  const toggleTracklist = (archiveId: string) => {
+    setExpandedTracklists((prev) => {
+      const next = new Set(prev);
+      if (next.has(archiveId)) next.delete(archiveId);
+      else next.add(archiveId);
+      return next;
+    });
+  };
   const [shareCopied, setShareCopied] = useState(false);
   const [loveCount, setLoveCount] = useState(0);
 
@@ -2457,6 +2467,47 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                       <span>{formatDuration(archive.duration)}</span>
                     </div>
                   </div>
+
+                  {/* Tracklist — only when track IDs exist. Discreet mono toggle
+                      under the player; expands into a numbered list. */}
+                  {archive.trackIds && archive.trackIds.length > 0 && (() => {
+                    const expanded = expandedTracklists.has(archive.id);
+                    return (
+                      <div className="bg-black border-t border-[#333]">
+                        <button
+                          onClick={() => toggleTracklist(archive.id)}
+                          aria-expanded={expanded}
+                          className="w-full flex items-center justify-between px-3 py-2 font-mono text-[11px] uppercase tracking-wider text-zinc-500 hover:text-zinc-300 transition-colors"
+                        >
+                          <span>Tracklist</span>
+                          <svg
+                            className={`w-3 h-3 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {expanded && (
+                          <ol>
+                            {archive.trackIds.map((track, i) => (
+                              <li
+                                key={i}
+                                className="flex gap-3 px-3 py-1.5 border-t border-[#333]"
+                              >
+                                <span className="font-mono text-[10px] text-zinc-500 leading-relaxed tabular-nums">
+                                  {String(i + 1).padStart(2, '0')}
+                                </span>
+                                <span className="text-sm text-white">{track}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
