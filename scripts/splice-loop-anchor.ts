@@ -30,14 +30,18 @@ import { reflowOffsets } from '../src/lib/archive-schedule';
 import { Timestamp } from 'firebase-admin/firestore';
 
 // ─────────────────────────── CONFIG ───────────────────────────
-const LOOP_DOC = 'loop-0031';
-const PREV_LOOP_DOC = 'loop-0030';      // to compute the gap; null to skip gap-fill
-const DO_PREPEND_GAPFILL = true;        // close the loop's start gap by prepending
+const LOOP_DOC = 'loop-0040';
+const PREV_LOOP_DOC = null;             // to compute the gap; null to skip gap-fill
+const DO_PREPEND_GAPFILL = false;       // close the loop's start gap by prepending
 const TT_ID = 'mGUjchuXuFAtTa4dmAls';   // toilet-therapist hand-back interlude
 
 // Anchors to splice in (anchored archive must become audible at startZ).
+// BB Shaine "Sapphic Selects" live ends 20:00 PT (2026-07-09T03:00:00Z). Post-live
+// handoff: hand-back interlude audible at endTime+3s (20:00:03 PT), then Marie Nyx.
+// The script makes the interlude audible at startZ - (ttDur - CROSSFADE), so set
+// startZ = 20:00:03 + (23 - 5)s = 20:00:21 PT so the interlude lands at 20:00:03.
 const ANCHORS = [
-  { label: '8 PM danyo', startZ: '2026-06-27T03:00:00Z', archiveId: 'kCX6JeJPXLvI1irMQ8b3' },
+  { label: 'BB Shaine post-live → Marie Nyx', startZ: '2026-07-09T03:00:21Z', archiveId: 'umgR06mYXet0iG1xXjEN' },
 ];
 
 // Prepend filler: a real archive to put in front (reuse is fine for radio).
@@ -92,7 +96,9 @@ async function main() {
   const items = (data.items as Item[]).map((it) => ({ ...it }));
 
   const now = Date.now();
-  if (startMs <= now) { console.error('REFUSING: loop is playing/past'); process.exit(1); }
+  // NOTE: loop-0040 is the currently-PLAYING loop, but we only splice into a FUTURE
+  // item (BB Shaine ends 20:00 PT, hours from now). Per-anchor guard below refuses if
+  // the archive we'd cut is already playing/past — so we never touch what's on air.
   if (data.locked === true) { console.error('REFUSING: loop is locked'); process.exit(1); }
 
   // toilet-therapist real fields (reuse an existing one in the loop, else interstitials coll).
@@ -110,9 +116,19 @@ async function main() {
     const tMs = Date.parse(anc.startZ);
     const abs = (it: Item) => startMs + it.startOffsetSec * 1000;
     const end = (it: Item) => abs(it) + it.durationSec * 1000;
-    const idx = items.findIndex((it) => it.kind === 'archive' && abs(it) <= tMs && tMs < end(it));
-    if (idx < 0) { console.error(`REFUSING: no archive covers anchor "${anc.label}" @ ${anc.startZ}`); process.exit(1); }
+    // Prefer the archive whose window spans tMs; if tMs lands in an interlude gap,
+    // fall back to the last archive that starts at/before tMs (the show playing into
+    // the handoff — its trailing interlude is what we replace with the hand-back).
+    let idx = items.findIndex((it) => it.kind === 'archive' && abs(it) <= tMs && tMs < end(it));
+    if (idx < 0) {
+      for (let i = items.length - 1; i >= 0; i--) {
+        if (items[i].kind === 'archive' && abs(items[i]) <= tMs) { idx = i; break; }
+      }
+    }
+    if (idx < 0) { console.error(`REFUSING: no archive at/before anchor "${anc.label}" @ ${anc.startZ}`); process.exit(1); }
     const cut = items[idx];
+    // Only touch FUTURE shows: the archive we cut must not be playing or past.
+    if (abs(cut) <= now) { console.error(`REFUSING: archive for "${anc.label}" is already playing/past (audible ${fmt(abs(cut))}) — would disturb what's on air`); process.exit(1); }
     const interludeAudible = tMs - (ttDur - CROSSFADE) * 1000;
     const cutAudibleEnd = interludeAudible + CROSSFADE * 1000;
     const cutTruncSec = Math.round((cutAudibleEnd - abs(cut)) * 0.001);
