@@ -281,32 +281,23 @@ export function useDJProfileChat({
       messageType: 'chat' as const,
     };
 
-    // The channelbroadcast feed is what the floating chat displays, and its
-    // rule always allows the write — post it FIRST and independently so a
-    // failing optional DJ-room cross-post can never suppress the visible reply.
     try {
+      // DJ room first (if any), so it surfaces on that DJ's profile chat.
+      if (djRoom && djRoom !== 'channelbroadcast') {
+        await addDoc(collection(db, 'chats', djRoom, 'messages'), {
+          ...body,
+          stationId: djRoom,
+          timestamp: serverTimestamp(),
+        });
+      }
+      // Always post to the unified channelbroadcast feed.
       await addDoc(collection(db, 'chats', 'channelbroadcast', 'messages'), {
         ...body,
         stationId: 'channelbroadcast',
         timestamp: serverTimestamp(),
       });
     } catch (err) {
-      console.error('Failed to post system message (channelbroadcast):', err);
-    }
-
-    // Cross-post to the DJ room so it also shows on that DJ's profile chat.
-    // Best-effort: the DJ-room rule requires auth, so this can fail for signed-
-    // out listeners — swallow it separately without affecting the feed post.
-    if (djRoom && djRoom !== 'channelbroadcast') {
-      try {
-        await addDoc(collection(db, 'chats', djRoom, 'messages'), {
-          ...body,
-          stationId: djRoom,
-          timestamp: serverTimestamp(),
-        });
-      } catch (err) {
-        console.error('Failed to cross-post system message (DJ room):', err);
-      }
+      console.error('Failed to post system message:', err);
     }
   }, []);
 

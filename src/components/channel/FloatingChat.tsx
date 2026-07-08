@@ -204,14 +204,19 @@ export function FloatingChat() {
   // ids", "trackid", with optional trailing "?".
   const maybeReplyWithTracklist = useCallback(async (text: string) => {
     if (!/track\s*ids?\??/i.test(text)) return;
-    // Resolve the active archive, archive-sources only. Live/restream both go
-    // through isLivePlaying/isLiveReady, which we deliberately skip here.
-    const archive = isArchivePlaying
-      ? archivePlayer.currentArchive
-      : isRadioPlaying
-        ? radioCtx?.currentArchive ?? null
-        : null;
-    if (!archive) return; // not an archive source → stay silent
+    // Archive-sources only: bail if a LIVE broadcast is the active source
+    // (covers both live and restream — both run through isLivePlaying).
+    if (isLivePlaying) return;
+    // Resolve the archive the listener is actually hearing. Try every archive
+    // source rather than gating on one branch's currentArchive being non-null:
+    //  - archive player (currentArchive, else the featured fallback it renders)
+    //  - archive radio loop (currentArchive resolved from the schedule item)
+    const archive =
+      archivePlayer.currentArchive ||
+      archivePlayer.featuredArchive ||
+      radioCtx?.currentArchive ||
+      null;
+    if (!archive) return; // nothing archive-y is playing → stay silent
 
     const showName = archive.showName || 'this show';
     const djName = archive.djs?.map((d) => d.name).filter(Boolean).join(', ');
@@ -229,7 +234,7 @@ export function FloatingChat() {
     // for archive writes elsewhere in this component.
     const djRoom = archive.djs?.[0]?.username?.replace(/\s+/g, '').toLowerCase() || '';
     await postSystemMessage(reply, djRoom);
-  }, [isArchivePlaying, isRadioPlaying, archivePlayer.currentArchive, radioCtx, postSystemMessage]);
+  }, [isLivePlaying, archivePlayer.currentArchive, archivePlayer.featuredArchive, radioCtx, postSystemMessage]);
 
   const handleSendMessage = useCallback(async (e: FormEvent) => {
     e.preventDefault();
