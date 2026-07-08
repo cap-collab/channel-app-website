@@ -203,9 +203,17 @@ export function FloatingChat() {
   // archive radio) — never live, never restream. Matches "track id", "track
   // ids", "trackid", with optional trailing "?".
   const maybeReplyWithTracklist = useCallback(async (text: string) => {
-    if (!/track\s*ids?\??/i.test(text)) return;
+    const matched = /track\s*ids?\??/i.test(text);
+    console.log('[tracklist] send:', JSON.stringify(text), 'matched:', matched);
+    if (!matched) return;
     // Archive-sources only: bail if a LIVE broadcast is the active source
     // (covers both live and restream — both run through isLivePlaying).
+    console.log('[tracklist] isLivePlaying:', isLivePlaying, {
+      currentArchive: archivePlayer.currentArchive?.showName ?? null,
+      featuredArchive: archivePlayer.featuredArchive?.showName ?? null,
+      radioCurrentArchive: radioCtx?.currentArchive?.showName ?? null,
+      radioEnabled: radioCtx?.enabled,
+    });
     if (isLivePlaying) return;
     // Resolve the archive the listener is actually hearing. Try every archive
     // source rather than gating on one branch's currentArchive being non-null:
@@ -216,6 +224,7 @@ export function FloatingChat() {
       archivePlayer.featuredArchive ||
       radioCtx?.currentArchive ||
       null;
+    console.log('[tracklist] resolved archive:', archive?.showName ?? null, 'trackIds:', archive?.trackIds?.length ?? 'none');
     if (!archive) return; // nothing archive-y is playing → stay silent
 
     const showName = archive.showName || 'this show';
