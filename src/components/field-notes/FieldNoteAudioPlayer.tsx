@@ -42,7 +42,7 @@ export function FieldNoteAudioPlayer({ src, name, captions, waveform, upvotes, d
   // still looks like a waveform (never flat) before a real one is computed.
   const bars = useMemo<number[]>(() => {
     if (waveform && waveform.length > 0) return waveform;
-    const N = 40;
+    const N = 80;
     let seed = 0;
     for (let i = 0; i < src.length; i++) seed = (seed * 31 + src.charCodeAt(i)) >>> 0;
     const rand = () => {
