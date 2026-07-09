@@ -10,6 +10,15 @@ import type { Firestore } from "firebase-admin/firestore";
 import type { Archive, ArchiveSerialized } from "@/types/broadcast";
 import { buildFeaturedMatrix } from "./featured-matrix";
 import { fetchComingUp, type ComingUpRow } from "./coming-up";
+import { toPublicDj } from "@/lib/archives-enrich";
+
+// Strip DJ PII (email + Firebase UID) from a card before it leaves for the
+// client. The cache stays raw (buildFeaturedMatrix sorts on raw fields); we
+// serialize on the way out.
+const publicCard = (a: ArchiveSerialized): ArchiveSerialized => ({
+  ...a,
+  djs: (a.djs ?? []).map(toPublicDj),
+});
 
 export interface FeaturedPayload {
   archives: ArchiveSerialized[];
@@ -56,7 +65,7 @@ export async function getFeaturedPayload(
   const comingUp = await fetchComingUp({ db, nowMs, userCity, engagedDjUsernames: new Set() });
 
   return {
-    archives,
+    archives: archives.map(publicCard),
     comingUp,
     startHereTitle: "Start here",
     comingUpTitle: "Coming up",

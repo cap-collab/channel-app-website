@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { ArchiveSerialized } from '@/types/broadcast';
 import { isListenerVisibleArchive } from '@/lib/archive-priority';
+import { toPublicDj } from '@/lib/archives-enrich';
 
 export const dynamic = 'force-dynamic';
 
@@ -132,7 +133,7 @@ export async function GET(
       slug: data.slug,
       broadcastSlotId: data.broadcastSlotId,
       showName: data.showName,
-      djs,
+      djs: djs.map(toPublicDj),
       recordingUrl: data.recordingUrl,
       duration: data.duration || 0,
       recordedAt: data.recordedAt,

@@ -31,7 +31,6 @@ export default async function Home() {
       }
     })(),
   ]);
-  const seoArchives = heroSeed.archives.slice(0, 10);
   return (
     <>
       <h1 className="sr-only">Channel — independent online radio for music communities</h1>
@@ -48,24 +47,6 @@ export default async function Home() {
             <li><a href="/about">About</a></li>
           </ul>
         </nav>
-        {seoArchives.length > 0 && (
-          <section aria-label="Recent shows">
-            <h2>Recent shows on Channel</h2>
-            <ul>
-              {seoArchives.map((archive) => {
-                const djNames = archive.djs?.map((dj) => dj.name).filter(Boolean).join(', ');
-                return (
-                  <li key={archive.id}>
-                    <a href={`/archives/${archive.slug}`}>
-                      {archive.showName}
-                      {djNames ? ` — ${djNames}` : ''}
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
       </div>
       <Suspense fallback={<div className="min-h-screen bg-black" />}>
         <ChannelClient

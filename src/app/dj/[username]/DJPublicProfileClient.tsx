@@ -516,7 +516,14 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     // on open, only when authed — never blocks the expand. Skip a DJ viewing
     // their OWN show's tracklist: don't count self-views AT THE SOURCE, so the
     // record never enters recs / the archive tally.
-    const isOwnShow = !!user?.uid && (archive.djs ?? []).some((dj) => dj.userId === user.uid);
+    // Match on username (archive payloads no longer carry djs[].userId — email
+    // and UID are stripped server-side as listener PII). chatUsername is the
+    // signed-in user's handle.
+    const isOwnShow =
+      !!chatUsername &&
+      (archive.djs ?? []).some(
+        (dj) => normalizeUsername(dj.username || '') === normalizeUsername(chatUsername),
+      );
     if (willOpen && !isOwnShow) recordTracklistView(user?.uid, archive.slug);
   };
   const [shareCopied, setShareCopied] = useState(false);

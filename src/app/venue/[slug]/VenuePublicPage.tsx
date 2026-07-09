@@ -8,7 +8,15 @@ import { Header } from "@/components/Header";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { db } from "@/lib/firebase";
 import { Venue, Event, EventDJRef, CollectiveRef } from "@/types/events";
-import { Archive } from "@/types/broadcast";
+import { Archive, ArchiveDJ } from "@/types/broadcast";
+
+// Strip DJ PII (email + Firebase UID) before archive data enters client state.
+// Neither field has a listener-facing consumer.
+function stripDjPii(dj: ArchiveDJ): ArchiveDJ {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { email, userId, ...rest } = dj;
+  return rest;
+}
 import { useArchivePlayer } from "@/contexts/ArchivePlayerContext";
 
 function formatDuration(seconds: number): string {
@@ -200,7 +208,8 @@ export function VenuePublicPage({ slug }: Props) {
             slug: data.slug,
             broadcastSlotId: data.broadcastSlotId,
             showName: data.showName,
-            djs: data.djs || [],
+            // Strip DJ PII (email + Firebase UID) before it enters client state.
+            djs: ((data.djs || []) as ArchiveDJ[]).map(stripDjPii),
             recordingUrl: data.recordingUrl,
             duration: data.duration || 0,
             recordedAt: data.recordedAt,

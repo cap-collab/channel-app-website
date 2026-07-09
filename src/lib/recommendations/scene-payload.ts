@@ -19,7 +19,16 @@ import { fetchComingUp, type ComingUpRow } from "./coming-up";
 import { getCityFromTimezone } from "@/lib/city-detection";
 import type { SnapshotSection, RecommendationSnapshot } from "./types";
 import { isListenerVisibleArchive } from "@/lib/archive-priority";
+import { toPublicDj } from "@/lib/archives-enrich";
 import { normalizeForLookup } from "@/lib/go-live-matching";
+
+// Strip DJ PII (email + Firebase UID) from a hydrated card before it leaves the
+// builder for the client. Recommendation cards are spread from raw Firestore
+// docs, so without this they'd carry djs[].email.
+const publicCard = (a: ArchiveSerialized): ArchiveSerialized => ({
+  ...a,
+  djs: (a.djs ?? []).map(toPublicDj),
+});
 
 export interface RecBand {
   glyphSlug?: string;
@@ -213,7 +222,7 @@ export async function buildScenePayload(
       for (const it of items) {
         const full = archiveById.get(it.archiveId);
         if (!full) continue;
-        archives.push(full);
+        archives.push(publicCard(full));
         if (section.id === "discovery") {
           // Affiliation-tier picks show the reason ("Affiliated with X" /
           // "Similar to X") in the banner instead of glyph+tempo. The engine put
@@ -288,7 +297,8 @@ export async function buildScenePayload(
       if (rankDiff !== 0) return rankDiff;
       return (streamedAtMs.get(a.id) ?? 0) - (streamedAtMs.get(b.id) ?? 0);
     })
-    .slice(0, 50);
+    .slice(0, 50)
+    .map(publicCard);
 
   return {
     sections,

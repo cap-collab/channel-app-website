@@ -41,9 +41,11 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
     const slug = primary?.username
       ? primary.username.replace(/\s+/g, '').toLowerCase()
       : null;
+    // Prefer the DJ page; if the show has no DJ username, fall back to the site
+    // root (the standalone /archives/[slug] page was removed).
     const url = slug
       ? `${window.location.origin}/dj/${slug}`
-      : `${window.location.origin}/archives/${archive.slug}`;
+      : window.location.origin;
 
     // 1. Copy first so "Copied" feedback shows regardless of share-sheet outcome.
     try {

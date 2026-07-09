@@ -66,6 +66,19 @@ const sliceProfile = (profile: Record<string, unknown> | undefined): DJProfileSl
   return Object.keys(slice).length > 0 ? slice : null;
 };
 
+// Strip DJ PII (email + Firebase UID) from an archive DJ before the payload
+// reaches a listener. Neither field has any listener-facing consumer — email is
+// only used server-side for slot/profile matching, and userId's sole reader (the
+// own-show check) now compares usernames instead. Consent flags are intentionally
+// NOT stripped here: they carry no PII and are read only in admin/studio contexts.
+export function toPublicDj<T extends { email?: string; userId?: string }>(
+  dj: T,
+): Omit<T, 'email' | 'userId'> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { email, userId, ...rest } = dj;
+  return rest;
+}
+
 /**
  * Enrich a set of raw archive docs into the serialized public `Archive` shape:
  * fills missing DJ emails from broadcast slots, resolves pending-profile
@@ -212,7 +225,7 @@ export async function enrichArchives(db: Firestore, rawArchives: RawArchive[]): 
         if (profileData.metaOptIn === false) enriched = { ...enriched, metaOptIn: false };
         if (profileData.instagram) enriched = { ...enriched, instagram: profileData.instagram };
       }
-      return enriched;
+      return toPublicDj(enriched);
     });
 
     return {

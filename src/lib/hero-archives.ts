@@ -2,6 +2,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { findCurrentItemInLoop, LOOP_COLLECTION } from '@/lib/archive-schedule';
 import { ArchiveSerialized, ArchiveRadioLoop, ScheduleItem } from '@/types/broadcast';
 import { normalizeUsername } from '@/lib/dj-matching';
+import { toPublicDj } from '@/lib/archives-enrich';
 
 const MIN_DURATION_SECONDS = 2700; // 45 minutes
 const PER_SCENE_LIMIT = 5; // last 5 high-priority archives per scene
@@ -137,7 +138,7 @@ export async function getHeroArchives(): Promise<HeroSeed> {
           slug: data.slug,
           broadcastSlotId: data.broadcastSlotId,
           showName: data.showName,
-          djs: data.djs || [],
+          djs: (data.djs || []).map(toPublicDj),
           recordingUrl: data.recordingUrl,
           duration: data.duration || 0,
           recordedAt: data.recordedAt,
@@ -200,7 +201,7 @@ export async function getHeroArchives(): Promise<HeroSeed> {
             slug: data.slug,
             broadcastSlotId: data.broadcastSlotId,
             showName: data.showName,
-            djs: data.djs || [],
+            djs: (data.djs || []).map(toPublicDj),
             recordingUrl: data.recordingUrl,
             duration: data.duration || 0,
             recordedAt: data.recordedAt,
