@@ -277,10 +277,16 @@ async function main() {
   }
   const tagRels: TagRel[] = [];
 
+  // Every archive that has track IDs (incl. hidden). On --send we stamp these
+  // trackIdsReadyEmailStatus:'sent' so the recurring cron never re-emails an
+  // archive this one-time blast already covered. (Replaces a separate backfill.)
+  const trackIdArchiveIds: string[] = [];
+
   for (const doc of archivesSnap.docs) {
     const a = doc.data();
     const tracks = normalizeTrackIds(a.trackIds);
     if (tracks.length === 0) continue;
+    trackIdArchiveIds.push(doc.id);
     if (a.priority === 'hidden') { hiddenSkipped++; continue; }
     withTracks++;
 
@@ -532,6 +538,19 @@ async function main() {
     await new Promise((res) => setTimeout(res, 200));
   }
   console.log(`\nDone. sent=${sent} failed=${failed}`);
+
+  // Stamp every current track-ID archive 'sent' so the recurring cron
+  // (archive-track-ids-emails) never re-emails a show this blast covered.
+  console.log(`\nStamping ${trackIdArchiveIds.length} track-ID archives as 'sent'...`);
+  let stamped = 0;
+  for (const id of trackIdArchiveIds) {
+    await db.collection('archives').doc(id).update({
+      trackIdsReadyEmailStatus: 'sent',
+      trackIdsReadyEmailSentAt: Date.now(),
+    });
+    stamped++;
+  }
+  console.log(`Stamped ${stamped} archives.`);
 }
 
 main().catch((e) => {
