@@ -2331,19 +2331,24 @@ export function StudioProfileClient() {
         <Header currentPage="studio" position="sticky" />
         <main className="max-w-4xl mx-auto p-4">
           <div className="text-center py-12">
-            <h1 className="text-2xl font-semibold text-white mb-2">Studio</h1>
-            <p className="text-gray-400 mb-8">
-              Host a show on Channel
-            </p>
+            <h1 className="text-2xl font-semibold text-white mb-8">Studio</h1>
 
             <div className="max-w-sm mx-auto space-y-4">
               {!showCodeInput ? (
-                <button
-                  onClick={() => setShowCodeInput(true)}
-                  className="w-full bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-                >
-                  I have a code
-                </button>
+                <>
+                  <button
+                    onClick={() => setShowAuthModal(true)}
+                    className="w-full bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                  >
+                    I already have an account
+                  </button>
+                  <button
+                    onClick={() => setShowCodeInput(true)}
+                    className="w-full border border-gray-700 text-white px-6 py-3 rounded-lg font-medium hover:bg-[#1e1e1e] transition-colors"
+                  >
+                    I have a code
+                  </button>
+                </>
               ) : (
                 <div className="bg-[#1e1e1e] rounded-lg p-4 space-y-3">
                   <div className="flex gap-2">
@@ -2378,6 +2383,11 @@ export function StudioProfileClient() {
             <ResidentReferralSection residents={monthlyResidents} />
           </div>
         </main>
+
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+        />
       </div>
     );
   }
