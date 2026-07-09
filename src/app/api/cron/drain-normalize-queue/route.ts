@@ -87,11 +87,24 @@ async function enqueueWorkerNormalize(
   slotId: string | undefined,
   archiveId: string | undefined,
 ): Promise<{ ok: boolean; status: number; body: Record<string, unknown> }> {
-  const workerUrl = process.env.RESTREAM_WORKER_URL;
+  // Route by format. mp3/mp4 stay on restream-worker (unchanged). Lossless
+  // uploads (wav/flac/aac/m4a/ogg) go to youtube-render-worker, whose /normalize
+  // transcodes them to loudnorm'd AAC .m4a — restream-worker hard-rejects those
+  // and is off-limits for new work anyway (shares CPU with LiveKit). Both
+  // endpoints share the same request/callback contract, so only the base URL
+  // differs.
+  const isLossless = /\.(wav|flac|aac|m4a|ogg|oga|opus|webm)$/i.test(r2Key);
+  const workerUrl = isLossless
+    ? process.env.YOUTUBE_RENDER_WORKER_URL
+    : process.env.RESTREAM_WORKER_URL;
   const secret = process.env.CRON_SECRET;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '';
   if (!workerUrl || !secret) {
-    return { ok: false, status: 0, body: { error: 'Worker URL or secret missing' } };
+    return {
+      ok: false,
+      status: 0,
+      body: { error: `Worker URL or secret missing (${isLossless ? 'YOUTUBE_RENDER_WORKER_URL' : 'RESTREAM_WORKER_URL'})` },
+    };
   }
   if (!appUrl) {
     return { ok: false, status: 0, body: { error: 'APP_URL not configured (needed for callback)' } };

@@ -110,15 +110,14 @@ export async function POST(request: NextRequest) {
     const restreamWorkerUrl = process.env.RESTREAM_WORKER_URL;
     const cronSecret = process.env.CRON_SECRET;
     const isMp4 = /\.mp4$/i.test(uploadFilePath);
-    // Only mp3/mp4 get auto-normalized. The upload route accepts more
-    // (wav/aac/m4a/flac/ogg/webm — see ALLOWED_AUDIO_TYPES in ../upload/route.ts),
-    // but the restream-worker /normalize endpoint hard-rejects anything that
-    // isn't .mp3/.mp4 (restream-worker/index.js: "Unsupported format for
-    // normalize"). Enqueuing a wav here would just fail 5× and land in the queue
-    // as a dead `failed` entry. Until the worker learns to transcode lossless
-    // inputs → AAC .m4a, those formats are normalized manually (a TAJ .wav
-    // shipped un-normalized on 2026-06-12 and was fixed by a one-off).
-    const isNormalizable = /\.(mp3|mp4)$/i.test(uploadFilePath);
+    // All accepted audio formats get auto-normalized. mp3/mp4 go to the
+    // restream-worker /normalize; lossless (wav/aac/m4a/flac/ogg — see
+    // ALLOWED_AUDIO_TYPES in ../upload/route.ts) is routed by the drain cron to
+    // youtube-render-worker /normalize, which transcodes them to loudnorm'd AAC
+    // .m4a. (Before 2026-07-08, restream-worker hard-rejected non-mp3/mp4 and
+    // wavs shipped un-normalized — TAJ 2026-06-12, Ceviche 2026-07-08, both
+    // fixed by hand. The render-worker path closes that gap.)
+    const isNormalizable = /\.(mp3|mp4|wav|aac|m4a|flac|ogg|oga|opus|webm)$/i.test(uploadFilePath);
 
     if (isMp4) {
       if (restreamWorkerUrl && cronSecret) {

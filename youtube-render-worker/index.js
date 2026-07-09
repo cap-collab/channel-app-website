@@ -15,11 +15,11 @@
 
 import express from 'express';
 import { spawn, execSync } from 'child_process';
-import { readFileSync, unlinkSync, mkdirSync, statSync, rmdirSync, renameSync } from 'fs';
+import { readFileSync, writeFileSync, unlinkSync, mkdirSync, statSync, rmdirSync, renameSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { chromium } from 'playwright';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import admin from 'firebase-admin';
 
 const PORT = process.env.PORT || 3101;
@@ -71,6 +71,30 @@ function recordCleanup(ok, error) {
   health.lastCleanupAt = Date.now();
   health.lastCleanupOk = ok;
   health.lastCleanupError = ok ? null : String(error || '').slice(0, 200);
+}
+
+// ─── ffmpeg lock ─────────────────────────────────────────────────────────
+// This box runs Playwright renders, /transcribe, AND (now) /normalize. The
+// heavy renders already gate concurrency via the activeJobs map + watchdogs,
+// but /normalize's long execSync ffmpeg passes would thrash the CPU if they
+// ran alongside a render. Serialize normalize behind a strict-FIFO lock,
+// ported verbatim from restream-worker/index.js. acquireFfmpegLock returns a
+// token you await, then call release() in a finally.
+let ffmpegChain = Promise.resolve();
+let ffmpegQueueDepth = 0;
+function acquireFfmpegLock(label) {
+  ffmpegQueueDepth++;
+  if (ffmpegQueueDepth > 1) console.log(`[ffmpeg-lock] ${label} queued (depth ${ffmpegQueueDepth})`);
+  let release;
+  const released = new Promise((r) => { release = r; });
+  const acquired = ffmpegChain.then(() => {
+    console.log(`[ffmpeg-lock] ${label} started`);
+  });
+  ffmpegChain = acquired.then(() => released).then(() => {
+    ffmpegQueueDepth--;
+    console.log(`[ffmpeg-lock] ${label} released (depth ${ffmpegQueueDepth})`);
+  });
+  return acquired.then(() => release);
 }
 
 // ─── Firebase Admin init ─────────────────────────────────────────────────
@@ -1176,6 +1200,386 @@ app.post('/transcribe', authenticate, async (req, res) => {
     cleanup();
     console.error('[transcribe] Failed:', err?.message || err);
     respond(500, { error: (err && err.message) || String(err) });
+  }
+});
+
+// ─── POST /normalize ─────────────────────────────────────────────────────
+// Two-pass loudnorm to -14 LUFS / -1.5 dBTP / LRA 11 + leading/trailing-silence
+// trim + hard-cut fade-out. Ported from restream-worker/index.js so that box
+// stays off-limits (it shares CPU with LiveKit). This copy adds a LOSSLESS
+// branch: wav/flac/aac/ogg/m4a sources are transcoded to AAC .m4a (the mp3/mp4
+// branches are byte-for-byte the restream-worker behavior, so this endpoint is
+// a strict superset — the drain cron can safely route anything here, though in
+// practice it only sends the lossless formats and keeps mp3/mp4 on restream).
+//
+// Async-by-callback contract matches restream-worker /normalize + this worker's
+// /start and /transcribe: with callbackUrl set, respond 202 immediately and
+// POST the result to callbackUrl (the app's /api/recording/normalize-queue-callback).
+app.post('/normalize', authenticate, async (req, res) => {
+  const { r2Key, callbackUrl, callbackContext } = req.body || {};
+  if (!r2Key) return res.status(400).json({ error: 'r2Key required' });
+
+  const isAsyncMode = !!callbackUrl;
+  if (isAsyncMode) res.status(202).json({ accepted: true, r2Key });
+
+  const fireCallback = (payload) => {
+    if (!callbackUrl) return;
+    if (!SHARED_SECRET) {
+      console.warn('[normalize] callbackUrl set but SHARED_SECRET missing; skipping callback');
+      return;
+    }
+    fetch(callbackUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SHARED_SECRET}` },
+      body: JSON.stringify({ ...payload, callbackContext }),
+    })
+      .then((r) => {
+        if (!r.ok) console.error(`[normalize] callback to ${callbackUrl} returned ${r.status}`);
+        else console.log(`[normalize] callback delivered to ${callbackUrl}`);
+      })
+      .catch((e) => console.error(`[normalize] callback to ${callbackUrl} failed:`, e?.message || e));
+  };
+  let releaseLock = null;
+  const respond = (status, payload) => {
+    if (!res.headersSent) res.status(status).json(payload);
+    fireCallback(payload);
+    recordJob(status === 200, payload && payload.error);
+    if (releaseLock) { releaseLock(); releaseLock = null; }
+  };
+
+  // Format detection. Controls: re-encode codec, output-key suffix, content-type.
+  //   mp3       → mp3 (libmp3lame), same as restream-worker
+  //   mp4       → mp4 (aac), same as restream-worker
+  //   lossless* → m4a (aac). Output KEY gets .m4a regardless of input ext, so
+  //               a .wav source ships as <stem>-normalized-v2.m4a. The callback
+  //               is URL-driven so the extension change flows through cleanly.
+  // (Detection is BEFORE taking the lock — a bad format shouldn't wait in line.)
+  let format;       // controls encode args + content-type
+  let outExt;       // extension for the output R2 key + tempfiles
+  if (/\.mp4$/i.test(r2Key)) { format = 'mp4'; outExt = 'mp4'; }
+  else if (/\.mp3$/i.test(r2Key)) { format = 'mp3'; outExt = 'mp3'; }
+  else if (/\.(wav|flac|aac|m4a|ogg|oga|opus|webm)$/i.test(r2Key)) { format = 'lossless'; outExt = 'm4a'; }
+  else {
+    return respond(400, {
+      error: `Unsupported format for normalize: ${r2Key}. Handles .mp3, .mp4, and lossless (.wav/.flac/.aac/.m4a/.ogg/.opus/.webm).`,
+    });
+  }
+
+  releaseLock = await acquireFfmpegLock(`normalize ${r2Key}`);
+  console.log(`[normalize] Processing: ${r2Key} (format=${format} → ${outExt})`);
+
+  const bucket = R2_BUCKET;
+  const publicBase = R2_PUBLIC;
+
+  const tmpIn = join(tmpdir(), `normalize-in-${Date.now()}.${outExt === 'mp3' ? 'mp3' : (format === 'mp4' ? 'mp4' : 'src')}`);
+  const tmpOut = join(tmpdir(), `normalize-out-${Date.now()}.${outExt}`);
+  const tmpTrimmed = join(tmpdir(), `normalize-trimmed-${Date.now()}.${outExt}`);
+
+  // Loudness target — same calibration as restream-worker.
+  const TARGET_I = -14;
+  const TARGET_TP = -1.5;
+  const TARGET_LRA = 11;
+
+  const MIN_TRAILING_SILENCE_SEC = 1;
+  const SAFETY_TAIL_SEC = 0.5;
+  const MIN_LEADING_SILENCE_SEC = 1;
+  const LEADING_PROBE_SEC = 20;
+  const FADE_OUT_SEC = 5;
+  const FADE_PROBE_TAIL_SEC = 0.4;
+  const FADE_BODY_REF_SEC = 1.0;
+  const HARD_CUT_DELTA_DB = 6;
+
+  // Content-type + encode args by output container. Lossless inputs are always
+  // encoded to AAC-in-m4a (audio/mp4). A .m4a output is audio, not video — but
+  // AAC-in-MP4 is served as video/mp4 elsewhere for progressive playback; keep
+  // audio/mp4 here since these are audio-only and that's the correct type.
+  const contentType = format === 'mp3' ? 'audio/mpeg' : 'audio/mp4';
+  const encodeArgs = format === 'mp3'
+    ? '-c:a libmp3lame -b:a 192k'
+    : '-c:a aac -b:a 192k -movflags +faststart';
+  // Output-key rewrite: swap the ORIGINAL extension for the v2 suffix. For
+  // lossless the input ext varies, so strip whatever trailing .ext there is.
+  const v2Suffix = `-normalized-v2.${outExt}`;
+  const trimmedSuffix = `-normalized-v2-trimmed.${outExt}`;
+  const swapExt = (key, suffix) => key.replace(/\.[a-z0-9]+$/i, suffix);
+
+  try {
+    // --- 1. Download ---
+    // Missing source (aborted/test egress writes only a manifest, no media) →
+    // NoSuchKey. Report it verbatim so the drain cron's isMissingSourceError
+    // matches and fails fast instead of retrying 5×.
+    let body;
+    try {
+      const resp = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: r2Key }));
+      body = Buffer.from(await resp.Body.transformToByteArray());
+    } catch (dlErr) {
+      const msg = String(dlErr?.name || dlErr?.Code || dlErr?.message || dlErr);
+      if (/NoSuchKey|NotFound|does not exist/i.test(msg)) {
+        return respond(400, { error: `The specified key does not exist. (${r2Key})` });
+      }
+      throw dlErr;
+    }
+    writeFileSync(tmpIn, body);
+    console.log(`[normalize] Downloaded ${(body.length / 1024 / 1024).toFixed(1)}MB`);
+
+    // --- 2. Pass 1: measure loudness for the linear two-pass ---
+    const measureOut = execSync(
+      `ffmpeg -hide_banner -nostats -i ${tmpIn} -af "loudnorm=I=${TARGET_I}:TP=${TARGET_TP}:LRA=${TARGET_LRA}:print_format=json" -f null - 2>&1 | awk '/^{/,/^}/'`,
+      { encoding: 'utf-8' }
+    );
+    const measured = JSON.parse(measureOut);
+    const inputI = parseFloat(measured.input_i);
+    const inputTP = parseFloat(measured.input_tp);
+    const inputLRA = parseFloat(measured.input_lra);
+    const measuredThresh = parseFloat(measured.input_thresh);
+    const measuredOffset = parseFloat(measured.target_offset);
+    console.log(`[normalize] Input: I=${inputI} TP=${inputTP} LRA=${inputLRA}`);
+
+    // --- 3. Skip if already in target band ---
+    // Lossless inputs are ALWAYS transcoded (we can't leave a .wav as the active
+    // listener URL — it must become .m4a), so the skip-band only applies to
+    // mp3/mp4 where the original container is already what listeners get.
+    const ALREADY_CORRECT_I_MIN = -15;
+    const ALREADY_CORRECT_I_MAX = -13;
+    const ALREADY_CORRECT_TP_MAX = -1.0;
+    if (
+      format !== 'lossless' &&
+      inputI >= ALREADY_CORRECT_I_MIN &&
+      inputI <= ALREADY_CORRECT_I_MAX &&
+      inputTP <= ALREADY_CORRECT_TP_MAX
+    ) {
+      [tmpIn].forEach(p => { try { unlinkSync(p); } catch {} });
+      const reason = `Already in target band: I=${inputI} TP=${inputTP}`;
+      console.log(`[normalize] SKIP: ${reason}`);
+      return respond(200, {
+        skipped: true,
+        reason,
+        measurements: { inputI, inputTP, inputLRA },
+      });
+    }
+
+    // --- 4. Pass 2: render normalized output (linear=true) ---
+    const filter = `loudnorm=I=${TARGET_I}:TP=${TARGET_TP}:LRA=${TARGET_LRA}` +
+      `:measured_I=${inputI}:measured_TP=${inputTP}:measured_LRA=${inputLRA}` +
+      `:measured_thresh=${measuredThresh}:offset=${measuredOffset}` +
+      `:linear=true:print_format=summary`;
+    execSync(
+      `ffmpeg -hide_banner -nostats -y -i ${tmpIn} -vn -af "${filter}" ${encodeArgs} ${tmpOut} 2>&1`
+    );
+
+    // --- 5. Verify output loudness ---
+    const verifyOut = await new Promise((resolve, reject) => {
+      const ff = spawn('ffmpeg', [
+        '-hide_banner', '-nostats',
+        '-i', tmpOut,
+        '-af', 'ebur128=peak=true',
+        '-f', 'null', '-',
+      ]);
+      let tail = '';
+      const TAIL_BYTES = 64 * 1024;
+      ff.stderr.on('data', (chunk) => {
+        tail += chunk.toString();
+        if (tail.length > TAIL_BYTES) tail = tail.slice(-TAIL_BYTES);
+      });
+      ff.on('error', reject);
+      ff.on('close', (code) => {
+        if (code === 0) resolve(tail);
+        else reject(new Error(`ebur128 verify exited ${code}: ${tail.slice(-1000)}`));
+      });
+    });
+    const grab = (re) => parseFloat((verifyOut.match(re) || [])[1] || 'NaN');
+    const outputI = grab(/I:\s*(-?\d+\.\d+)\s*LUFS/);
+    const outputTP = grab(/Peak:\s*(-?\d+\.\d+)\s*dBFS/);
+    const outputLRA = grab(/LRA:\s*(-?\d+\.\d+)\s*LU/);
+    console.log(`[normalize] Output: I=${outputI} TP=${outputTP} LRA=${outputLRA}`);
+
+    // --- 6. Detect leading + trailing silence ---
+    let outDur = 0;
+    let leadingSilenceEndSec = null;
+    let leadingSilenceLengthSec = null;
+    let trailingSilenceStartSec = null;
+    let trailingSilenceLengthSec = null;
+    try {
+      const probe = execSync(
+        `ffprobe -v error -show_entries format=duration -of csv=p=0 ${tmpOut}`,
+        { encoding: 'utf-8' }
+      );
+      outDur = parseFloat(probe.trim()) || 0;
+
+      if (outDur > 0) {
+        // --- 6a. Leading silence ---
+        const leadingOut = execSync(
+          `ffmpeg -hide_banner -nostats -t ${LEADING_PROBE_SEC} -i ${tmpOut} -af "silencedetect=noise=-50dB:d=0.3" -f null - 2>&1`,
+          { encoding: 'utf-8' }
+        );
+        const leadStart = leadingOut.match(/silence_start:\s*(-?\d+\.?\d*)/);
+        const leadEnd = leadingOut.match(/silence_end:\s*(-?\d+\.?\d*)/);
+        if (leadStart && parseFloat(leadStart[1]) <= 0.2) {
+          if (leadEnd) {
+            const end = parseFloat(leadEnd[1]);
+            const length = end - parseFloat(leadStart[1]);
+            if (length >= MIN_LEADING_SILENCE_SEC) {
+              leadingSilenceEndSec = end;
+              leadingSilenceLengthSec = length;
+            }
+          }
+        }
+
+        // --- 6b. Trailing silence ---
+        const scanFromSec = Math.max(0, outDur - 15 * 60);
+        const silenceOut = execSync(
+          `ffmpeg -hide_banner -nostats -ss ${scanFromSec} -i ${tmpOut} -af "silencedetect=noise=-50dB:d=0.8" -f null - 2>&1`,
+          { encoding: 'utf-8' }
+        );
+        const startMatches = [...silenceOut.matchAll(/silence_start:\s*(-?\d+\.?\d*)/g)];
+        const endMatches = [...silenceOut.matchAll(/silence_end:\s*(-?\d+\.?\d*)/g)];
+        if (startMatches.length > 0) {
+          const lastStart = parseFloat(startMatches[startMatches.length - 1][1]) + scanFromSec;
+          const lastEnd = endMatches.length > 0
+            ? parseFloat(endMatches[endMatches.length - 1][1]) + scanFromSec
+            : Infinity;
+          const runsToEof = endMatches.length < startMatches.length || lastEnd >= outDur - 0.5;
+          if (runsToEof) {
+            const length = outDur - lastStart;
+            if (length >= MIN_TRAILING_SILENCE_SEC && lastStart > 30 * 60) {
+              trailingSilenceStartSec = lastStart;
+              trailingSilenceLengthSec = length;
+            }
+          }
+        }
+      }
+    } catch (silenceErr) {
+      console.error(`[normalize] Silence detection failed; v2 will not be trimmed:`, silenceErr?.message || silenceErr);
+    }
+    if (leadingSilenceEndSec !== null) {
+      console.log(`[normalize] Leading silence: ${leadingSilenceLengthSec.toFixed(2)}s (ends at ${leadingSilenceEndSec.toFixed(2)}s)`);
+    }
+    if (trailingSilenceStartSec !== null) {
+      console.log(`[normalize] Trailing silence: ${trailingSilenceLengthSec.toFixed(1)}s starting at ${trailingSilenceStartSec.toFixed(1)}s`);
+    }
+
+    // --- 6c. Hard-cut detection ---
+    let needsFade = false;
+    try {
+      const realEnd = trailingSilenceStartSec !== null ? trailingSilenceStartSec : outDur;
+      if (realEnd > FADE_BODY_REF_SEC + 2) {
+        const tailStart = (realEnd - FADE_PROBE_TAIL_SEC).toFixed(3);
+        const bodyStart = (realEnd - 2 - FADE_BODY_REF_SEC).toFixed(3);
+        const parseMean = (out) => {
+          const m = out.match(/mean_volume:\s*(-?\d+\.?\d*)\s*dB/);
+          return m ? parseFloat(m[1]) : null;
+        };
+        const tailOut = execSync(
+          `ffmpeg -hide_banner -nostats -ss ${tailStart} -t ${FADE_PROBE_TAIL_SEC} -i ${tmpOut} -af "volumedetect" -f null - 2>&1`,
+          { encoding: 'utf-8' }
+        );
+        const bodyOut = execSync(
+          `ffmpeg -hide_banner -nostats -ss ${bodyStart} -t ${FADE_BODY_REF_SEC} -i ${tmpOut} -af "volumedetect" -f null - 2>&1`,
+          { encoding: 'utf-8' }
+        );
+        const tailDb = parseMean(tailOut);
+        const bodyDb = parseMean(bodyOut);
+        if (tailDb !== null && bodyDb !== null) {
+          needsFade = (tailDb - bodyDb) >= -HARD_CUT_DELTA_DB;
+          console.log(`[normalize] End-taper check: tail=${tailDb.toFixed(1)}dB body=${bodyDb.toFixed(1)}dB delta=${(tailDb - bodyDb).toFixed(1)}dB -> ${needsFade ? 'HARD CUT (will fade)' : 'already tapering (skip)'}`);
+        }
+      }
+    } catch (fadeErr) {
+      console.error(`[normalize] Hard-cut detection failed; no fade applied:`, fadeErr?.message || fadeErr);
+    }
+
+    // --- 7. Upload v2 (normalized, untrimmed) ---
+    const v2Key = swapExt(r2Key, v2Suffix);
+    await s3.send(new PutObjectCommand({
+      Bucket: bucket,
+      Key: v2Key,
+      Body: readFileSync(tmpOut),
+      ContentType: contentType,
+      CacheControl: 'public, max-age=31536000, immutable',
+    }));
+    const v2Url = publicBase ? `${publicBase}/${v2Key}` : null;
+    console.log(`[normalize] Uploaded v2: ${v2Key}`);
+
+    // --- 8. Produce the active sibling (-normalized-v2-trimmed) ---
+    let trimmedKey = null;
+    let trimmedUrl = null;
+    let trimmedDurationSec = null;
+    const hasLeading = leadingSilenceEndSec !== null;
+    const hasTrailing = trailingSilenceStartSec !== null;
+    if (hasLeading || hasTrailing || needsFade) {
+      try {
+        const ssArg = hasLeading ? `-ss ${leadingSilenceEndSec.toFixed(3)} ` : '';
+        const toArg = hasTrailing
+          ? `-to ${Math.max(0, trailingSilenceStartSec - SAFETY_TAIL_SEC).toFixed(3)} `
+          : '';
+        const movflags = (format === 'mp4' || format === 'lossless') ? '-movflags +faststart' : '';
+
+        if (needsFade) {
+          const trimEnd = hasTrailing
+            ? Math.max(0, trailingSilenceStartSec - SAFETY_TAIL_SEC)
+            : outDur;
+          const leadCut = hasLeading ? leadingSilenceEndSec : 0;
+          const outLen = Math.max(0, trimEnd - leadCut);
+          const fadeStart = Math.max(0, outLen - FADE_OUT_SEC).toFixed(3);
+          const fadeDur = Math.min(FADE_OUT_SEC, outLen).toFixed(3);
+          execSync(
+            `ffmpeg -hide_banner -nostats -y ${ssArg}-i ${tmpOut} ${toArg}-vn -af "afade=t=out:st=${fadeStart}:d=${fadeDur}" ${encodeArgs} ${tmpTrimmed} 2>&1`
+          );
+        } else {
+          execSync(
+            `ffmpeg -hide_banner -nostats -y ${ssArg}-i ${tmpOut} ${toArg}-c copy -avoid_negative_ts make_zero ${movflags} ${tmpTrimmed} 2>&1`
+          );
+        }
+
+        const trimProbe = execSync(
+          `ffprobe -v error -show_entries format=duration -of csv=p=0 ${tmpTrimmed}`,
+          { encoding: 'utf-8' }
+        );
+        trimmedDurationSec = parseFloat(trimProbe.trim()) || 0;
+        trimmedKey = swapExt(r2Key, trimmedSuffix);
+        await s3.send(new PutObjectCommand({
+          Bucket: bucket,
+          Key: trimmedKey,
+          Body: readFileSync(tmpTrimmed),
+          ContentType: contentType,
+          CacheControl: 'public, max-age=31536000, immutable',
+        }));
+        trimmedUrl = publicBase ? `${publicBase}/${trimmedKey}` : null;
+        const kinds = [hasLeading && 'leading-trim', hasTrailing && 'trailing-trim', needsFade && 'fade-out'].filter(Boolean).join('+');
+        console.log(`[normalize] Uploaded v2-trimmed (${kinds}): ${trimmedKey} (${trimmedDurationSec.toFixed(1)}s)`);
+      } catch (trimErr) {
+        console.error(`[normalize] Trim/fade step failed; keeping untrimmed v2:`, trimErr?.message || trimErr);
+        trimmedKey = null;
+        trimmedUrl = null;
+        trimmedDurationSec = null;
+      }
+    }
+
+    [tmpIn, tmpOut, tmpTrimmed].forEach(p => { try { unlinkSync(p); } catch {} });
+
+    respond(200, {
+      success: true,
+      skipped: false,
+      originalR2Key: r2Key,
+      newR2Key: v2Key,
+      newUrl: v2Url,
+      trimmedR2Key: trimmedKey,
+      trimmedUrl,
+      durationSec: outDur,
+      trimmedDurationSec,
+      measurements: {
+        inputI, inputTP, inputLRA,
+        outputI, outputTP, outputLRA,
+        leadingSilenceEndSec, leadingSilenceLengthSec,
+        trailingSilenceStartSec, trailingSilenceLengthSec,
+        fadeOutApplied: needsFade,
+        fadeOutSec: needsFade ? FADE_OUT_SEC : null,
+      },
+    });
+  } catch (err) {
+    [tmpIn, tmpOut, tmpTrimmed].forEach(p => { try { unlinkSync(p); } catch {} });
+    console.error(`[normalize] Failed:`, err);
+    respond(500, { error: err.message });
   }
 });
 
