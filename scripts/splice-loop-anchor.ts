@@ -23,25 +23,26 @@
  * To reuse: change LOOP_DOC / the ANCHORS list / PREPEND flag. Verified zero-drift
  * 2026-06-25.
  */
-import { loadEnvConfig } from '@next/env';
-loadEnvConfig(process.cwd());
+import './lib/load-env';
 import { getAdminDb } from '../src/lib/firebase-admin';
 import { reflowOffsets } from '../src/lib/archive-schedule';
 import { Timestamp } from 'firebase-admin/firestore';
 
 // ─────────────────────────── CONFIG ───────────────────────────
-const LOOP_DOC = 'loop-0040';
+const LOOP_DOC = 'loop-0041';
 const PREV_LOOP_DOC = null;             // to compute the gap; null to skip gap-fill
 const DO_PREPEND_GAPFILL = false;       // close the loop's start gap by prepending
 const TT_ID = 'mGUjchuXuFAtTa4dmAls';   // toilet-therapist hand-back interlude
 
 // Anchors to splice in (anchored archive must become audible at startZ).
-// BB Shaine "Sapphic Selects" live ends 20:00 PT (2026-07-09T03:00:00Z). Post-live
-// handoff: hand-back interlude audible at endTime+3s (20:00:03 PT), then Marie Nyx.
+// drenchrome "drenchrome show" live ends 19:00 PT (2026-07-10T02:00:00Z). Post-live
+// handoff: hand-back interlude audible at endTime+3s (02:00:03Z), then drenchrome.
 // The script makes the interlude audible at startZ - (ttDur - CROSSFADE), so set
-// startZ = 20:00:03 + (23 - 5)s = 20:00:21 PT so the interlude lands at 20:00:03.
+// startZ = 02:00:03 + (23 - 5)s = 02:00:21Z so the interlude lands at 02:00:03Z.
+// NOTE: tonight's OTHER anchor (ceviche "Channel Radio", scheduled anchor @ 00:00:00Z)
+// was already placed correctly by the generator — do NOT add it here.
 const ANCHORS = [
-  { label: 'BB Shaine post-live → Marie Nyx', startZ: '2026-07-09T03:00:21Z', archiveId: 'umgR06mYXet0iG1xXjEN' },
+  { label: 'drenchrome post-live', startZ: '2026-07-10T02:00:21Z', archiveId: '6TEo5B2pHhugvs4kP8rQ' },
 ];
 
 // Prepend filler: a real archive to put in front (reuse is fine for radio).
@@ -193,8 +194,12 @@ async function main() {
   // lands INSIDE [3am,4am] rather than overshooting below 3am: drop trailing items
   // until the last item's end is at/before the last 4am PT. (Dropping is whole-item
   // granular, so stopping at the 4am edge keeps the end as late as possible, in-window.)
+  // Anchor to the 3am FLOOR at/before the natural end, then +1h for that window's 4am
+  // edge. (Using prevWindowMidMs(_, 11) directly snaps a full day early when the natural
+  // end already lands inside [3am,4am]: the same-day 4am edge is > naturalEnd0, so it
+  // rounds down to the PREVIOUS day and needlessly drops ~24h.)
   const naturalEnd0 = startMs + (items[items.length - 1].startOffsetSec + items[items.length - 1].durationSec) * 1000;
-  const endTarget = prevWindowMidMs(naturalEnd0, END_HOUR_LO + 1) - 1800 * 1000; // 4:00am PT exactly
+  const endTarget = (prevWindowMidMs(naturalEnd0, END_HOUR_LO) - 1800 * 1000) + 3600 * 1000; // 4:00am PT exactly
   let dropped = 0;
   while (items.length - 1 > lastProtectedIdx) {
     const last = items[items.length - 1];
