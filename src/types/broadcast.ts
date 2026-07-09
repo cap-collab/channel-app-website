@@ -388,6 +388,12 @@ export interface Archive {
   // their own archive (firestore.rules: update if uploadedBy == request.auth.uid).
   // Present on the Firestore doc; declared here for type-safe reads/writes.
   uploadedBy?: string;
+  // "Your track IDs are ready" email queue marker. Set to 'pending' by the admin
+  // metadata route the FIRST time track IDs are generated; the daily
+  // archive-track-ids-emails cron queries pending, emails the owner once, then
+  // stamps 'sent'. undefined = never flagged. Terminal against later edits.
+  trackIdsReadyEmailStatus?: 'pending' | 'sent';
+  trackIdsReadyEmailSentAt?: number; // ms — when the cron sent the email
 }
 
 // Serialized version for API responses (same as Archive since all fields are already serialized)

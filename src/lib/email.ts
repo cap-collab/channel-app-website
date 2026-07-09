@@ -1937,3 +1937,69 @@ export async function sendPostBroadcastEmail({
     return false;
   }
 }
+
+interface ArchiveTrackIdsEmailParams {
+  to: string;
+  djName: string;            // resolved first name, or "there" for a plain "Hi,"
+  profileSlug: string | null; // chatUsernameNormalized → /dj/<slug> ("View your show")
+  // The bold relationship paragraph HTML (already assembled by the caller): the
+  // "you played X by <DJ> … 🤍" line, or the fallback invite. URLs, if any, are
+  // left outside <strong> by the caller so links aren't bold.
+  relationshipHtml: string;
+  signInMethod?: string;     // → footer sign-in reminder
+  signInEmail?: string;
+}
+
+// Per-archive "your track IDs are ready" email, sent once by the daily
+// archive-track-ids-emails cron when a show's track IDs are first generated.
+// Simpler than the one-time launch blast; transactional (no marketing opt-out
+// gate — compliance via the List-Unsubscribe header).
+export async function sendArchiveTrackIdsEmail({
+  to,
+  djName,
+  profileSlug,
+  relationshipHtml,
+  signInMethod,
+  signInEmail,
+}: ArchiveTrackIdsEmailParams) {
+  if (!resend) {
+    console.warn("Email service not configured - skipping email");
+    return false;
+  }
+
+  const greeting = djName === "there" ? "Hi," : `Hi ${djName},`;
+  const profileUrl = profileSlug ? `https://channel-app.com/dj/${profileSlug}` : "https://channel-app.com";
+  const profileShort = profileSlug ? `channel-app.com/dj/${profileSlug}` : "channel-app.com";
+  const p = "margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #1a1a1a;";
+
+  const content = `
+    <p style="${p}">${greeting}</p>
+    <p style="${p}">I've generated track IDs for your latest show. You can review them, edit any track, add missing ones, or make individual tracks private from your Studio.</p>
+    <p style="${p}">View your show: <a href="${profileUrl}" style="color: #1a1a1a; text-decoration: underline;">${profileShort}</a></p>
+    <p style="${p}">Manage track IDs: <a href="https://channel-app.com/studio" style="color: #1a1a1a; text-decoration: underline;">channel-app.com/studio</a></p>
+    <p style="${p}">${relationshipHtml}</p>
+    <p style="${p}">Thanks,<br />Cap</p>
+  `;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM_EMAIL_DJ,
+      to,
+      subject: "Your track IDs are ready",
+      html: wrapEmailContent(
+        content,
+        "You're receiving this because you have a show on Channel." + signInReminderHtml(signInMethod, signInEmail),
+      ),
+      headers: getUnsubscribeHeaders("dj"),
+    });
+
+    if (error) {
+      console.error("Error sending archive track-IDs email:", error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Error sending archive track-IDs email:", error);
+    return false;
+  }
+}

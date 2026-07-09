@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { isTempo } from '@/lib/tempo';
+import { normalizeTrackIds } from '@/lib/track-ids';
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -131,6 +132,21 @@ export async function PATCH(request: NextRequest) {
           djs[body.djIndex].photoUrl = body.djPhotoUrl || null;
         }
         updates.djs = djs;
+      }
+    }
+
+    // Flag for the daily "your track IDs are ready" email ONLY the FIRST time
+    // track IDs are generated for this archive (i.e. it has never been flagged
+    // before). The `trackIdsReadyEmailStatus === undefined` gate is what makes
+    // this first-time-only: once the field exists ('pending' or 'sent'), no
+    // later edit — adding, changing, clearing, or re-adding tracks — re-sets it.
+    // A daily cron queries where(trackIdsReadyEmailStatus == 'pending') and
+    // emails the show owner once. Studio self-edits deliberately do NOT flag.
+    if (updates.trackIds !== undefined) {
+      const neverFlagged = archiveDoc.data()?.trackIdsReadyEmailStatus === undefined;
+      const nowHasTracks = normalizeTrackIds(updates.trackIds).length > 0;
+      if (neverFlagged && nowHasTracks) {
+        updates.trackIdsReadyEmailStatus = 'pending';
       }
     }
 

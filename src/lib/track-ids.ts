@@ -175,6 +175,47 @@ export function publicTrackIds(tracks: TrackId[]): TrackId[] {
   );
 }
 
+// Track text is stored "Artist – Track" (en-dash). Return the title (the part
+// after the dash); if there's no dash, return the whole string. Used to name a
+// played track in "you played <title> by <DJ>" copy.
+export function trackTitleFromText(text: string): string {
+  const idx = text.indexOf('–');
+  return idx >= 0 ? text.slice(idx + 1).trim() : text.trim();
+}
+
+// One "this archive played a track tagged to another Channel DJ" relationship:
+// the played track's title and the tagged DJ's display name. Private tracks are
+// excluded (their title must not appear in an email). Shared by the one-time
+// blast and the per-archive cron so both derive relationships identically.
+export interface PlayedTrackTag {
+  trackTitle: string;
+  djName: string;
+}
+
+/**
+ * From an archive's raw `trackIds`, produce the played-track relationships:
+ * each non-private track carrying a `djUsername` tag → { trackTitle, djName },
+ * where djName is resolved from the tag via `resolveDjName` (given the
+ * normalized handle — caller matches it to chatUsernameNormalized). A tag that
+ * resolves to null (no such Channel DJ) is dropped. `normalize` is the shared
+ * username normalizer (pass normalizeUsername from dj-matching).
+ */
+export function playedTrackTags(
+  rawTrackIds: unknown,
+  normalize: (name: string) => string,
+  resolveDjName: (normalizedHandle: string) => string | null,
+): PlayedTrackTag[] {
+  const out: PlayedTrackTag[] = [];
+  for (const t of normalizeTrackIds(rawTrackIds)) {
+    if (t.private) continue;
+    if (!t.djUsername) continue;
+    const djName = resolveDjName(normalize(t.djUsername));
+    if (!djName) continue;
+    out.push({ trackTitle: trackTitleFromText(t.text), djName });
+  }
+  return out;
+}
+
 // A Channel DJ candidate for auto-tagging: chatUsername (display/verbatim, what
 // we store on the tag) + normalized (already lowercased, non-alnum stripped).
 export interface DjCandidate {

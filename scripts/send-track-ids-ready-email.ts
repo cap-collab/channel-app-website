@@ -53,6 +53,7 @@ interface Target {
   displayName: string;  // chatUsername/name — how this DJ is named in others' block
   archiveCount: number; // # of their archives with track IDs (audit signal)
   profileSlug?: string; // recipient's own chatUsernameNormalized → /dj/<slug>
+  signInMethod?: string; // google | apple | password | emailLink → footer reminder
   // "someone played YOUR track": the DJs (name + profile slug) who played a
   // track tagged to this recipient. Combined into one paragraph.
   playedBy?: { name: string; slug?: string }[];
@@ -62,6 +63,47 @@ interface Target {
 }
 
 const HEART = '\u{1F90D}'; // 🤍
+
+// Sign-in reminder footer, ported from src/lib/email.ts signInReminderHtml so
+// the DJ is reminded how they log in (avoids duplicate-account confusion).
+// Returns "" for an unknown method. Apple omits the email (Hide-My-Email relay).
+function signInReminderHtml(method?: string, email?: string): string {
+  const at = 'at <a href="https://channel-app.com" style="color: #999; text-decoration: underline;">channel-app.com</a>';
+  let line: string;
+  switch (method) {
+    case 'google':
+      line = `You sign in with <strong>Google</strong>${email ? ` (${email})` : ''} ${at}.`;
+      break;
+    case 'apple':
+      line = `You sign in with <strong>Apple</strong> ${at}.`;
+      break;
+    case 'password':
+      line = `You sign in with your <strong>email &amp; password</strong>${email ? ` (${email})` : ''} ${at}.`;
+      break;
+    case 'emailLink':
+      line = `You sign in with a <strong>magic link</strong> — enter your email ${at} and we'll send it on that email address.`;
+      break;
+    default:
+      return '';
+  }
+  return line;
+}
+
+// Plain-text variant of the sign-in reminder.
+function signInReminderText(method?: string, email?: string): string {
+  switch (method) {
+    case 'google':
+      return `You sign in with Google${email ? ` (${email})` : ''} at channel-app.com.`;
+    case 'apple':
+      return 'You sign in with Apple at channel-app.com.';
+    case 'password':
+      return `You sign in with your email & password${email ? ` (${email})` : ''} at channel-app.com.`;
+    case 'emailLink':
+      return "You sign in with a magic link — enter your email at channel-app.com and we'll send it on that email address.";
+    default:
+      return '';
+  }
+}
 
 // Build the bold relationship paragraph (sits directly under the Studio line).
 // The prose is bold; any URL is left OUTSIDE the <strong> so links aren't bold.
@@ -154,6 +196,10 @@ function buildEmailHtml(t: Target): string {
     '',
     'Cap',
   ];
+  const footer = signInReminderHtml(t.signInMethod, t.email);
+  if (footer) {
+    lines.push('', `<span style="font-size: 13px; color: #999;">${footer}</span>`);
+  }
   return lines.join('\n').replace(/\n/g, '<br />\n');
 }
 
@@ -182,6 +228,8 @@ function buildEmailText(t: Target): string {
     '',
     'Cap',
   ];
+  const footer = signInReminderText(t.signInMethod, t.email);
+  if (footer) lines.push('', footer);
   return lines.join('\n');
 }
 
@@ -300,7 +348,8 @@ async function main() {
       const profileSlug = (d.chatUsernameNormalized && String(d.chatUsernameNormalized).trim())
         || (d.chatUsername ? normalizeUsername(String(d.chatUsername)) : undefined);
       const displayName = String(d.chatUsername || d.name || d.displayName || firstName);
-      targets.push({ uid, email, firstName, displayName, archiveCount: count, profileSlug: profileSlug || undefined });
+      const signInMethod = typeof d.signInMethod === 'string' ? d.signInMethod : undefined;
+      targets.push({ uid, email, firstName, displayName, archiveCount: count, profileSlug: profileSlug || undefined, signInMethod });
     }
   }
 
@@ -438,7 +487,7 @@ async function main() {
       sample = match;
       console.log(`Previewing ${previewAs}'s exact email (played-by=${match.playedBy?.length || 0}, you-played=${match.youPlayed?.length || 0})`);
     } else {
-      sample = { uid: 'preview', email: preview, firstName: 'Cap', displayName: 'Cap', archiveCount: 1, profileSlug: 'cap' };
+      sample = { uid: 'preview', email: preview, firstName: 'Cap', displayName: 'Cap', archiveCount: 1, profileSlug: 'cap', signInMethod: 'google' };
     }
     const { data, error } = await resend.emails.send({
       from: NEWSLETTER_FROM_EMAIL,
