@@ -170,6 +170,10 @@ service cloud.firestore {
     //   primary credited DJ of (djs[0].userId). This covers LIVE recordings,
     //   which carry no uploadedBy — the owner lives in djs[]. Scoped to
     //   trackIds so a DJ can't rewrite recordingUrl / priority / djs / etc.
+    // - Collective OWNERS can likewise edit ONLY trackIds on their collective's
+    //   archives (credited via djs[0].username == <collective slug>). We read
+    //   the editor's own user doc — ownedCollectiveSlugs, kept in sync by
+    //   /api/admin/collectives — so any owner of a multi-owner collective works.
     match /archives/{archiveId} {
       allow read: if true;
       allow update: if request.auth != null
@@ -183,6 +187,19 @@ service cloud.firestore {
             && resource.data.djs[0].userId == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['trackIds'])
+          )
+          // Collective owner: tracklist-only update on the collective's archives.
+          || (
+            resource.data.djs is list
+            && resource.data.djs.size() > 0
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['trackIds'])
+            && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid))
+                 .data.ownedCollectiveSlugs is list
+            && (resource.data.djs[0].username in
+                get(/databases/$(database)/documents/users/$(request.auth.uid))
+                  .data.ownedCollectiveSlugs)
           )
         );
       allow delete: if request.auth != null

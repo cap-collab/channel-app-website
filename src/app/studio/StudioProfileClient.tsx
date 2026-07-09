@@ -915,7 +915,14 @@ export function StudioProfileClient() {
       const slotIds = new Set<string>([...Array.from(archiveSlotIds), ...Array.from(liveSlotIds)]);
       // Deduplicate: only include studio-sessions that don't already have an archive
       const filteredSessions = sessionRecs.filter(r => !slotIds.has(r.id));
-      const merged = [...archiveRecs, ...liveRecs, ...filteredSessions];
+      // Dedup archives by id — a collective archive the user also uploaded can
+      // appear in BOTH archiveRecs (uploadedBy) and liveRecs (collective slug).
+      const seen = new Set<string>();
+      const merged = [...archiveRecs, ...liveRecs, ...filteredSessions].filter((r) => {
+        if (seen.has(r.id)) return false;
+        seen.add(r.id);
+        return true;
+      });
       merged.sort((a, b) => b.createdAt - a.createdAt);
       setRecordings(merged);
       setLoadingRecordings(false);
@@ -951,33 +958,55 @@ export function StudioProfileClient() {
       }
     );
 
-    // Query 1b: LIVE recordings. Live archives do NOT carry `uploadedBy` — the
-    // owner lives only in djs[].userId (not directly queryable in Firestore), so
-    // we mirror the DJ profile page: fetch live archives and filter by
-    // djs[].userId === uid in memory. One-shot getDocs (live archives are static
-    // once recorded; small collection). Skip admin-hidden (priority:'hidden').
-    getDocs(query(collection(db, "archives"), where("sourceType", "==", "live")))
-      .then((snapshot) => {
+    // Query 1b: LIVE recordings + COLLECTIVE archives. Neither is findable by a
+    // Firestore query on ownership: live archives carry no `uploadedBy` (owner in
+    // djs[].userId), and collective archives are credited by djs[0].username ===
+    // <collective slug>. Both are positional array fields, so we mirror the DJ
+    // profile page — fetch and filter in memory. The archives collection is
+    // small (~90 docs). Include an archive when:
+    //   (a) it's a LIVE recording the user is credited on (djs[].userId), OR
+    //   (b) it's credited to a collective the user owns (djs[0].username ∈ slugs),
+    //       whether that archive is live OR an uploaded recording.
+    // (Own UPLOADED recordings are already loaded realtime by Query 1.)
+    (async () => {
+      try {
+        // Resolve owned collective slugs (self-contained, race-free).
+        const ownedSlugs = new Set<string>();
+        try {
+          const ownedSnap = await getDocs(
+            query(collection(db, "collectives"), where("owners", "array-contains", user.uid))
+          );
+          ownedSnap.forEach((d) => {
+            const slug = d.data().slug;
+            if (typeof slug === "string") ownedSlugs.add(slug);
+          });
+        } catch (err) {
+          console.error("Error resolving owned collectives:", err);
+        }
+
+        const snapshot = await getDocs(
+          query(collection(db, "archives"), where("sourceType", "in", ["live", "recording"]))
+        );
         liveRecs = [];
         liveSlotIds = new Set();
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          const owned = (data.djs || []).some(
-            (dj: { userId?: string }) => dj.userId === user.uid
-          );
-          if (!owned) return;
+          const djs = (data.djs || []) as { userId?: string; username?: string }[];
+          const isOwnLive = data.sourceType === "live" && djs.some((dj) => dj.userId === user.uid);
+          const isOwnedCollective = ownedSlugs.size > 0 && typeof djs[0]?.username === "string"
+            && ownedSlugs.has(djs[0].username);
+          if (!isOwnLive && !isOwnedCollective) return;
           if (data.priority === 'hidden') return; // admin-hidden → keep out of studio
           if (data.broadcastSlotId) liveSlotIds.add(data.broadcastSlotId);
           liveRecs.push(toRecording(docSnap.id, data));
         });
+      } catch (err) {
+        console.error("Error loading live/collective recordings:", err);
+      } finally {
         liveLoaded = true;
         mergeAndSet();
-      })
-      .catch((err) => {
-        console.error("Error loading live recordings:", err);
-        liveLoaded = true;
-        mergeAndSet();
-      });
+      }
+    })();
 
     // Query 2: studio-sessions fallback (catches recordings without archive docs)
     const sessionsQ = query(

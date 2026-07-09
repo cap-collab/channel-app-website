@@ -102,6 +102,11 @@ export interface UserDocument {
   // unsubscribe link in every go-live email and by the /explore card "x"
   // remove action when removing an engagement-added card.
   goLiveMutes?: string[];
+  // Denormalized slugs of collectives this user owns (kept in sync by
+  // /api/admin/collectives on create/owner-set/delete). Canonical source read by
+  // the studio (show collective archives) and the firestore tracklist-edit rule
+  // (a collective owner may edit trackIds on their collective's archives).
+  ownedCollectiveSlugs?: string[];
   lastWatchlistEmailAt?: Date;
   lastDjOnlineEmailAt?: Record<string, number>; // { [djUserId]: timestamp }
   favoriteSceneIds?: string[]; // scene slugs the user has added to their scene watchlist

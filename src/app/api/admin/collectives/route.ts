@@ -10,6 +10,21 @@ import {
   cleanupDeletedCollectiveEvents,
 } from '@/lib/bidirectional-sync';
 
+// Keep users' denormalized `ownedCollectiveSlugs` in sync with a collective's
+// owners[]. This field is the canonical "collectives a user owns" source read by
+// the studio + the firestore tracklist-edit rule, so it MUST be updated on every
+// ownership mutation (create / owner-set / delete). `slug` is the collective's
+// stored slug (already lowercased; may be `-2` suffixed) — pass it verbatim.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function syncOwnedSlug(batch: any, db: any, uids: string[], slug: string, op: 'add' | 'remove') {
+  const value = op === 'add' ? FieldValue.arrayUnion(slug) : FieldValue.arrayRemove(slug);
+  for (const uid of uids) {
+    if (typeof uid === 'string' && uid.length > 0) {
+      batch.set(db.collection('users').doc(uid), { ownedCollectiveSlugs: value }, { merge: true });
+    }
+  }
+}
+
 async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string }> {
   try {
     const authHeader = request.headers.get('authorization');
@@ -114,6 +129,8 @@ export async function POST(request: NextRequest) {
     await syncCollectiveToCollectives(batch, db, docRef.id, name.trim(), slug, [], linkedCollectives || [], photo || null);
     await syncCollectiveToVenues(batch, db, docRef.id, name.trim(), slug, [], linkedVenues || [], photo || null);
     await syncCollectiveToEvents(batch, db, docRef.id, name.trim(), slug, [], linkedEvents || [], photo || null);
+    // Seed ownedCollectiveSlugs on each owner.
+    syncOwnedSlug(batch, db, cleanedOwners, slug, 'add');
     await batch.commit();
 
     return NextResponse.json({
@@ -186,6 +203,19 @@ export async function PATCH(request: NextRequest) {
     const selfName = (name !== undefined ? name : currentData.name) as string;
     const selfSlug = currentData.slug as string;
     const selfPhoto = (photo !== undefined ? photo : currentData.photo) as string | null;
+
+    // Owner diff → keep ownedCollectiveSlugs in sync. Owners are set wholesale,
+    // so compute added/removed and update each side. Slug is stable on PATCH.
+    if (owners !== undefined) {
+      const oldOwners: string[] = Array.isArray(currentData.owners) ? currentData.owners : [];
+      const newOwners = updateData.owners as string[];
+      const oldSet = new Set(oldOwners);
+      const newSet = new Set(newOwners);
+      const added = newOwners.filter((u) => !oldSet.has(u));
+      const removed = oldOwners.filter((u) => !newSet.has(u));
+      if (added.length) syncOwnedSlug(batch, db, added, selfSlug, 'add');
+      if (removed.length) syncOwnedSlug(batch, db, removed, selfSlug, 'remove');
+    }
 
     if (linkedCollectives !== undefined) {
       await syncCollectiveToCollectives(
@@ -268,6 +298,10 @@ export async function DELETE(request: NextRequest) {
       // Release the slug from the global usernames namespace.
       if (data.slug) {
         batch.delete(db.collection('usernames').doc(data.slug as string));
+      }
+      // Remove this collective's slug from every owner's ownedCollectiveSlugs.
+      if (data.slug && Array.isArray(data.owners)) {
+        syncOwnedSlug(batch, db, data.owners as string[], data.slug as string, 'remove');
       }
     }
 
