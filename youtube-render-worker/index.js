@@ -1117,6 +1117,31 @@ function groupWordsIntoCaptions(words) {
   return lines;
 }
 
+// Sample a loudness waveform (N bars, 0..1) from a decoded wav. Loops N windows,
+// reads each window's mean_volume (dB) via volumedetect, then self-normalizes to
+// the tape's own min→max scaled into 0.15..1.0 (quietest bar keeps a visible
+// stub). Absolute dB mapping looks flat; self-normalization gives real dynamics.
+// Matches the recipe validated in the local backfill. Returns [] on failure.
+const WAVEFORM_BARS = 80;
+function sampleWaveform(wavPath, durationSec, N = WAVEFORM_BARS) {
+  if (!durationSec || durationSec <= 0) return [];
+  const win = durationSec / N;
+  const raw = [];
+  for (let i = 0; i < N; i++) {
+    const ss = (i * win).toFixed(3);
+    const out = execSync(
+      `ffmpeg -hide_banner -nostats -ss ${ss} -t ${win.toFixed(3)} -i "${wavPath}" -af "volumedetect" -f null - 2>&1`,
+      { encoding: 'utf-8' },
+    );
+    const m = out.match(/mean_volume:\s*(-?\d+\.?\d*)\s*dB/);
+    raw.push(m ? parseFloat(m[1]) : -60);
+  }
+  const lo = Math.min(...raw);
+  const hi = Math.max(...raw);
+  if (hi - lo < 1e-6) return raw.map(() => 0.6);
+  return raw.map((x) => Math.round((0.15 + 0.85 * (x - lo) / (hi - lo)) * 1000) / 1000);
+}
+
 app.post('/transcribe', authenticate, async (req, res) => {
   const { audioUrl, callbackUrl, callbackContext } = req.body || {};
   if (!audioUrl) return res.status(400).json({ error: 'audioUrl required' });
@@ -1193,9 +1218,18 @@ app.post('/transcribe', authenticate, async (req, res) => {
     );
     const durationSec = parseFloat(durProbe.trim()) || 0;
 
+    // Loudness waveform for the /tape player bar. Never fail the transcribe over
+    // it — captions are the point; the waveform is a bonus (null on failure).
+    let waveform = [];
+    try {
+      waveform = sampleWaveform(tmpWav, durationSec);
+    } catch (wfErr) {
+      console.error('[transcribe] waveform sampling failed (non-fatal):', wfErr?.message || wfErr);
+    }
+
     cleanup();
-    console.log(`[transcribe] Done: ${captions.length} caption lines, ${transcript.length} chars`);
-    respond(200, { success: true, transcript, captions, model: WHISPER_MODEL_NAME, durationSec });
+    console.log(`[transcribe] Done: ${captions.length} caption lines, ${transcript.length} chars, ${waveform.length} waveform bars`);
+    respond(200, { success: true, transcript, captions, waveform, model: WHISPER_MODEL_NAME, durationSec });
   } catch (err) {
     cleanup();
     console.error('[transcribe] Failed:', err?.message || err);

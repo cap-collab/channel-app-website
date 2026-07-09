@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
     error?: string;
     transcript?: string;
     captions?: FieldNoteCaption[];
+    waveform?: number[];
     model?: string;
     callbackContext?: { noteId?: string };
   };
@@ -54,10 +55,12 @@ export async function POST(request: NextRequest) {
 
   const transcript = (body.transcript || '').trim();
   const captions = Array.isArray(body.captions) ? body.captions : [];
+  const waveform = Array.isArray(body.waveform) ? body.waveform : [];
 
   await ref.update({
     transcript: transcript || null,
     captions: captions.length ? captions : null,
+    waveform: waveform.length ? waveform : null,
     transcribedAt: Date.now(),
     transcriptModel: body.model || null,
     transcribeStatus: 'done',
