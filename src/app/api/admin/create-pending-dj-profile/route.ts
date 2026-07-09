@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { cleanupFavoritesForPendingDJ } from '@/lib/favorites-cleanup';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 // Check if user is admin/broadcaster
 async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin: boolean; userId?: string }> {
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const normalizedUsername = trimmedUsername.replace(/\s+/g, '').toLowerCase();
+    const normalizedUsername = normalizeUsername(trimmedUsername);
 
     // Check email uniqueness (only if email is provided)
     if (normalizedEmail) {
@@ -221,8 +222,7 @@ export async function POST(request: NextRequest) {
 
       for (const doc of watchlistSnapshot.docs) {
         const data = doc.data();
-        const term = (data.term || '').toLowerCase();
-        const termNormalized = term.replace(/[\s-]+/g, '');
+        const termNormalized = normalizeUsername(data.term || '');
 
         // Check if this watchlist term matches the new DJ's username
         if (termNormalized === normalizedUsername && !data.djUsername) {

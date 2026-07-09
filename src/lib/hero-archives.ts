@@ -1,6 +1,7 @@
 import { getAdminDb } from '@/lib/firebase-admin';
 import { findCurrentItemInLoop, LOOP_COLLECTION } from '@/lib/archive-schedule';
 import { ArchiveSerialized, ArchiveRadioLoop, ScheduleItem } from '@/types/broadcast';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 const MIN_DURATION_SECONDS = 2700; // 45 minutes
 const PER_SCENE_LIMIT = 5; // last 5 high-priority archives per scene
@@ -32,7 +33,7 @@ function resolveScenes(
       if (s) for (const id of s) out.add(id);
     }
     if (dj.username) {
-      const s = byUsername.get(dj.username.toLowerCase().replace(/\s+/g, ''));
+      const s = byUsername.get(normalizeUsername(dj.username));
       if (s) for (const id of s) out.add(id);
     }
   }
@@ -123,7 +124,7 @@ export async function getHeroArchives(): Promise<HeroSeed> {
         typeof data?.chatUsernameNormalized === 'string'
           ? data.chatUsernameNormalized
           : typeof data?.chatUsername === 'string'
-            ? data.chatUsername.toLowerCase().replace(/\s+/g, '')
+            ? normalizeUsername(data.chatUsername)
             : null;
       if (normalized) byUsername.set(normalized, sceneIds);
     });

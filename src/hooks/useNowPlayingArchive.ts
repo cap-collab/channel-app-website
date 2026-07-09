@@ -4,6 +4,7 @@ import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 import type { ArchiveSerialized } from '@/types/broadcast';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 export interface NowPlayingArchive {
   // The archive the listener is ACTIVELY hearing (archive player or radio
@@ -47,7 +48,10 @@ export function useNowPlayingArchive(): NowPlayingArchive {
     archive = archivePlayer.currentArchive || radioCtx?.currentArchive || null;
   }
 
-  const djRoom = archive?.djs?.[0]?.username?.replace(/\s+/g, '').toLowerCase() || '';
+  // Chat room = canonical normalizeUsername of the DJ (matches the room keyed by
+  // chatUsernameNormalized in useDJProfileChat), so tracklist/system messages land
+  // in the right room even for dotted names.
+  const djRoom = archive?.djs?.[0]?.username ? normalizeUsername(archive.djs[0].username) : '';
 
   return { archive, isLive: isLivePlaying, djRoom };
 }

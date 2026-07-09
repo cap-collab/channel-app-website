@@ -3,6 +3,7 @@
 // campaign should import from here — not duplicate logic in the route.
 
 import { getCityFromTimezone } from "@/lib/city-detection";
+import { normalizeUsername } from "@/lib/dj-matching";
 
 export type Cohort = "dj" | "listener";
 export type Recipient = {
@@ -240,7 +241,7 @@ function resolveDjUsername(data: FirebaseFirestore.DocumentData): string | undef
   if (normalized) return normalized;
   const raw = typeof data.chatUsername === "string" ? data.chatUsername.trim() : "";
   if (!raw) return undefined;
-  return raw.replace(/[\s-]+/g, "").toLowerCase();
+  return normalizeUsername(raw);
 }
 
 export async function getDjRecipients(db: FirebaseFirestore.Firestore): Promise<Recipient[]> {

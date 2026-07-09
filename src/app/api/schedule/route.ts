@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAllShows } from "@/lib/metadata";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { normalizeUsername } from "@/lib/dj-matching";
 import { Show, IRLShowData, CuratorRec, DJProfile } from "@/types";
 
 // Must be dynamic since it uses Firebase Admin SDK at runtime
@@ -100,7 +101,9 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
     if (show.djUsername && show.stationId !== "broadcast") {
       // Skip blocked username+station combos
       if (!isProfileMatchBlocked(blocked, show.djUsername, show.stationId)) {
-        djUsernames.add(show.djUsername);
+        // Canonical form so the chatUsernameNormalized query below matches
+        // stored values even for dotted/hyphenated usernames.
+        djUsernames.add(normalizeUsername(show.djUsername));
       }
     }
   });
@@ -190,7 +193,7 @@ async function enrichShowsWithDJProfiles(shows: Show[]): Promise<Show[]> {
   return shows.map((show) => {
     if (show.djUsername && show.stationId !== "broadcast" &&
         !isProfileMatchBlocked(blocked, show.djUsername, show.stationId)) {
-      const profile = profiles[show.djUsername];
+      const profile = profiles[normalizeUsername(show.djUsername)];
       if (profile) {
         return {
           ...show,
@@ -394,7 +397,7 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
   const now2 = Date.now();
   const djUsernamesToCheck = new Set<string>();
   for (const show of irlShows) {
-    if (show.djUsername) djUsernamesToCheck.add(show.djUsername.toLowerCase());
+    if (show.djUsername) djUsernamesToCheck.add(normalizeUsername(show.djUsername));
   }
 
   const channelUserMap = new Map<string, boolean>();
@@ -429,7 +432,7 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
 
   for (const show of irlShows) {
     if (show.djUsername) {
-      show.isChannelUser = channelUserMap.get(show.djUsername.toLowerCase()) ?? false;
+      show.isChannelUser = channelUserMap.get(normalizeUsername(show.djUsername)) ?? false;
     }
   }
 
@@ -458,7 +461,7 @@ function extractDJRadioShows(djUserDocs: FirestoreDoc[]): Show[] {
 
       const showNameSlug = (show.name || "").replace(/\s+/g, "-").toLowerCase().slice(0, 20);
       const radioNameSlug = (show.radioName || "radio").replace(/\s+/g, "-").toLowerCase();
-      const showId = `dj-radio-${chatUsername?.replace(/\s+/g, "").toLowerCase()}-${show.date}-${radioNameSlug}-${showNameSlug}`;
+      const showId = `dj-radio-${chatUsername ? normalizeUsername(chatUsername) : ""}-${show.date}-${radioNameSlug}-${showNameSlug}`;
 
       const timezone = show.timezone || "America/Los_Angeles";
       const timeStr = show.time || "12:00";
@@ -489,7 +492,7 @@ function extractDJRadioShows(djUserDocs: FirestoreDoc[]): Show[] {
         endTime,
         stationId: "dj-radio",
         externalRadioName: show.radioName || undefined,
-        djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase(),
+        djUsername: chatUsername ? normalizeUsername(chatUsername) : undefined,
         djPhotoUrl: djProfile.photoUrl || undefined,
         djLocation: djProfile.location || undefined,
         djGenres: djProfile.genres || undefined,
@@ -533,7 +536,7 @@ async function extractPendingDJRadioShows(): Promise<Show[]> {
 
         const showNameSlug = (show.name || "").replace(/\s+/g, "-").toLowerCase().slice(0, 20);
         const radioNameSlug = (show.radioName || "radio").replace(/\s+/g, "-").toLowerCase();
-        const usernameSlug = chatUsername?.replace(/\s+/g, "").toLowerCase() || "pending";
+        const usernameSlug = (chatUsername ? normalizeUsername(chatUsername) : "") || "pending";
         const showId = `dj-radio-pending-${usernameSlug}-${show.date}-${radioNameSlug}-${showNameSlug}`;
 
         const timezone = show.timezone || "America/Los_Angeles";
@@ -635,7 +638,7 @@ async function extractCuratorRecs(djUserDocs: FirestoreDoc[]): Promise<CuratorRe
 
     if (!chatUsername || !djProfile?.myRecs) continue;
 
-    const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
+    const djUsername = normalizeUsername(chatUsername);
     const djName = djProfile.djName || chatUsername;
     const djPhotoUrl = djProfile.photoUrl || undefined;
 
@@ -709,7 +712,7 @@ async function extractDJProfiles(djUserDocs: FirestoreDoc[]): Promise<DJProfile[
     const djProfile = data?.djProfile as Record<string, unknown> | undefined;
     const chatUsername = data?.chatUsername as string | undefined;
     if (!chatUsername || !djProfile) continue;
-    const username = chatUsername.replace(/\s+/g, "").toLowerCase();
+    const username = normalizeUsername(chatUsername);
     const genres = djProfile.genres as string[] | undefined;
     if (!genres || genres.length === 0) continue;
     seenUsernames.add(username);
@@ -742,7 +745,7 @@ async function extractDJProfiles(djUserDocs: FirestoreDoc[]): Promise<DJProfile[
         const djProfile = data?.djProfile as Record<string, unknown> | undefined;
         const chatUsername = (data?.chatUsername as string) || (data?.djName as string);
         if (!chatUsername || !djProfile) continue;
-        const username = chatUsername.replace(/\s+/g, "").toLowerCase();
+        const username = normalizeUsername(chatUsername);
         if (seenUsernames.has(username)) continue;
         const genres = djProfile.genres as string[] | undefined;
         if (!genres || genres.length === 0) continue;

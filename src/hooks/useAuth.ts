@@ -17,17 +17,20 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, googleProvider, appleProvider } from "@/lib/firebase";
 import { getDefaultCity } from "@/lib/city-detection";
+import { normalizeUsername } from "@/lib/dj-matching";
 
 const EMAIL_FOR_SIGN_IN_KEY = "emailForSignIn";
 const NOTIFICATIONS_PREF_KEY = "notificationsPref";
 
 // chatUsername and chatUsernameNormalized must always be written together —
 // /dj/<username> looks up by chatUsernameNormalized, so a user with one but not
-// the other is unreachable. Mirrors the normalization in src/app/dj/[username]/page.tsx.
+// the other is unreachable. Uses the shared canonical normalizeUsername (strips
+// ALL non-alphanumerics incl dots) — the SAME rule page.tsx / register-username
+// resolve with, so a dotted name like "B. Rod" stores + resolves as "brod".
 function chatUsernameFields(name: string) {
   return {
     chatUsername: name,
-    chatUsernameNormalized: name.replace(/[\s-]+/g, "").toLowerCase(),
+    chatUsernameNormalized: normalizeUsername(name),
   };
 }
 

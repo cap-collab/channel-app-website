@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     const djSelf: Record<string, string> = {
       djName: chatUsername || 'Unknown',
       djUserId: userId,
-      djUsername: chatUsernameNormalized || chatUsername?.replace(/\s+/g, '').toLowerCase() || '',
+      djUsername: chatUsernameNormalized || (chatUsername ? generateSlug(chatUsername) : ''),
     };
     if (djPhotoUrl) djSelf.djPhotoUrl = djPhotoUrl;
 

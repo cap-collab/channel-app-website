@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { normalizeUsername } from "@/lib/dj-matching";
 
 // Valid chatUsername: letters, numbers, and spaces only (same as register-username)
 function isValidChatUsername(name: string): boolean {
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
       // Fix missing chatUsernameNormalized first (needed for everything else)
       if (!chatUsernameNormalized) {
         if (chatUsername) {
-          chatUsernameNormalized = chatUsername.replace(/\s+/g, "").toLowerCase();
+          chatUsernameNormalized = normalizeUsername(chatUsername);
         } else {
           chatUsernameNormalized = doc.id;
         }

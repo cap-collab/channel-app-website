@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 // POST - Mark an email as pending DJ role assignment
 // Called when someone submits a DJ application without being logged in
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
           updateData.chatUsername = pendingData.chatUsername;
           updateData.chatUsernameNormalized =
             pendingData.chatUsernameNormalized ||
-            pendingData.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
+            normalizeUsername(pendingData.chatUsername);
         }
         if (pendingData.djProfile) {
           updateData.djProfile = pendingData.djProfile;
@@ -144,8 +145,7 @@ export async function POST(request: NextRequest) {
 
           for (const watchDoc of watchlistSnapshot.docs) {
             const watchData = watchDoc.data();
-            const term = (watchData.term || '').toLowerCase();
-            const termNormalized = term.replace(/[\s-]+/g, '');
+            const termNormalized = normalizeUsername(watchData.term || '');
 
             // Check if this watchlist term matches the new DJ's username
             if (termNormalized === normalizedUsername && !watchData.djUsername) {

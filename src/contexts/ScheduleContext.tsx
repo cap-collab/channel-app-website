@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { collection, query, where, orderBy, getDocs, doc, getDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { normalizeUsername } from "@/lib/dj-matching";
 import { Show, IRLShowData, CuratorRec, DJProfile } from "@/types";
 
 interface ScheduleContextType {
@@ -128,7 +129,7 @@ async function enrichBroadcastShowsClient(shows: Show[]): Promise<Show[]> {
     const djProfile = data.djProfile as Record<string, unknown> | undefined;
     return {
       photoUrl: djProfile?.photoUrl as string | undefined,
-      username: (data.chatUsername as string)?.replace(/\s+/g, "").toLowerCase(),
+      username: data.chatUsername ? normalizeUsername(data.chatUsername as string) : undefined,
       userId: userDoc.id,
       location: djProfile?.location as string | undefined,
       genres: djProfile?.genres as string[] | undefined,
@@ -165,7 +166,7 @@ async function enrichBroadcastShowsClient(shows: Show[]): Promise<Show[]> {
   const namesToFetch: string[] = [];
   for (const show of broadcastShows) {
     if (!show.djUserId && show.dj) {
-      const normalized = show.dj.toLowerCase();
+      const normalized = normalizeUsername(show.dj);
       if (!profileByName.has(normalized)) namesToFetch.push(show.dj);
     }
   }
@@ -198,7 +199,7 @@ async function enrichBroadcastShowsClient(shows: Show[]): Promise<Show[]> {
   const stillMissing: string[] = [];
   for (const show of broadcastShows) {
     if (!show.djUserId && show.dj) {
-      const normalized = show.dj.toLowerCase();
+      const normalized = normalizeUsername(show.dj);
       if (!profileByName.has(normalized)) stillMissing.push(show.dj);
     }
   }
@@ -206,7 +207,7 @@ async function enrichBroadcastShowsClient(shows: Show[]): Promise<Show[]> {
     await Promise.all(
       stillMissing.map(async (djName) => {
         try {
-          const normalized = djName.replace(/[\s-]+/g, "").toLowerCase();
+          const normalized = normalizeUsername(djName);
           const q = query(
             collection(db!, "pending-dj-profiles"),
             where("chatUsernameNormalized", "==", normalized)
@@ -215,7 +216,7 @@ async function enrichBroadcastShowsClient(shows: Show[]): Promise<Show[]> {
           snapshot.forEach((pendingDoc) => {
             const profile = buildProfile({ id: pendingDoc.id, data: () => pendingDoc.data() });
             if (profile) {
-              profileByName.set(djName.toLowerCase(), profile);
+              profileByName.set(normalizeUsername(djName), profile);
             }
           });
         } catch {
@@ -230,7 +231,7 @@ async function enrichBroadcastShowsClient(shows: Show[]): Promise<Show[]> {
   for (const show of shows) {
     if (show.stationId !== "broadcast") continue;
     const profile = (show.djUserId && profileByUserId.get(show.djUserId)) ||
-                    (show.dj && profileByName.get(show.dj.toLowerCase()));
+                    (show.dj && profileByName.get(normalizeUsername(show.dj)));
     if (profile) {
       if (!show.djPhotoUrl && profile.photoUrl) show.djPhotoUrl = profile.photoUrl;
       if (!show.djUsername && profile.username) show.djUsername = profile.username;

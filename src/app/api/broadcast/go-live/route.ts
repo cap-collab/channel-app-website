@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
       if (!slotDjProfile) {
         const candidateUsername = currentDjSlot?.djUsername || (djUsername && djUsername.trim()) || null;
         if (candidateUsername) {
-          const normalized = candidateUsername.toString().replace(/\s+/g, '').toLowerCase();
+          const normalized = generateSlug(candidateUsername.toString());
           const byUsernameSnap = await db.collection('users')
             .where('chatUsernameNormalized', '==', normalized)
             .limit(1)
@@ -165,11 +165,9 @@ export async function POST(request: NextRequest) {
             } else {
               // Final fallback: collective by slug. Build a synthetic profile
               // blob so the live broadcast carries the collective's bio/photo.
-              // Slugs strip ALL non-alphanumerics (generateSlug), so re-slug the
-              // candidate — `normalized` above keeps dots and would miss a
-              // collective like "B. Rod b2b David L" (slug "brodb2bdavidl").
+              // `normalized` is already the canonical slug form (generateSlug).
               const byCollectiveSnap = await db.collection('collectives')
-                .where('slug', '==', generateSlug(candidateUsername.toString()))
+                .where('slug', '==', normalized)
                 .limit(1)
                 .get();
               if (!byCollectiveSnap.empty) {
@@ -319,7 +317,7 @@ export async function POST(request: NextRequest) {
       if (!userProfileData) {
         const candidateUsername = currentDjSlot?.djUsername || (djUsername && djUsername.trim()) || null;
         if (candidateUsername) {
-          const normalized = candidateUsername.toString().replace(/\s+/g, '').toLowerCase();
+          const normalized = generateSlug(candidateUsername.toString());
           const byUsernameSnap = await db.collection('users')
             .where('chatUsernameNormalized', '==', normalized)
             .limit(1)
@@ -337,11 +335,10 @@ export async function POST(request: NextRequest) {
               userProfileData = pendingByUsernameSnap.docs[0].data();
               console.log('[go-live] Guest: resolved DJ by chatUsername (pending):', { candidateUsername });
             } else {
-              // Final fallback: collective by slug. Re-slug the candidate
-              // (generateSlug strips ALL non-alphanumerics) — `normalized` keeps
-              // dots and would miss e.g. "B. Rod b2b David L" (slug "brodb2bdavidl").
+              // Final fallback: collective by slug. `normalized` is already the
+              // canonical slug form (generateSlug).
               const collectiveSnap = await db.collection('collectives')
-                .where('slug', '==', generateSlug(candidateUsername.toString()))
+                .where('slug', '==', normalized)
                 .limit(1)
                 .get();
               if (!collectiveSnap.empty) {

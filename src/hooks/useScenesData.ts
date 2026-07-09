@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { normalizeUsername } from '@/lib/dj-matching';
 import type { SceneSerialized } from '@/types/scenes';
 
 // Client-side scene data: the list of scenes + a map of DJ keys (userId AND
@@ -58,7 +59,7 @@ export function useScenesData() {
             typeof data?.chatUsernameNormalized === 'string'
               ? data.chatUsernameNormalized
               : typeof data?.chatUsername === 'string'
-                ? data.chatUsername.toLowerCase().replace(/\s+/g, '')
+                ? normalizeUsername(data.chatUsername)
                 : null;
           if (normalized) byUsername.set(normalized, sceneIds);
         });
@@ -97,7 +98,7 @@ export function resolveArchiveScenes(
       if (s) for (const id of s) out.add(id);
     }
     if (dj.username) {
-      const s = djSceneMap.byUsername.get(dj.username.toLowerCase().replace(/\s+/g, ''));
+      const s = djSceneMap.byUsername.get(normalizeUsername(dj.username));
       if (s) for (const id of s) out.add(id);
     }
   }

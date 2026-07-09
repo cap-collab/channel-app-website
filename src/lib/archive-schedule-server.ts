@@ -20,6 +20,7 @@ import type {
   Interstitial,
   ScheduleItem,
 } from '@/types/broadcast';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 export interface RunArgs {
   dateId: string;
@@ -68,7 +69,7 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
         typeof data?.chatUsernameNormalized === 'string'
           ? data.chatUsernameNormalized
           : typeof data?.chatUsername === 'string'
-            ? data.chatUsername.toLowerCase().replace(/\s+/g, '')
+            ? normalizeUsername(data.chatUsername)
             : null;
       if (normalized) sceneByUsername.set(normalized, sceneIds);
     }
@@ -120,7 +121,7 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
           if (ids) ids.forEach((id) => set.add(id));
         }
         if (dj.username) {
-          const key = dj.username.toLowerCase().replace(/\s+/g, '');
+          const key = normalizeUsername(dj.username);
           const ids = sceneByUsername.get(key);
           if (ids) ids.forEach((id) => set.add(id));
         }
@@ -258,7 +259,7 @@ async function loadSceneMaps(db: FirebaseFirestore.Firestore): Promise<{
         typeof data?.chatUsernameNormalized === 'string'
           ? data.chatUsernameNormalized
           : typeof data?.chatUsername === 'string'
-            ? data.chatUsername.toLowerCase().replace(/\s+/g, '')
+            ? normalizeUsername(data.chatUsername)
             : null;
       if (normalized) sceneByUsername.set(normalized, sceneIds);
     }
@@ -318,7 +319,7 @@ function mapArchiveDoc(
         if (ids) ids.forEach((sid) => set.add(sid));
       }
       if (dj.username) {
-        const key = dj.username.toLowerCase().replace(/\s+/g, '');
+        const key = normalizeUsername(dj.username);
         const ids = scenes.sceneByUsername.get(key);
         if (ids) ids.forEach((sid) => set.add(sid));
       }

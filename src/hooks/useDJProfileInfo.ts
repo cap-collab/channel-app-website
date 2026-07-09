@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 interface DJProfileInfo {
   genres: string[];
@@ -40,7 +41,7 @@ export function useDJProfileInfo(username: string | undefined): DJProfileInfo {
     async function fetchProfile() {
       setLoading(true);
       try {
-        const normalized = decodeURIComponent(username!).replace(/[\s-]+/g, '').toLowerCase();
+        const normalized = normalizeUsername(decodeURIComponent(username!));
 
         // Check users collection first (preferred, Studio writes here)
         const usersRef = collection(db!, 'users');

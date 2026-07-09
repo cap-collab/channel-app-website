@@ -11,7 +11,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ found: false });
   }
 
-  const normalized = name.replace(/[\s-]+/g, '').toLowerCase();
+  // Canonical form (strips ALL non-alphanumerics incl dots) — same rule
+  // chatUsernameNormalized and collective slugs are written with.
+  const normalized = generateSlug(name);
   if (!normalized) {
     return NextResponse.json({ found: false });
   }
@@ -88,13 +90,9 @@ export async function GET(request: NextRequest) {
     // 3. Final fallback: collective by slug. Collectives share the namespace
     //    so an admin typing "pollensource" in the slot's DJ Name field
     //    resolves to the collective's identity (acts as a DJ everywhere).
-    //    Collective slugs are generated with generateSlug (strips ALL
-    //    non-alphanumerics, incl. periods), whereas `normalized` above keeps
-    //    dots — so a name like "B. Rod b2b David L" must be re-slugged here or
-    //    it never matches its stored slug "brodb2bdavidl".
-    const collectiveSlug = generateSlug(name);
+    //    `normalized` is already the canonical slug form (generateSlug).
     const collectivesSnapshot = await db.collection('collectives')
-      .where('slug', '==', collectiveSlug)
+      .where('slug', '==', normalized)
       .limit(1)
       .get();
 

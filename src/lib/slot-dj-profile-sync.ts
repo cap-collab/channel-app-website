@@ -1,8 +1,5 @@
 import type { Firestore, DocumentData } from 'firebase-admin/firestore';
-
-function normalizeName(name: string): string {
-  return name.replace(/[\s-]+/g, '').toLowerCase();
-}
+import { normalizeUsername } from '@/lib/dj-matching';
 
 type DJProfileSource = {
   djUserId: string | null;
@@ -65,7 +62,7 @@ async function resolveDJProfile(db: Firestore, slot: DocumentData): Promise<DJPr
   }
 
   if (djName) {
-    const normalized = normalizeName(djName);
+    const normalized = normalizeUsername(djName);
     if (normalized) {
       const userSnap = await db
         .collection('users')

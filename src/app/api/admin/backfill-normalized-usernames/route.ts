@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 // POST - Backfill chatUsernameNormalized for all existing users
 export async function POST() {
@@ -28,8 +29,9 @@ export async function POST() {
         continue;
       }
 
-      // Normalize: remove spaces, lowercase
-      const normalized = chatUsername.replace(/\s+/g, '').toLowerCase();
+      // Canonical normalization (strips ALL non-alphanumerics incl dots) — same
+      // rule /dj/<username> resolves with, so backfilled values stay reachable.
+      const normalized = normalizeUsername(chatUsername);
 
       // Only update if not already set or different
       if (data.chatUsernameNormalized !== normalized) {

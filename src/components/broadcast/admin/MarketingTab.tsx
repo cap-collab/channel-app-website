@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 import { ShareableShowCardStory } from '@/components/studio/ShareableShowCardStory';
@@ -43,9 +44,9 @@ type SlotInstagramCache = Record<string, Record<string, string>>;
 // Per-slot collective info, keyed by slot id. Absent = not a collective (or unresolved).
 type CollectiveInfoCache = Record<string, CollectiveInfo>;
 
-function normalizeName(name: string): string {
-  return name.replace(/[\s-]+/g, '').toLowerCase();
-}
+// Canonical username/slug normalization (strips ALL non-alphanumerics incl
+// dots) — shared rule so slot djName → collective-slug matching is consistent.
+const normalizeName = normalizeUsername;
 
 // Returns [{ djName, handle }] for each DJ in the slot, preferring slot-level djSocialLinks.
 // For collective shows, the rows are the collective's own IG plus each owner's

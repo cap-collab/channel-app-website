@@ -14,6 +14,7 @@
 import type { Firestore } from "firebase-admin/firestore";
 import type { IRLShowData } from "@/types";
 import { matchesCity } from "@/lib/city-detection";
+import { normalizeForLookup } from "@/lib/go-live-matching";
 
 export interface ComingUpRow extends IRLShowData {
   reason: string; // "New · {dj}" | "{dj} · {city}" | "In {city}"
@@ -23,7 +24,10 @@ export interface ComingUpRow extends IRLShowData {
   collectiveSlug?: string; // IRL: event's collective, for a /dj/<slug> link
 }
 
-const normUser = (u?: string) => (u ? u.replace(/[\s-]+/g, "").toLowerCase() : "");
+// Canonical username normalization (strips ALL non-alphanumerics incl dots),
+// shared with the sets this module compares against (engagedDjUsernames,
+// goLiveMutes are keyed by normalizeForLookup).
+const normUser = (u?: string) => (u ? normalizeForLookup(u) : "");
 
 function slotStartMs(value: unknown): number | undefined {
   if (typeof value === "number") return value;

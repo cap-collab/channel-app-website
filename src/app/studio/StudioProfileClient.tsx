@@ -978,7 +978,7 @@ export function StudioProfileClient() {
           );
           ownedSnap.forEach((d) => {
             const slug = d.data().slug;
-            if (typeof slug === "string") ownedSlugs.add(slug);
+            if (typeof slug === "string") ownedSlugs.add(normalizeUsername(slug));
           });
         } catch (err) {
           console.error("Error resolving owned collectives:", err);
@@ -993,8 +993,9 @@ export function StudioProfileClient() {
           const data = docSnap.data();
           const djs = (data.djs || []) as { userId?: string; username?: string }[];
           const isOwnLive = data.sourceType === "live" && djs.some((dj) => dj.userId === user.uid);
-          const isOwnedCollective = ownedSlugs.size > 0 && typeof djs[0]?.username === "string"
-            && ownedSlugs.has(djs[0].username);
+          const isOwnedCollective = ownedSlugs.size > 0 && djs.some(
+            (dj) => typeof dj.username === "string" && ownedSlugs.has(normalizeUsername(dj.username))
+          );
           if (!isOwnLive && !isOwnedCollective) return;
           if (data.priority === 'hidden') return; // admin-hidden → keep out of studio
           if (data.broadcastSlotId) liveSlotIds.add(data.broadcastSlotId);

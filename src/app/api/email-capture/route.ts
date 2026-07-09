@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 interface EmailCaptureRequest {
   email: string;
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
     await pendingRemindersRef.add({
       email: normalizedEmail,
       djName,
-      djNameNormalized: djName.toLowerCase().replace(/[\s-]+/g, ''),
+      djNameNormalized: normalizeUsername(djName),
       showName,
       showTime,
       djUserId: djUserId || null,

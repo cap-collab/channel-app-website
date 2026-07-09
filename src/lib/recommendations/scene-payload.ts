@@ -19,6 +19,7 @@ import { fetchComingUp, type ComingUpRow } from "./coming-up";
 import { getCityFromTimezone } from "@/lib/city-detection";
 import type { SnapshotSection, RecommendationSnapshot } from "./types";
 import { isListenerVisibleArchive } from "@/lib/archive-priority";
+import { normalizeForLookup } from "@/lib/go-live-matching";
 
 export interface RecBand {
   glyphSlug?: string;
@@ -46,7 +47,9 @@ const SECTION_TITLE: Record<string, string> = {
   discovery: "In Your Scene",
 };
 
-const normU = (u: string) => u.replace(/[\s-]+/g, "").toLowerCase();
+// Canonical username normalization (strips ALL non-alphanumerics incl dots),
+// shared with the archive DJ keys + mute sets this module compares against.
+const normU = (u: string) => normalizeForLookup(u);
 
 export async function buildScenePayload(
   db: Firestore,
@@ -169,13 +172,14 @@ export async function buildScenePayload(
   }
 
   // Owned-collective archives: an archive credits a collective under
-  // djs[].username === <slug> (slug compared lowercased, hyphens preserved — same
-  // rule as the DJ profile page). Firestore can't array-contains on an array of
-  // objects, so scan the archives collection once and match in memory.
+  // djs[].username === <slug>. Both sides normalized with the canonical
+  // normU (= normalizeForLookup), the same rule as the DJ profile page.
+  // Firestore can't array-contains on an array of objects, so scan the
+  // archives collection once and match in memory.
   const ownedCollectiveSlugs = new Set<string>();
   for (const d of ownedCollectivesSnap.docs) {
     const slug = d.data().slug;
-    if (typeof slug === "string" && slug.length > 0) ownedCollectiveSlugs.add(slug.toLowerCase());
+    if (typeof slug === "string" && slug.length > 0) ownedCollectiveSlugs.add(normU(slug));
   }
   const collectiveArchiveIds = new Set<string>();
   if (ownedCollectiveSlugs.size > 0) {
@@ -183,7 +187,7 @@ export async function buildScenePayload(
     for (const snap of allArchivesSnap.docs) {
       const data = snap.data() as Omit<Archive, "id">;
       const credited = (data.djs ?? []).some(
-        (dj) => typeof dj.username === "string" && ownedCollectiveSlugs.has(dj.username.toLowerCase()),
+        (dj) => typeof dj.username === "string" && ownedCollectiveSlugs.has(normU(dj.username)),
       );
       if (!credited) continue;
       collectiveArchiveIds.add(snap.id);
