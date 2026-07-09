@@ -327,8 +327,10 @@ export function DJProfileChatPanel({
     if (!isTrackIdRequest(text)) return;
     if (nowPlaying.isLive || !nowPlaying.archive) return;
     await postSystemMessage(buildTracklistReply(nowPlaying.archive), nowPlaying.djRoom);
-    // Count the chat-triggered view too (fire-and-forget, authed only).
-    recordTracklistView(userId, nowPlaying.archive.slug);
+    // Count the chat-triggered view (fire-and-forget, authed only). Skip a DJ
+    // asking for their OWN show's tracklist — no self-views at the source.
+    const isOwnShow = !!userId && (nowPlaying.archive.djs ?? []).some((dj) => dj.userId === userId);
+    if (!isOwnShow) recordTracklistView(userId, nowPlaying.archive.slug);
   };
 
   useEffect(() => {

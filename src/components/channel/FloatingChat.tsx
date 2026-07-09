@@ -209,8 +209,10 @@ export function FloatingChat() {
     if (nowPlaying.isLive || !nowPlaying.archive) return; // no archive → nothing to answer
     const reply = buildTracklistReply(nowPlaying.archive);
     await postSystemMessage(reply, nowPlaying.djRoom);
-    // Count the chat-triggered view too (fire-and-forget, authed only).
-    recordTracklistView(user?.uid, nowPlaying.archive.slug);
+    // Count the chat-triggered view (fire-and-forget, authed only). Skip a DJ
+    // asking for their OWN show's tracklist — no self-views at the source.
+    const isOwnShow = !!user?.uid && (nowPlaying.archive.djs ?? []).some((dj) => dj.userId === user.uid);
+    if (!isOwnShow) recordTracklistView(user?.uid, nowPlaying.archive.slug);
   }, [nowPlaying, postSystemMessage, user?.uid]);
 
   const handleSendMessage = useCallback(async (e: FormEvent) => {

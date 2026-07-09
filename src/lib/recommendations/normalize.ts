@@ -124,6 +124,11 @@ export interface NormalizeUserArgs {
   playedArchiveIds?: string[];
   // archive id → its tempo+scenes, so we can read taste off streamed archives.
   archiveById: Map<string, ContentItem>;
+  // Archive ids whose TRACKLIST the user viewed (users/{uid}/tracklistViews).
+  // Its own data point, but used like a 15-min stream for TASTE ONLY: each
+  // viewed archive contributes scene/tempo affinity (NOT engaged-DJ, NOT marked
+  // played). A DJ viewing their OWN show's tracklist is excluded (see loop).
+  tracklistViewArchiveIds?: string[];
   goLiveMutes?: string[];
   ownDjUsername?: string;
   // Normalized slugs of collectives the user owns. Their archives are excluded
@@ -153,6 +158,7 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
   const lovedDjNames = new Set<string>();
   const streamedDjNames = new Set<string>();
   const streamedArchiveNames = new Map<string, string>(); // archiveId → showName
+  const tracklistViewedArchiveNames = new Map<string, string>(); // archiveId → showName
   const watchlistTerms: string[] = [];
   const sceneCount = new Map<string, number>();
   const tempoCount = new Map<Tempo, number>();
@@ -203,6 +209,25 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
     }
   }
 
+  // Tracklist views: its own data point, used like a 15-min stream but for
+  // scene/tempo affinity ONLY — no engaged-DJ credit, and the archive is NOT
+  // marked played/heard (so it can still be recommended). Self-views (a DJ
+  // opening their OWN show's tracklist) are excluded AT THE SOURCE — no
+  // tracklistViews record is written for them — so nothing to filter here.
+  for (const archiveId of args.tracklistViewArchiveIds ?? []) {
+    const item = args.archiveById.get(archiveId);
+    if (!item) continue;
+    if (item.showName) tracklistViewedArchiveNames.set(archiveId, item.showName);
+    for (const s of item.sceneSlugs) {
+      engagedScenes.add(s);
+      sceneCount.set(s, (sceneCount.get(s) ?? 0) + 1);
+    }
+    if (item.tempo) {
+      engagedTempos.add(item.tempo);
+      tempoCount.set(item.tempo, (tempoCount.get(item.tempo) ?? 0) + 1);
+    }
+  }
+
   // Watchlist artists (search favorites).
   for (const f of args.searchFavorites) {
     if (f.term) {
@@ -242,6 +267,7 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
     watchlistDjs: watchlistTerms,
     archivesStreamed: streamedArchiveIds.size,
     streamedArchives: Array.from(streamedArchiveNames.values()).sort((a, b) => a.localeCompare(b)),
+    tracklistViewedArchives: Array.from(tracklistViewedArchiveNames.values()).sort((a, b) => a.localeCompare(b)),
     sceneCounts: Array.from(sceneCount.entries())
       .map(([scene, count]) => ({ scene, count }))
       .sort((a, b) => b.count - a.count || a.scene.localeCompare(b.scene)),

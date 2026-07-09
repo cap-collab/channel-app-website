@@ -343,6 +343,7 @@ export async function GET(request: Request) {
         stationId: data.stationId || 'channel-main',
         showImageUrl: data.showImageUrl,
         streamCount: data.streamCount,
+        tracklistViewCount: data.tracklistViewCount,
         // Include new recording-related fields
         isPublic: data.isPublic,
         sourceType: data.sourceType,

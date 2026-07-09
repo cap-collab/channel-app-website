@@ -1103,6 +1103,9 @@ function ArchiveCard({
                 {(archive.streamCount || 0) > 0 && (
                   <span>{archive.streamCount} stream{archive.streamCount !== 1 ? 's' : ''}</span>
                 )}
+                {(archive.tracklistViewCount || 0) > 0 && (
+                  <span>{archive.tracklistViewCount} tracklist view{archive.tracklistViewCount !== 1 ? 's' : ''}</span>
+                )}
                 {archive.slug && (
                   <span className="text-gray-600">/archives/{archive.slug}</span>
                 )}

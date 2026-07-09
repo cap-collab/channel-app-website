@@ -344,15 +344,18 @@ async function buildUserResultAndComingUp(
   const uid = user.id;
 
   // User's own engagement subcollections (forward reads).
-  const [loveSnap, streamSnap, favSnap] = await Promise.all([
+  const [loveSnap, streamSnap, favSnap, tracklistViewSnap] = await Promise.all([
     db.collection("users").doc(uid).collection("loveHistory").get(),
     db.collection("users").doc(uid).collection("streamHistory").get(),
     db.collection("users").doc(uid).collection("favorites").where("type", "==", "search").get(),
+    db.collection("users").doc(uid).collection("tracklistViews").get(),
   ]);
 
   const loveHistory = loveSnap.docs.map((d) => d.data());
   const streamHistory = streamSnap.docs.map((d) => d.data());
   const searchFavorites = favSnap.docs.map((d) => ({ term: d.data().term as string | undefined }));
+  // Tracklist views: archive ids (doc id = archiveId) → scene/tempo taste only.
+  const tracklistViewArchiveIds = tracklistViewSnap.docs.map((d) => d.id);
 
   // Played archives: a map on the user doc { archiveId: playedAtMs } written on
   // play-start (any duration). Exclusion-only — dropped from New Favorites /
@@ -405,6 +408,7 @@ async function buildUserResultAndComingUp(
     streamHistory,
     searchFavorites,
     playedArchiveIds,
+    tracklistViewArchiveIds,
     archiveById: shared.archiveById,
     goLiveMutes: (user.data.goLiveMutes as string[] | undefined) || [],
     ownDjUsername: ownChatUsername,

@@ -59,6 +59,30 @@ describe("normalizeUser — taste profile from engagement", () => {
     expect(u.archiveStreamCount["a-maria-new"]).toBe(3);
   });
 
+  it("tracklist views add scene/tempo affinity ONLY (no engaged-DJ, not played)", () => {
+    const u = normalizeUser({
+      uid: "u-viewer",
+      email: "viewer@example.com",
+      loveHistory: [],
+      streamHistory: [],
+      searchFavorites: [],
+      archiveById: itemMap(),
+      // Viewed the tracklist of a-stranger-cold (scene dub, tempo very_slow, DJ stranger).
+      tracklistViewArchiveIds: ["a-stranger-cold"],
+    });
+    // Scene + tempo affinity ARE credited.
+    expect(u.engagedScenes.has("dub")).toBe(true);
+    expect(u.engagedTempos.has("very_slow")).toBe(true);
+    // The archive's DJ is NOT marked engaged (taste-only signal).
+    expect(u.engagedDjs.has("stranger")).toBe(false);
+    // The archive is NOT marked played/streamed (still recommendable).
+    expect(u.streamedArchiveIds.has("a-stranger-cold")).toBe(false);
+    // The viewed archive IS listed by show name in the taste summary.
+    expect(u.tasteSummary.tracklistViewedArchives).toContain(
+      archiveById("a-stranger-cold").showName,
+    );
+  });
+
   it("builds a taste summary with per-scene and per-tempo counts", () => {
     const u = normalizeUser({
       uid: USER_MARIA_FAN.uid,

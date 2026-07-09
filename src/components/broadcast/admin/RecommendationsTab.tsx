@@ -288,7 +288,8 @@ function TasteHeader({ summary }: { summary: TasteSummary }) {
     summary.lovedDjs.length ||
     summary.streamedDjs.length ||
     summary.watchlistDjs.length ||
-    summary.archivesStreamed;
+    summary.archivesStreamed ||
+    (summary.tracklistViewedArchives?.length ?? 0);
 
   return (
     <div className="mb-6 rounded-lg bg-gray-900 border border-gray-800 p-4">
@@ -313,6 +314,9 @@ function TasteHeader({ summary }: { summary: TasteSummary }) {
           </div>
           {summary.streamedArchives && summary.streamedArchives.length > 0 && (
             <Row label="Streamed" values={summary.streamedArchives} />
+          )}
+          {summary.tracklistViewedArchives && summary.tracklistViewedArchives.length > 0 && (
+            <Row label="Tracklists viewed" values={summary.tracklistViewedArchives} />
           )}
           {summary.sceneCounts.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
