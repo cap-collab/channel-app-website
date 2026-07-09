@@ -51,12 +51,13 @@ function UploadIcon() {
 }
 
 // Detect a non-Safari browser on iOS (Chrome=CriOS, Firefox=FxiOS, Edge=EdgiOS).
-// These render via WKWebView, where web-content getUserMedia is NOT wired up by
-// the host app — so inline mic recording throws NotAllowedError with no prompt
-// (proven on-device). There is no web workaround: a page can't open the native
-// Camera app, and in-browser video capture records SILENT because it hits the
-// same mic block. So on these browsers we show Upload only (attach a recording,
-// e.g. a Voice Memo) and tell the user Safari records inline.
+// These render via WKWebView. HISTORICALLY web-content getUserMedia was blocked
+// here — but since iOS 14.3 WKWebView DOES expose getUserMedia, and modern
+// Chrome/Firefox for iOS ship the mic entitlement, so inline recording often
+// works when the user grants the mic. We therefore DON'T pre-block by UA anymore:
+// we show the record button and actually TRY getUserMedia on tap, falling back
+// to upload only if it genuinely fails (startAudioRecording's catch). This keeps
+// the flag available for messaging without hiding a button that may well work.
 function isNonSafariIOS(): boolean {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent;
@@ -80,9 +81,13 @@ export function FieldNoteCapture({ onCaptured }: Props) {
   const uploadRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    // Only pre-block when the recording APIs are genuinely missing. For iOS
+    // non-Safari browsers we NO LONGER pre-block — since iOS 14.3 WKWebView
+    // exposes getUserMedia, so we show the record button and let the tap-time
+    // getUserMedia attempt decide (it falls back to upload on real failure).
     const hasApis = typeof navigator.mediaDevices?.getUserMedia === 'function' &&
       typeof MediaRecorder !== 'undefined';
-    if (!hasApis || isNonSafariIOS()) setUploadOnly(true);
+    if (!hasApis) setUploadOnly(true);
   }, []);
 
   useEffect(() => {
@@ -222,11 +227,12 @@ export function FieldNoteCapture({ onCaptured }: Props) {
             onClick={() => uploadRef.current?.click()}
             className="w-full rounded-none bg-white hover:bg-zinc-200 text-black font-mono text-xs uppercase tracking-wider py-2.5 flex items-center justify-center gap-2"
           >
-            <UploadIcon /> Upload a video
+            <UploadIcon /> Upload a recording
           </button>
           <p className="text-xs text-zinc-500">
-            Recording in the browser isn’t supported here. Upload a video from your
-            library — or open this page in Safari to record audio directly.
+            {isNonSafariIOS()
+              ? 'Recording didn’t work here. Record a Voice Memo and upload it — or open this page in Safari to record directly.'
+              : 'Recording in the browser isn’t supported here. Upload an audio or video recording from your library.'}
           </p>
         </>
       ) : (
@@ -249,13 +255,13 @@ export function FieldNoteCapture({ onCaptured }: Props) {
         </div>
       )}
 
-      {/* Upload → straight into the video library. accept="video/*" alone opens
-          the Photos video library on iOS (no confusing action sheet) and the
-          gallery on Android. No `capture` attribute. */}
+      {/* Upload accepts audio OR video: on iOS the reliable capture path when
+          inline recording fails is a Voice Memo (.m4a audio), so we must allow
+          audio files, not just video. onFileChosen already handles both. */}
       <input
         ref={uploadRef}
         type="file"
-        accept="video/*"
+        accept="audio/*,video/*"
         className="hidden"
         onChange={(e) => onFileChosen(e.target.files?.[0])}
       />
