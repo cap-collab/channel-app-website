@@ -49,7 +49,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: '/foryou', changeFrequency: 'daily', priority: 0.8 },
     { path: '/streaming-guide', changeFrequency: 'weekly', priority: 0.7 },
     { path: '/about', changeFrequency: 'monthly', priority: 0.7 },
-    { path: '/dj-portal', changeFrequency: 'monthly', priority: 0.6 },
     { path: '/guidelines', changeFrequency: 'monthly', priority: 0.5 },
     { path: '/dj-terms', changeFrequency: 'yearly', priority: 0.3 },
     { path: '/terms', changeFrequency: 'yearly', priority: 0.3 },

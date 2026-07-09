@@ -45,7 +45,6 @@ export default async function Home() {
             <li><a href="/archives">Archives</a></li>
             <li><a href="/foryou">For You</a></li>
             <li><a href="/streaming-guide">Streaming guide</a></li>
-            <li><a href="/dj-portal">DJ portal</a></li>
             <li><a href="/about">About</a></li>
           </ul>
         </nav>
