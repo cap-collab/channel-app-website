@@ -24,7 +24,7 @@ import { useBPM } from "@/contexts/BPMContext";
 import { SceneGlyph } from "@/components/SceneGlyph";
 import { useScenesData, resolveArchiveScenes } from "@/hooks/useScenesData";
 import { tempoLabel } from "@/lib/tempo";
-import { wordBoundaryMatch } from "@/lib/dj-matching";
+import { wordBoundaryMatch, normalizeUsername } from "@/lib/dj-matching";
 import { generateSlug } from "@/lib/slug";
 import { Venue, Collective, Event as ChannelEvent, EventDJRef, CollectiveRef } from "@/types/events";
 import { ResidentsGrid } from "@/components/dj/ResidentsGrid";
@@ -309,6 +309,10 @@ interface DJProfile {
   // Collective-only: the slug used for archive matching (distinct from
   // chatUsername, which displays the collective's pretty name).
   collectiveSlug?: string;
+  // User-only: slugs of collectives this user owns, denormalized on the user
+  // doc (kept in sync by /api/admin/collectives). Lets the upcoming-shows fetch
+  // fan out to owned collectives without a live `owners array-contains` query.
+  ownedCollectiveSlugs?: string[];
 }
 
 interface UpcomingShow {
@@ -365,13 +369,6 @@ function calculateShowProgress(startTime: string, endTime: string): number {
   const elapsed = now - start;
   if (total <= 0) return 0;
   return Math.min(100, Math.max(0, (elapsed / total) * 100));
-}
-
-// Normalize username (lowercase, strip ALL non-alphanumerics incl dots) — same
-// rule as the shared @/lib/dj-matching normalizeUsername / generateSlug, so a
-// dotted name like "B. Rod" resolves and links as "brod".
-function normalizeUsername(chatUsername: string): string {
-  return chatUsername.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 function formatShowTime(date: Date): string {
@@ -581,6 +578,9 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             },
             uid: doc.id,
             profileType: 'user',
+            ownedCollectiveSlugs: Array.isArray(data.ownedCollectiveSlugs)
+              ? data.ownedCollectiveSlugs.filter((s: unknown): s is string => typeof s === "string")
+              : [],
           });
           setLoading(false);
         } else if (pendingDoc) {
@@ -724,7 +724,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             });
           }
           if ((!bio || !djPhotoUrl) && r.djUsername) {
-            const normalized = r.djUsername.replace(/[\s-]+/g, '').toLowerCase();
+            const normalized = normalizeUsername(r.djUsername);
             const pendingSnap = await getDocs(
               query(collection(db, "pending-dj-profiles"), where("chatUsernameNormalized", "==", normalized))
             );
@@ -768,7 +768,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             });
           }
           if ((!bio || !djPhotoUrl) && g.djUsername) {
-            const normalized = g.djUsername.replace(/[\s-]+/g, '').toLowerCase();
+            const normalized = normalizeUsername(g.djUsername);
             const pendingSnap = await getDocs(
               query(collection(db, "pending-dj-profiles"), where("chatUsernameNormalized", "==", normalized))
             );
@@ -803,13 +803,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
     // Normalize profile username for matching. For collectives, shows store the
     // collective's slug (generateSlug — strips ALL non-alphanumerics) as
-    // djUsername, so match against the stored slug rather than the canonical
-    // normalization of the display name (which keeps dots and would miss a
-    // name like "B. Rod b2b David L" → slug "brodb2bdavidl").
+    // djUsername. Prefer the stored slug when we have it; otherwise fall back to
+    // the canonical normalizeUsername of the display name — the SAME rule
+    // generateSlug uses, so "B. Rod b2b David L" → "brodb2bdavidl" either way.
     const normalizedProfileUsername =
       djProfile.profileType === "collective" && djProfile.collectiveSlug
         ? djProfile.collectiveSlug
-        : djName.replace(/[\s-]+/g, "").toLowerCase();
+        : normalizeUsername(djName);
 
     // Check if live on Channel Radio
     const matchesProfile = (show: Show) =>
@@ -919,7 +919,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             ...(djProfile.residentDJs || []).map(r => r.djUsername || ''),
             ...ownersResolved.map(o => o.chatUsername || ''),
           ]
-            .map(u => u.replace(/[\s-]+/g, '').toLowerCase())
+            .map(u => normalizeUsername(u))
             .filter(Boolean)
         : [];
       const residentNames = isCollective
@@ -933,27 +933,12 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       // Collective fan-out (owner direction): when viewing a USER profile, also
       // surface upcoming shows scheduled to a collective this user owns. A
       // collective slot stores the collective's slug as djUsername (no djUserId),
-      // so it never matches the user's own username/uid/email. Mirror of the
-      // owned-collective slug lookup used for archives below.
-      const myCollectiveSlugs = new Set<string>();
-      const isRealUserUid =
-        djProfile.profileType === 'user' && djProfile.uid &&
-        !djProfile.uid.startsWith('pending-') && !djProfile.uid.startsWith('collective-');
-      if (db && isRealUserUid) {
-        try {
-          const ownedQ = query(
-            collection(db, "collectives"),
-            where("owners", "array-contains", djProfile.uid)
-          );
-          const ownedSnap = await getDocs(ownedQ);
-          ownedSnap.forEach(d => {
-            const slug = d.data().slug;
-            if (typeof slug === "string") myCollectiveSlugs.add(slug);
-          });
-        } catch (err) {
-          console.error("Error fetching user's owned collectives:", err);
-        }
-      }
+      // so it never matches the user's own username/uid/email. Read the owned
+      // slugs straight off the user doc (ownedCollectiveSlugs, denormalized by
+      // /api/admin/collectives) instead of a live `owners array-contains` query.
+      const myCollectiveSlugs = new Set<string>(
+        (djProfile.ownedCollectiveSlugs ?? []).map((s) => s.toLowerCase())
+      );
 
       // 1. Fetch broadcast slots from Firebase (Channel Radio)
       if (db) {
@@ -999,11 +984,11 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             // restream DJs) is a resident of this collective.
             const matchesResident = isCollective && (
               (data.djUserId && residentUids.has(data.djUserId)) ||
-              (data.djUsername && residentUsernameSet.has(String(data.djUsername).replace(/[\s-]+/g, '').toLowerCase())) ||
+              (data.djUsername && residentUsernameSet.has(normalizeUsername(String(data.djUsername)))) ||
               (data.djName && residentNames.some(n => containsMatch(data.djName, n))) ||
               (data.restreamDjs && Array.isArray(data.restreamDjs) && data.restreamDjs.some((dj: { userId?: string; username?: string; name?: string }) =>
                 (dj.userId && residentUids.has(dj.userId)) ||
-                (dj.username && residentUsernameSet.has(dj.username.replace(/[\s-]+/g, '').toLowerCase())) ||
+                (dj.username && residentUsernameSet.has(normalizeUsername(dj.username))) ||
                 (dj.name && residentNames.some(n => containsMatch(dj.name || '', n)))
               ))
             );
@@ -1061,12 +1046,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       // 2. Filter external radio shows by djUsername (pre-matched in metadata build)
       // Simple O(1) lookup - no regex matching needed!
       // Collectives store their slug (generateSlug — strips ALL non-alphanumerics)
-      // as a show's djUsername, so match against the stored slug rather than the
-      // canonical (dot-keeping) normalization of the display name.
+      // as a show's djUsername. Prefer the stored slug; otherwise fall back to
+      // the canonical normalizeUsername of the display name (same rule as
+      // generateSlug, so both sides normalize identically).
       const normalizedProfileUsername =
         djProfile.profileType === "collective" && djProfile.collectiveSlug
           ? djProfile.collectiveSlug
-          : djProfile.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
+          : normalizeUsername(djProfile.chatUsername);
 
       // For collectives whose slug equals a station id (e.g. /dj/vpn = the VPN station's
       // collective page), surface every show from that station, not just shows where
@@ -1136,222 +1122,27 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     fetchUpcomingShows();
   }, [djProfile, allShows, ownersResolved]);
 
-  // Fetch past shows and recordings for this DJ
+  // Fetch past shows and recordings for this DJ.
+  // Server-side endpoint resolves the DJ, filters archives to this DJ's set
+  // (incl. owned-collective + cross-list + live-broadcast-by-slot matching),
+  // and returns only the matched recordings + past broadcast shows. Replaces
+  // the old approach of fetching the WHOLE archive catalog via /api/archives
+  // and running all the matching client-side.
   useEffect(() => {
     async function fetchPastShowsAndRecordings() {
-      if (!djProfile || !db) return;
+      if (!djProfile) return;
       try {
-        const slotsRef = collection(db, "broadcast-slots");
-        const pastSlotsMap = new Map<string, { showName: string; startTime: number; endTime: number; showImageUrl?: string }>();
-        const djEmail = djProfile.email?.toLowerCase() || "";
-
-        // Kick off the archives (recordings) fetch FIRST so recordings render
-        // ASAP — don't gate it behind the two broadcast-slot queries below.
-        // The slot reconciliation that needs both runs after Promise.all.
-        const archivesPromise = fetch("/api/archives");
-
-        // Query 1: Past slots with root-level djEmail (remote broadcasts)
-        // Excludes recording-type slots — those appear via archives only
-        const remoteQ = query(
-          slotsRef,
-          where("endTime", "<", Timestamp.fromDate(new Date())),
-          where("djEmail", "==", djEmail)
-        );
-
-        // Query 2: Past venue slots (have djSlots array) - filter client-side
-        const venueQ = query(
-          slotsRef,
-          where("endTime", "<", Timestamp.fromDate(new Date())),
-          where("broadcastType", "==", "venue")
-        );
-
-        // Run both slot queries in parallel with the in-flight archives fetch.
-        const [remoteSnapshot, venueSnapshot] = await Promise.all([
-          getDocs(remoteQ),
-          getDocs(venueQ),
-        ]);
-
-        remoteSnapshot.forEach((doc) => {
-          const data = doc.data();
-          // Skip recording-type slots — they appear via archives, not as broadcast shows
-          if (data.broadcastType === 'recording') return;
-          // Skip slots with status 'uploading' or 'completed' (upload pre-recordings)
-          if (data.status === 'uploading' || data.status === 'completed') return;
-          pastSlotsMap.set(doc.id, {
-            showName: data.showName || "Broadcast",
-            startTime: (data.startTime as Timestamp).toMillis(),
-            endTime: (data.endTime as Timestamp).toMillis(),
-            showImageUrl: data.showImageUrl,
-          });
-        });
-
-        venueSnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.djSlots && Array.isArray(data.djSlots)) {
-            const hasMatch = data.djSlots.some(
-              (slot: { djEmail?: string }) =>
-                slot.djEmail?.toLowerCase() === djEmail
-            );
-            if (hasMatch) {
-              pastSlotsMap.set(doc.id, {
-                showName: data.showName || "Broadcast",
-                startTime: (data.startTime as Timestamp).toMillis(),
-                endTime: (data.endTime as Timestamp).toMillis(),
-                showImageUrl: data.showImageUrl,
-              });
-            }
-          }
-        });
-
-        // Find which slots have recordings (archives fetch was started above)
-        const res = await archivesPromise;
-        if (res.ok) {
-          const data = await res.json();
-          const archives: Archive[] = data.archives || [];
-
-          // Find archives that match this DJ
-          // For live broadcasts: match by broadcastSlotId being in pastSlotsMap
-          // For recordings: match directly by DJ info in the archive's djs array
-          const normalizedUsername = djProfile.chatUsername?.toLowerCase().replace(/\s+/g, '');
-          const djUserId = djProfile.uid;
-
-          // Collective fan-out: when viewing a user profile, also include
-          // archives of collectives this user owns. Archives credited to a
-          // collective live under archive.djs[].username === <slug>.
-          // The query filters for owners array-contains the user's UID — only
-          // valid for real user UIDs (skip pending- and collective- prefixes).
-          let myCollectiveSlugs = new Set<string>();
-          const isRealUserUid = djProfile.profileType === 'user' && djUserId && !djUserId.startsWith('pending-') && !djUserId.startsWith('collective-');
-          if (isRealUserUid) {
-            try {
-              const collectivesRef = collection(db, "collectives");
-              const ownedQ = query(collectivesRef, where("owners", "array-contains", djUserId));
-              const ownedSnap = await getDocs(ownedQ);
-              ownedSnap.forEach(d => {
-                const slug = d.data().slug;
-                if (typeof slug === "string") myCollectiveSlugs.add(slug);
-              });
-            } catch (err) {
-              console.error("Error fetching user's collectives:", err);
-            }
-          }
-
-          // When viewing a collective profile, match by its slug directly
-          // (not by chatUsername, which is the pretty name and may not equal
-          // the slug after normalization).
-          // Owner + resident matcher sets for surfacing members' own recordings
-          // on the collective page. Owners are UIDs (djProfile.owners); residents
-          // carry djUserId/djUsername/djName. Guests are intentionally excluded.
-          const memberUids = new Set<string>();
-          const memberUsernames = new Set<string>();
-          const memberNames: string[] = [];
-          if (djProfile.profileType === 'collective' && djProfile.collectiveSlug) {
-            myCollectiveSlugs = new Set([djProfile.collectiveSlug]);
-            for (const u of djProfile.owners ?? []) {
-              if (typeof u === "string" && u.length > 0) memberUids.add(u);
-            }
-            for (const r of djProfile.residentDJs ?? []) {
-              if (r.djUserId) memberUids.add(r.djUserId);
-              if (r.djUsername) memberUsernames.add(r.djUsername.toLowerCase().replace(/[\s-]+/g, ''));
-              if (r.djName) memberNames.push(r.djName.toLowerCase());
-            }
-          }
-
-          const djArchives = archives.filter((archive) => {
-            // Must have a recording, and be neither private nor hidden. (Hidden
-            // is normally dropped by /api/archives, but its anchor allow-list can
-            // pass this DJ's own anchored hidden archive through — exclude here.)
-            if (!archive.recordingUrl || archive.isPublic === false || archive.priority === 'hidden') return false;
-
-            // Check if this is the DJ's archive:
-            // 1. For recordings (sourceType === 'recording'): match by userId or username in djs array
-            // 2. For live broadcasts: match by broadcastSlotId in pastSlotsMap
-            // Match by DJ info in the archive's djs array
-            const matchesDj = archive.djs?.some((dj) => {
-              if (djUserId && dj.userId === djUserId) return true;
-              // On a collective page, also match owners' + residents' own
-              // recordings (by UID, normalized username, or name).
-              if (dj.userId && memberUids.size > 0 && memberUids.has(dj.userId)) return true;
-              if (dj.username && memberUsernames.size > 0 &&
-                  memberUsernames.has(dj.username.toLowerCase().replace(/[\s-]+/g, ''))) return true;
-              if (dj.name && memberNames.length > 0 &&
-                  memberNames.includes(dj.name.toLowerCase())) return true;
-              if (dj.username && normalizedUsername) {
-                const archiveDjUsername = dj.username.toLowerCase().replace(/\s+/g, '');
-                if (archiveDjUsername === normalizedUsername) return true;
-              }
-              // Collective slug match (uses the slug directly, hyphens preserved):
-              // archive credited to a collective this profile owns or IS.
-              if (dj.username && myCollectiveSlugs.size > 0) {
-                const rawUsername = dj.username.toLowerCase();
-                if (myCollectiveSlugs.has(rawUsername)) return true;
-              }
-              if (dj.email && djEmail) {
-                return dj.email.toLowerCase() === djEmail;
-              }
-              return false;
-            });
-            if (matchesDj) return true;
-
-            // Per-archive cross-listing by UID: surface a collective's show on
-            // a member's individual profile without re-crediting it (see
-            // crossListUserIds on the Archive type). Does not affect any other
-            // surface — djs[] is untouched, so credits/social/scenes/SEO stay.
-            if (djUserId && Array.isArray(archive.crossListUserIds)
-                && archive.crossListUserIds.includes(djUserId)) {
-              return true;
-            }
-
-            // Per-archive cross-listing by normalized USERNAME. Same as above
-            // but reaches PENDING DJ profiles (no real UID) and survives a
-            // later account claim (username is stable). Also djs[]-untouched.
-            // Normalize both sides with the canonical rule ([\s-]+) so a
-            // hyphenated username matches regardless of how it was typed.
-            const canonUsername = djProfile.chatUsername?.toLowerCase().replace(/[\s-]+/g, '');
-            if (canonUsername && Array.isArray(archive.crossListUsernames)
-                && archive.crossListUsernames.some(
-                    (u) => u.toLowerCase().replace(/[\s-]+/g, '') === canonUsername)) {
-              return true;
-            }
-
-            // Also match live broadcasts by slot
-            if (archive.sourceType === 'live' && archive.broadcastSlotId) {
-              return pastSlotsMap.has(archive.broadcastSlotId);
-            }
-
-            return false;
-          });
-          setPastRecordings(djArchives);
-
-          // Find broadcast slots that don't have a recording
-          const slotsWithRecordings = new Set(
-            djArchives
-              .filter(a => a.broadcastSlotId)
-              .map(a => a.broadcastSlotId)
-          );
-
-          const broadcastShowsWithoutRecordings: PastShow[] = [];
-          pastSlotsMap.forEach((slot, slotId) => {
-            if (!slotsWithRecordings.has(slotId)) {
-              broadcastShowsWithoutRecordings.push({
-                id: `broadcast-${slotId}`,
-                showName: slot.showName,
-                startTime: slot.startTime,
-                endTime: slot.endTime,
-                showImageUrl: slot.showImageUrl,
-                stationId: "broadcast",
-                stationName: "Channel Radio",
-              });
-            }
-          });
-          setPastBroadcastShows(broadcastShowsWithoutRecordings);
-        }
+        const res = await fetch(`/api/dj/${encodeURIComponent(username)}/recordings`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setPastRecordings((data.recordings || []) as Archive[]);
+        setPastBroadcastShows((data.pastBroadcastShows || []) as PastShow[]);
       } catch (error) {
         console.error("Error fetching past shows:", error);
       }
     }
     fetchPastShowsAndRecordings();
-  }, [djProfile]);
+  }, [djProfile, username]);
 
   // Fetch past external shows from history.json via API
   useEffect(() => {
@@ -1400,7 +1191,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     async function fetchLinkedEntities() {
       if (!djProfile || !db) return;
 
-      const normalizedUsername = djProfile.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
+      const normalizedUsername = normalizeUsername(djProfile.chatUsername);
       const djUserId = djProfile.uid.startsWith("pending-") ? undefined : djProfile.uid;
 
       // When the profile being viewed is a collective, also match events/venues
@@ -3284,7 +3075,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                   // normalization of the name) to hide the collective's own chip.
                   const profileSlug = isOnCollectivePage && djProfile?.collectiveSlug
                     ? djProfile.collectiveSlug
-                    : djProfile?.chatUsername.replace(/[\s-]+/g, "").toLowerCase();
+                    : djProfile ? normalizeUsername(djProfile.chatUsername) : undefined;
                   const shouldHide = (slug: string) => isOnCollectivePage && slug === profileSlug;
                   type DjLink = { slug: string; label: string };
                   const djLinksMap = new Map<string, DjLink>();
