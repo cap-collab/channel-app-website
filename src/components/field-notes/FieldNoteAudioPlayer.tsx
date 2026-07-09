@@ -87,7 +87,7 @@ export function FieldNoteAudioPlayer({ src, name, captions, upvotes, downvotes, 
           Centered, italic, and quoted; replaces the title while playing. */}
       {showingCaption && (
         <div className="px-3 pt-2 pb-0.5">
-          <p className="text-[13px] leading-snug italic text-white/90 text-center">
+          <p className="text-sm leading-snug italic text-white/90 text-center">
             “{activeCaption.text}”
           </p>
         </div>
