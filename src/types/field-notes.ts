@@ -64,6 +64,10 @@ export interface FieldNoteDoc {
   transcribeStatus?: 'in-progress' | 'done' | 'failed' | null;
   transcribeError?: string | null;
 
+  // Loudness waveform for the /tape player bar: ~40 values 0..1, self-normalized
+  // to the tape's own min→max. Machine-computed (worker/backfill), not admin-edited.
+  waveform?: number[] | null;
+
   // Voting — denormalized counts; per-user vote lives in the `votes` subcollection.
   upvotes?: number;
   downvotes?: number;

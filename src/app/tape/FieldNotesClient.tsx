@@ -302,6 +302,7 @@ export function FieldNotesClient() {
                           createdAt={note.createdAt}
                           name={note.name}
                           captions={note.captions}
+                          waveform={note.waveform}
                           upvotes={note.upvotes || 0}
                           downvotes={note.downvotes || 0}
                           myVote={note.myVote || 0}
@@ -328,6 +329,7 @@ export function FieldNotesClient() {
                       createdAt={note.createdAt}
                       name={note.name}
                       captions={note.captions}
+                      waveform={note.waveform}
                       upvotes={note.upvotes || 0}
                       downvotes={note.downvotes || 0}
                       myVote={note.myVote || 0}

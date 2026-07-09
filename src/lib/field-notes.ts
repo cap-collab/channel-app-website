@@ -144,6 +144,7 @@ function serializeFieldNote(id: string, data: Record<string, unknown>): FieldNot
     name: (data.name as string | null) ?? null,
     transcript: (data.transcript as string | null) ?? null,
     captions: (data.captions as FieldNoteCaption[] | null) ?? null,
+    waveform: (data.waveform as number[] | null) ?? null,
     transcribedAt: (data.transcribedAt as number | null) ?? null,
     transcriptModel: (data.transcriptModel as string | null) ?? null,
     transcribeStatus: (data.transcribeStatus as 'in-progress' | 'done' | 'failed' | null) ?? null,

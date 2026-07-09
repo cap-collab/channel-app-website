@@ -8,6 +8,7 @@ interface Props {
   createdAt: number;           // unix ms
   name?: string | null;        // admin-given tape name, shown in the header
   captions?: FieldNoteCaption[] | null;  // line-by-line captions, synced to playback
+  waveform?: number[] | null;  // ~40 loudness values 0..1 for the player bar
   upvotes: number;
   downvotes: number;
   myVote: 1 | -1 | 0;
@@ -29,12 +30,27 @@ function fmtClock(sec: number): string {
 // "Tape Archive" style card (mirrors the DJ-profile recording card): transparent
 // body with the tape's name + a line-style seek player. Self-contained local
 // <audio> so it plays the audio track of an audio OR video file.
-export function FieldNoteAudioPlayer({ src, name, captions, upvotes, downvotes, myVote, onVote, onReply, onReached }: Props) {
+export function FieldNoteAudioPlayer({ src, name, captions, waveform, upvotes, downvotes, myVote, onVote, onReply, onReached }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const reachedFiredRef = useRef(false);   // fire the play-through count at most once
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+
+  // Waveform bars for the player line. Use the real per-tape loudness when
+  // present; else a stable pseudo-random shape derived from the src so the bar
+  // still looks like a waveform (never flat) before a real one is computed.
+  const bars = useMemo<number[]>(() => {
+    if (waveform && waveform.length > 0) return waveform;
+    const N = 40;
+    let seed = 0;
+    for (let i = 0; i < src.length; i++) seed = (seed * 31 + src.charCodeAt(i)) >>> 0;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 0xffffffff;
+    };
+    return Array.from({ length: N }, () => 0.25 + rand() * 0.7);
+  }, [waveform, src]);
 
   // The caption line active at the current playback position (film-subtitle
   // style, one at a time). Only shown while playing so an idle card stays clean.
@@ -78,7 +94,7 @@ export function FieldNoteAudioPlayer({ src, name, captions, upvotes, downvotes, 
           Hidden while a caption is showing (the caption replaces it). */}
       {name && !showingCaption && (
         <div className="px-3 pt-2 pb-0.5">
-          <p className="text-sm font-normal text-white lowercase">{name}</p>
+          <p className="text-sm font-normal italic text-white/90 text-center lowercase">“{name}”</p>
         </div>
       )}
 
@@ -107,17 +123,31 @@ export function FieldNoteAudioPlayer({ src, name, captions, upvotes, downvotes, 
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3v18l15-9z" /></svg>
             )}
           </button>
-          <div className="relative flex-1 min-w-0 h-3 flex items-center">
-            <div className="absolute inset-x-0 h-px bg-zinc-700" />
-            <div className="absolute left-0 h-px bg-white" style={{ width: `${pct}%` }} />
-            {isPlaying && <div className="absolute h-2 w-px bg-white -translate-x-1/2" style={{ left: `${pct}%` }} />}
+          {/* Waveform: vertical bars, height from loudness. Bars left of the
+              playhead are white (played), the rest grey. The invisible range
+              input rides on top so seeking still works. */}
+          <div className="relative flex-1 min-w-0 h-6 flex items-center gap-px">
+            {bars.map((h, i) => {
+              const played = (i + 0.5) / bars.length <= pct / 100;
+              // Slight per-bar jitter (deterministic on index) for a rough,
+              // hand-made look; clamp so every bar stays visible.
+              const jitter = ((i * 37) % 11) / 100 - 0.05;
+              const height = Math.max(0.12, Math.min(1, h + jitter));
+              return (
+                <div
+                  key={i}
+                  className={`flex-1 rounded-[1px] ${played ? 'bg-white' : 'bg-zinc-700'}`}
+                  style={{ height: `${height * 100}%` }}
+                />
+              );
+            })}
             <input
               type="range"
               min={0}
               max={duration || 100}
               value={currentTime}
               onChange={onSeek}
-              className="absolute inset-0 w-full h-full appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-transparent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-0 [&::-moz-range-thumb]:h-0 [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-transparent"
+              className="absolute inset-0 w-full h-full appearance-none cursor-pointer bg-transparent [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-transparent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-0 [&::-moz-range-thumb]:h-0 [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-transparent"
             />
           </div>
         </div>
