@@ -117,7 +117,7 @@ function ChatMessage({
           {isDJMessage && (
             <span className="inline-block w-2 h-2 bg-red-500 rounded-full ml-1 align-middle" title="DJ" />
           )}
-          <span className="text-white ml-1.5">{message.message}</span>
+          <span className="text-white ml-1.5 whitespace-pre-line">{message.message}</span>
         </p>
         <span className="text-gray-600 text-xs flex-shrink-0">{timeAgo}</span>
       </div>

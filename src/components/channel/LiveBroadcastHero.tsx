@@ -213,7 +213,7 @@ export function HeroChatMessage({
           {isCurrentlyLiveDJ && (
             <span className="inline-block w-2.5 h-2.5 bg-red-500 rounded-full ml-1 animate-pulse align-middle" title="Live DJ" />
           )}
-          <span className="text-white ml-1.5">{message.message}</span>
+          <span className="text-white ml-1.5 whitespace-pre-line">{message.message}</span>
         </p>
         <span className="text-gray-600 text-xs flex-shrink-0">{timeAgo}</span>
       </div>
