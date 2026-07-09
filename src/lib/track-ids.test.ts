@@ -4,6 +4,7 @@ import {
   normalizeTrackIds,
   publicTrackIds,
   buildTracklistReply,
+  matchTrackToDj,
   PRIVATE_TRACK_LABEL,
 } from "./track-ids";
 
@@ -220,6 +221,62 @@ describe("publicTrackIds", () => {
   it("is idempotent (masking already-masked data is a no-op)", () => {
     const once = publicTrackIds([{ text: "Secret", private: true }]);
     expect(publicTrackIds(once)).toEqual(once);
+  });
+
+  it("preserves the djUsername tag on BOTH public and private tracks", () => {
+    expect(
+      publicTrackIds([
+        { text: "Akumen – Big 4", private: false, djUsername: "Akumen" },
+        { text: "Secret – Hidden", private: true, djUsername: "B. Rod" },
+      ])
+    ).toEqual([
+      { text: "Akumen – Big 4", private: false, djUsername: "Akumen" },
+      { text: PRIVATE_TRACK_LABEL, private: true, djUsername: "B. Rod" },
+    ]);
+  });
+});
+
+describe("normalizeTrackIds — djUsername", () => {
+  it("carries a valid djUsername through, omits blank/undefined", () => {
+    expect(
+      normalizeTrackIds([
+        { text: "A – B", djUsername: "Akumen" },
+        { text: "C – D", djUsername: "   " },
+        { text: "E – F" },
+      ])
+    ).toEqual([
+      { text: "A – B", private: false, djUsername: "Akumen" },
+      { text: "C – D", private: false },
+      { text: "E – F", private: false },
+    ]);
+  });
+});
+
+describe("matchTrackToDj", () => {
+  const djs = [
+    { chatUsername: "B. Rod", chatUsernameNormalized: "brod" },
+    { chatUsername: "Akumen", chatUsernameNormalized: "akumen" },
+    { chatUsername: "PAC", chatUsernameNormalized: "pac" }, // < 4 chars → skipped
+  ];
+
+  it("matches an artist name (normalized)", () => {
+    expect(matchTrackToDj("Akumen – Big 4", djs)).toBe("Akumen");
+  });
+
+  it("matches a DJ embedded in the title, dotted (B.ROD → brod)", () => {
+    expect(matchTrackToDj("Tensic – Grapevine (B.ROD Remix)", djs)).toBe("B. Rod");
+  });
+
+  it("does not match short handles (< 4 chars) — avoids false positives", () => {
+    expect(matchTrackToDj("Some Artist – Pace of Space", djs)).toBeUndefined();
+  });
+
+  it("does not partial-match (akumenish ≠ akumen)", () => {
+    expect(matchTrackToDj("spacemen – akumenish", djs)).toBeUndefined();
+  });
+
+  it("returns undefined when no DJ appears", () => {
+    expect(matchTrackToDj("Nobody – Nothing", djs)).toBeUndefined();
   });
 });
 

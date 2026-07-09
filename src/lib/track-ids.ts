@@ -19,9 +19,13 @@
 // `private` (artist-set) hides the real text from the public — it renders as
 // PRIVATE_TRACK_LABEL on the profile card and in the chat reply, and the real
 // text is masked server-side before it ever reaches a listener.
+// `djUsername` (admin-set) links the track to a Channel DJ — the DJ's
+// chatUsername verbatim; the profile card renders it as a link to
+// /dj/${normalizeUsername(djUsername)}. Survives the public mask (not secret).
 export interface TrackId {
   text: string;
   private?: boolean;
+  djUsername?: string;
 }
 
 // Public label shown in place of a private track's real text.
@@ -142,21 +146,85 @@ export function normalizeTrackIds(raw: unknown): TrackId[] {
       if (entry.trim()) out.push({ text: entry, private: false });
     } else if (entry && typeof entry === 'object' && typeof (entry as TrackId).text === 'string') {
       const e = entry as TrackId;
-      if (e.text.trim()) out.push({ text: e.text, private: !!e.private });
+      if (e.text.trim()) out.push(withTag({ text: e.text, private: !!e.private }, e.djUsername));
     }
   }
   return out;
 }
 
+// Attach a `djUsername` tag only when it's a non-empty string — keeps the field
+// absent (not `undefined`) otherwise, which Firestore rejects on write.
+function withTag(base: TrackId, djUsername: unknown): TrackId {
+  return typeof djUsername === 'string' && djUsername.trim()
+    ? { ...base, djUsername }
+    : base;
+}
+
 /**
  * Public-safe projection: replace each private track's real text with
- * PRIVATE_TRACK_LABEL so it never leaves the server. Non-private tracks pass
- * through unchanged. Call this at every public read boundary.
+ * PRIVATE_TRACK_LABEL so it never leaves the server. The DJ tag (`djUsername`)
+ * is preserved on BOTH branches — it isn't secret, so a private track stays
+ * clickable to its tagged DJ (only its text is masked).
  */
 export function publicTrackIds(tracks: TrackId[]): TrackId[] {
   return tracks.map((t) =>
-    t.private ? { text: PRIVATE_TRACK_LABEL, private: true } : { text: t.text, private: false }
+    withTag(
+      t.private ? { text: PRIVATE_TRACK_LABEL, private: true } : { text: t.text, private: false },
+      t.djUsername,
+    )
   );
+}
+
+// A Channel DJ candidate for auto-tagging: chatUsername (display/verbatim, what
+// we store on the tag) + normalized (already lowercased, non-alnum stripped).
+export interface DjCandidate {
+  chatUsername: string;
+  chatUsernameNormalized: string;
+}
+
+// Minimum DJ-name length (normalized) eligible for auto-matching — short
+// handles (e.g. 2-3 chars) word-match too much noise, so we don't auto-suggest
+// them. Explicit admin tagging can still pick any DJ.
+export const MIN_AUTOMATCH_DJ_LEN = 4;
+
+/**
+ * Find the Channel DJ whose name appears as a whole word ANYWHERE in a track's
+ * text — matches the artist ("Akumen – …"), a remixer ("… (B.ROD Remix)"), or a
+ * feature ("… feat. B. Rod"). Case/punctuation-insensitive via normalization
+ * ("B.ROD" and "B. Rod" both normalize to "brod"). Returns the DJ's chatUsername
+ * to tag with, or undefined. Shared by the admin Generate auto-select and the
+ * backfill script so both behave identically.
+ */
+export function matchTrackToDj(text: string, djs: DjCandidate[]): string | undefined {
+  if (!text) return undefined;
+  // Compare on a normalized copy of the text (strip non-alnum to spaces) so a
+  // dotted name in the text lines up with the normalized DJ handle at a word
+  // boundary. e.g. "(B.ROD Remix)" → " b rod remix " contains " brod "? No —
+  // dots split it. So instead we normalize BOTH sides the same way and test for
+  // the DJ handle as a maximal run: collapse the text to alnum tokens and also
+  // a fully-stripped form, and check the handle appears as one such token.
+  const stripped = text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); // token-separated
+  const tokens = new Set(stripped.split(' '));
+  // Also a fully-concatenated form to catch names spelled with internal
+  // separators in the text (e.g. "B.ROD" → tokens ["b","rod"] but the handle is
+  // "brod"): join adjacent tokens and test contiguous runs.
+  const parts = stripped.split(' ');
+  for (const dj of djs) {
+    const h = dj.chatUsernameNormalized;
+    if (!h || h.length < MIN_AUTOMATCH_DJ_LEN) continue;
+    // (a) handle equals a single normalized token ("akumen").
+    if (tokens.has(h)) return dj.chatUsername;
+    // (b) handle equals a contiguous run of tokens joined ("brod" = "b"+"rod").
+    for (let i = 0; i < parts.length; i++) {
+      let run = '';
+      for (let j = i; j < parts.length; j++) {
+        run += parts[j];
+        if (run.length > h.length) break;
+        if (run === h) return dj.chatUsername;
+      }
+    }
+  }
+  return undefined;
 }
 
 // Chat trigger: a message asking for the tracklist. Matches "track id",

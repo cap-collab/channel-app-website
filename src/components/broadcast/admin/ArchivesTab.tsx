@@ -10,7 +10,8 @@ import { ShareableArchiveCard } from './ShareableArchiveCard';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
 import { ScenePillEditor } from './ScenePillEditor';
 import { TEMPOS } from '@/lib/tempo';
-import { parseTrackIds, type TrackId } from '@/lib/track-ids';
+import { parseTrackIds, matchTrackToDj, type TrackId, type DjCandidate } from '@/lib/track-ids';
+import { normalizeUsername } from '@/lib/dj-matching';
 import type { SceneSerialized } from '@/types/scenes';
 
 interface VenueOption {
@@ -28,6 +29,7 @@ interface DjOption {
   kind: 'user' | 'pending';
   uid?: string;
   username?: string; // normalized, for pending
+  chatUsername?: string; // display handle (verbatim) — stored on a track's djUsername tag
   label: string;
 }
 
@@ -140,7 +142,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
           const label = data.chatUsername || data.displayName || data.email || 'Unknown';
           const username = data.chatUsernameNormalized || data.chatUsername || '';
           if (username) seenUsernames.add(username.replace(/[\s-]+/g, '').toLowerCase());
-          djs.push({ value: docSnap.id, kind: 'user', uid: docSnap.id, label, username: username || undefined });
+          djs.push({ value: docSnap.id, kind: 'user', uid: docSnap.id, label, username: username || undefined, chatUsername: data.chatUsername || undefined });
           owners.push({
             key: docSnap.id,
             kind: 'user',
@@ -699,6 +701,44 @@ function ArchiveCard({
   // The preview is what gets saved; parsing is decoupled from saving.
   const [trackIdsRaw, setTrackIdsRaw] = useState('');
   const [trackIdsPreview, setTrackIdsPreview] = useState<TrackId[]>(archive.trackIds || []);
+  // Which track row's DJ-tag picker is open (index), and its search query.
+  const [tagPickerRow, setTagPickerRow] = useState<number | null>(null);
+  const [tagQuery, setTagQuery] = useState('');
+  // Channel-DJ candidates for auto-match + the picker, derived from djOptions
+  // (real users with a chatUsername). chatUsernameNormalized drives matching;
+  // chatUsername is what we store on the tag.
+  const djCandidates: DjCandidate[] = djOptions
+    .filter((d) => d.kind === 'user' && d.chatUsername)
+    .map((d) => ({
+      chatUsername: d.chatUsername as string,
+      chatUsernameNormalized: d.username || normalizeUsername(d.chatUsername as string),
+    }));
+
+  // Generate: parse the paste, then auto-select a matching Channel DJ per row
+  // (admin can edit after). Preserves the existing djUsername on re-generate is
+  // moot — Generate replaces the list from the raw paste.
+  const handleGenerate = () => {
+    const parsed = parseTrackIds(trackIdsRaw).map((t) => {
+      const match = matchTrackToDj(t.text, djCandidates);
+      return match ? { ...t, djUsername: match } : t;
+    });
+    setTrackIdsPreview(parsed);
+  };
+
+  // Per-row tag mutators.
+  const setRowTag = (index: number, chatUsername: string) => {
+    setTrackIdsPreview((prev) => prev.map((t, i) => (i === index ? { ...t, djUsername: chatUsername } : t)));
+    setTagPickerRow(null);
+    setTagQuery('');
+  };
+  const clearRowTag = (index: number) => {
+    setTrackIdsPreview((prev) => prev.map((t, i) => {
+      if (i !== index) return t;
+      const next = { ...t };
+      delete next.djUsername;
+      return next;
+    }));
+  };
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -974,7 +1014,7 @@ function ArchiveCard({
                 <div className="flex items-center gap-2 mt-1.5">
                   <button
                     type="button"
-                    onClick={() => setTrackIdsPreview(parseTrackIds(trackIdsRaw))}
+                    onClick={handleGenerate}
                     className="px-3 py-1.5 rounded-lg text-xs bg-gray-700 text-white hover:bg-gray-600 transition-colors"
                   >
                     Generate
@@ -995,14 +1035,68 @@ function ArchiveCard({
                       <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">
                         {trackIdsPreview.length} track{trackIdsPreview.length === 1 ? '' : 's'}
                       </p>
-                      <ol className="space-y-0.5">
-                        {trackIdsPreview.map((t, i) => (
-                          <li key={i} className="flex gap-2 text-xs text-gray-300">
-                            <span className="text-gray-600 tabular-nums">{i + 1}.</span>
-                            <span>{t.text}</span>
-                            {t.private && <span className="text-gray-500 italic">(private)</span>}
-                          </li>
-                        ))}
+                      <ol className="space-y-1">
+                        {trackIdsPreview.map((t, i) => {
+                          const q = normalizeUsername(tagQuery);
+                          const matches = q
+                            ? djCandidates.filter((d) =>
+                                d.chatUsernameNormalized.includes(q) ||
+                                normalizeUsername(d.chatUsername).includes(q))
+                              .slice(0, 8)
+                            : djCandidates.slice(0, 8);
+                          return (
+                            <li key={i} className="flex items-start gap-2 text-xs text-gray-300">
+                              <span className="text-gray-600 tabular-nums pt-0.5">{i + 1}.</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span>{t.text}</span>
+                                  {t.private && <span className="text-gray-500 italic">(private)</span>}
+                                  {/* DJ tag chip / add button */}
+                                  {t.djUsername ? (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-900/40 border border-blue-700/50 text-blue-300">
+                                      @{t.djUsername}
+                                      <button type="button" onClick={() => clearRowTag(i)} className="text-blue-400 hover:text-red-400">&times;</button>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setTagPickerRow(tagPickerRow === i ? null : i); setTagQuery(''); }}
+                                      className="px-1.5 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500"
+                                    >
+                                      + tag DJ
+                                    </button>
+                                  )}
+                                </div>
+                                {/* Inline picker */}
+                                {tagPickerRow === i && (
+                                  <div className="mt-1 bg-gray-900 border border-gray-700 rounded p-1.5">
+                                    <input
+                                      autoFocus
+                                      value={tagQuery}
+                                      onChange={(e) => setTagQuery(e.target.value)}
+                                      placeholder="Search DJs…"
+                                      className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-gray-500 mb-1"
+                                    />
+                                    <div className="max-h-40 overflow-y-auto">
+                                      {matches.length > 0 ? matches.map((d) => (
+                                        <button
+                                          key={d.chatUsername}
+                                          type="button"
+                                          onClick={() => setRowTag(i, d.chatUsername)}
+                                          className="block w-full text-left px-2 py-1 rounded text-xs text-gray-300 hover:bg-gray-800"
+                                        >
+                                          @{d.chatUsername}
+                                        </button>
+                                      )) : (
+                                        <p className="px-2 py-1 text-gray-600">No DJ match</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
                       </ol>
                     </>
                   ) : (

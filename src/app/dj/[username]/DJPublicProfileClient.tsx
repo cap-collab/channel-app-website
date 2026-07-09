@@ -2513,7 +2513,19 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                                 key={i}
                                 className={`px-3 py-1.5 border-t border-[#333] text-sm ${track.private ? 'text-zinc-500 italic' : 'text-white'}`}
                               >
-                                {track.text}
+                                {/* A track tagged to a Channel DJ links to their
+                                    page — even a private track (text masked but
+                                    still clickable to the DJ). */}
+                                {track.djUsername ? (
+                                  <Link
+                                    href={`/dj/${normalizeUsername(track.djUsername)}`}
+                                    className="underline decoration-dotted underline-offset-2 hover:text-white transition-colors"
+                                  >
+                                    {track.text}
+                                  </Link>
+                                ) : (
+                                  track.text
+                                )}
                               </li>
                             ))}
                           </ul>

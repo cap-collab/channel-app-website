@@ -65,13 +65,19 @@ export async function PATCH(request: NextRequest) {
     // client-side). Sanitize: keep entries with a non-empty string `text`,
     // coerce `private` to boolean, drop blanks/junk. Anything else clears.
     if (body.trackIds !== undefined) {
-      type CleanTrack = { text: string; private: boolean };
+      type CleanTrack = { text: string; private: boolean; djUsername?: string };
       updates.trackIds = Array.isArray(body.trackIds)
         ? body.trackIds
             .map((v: unknown): CleanTrack | null => {
               if (v && typeof v === 'object' && typeof (v as { text?: unknown }).text === 'string') {
-                const t = v as { text: string; private?: unknown };
-                return { text: t.text.trim(), private: !!t.private };
+                const t = v as { text: string; private?: unknown; djUsername?: unknown };
+                const out: CleanTrack = { text: t.text.trim(), private: !!t.private };
+                // Keep the DJ tag (chatUsername) only when it's a non-empty
+                // string — omit the key otherwise (Firestore rejects undefined).
+                if (typeof t.djUsername === 'string' && t.djUsername.trim()) {
+                  out.djUsername = t.djUsername.trim();
+                }
+                return out;
               }
               // Back-compat: a bare string becomes a non-private entry.
               if (typeof v === 'string') return { text: v.trim(), private: false };

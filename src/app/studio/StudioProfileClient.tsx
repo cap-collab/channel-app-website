@@ -1301,9 +1301,9 @@ export function StudioProfileClient() {
     const draft = tracklistDrafts[recordingId] || [];
     // Drop blank rows (an accidental "+ add" or a row left empty) — they carry
     // no data, so we simply don't persist them rather than blocking the save.
-    const cleaned = draft
-      .map(t => ({ text: t.text.trim(), private: !!t.private }))
-      .filter(t => t.text.length > 0);
+    // normalizeTrackIds trims, drops blanks, AND preserves the admin-set
+    // djUsername tag (so a DJ editing text here can't strip a tag).
+    const cleaned = normalizeTrackIds(draft.map(t => ({ ...t, text: t.text.trim() })));
     setSavingTracklistId(recordingId);
     setTracklistErrors(prev => ({ ...prev, [recordingId]: null }));
     try {
