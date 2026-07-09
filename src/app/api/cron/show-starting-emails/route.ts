@@ -1181,11 +1181,17 @@ export async function GET(request: NextRequest) {
         // entity borrows DJ Y's fans), this is Y's display name → the email
         // renders the "If you like Y." caption. Undefined for direct matches.
         borrowBridgeDj?: string;
+        // When the match came through the crew / affiliation bridge (the
+        // recipient is a DJ affiliated with the live DJ — parent, affiliate, or
+        // sibling under the same parent), this is the live DJ's display name →
+        // the email renders the "you follow {live DJ}." crew caption.
+        crewBridgeDj?: string;
       } | null => {
         let matched = false;
         let engagementReason: "engaged" | undefined;
         let savedReason: "favorite" | "watchlist" | undefined;
         let borrowBridgeDj: string | undefined;
+        let crewBridgeDj: string | undefined;
 
         // Resolve a borrowed-from username (normalized) to its display name for
         // the "If you like X." caption. Falls back to the normalized form.
@@ -1283,15 +1289,30 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // NOTE: the crew / affiliation bridge tier (the old tier 4) is
-        // intentionally REMOVED. Go-live emails go to recipients with a DIRECT
-        // signal on the live artist (favorite / watchlist / love-stream of the
-        // DJ, collective, or any collective owner) PLUS the audience-borrow
-        // bridge above (fans of a DJ the live entity borrows from via
-        // audienceDjUids). No crew / affiliation / sibling fan-out.
-        // (Narrowed 2026-06-25; audience-borrow re-added per Cap.)
+        // Crew / affiliation bridge — DJ-side only. A recipient who is a DJ
+        // affiliated with the live DJ (the live DJ's parent artist, one of the
+        // live DJ's affiliates, or a sibling under the same parent) gets the
+        // go-live email REGARDLESS of their own listening history — "your
+        // crewmate is live." The uid set was built into affiliatedRecipientsByShowId
+        // (section 4b) from djProfile.affiliatedWithUid. This is a crew fan-out,
+        // NOT a direct save, so it honors the per-user affiliatedGoLive opt-out
+        // (defaults true). We do NOT bridge fans of a crewmate here (that wider
+        // engagement fan-out stays off) — only the affiliated DJs themselves.
+        if (!matched && show.stationId === "broadcast") {
+          const crewRecipients = affiliatedRecipientsByShowId.get(show.showId);
+          if (crewRecipients?.has(userId)) {
+            const optOut = emailNotificationsData?.affiliatedGoLive === false;
+            if (!optOut) {
+              matched = true;
+              // Caption names the live DJ — the recipient follows/is crewed with
+              // whoever is going live. Prefer the human display name (djName),
+              // fall back to the username.
+              crewBridgeDj = show.dj || show.djUsername;
+            }
+          }
+        }
 
-        return matched ? { engagementReason, savedReason, borrowBridgeDj } : null;
+        return matched ? { engagementReason, savedReason, borrowBridgeDj, crewBridgeDj } : null;
       };
 
       // Shared universal gates that must hold for ANY show going into the
@@ -1416,7 +1437,9 @@ export async function GET(request: NextRequest) {
       if (dryRun) {
         if (!traceTo || userEmail.toLowerCase() === traceTo) {
           if (dryRunTrace.length < traceLimit) {
-            const reason = primaryMatch.borrowBridgeDj
+            const reason = primaryMatch.crewBridgeDj
+              ? `crew(${primaryMatch.crewBridgeDj})`
+              : primaryMatch.borrowBridgeDj
               ? `borrow(${primaryMatch.borrowBridgeDj})`
               : primaryMatch.engagementReason
               ? "engaged"
@@ -1450,8 +1473,12 @@ export async function GET(request: NextRequest) {
             isRestream: primary.broadcastType === "restream",
             engagementReason: primaryMatch.engagementReason,
             savedReason: primaryMatch.savedReason,
-            affiliationBridgeDj: primaryMatch.borrowBridgeDj,
-            bridgeKind: primaryMatch.borrowBridgeDj ? "borrow" : undefined,
+            affiliationBridgeDj: primaryMatch.crewBridgeDj || primaryMatch.borrowBridgeDj,
+            bridgeKind: primaryMatch.crewBridgeDj
+              ? "crew"
+              : primaryMatch.borrowBridgeDj
+              ? "borrow"
+              : undefined,
             laterToday: laterToday.length > 0 ? laterToday : undefined,
             irlEvents: irlEvents.length > 0 ? irlEvents : undefined,
             userTimezone: userTz,

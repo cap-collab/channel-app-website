@@ -327,14 +327,15 @@ interface ShowStartingEmailParams {
   stationName: string;
   stationId: string;
   streamingUrl?: string; // For dj-radio shows: the external station's URL
-  // Audience-borrow bridge: the DJ {X} the live entity borrows from
-  // (audienceDjUids). When set, the footer reads "you like {X}." Drives the
-  // borrow "why" line. (The old crew/affiliation caption was removed.)
+  // Bridge DJ {X} named in the "why you're receiving this" footer line. For a
+  // "borrow" bridge this is the DJ the live entity borrows fans from
+  // (audienceDjUids) → "you like {X}." For a "crew" bridge this is the live DJ
+  // themselves → "you're affiliated with {X}."
   affiliationBridgeDj?: string;
-  // Which listener-side bridge connected the recipient: "crew" (same
-  // affiliation group) renders "From the same world as {R}."; "borrow"
-  // (audience-borrow — the live DJ borrows {R}'s fans) renders "If you like
-  // {R}.". Only affects the caption above the card; defaults to crew wording.
+  // Which bridge connected the recipient: "crew" (recipient is a DJ affiliated
+  // with the live DJ via affiliatedWithUid) renders "you're affiliated with
+  // {R}."; "borrow" (audience-borrow — the live DJ borrows {R}'s fans) renders
+  // "you like {R}." Only affects the footer "why" line.
   bridgeKind?: "crew" | "borrow";
   // Recipient was matched via past engagement (heart or lock-in) rather than
   // a watchlist/favorite. Changes footer copy only.
@@ -497,9 +498,11 @@ export async function sendShowStartingEmail({
   // line at the bottom of the email (avoids repeating it in two places).
 
   // Footer = the single "why you're receiving this" line (no caption above the
-  // card). Priority: favorite → watchlist → engaged → borrow. A borrow match
-  // also carries engagementReason, so it's checked AFTER the direct-engaged
-  // case but identified by affiliationBridgeDj.
+  // card). Priority: favorite → watchlist → engaged → borrow/crew. A borrow
+  // match also carries engagementReason, so it's checked AFTER the
+  // direct-engaged case but identified by affiliationBridgeDj; a crew match
+  // carries neither savedReason nor engagementReason, only affiliationBridgeDj
+  // + bridgeKind === "crew".
   const footerText = (savedReason === "favorite" || savedReason === "watchlist")
     ? "You're receiving this because it matches a show on your watchlist."
     : engagementReason && !affiliationBridgeDj
@@ -507,7 +510,7 @@ export async function sendShowStartingEmail({
     : affiliationBridgeDj
     ? bridgeKind === "borrow"
       ? `You're receiving this because you like ${affiliationBridgeDj}.`
-      : `You're receiving this because you follow ${affiliationBridgeDj}.`
+      : `You're receiving this because you're affiliated with ${affiliationBridgeDj}.`
     : "You're receiving this because it matches a show on your watchlist.";
 
   try {
