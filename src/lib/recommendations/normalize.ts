@@ -60,19 +60,54 @@ function effectiveScenes(a: Archive, djUsernamesNorm: string[], djSceneMap?: DjS
   return [];
 }
 
-/** Archive doc → normalized ContentItem. Pure. djSceneMap optional. */
-export function normalizeArchive(a: Archive, djSceneMap?: DjSceneMap): ContentItem {
+/**
+ * Archive doc → normalized ContentItem. Pure. djSceneMap optional.
+ *
+ * `uidToUsername` (optional) resolves the archive's crossList CONTRIBUTORS —
+ * DJs tagged via crossListUserIds (uids) / crossListUsernames — into extra
+ * entries on `djUsernames`, so an engaged fan of a tagged DJ matches this
+ * archive (e.g. a Slip fan matches "Straye b2b Slip", which credits only the
+ * collective slug in djs[]). Contributors count for engaged-DJ MATCHING as a
+ * primary credit, but are folded in AFTER `effectiveScenes` is computed from
+ * djs[] only — so they never drive scene inheritance (a slug-only B2B archive
+ * must not pick up a contributor's profile scenes). Absent map ⇒ crossListUserIds
+ * aren't resolved (crossListUsernames still fold in).
+ */
+export function normalizeArchive(
+  a: Archive,
+  djSceneMap?: DjSceneMap,
+  uidToUsername?: Map<string, string>,
+): ContentItem {
   const djUsernames: string[] = [];
   const djDisplayNames: string[] = [];
   const seen = new Set<string>();
+  const add = (norm: string, display: string) => {
+    if (!norm || seen.has(norm)) return;
+    seen.add(norm);
+    djUsernames.push(norm);
+    djDisplayNames.push(display);
+  };
   for (const dj of a.djs ?? []) {
     const handle = dj.username || dj.name;
     if (!handle) continue;
     const norm = normalizeForLookup(handle);
-    if (!norm || seen.has(norm)) continue;
-    seen.add(norm);
-    djUsernames.push(norm);
-    djDisplayNames.push(dj.name || dj.username || norm);
+    add(norm, dj.name || dj.username || norm);
+  }
+  // Scenes are inherited from the PRIMARY djs[] only — compute before appending
+  // crossList contributors so a slug-only B2B archive never picks up a
+  // contributor's profile scene tags.
+  const sceneSlugs = effectiveScenes(a, djUsernames, djSceneMap);
+  // Fold in crossList contributors for engaged-DJ matching (primary credit),
+  // NOT for scene inheritance (already computed above).
+  for (const u of a.crossListUsernames ?? []) {
+    const norm = normalizeForLookup(u);
+    add(norm, norm);
+  }
+  for (const uid of a.crossListUserIds ?? []) {
+    const uname = uidToUsername?.get(uid);
+    if (!uname) continue;
+    const norm = normalizeForLookup(uname);
+    add(norm, norm);
   }
   return {
     id: a.id,
@@ -85,7 +120,7 @@ export function normalizeArchive(a: Archive, djSceneMap?: DjSceneMap): ContentIt
     createdAtMs: a.createdAt,
     priority: a.priority ?? "medium",
     tempo: a.tempo ?? null,
-    sceneSlugs: effectiveScenes(a, djUsernames, djSceneMap),
+    sceneSlugs,
     djUsernames,
     djDisplayNames,
     isPublic: a.isPublic !== false,

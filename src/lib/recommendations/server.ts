@@ -116,8 +116,38 @@ function slotStartMs(value: unknown): number | undefined {
 }
 
 export async function loadSharedData(db: Firestore, nowMs: number): Promise<SharedData> {
-  // Archives.
-  const archiveSnap = await db.collection("archives").get();
+  // Load archives, DJ-role users, and collectives together. Users load first
+  // (conceptually) because the archive normalize below needs a uid→username map
+  // to resolve crossList CONTRIBUTORS (tagged DJs credited by uid) into the
+  // archive's engaged-DJ matching.
+  const [archiveSnap, djSnap, collectiveSnap] = await Promise.all([
+    db.collection("archives").get(),
+    db.collection("users").where("role", "==", "dj").get(),
+    db.collection("collectives").get(),
+  ]);
+  const djUsers: DjUserDoc[] = djSnap.docs.map((d) => ({ id: d.id, data: d.data() }));
+
+  // uid → normalized chatUsername, so normalizeArchive can resolve an archive's
+  // crossListUserIds (contributor uids) to usernames for matching.
+  const uidToNormUsername = new Map<string, string>();
+  for (const d of djUsers) {
+    const handle =
+      (d.data.chatUsernameNormalized as string | undefined) ||
+      (d.data.chatUsername as string | undefined);
+    if (handle) uidToNormUsername.set(d.id, normalizeForLookup(handle));
+  }
+
+  // DJ profile scenes (normalized username → profile sceneIds). Used as the
+  // fallback when resolving an upcoming slot's effective scene: a DJ may have a
+  // scene set on their PROFILE but no scene-tagged archives, in which case
+  // scenesByDj (archive-derived) is empty and the slot would never surface in a
+  // user's top scene. Mirrors resolveArchiveScenes' DJ-inheritance.
+  const djProfileSceneMap = buildDjSceneMap(djUsers.map((d) => ({ data: d.data })));
+
+  // Archives. Pass the crossList-contributor resolver (uid→username) so tagged
+  // DJs fold into matching; NO djSceneMap here — scene inheritance from DJ
+  // profiles is intentionally not part of the archive normalize (unchanged from
+  // before), and crossList contributors must not affect scenes.
   const items: ContentItem[] = [];
   const archiveById = new Map<string, ContentItem>();
   // normalized DJ username → union of scenes across their archives. Used to
@@ -125,7 +155,7 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
   const scenesByDj = new Map<string, Set<string>>();
   for (const doc of archiveSnap.docs) {
     const a = { id: doc.id, ...(doc.data() as Omit<Archive, "id">) } as Archive;
-    const item = normalizeArchive(a);
+    const item = normalizeArchive(a, undefined, uidToNormUsername);
     items.push(item);
     archiveById.set(item.id, item);
     for (const dj of item.djUsernames) {
@@ -135,20 +165,9 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
     }
   }
 
-  // DJ-role users + collectives → affiliation graph. A collective's owners form a
-  // crew led by the collective itself, so engaging an owner bridges to the
-  // collective's content and vice-versa (the existing crew/affiliation tier).
-  const [djSnap, collectiveSnap] = await Promise.all([
-    db.collection("users").where("role", "==", "dj").get(),
-    db.collection("collectives").get(),
-  ]);
-  const djUsers: DjUserDoc[] = djSnap.docs.map((d) => ({ id: d.id, data: d.data() }));
-  // DJ profile scenes (normalized username → profile sceneIds). Used as the
-  // fallback when resolving an upcoming slot's effective scene: a DJ may have a
-  // scene set on their PROFILE but no scene-tagged archives, in which case
-  // scenesByDj (archive-derived) is empty and the slot would never surface in a
-  // user's top scene. Mirrors resolveArchiveScenes' DJ-inheritance.
-  const djProfileSceneMap = buildDjSceneMap(djUsers.map((d) => ({ data: d.data })));
+  // A collective's owners form a crew led by the collective itself, so engaging
+  // an owner bridges to the collective's content and vice-versa (the existing
+  // crew/affiliation tier).
   const collectives: CollectiveForGraph[] = collectiveSnap.docs.map((d) => {
     const data = d.data();
     return {

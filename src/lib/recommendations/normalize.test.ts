@@ -40,6 +40,47 @@ describe("normalizeArchive", () => {
     expect(normalizeArchive(archiveById("a-maria-new")).isPublic).toBe(true);
     expect(normalizeArchive(archiveById("a-private")).isPublic).toBe(false);
   });
+
+  it("folds crossList contributors into djUsernames for matching (username + resolved uid)", () => {
+    // A B2B/collective archive credits ONLY the collective slug in djs[]; the
+    // individual DJs are tagged via crossListUsernames (pending) and
+    // crossListUserIds (real uids, resolved via the uid→username map).
+    const uidToUsername = new Map([["uid-slip", "slip"]]);
+    const item = normalizeArchive(
+      {
+        ...archiveById("a-maria-new"),
+        id: "a-b2b",
+        djs: [{ name: "Information", username: "information" }],
+        crossListUsernames: ["straye"],
+        crossListUserIds: ["uid-slip"],
+      },
+      undefined,
+      uidToUsername,
+    );
+    // Primary slug credit stays; contributors appended (deduped, normalized).
+    expect(item.djUsernames).toEqual(["information", "straye", "slip"]);
+  });
+
+  it("crossList contributors do NOT drive scene inheritance", () => {
+    // Contributor 'straye' has profile scene "dub". The slug-only archive has no
+    // own scenes, so scene inheritance runs — but it must inherit ONLY from djs[]
+    // (the collective, which has no profile scene here), NOT from crossList.
+    const djSceneMap = new Map([["straye", ["dub"]]]);
+    const item = normalizeArchive(
+      {
+        ...archiveById("a-maria-new"),
+        id: "a-b2b-scene",
+        djs: [{ name: "Information", username: "information" }],
+        sceneSlugs: [], // no own scenes → inheritance path active
+        sceneIdsOverride: undefined,
+        crossListUsernames: ["straye"],
+      },
+      djSceneMap,
+    );
+    // straye is in djUsernames (matching) but its "dub" scene is NOT inherited.
+    expect(item.djUsernames).toContain("straye");
+    expect(item.sceneSlugs).toEqual([]);
+  });
 });
 
 describe("normalizeUser — taste profile from engagement", () => {
