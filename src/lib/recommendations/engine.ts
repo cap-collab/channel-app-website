@@ -42,7 +42,7 @@ export function generateRecommendations(
   const cutoff = ctx.nowMs - config.recency.windowDays * DAY_MS;
   const candidates = items.filter((it) => it.recordedAtMs >= cutoff);
 
-  const inputs = buildCandidateInputs(user, candidates, affiliation);
+  const inputs = buildCandidateInputs(user, candidates, affiliation, config.favoritesRecency, ctx.nowMs);
   const scored = inputs.map((i) => scoreCandidate(i, config, ctx.nowMs));
 
   // A user with ZERO signal of any kind (no engagement, no watchlist, no

@@ -58,4 +58,25 @@ describe("mergeConfig", () => {
   it("has a 24h default freshness floor", () => {
     expect(DEFAULT_RECOMMENDATION_CONFIG.minRegenIntervalMs).toBe(24 * 60 * 60 * 1000);
   });
+
+  it("has the rationalized pillar weights + affiliationBoost", () => {
+    const w = DEFAULT_RECOMMENDATION_CONFIG.weights;
+    // Three pillars equal at max 2 (priorityRaw tops at 2 × w1).
+    expect(w.priority).toBe(1);
+    expect(w.affiliationBoost).toBe(2);
+    expect(w.sceneTempoAffinity).toBe(2);
+  });
+
+  it("has favoritesRecency defaults, and mergeConfig preserves siblings", () => {
+    const fr = DEFAULT_RECOMMENDATION_CONFIG.favoritesRecency;
+    expect(fr.engagementHalfLifeDays).toBe(30);
+    expect(fr.releaseFreshnessWeight).toBe(0.5);
+    expect(fr.ownCrewDefaultDays).toBe(30);
+    const merged = mergeConfig(DEFAULT_RECOMMENDATION_CONFIG, {
+      favoritesRecency: { engagementHalfLifeDays: 45 },
+    });
+    expect(merged.favoritesRecency.engagementHalfLifeDays).toBe(45);
+    expect(merged.favoritesRecency.releaseFreshnessWeight).toBe(0.5); // sibling preserved
+    expect(merged.weights.affiliationBoost).toBe(2); // unrelated sibling preserved
+  });
 });

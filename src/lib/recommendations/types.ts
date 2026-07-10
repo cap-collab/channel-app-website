@@ -85,6 +85,11 @@ export interface UserSignals {
   // picks that match the DJ's own scene/tempo. Empty for non-DJ users.
   selfScenes: Set<string>;
   selfTempos: Set<Tempo>;
+  // Per-DJ last-engagement timestamp (ms) — max over the DJ's loveHistory
+  // lastLovedAt and every streamHistory lastStreamedAt crediting them. Drives
+  // §1 favorites ordering (recently-engaged artists rank first). Absent DJ =
+  // never engaged.
+  lastEngagedMsByDj: Map<string, number>;
   // Display-facing summary of the above (for the admin preview header).
   tasteSummary: TasteSummary;
 }
@@ -115,17 +120,19 @@ export interface CandidateInput {
   // relative to their most-engaged scene+tempo. Drives discovery ranking so a
   // user's dominant taste (e.g. spiral+uptempo) surfaces first.
   sceneTempoAffinity: number;
-  // Strict discovery tier (Suggestions section). Lower = higher priority; null =
-  // not a discovery candidate. Tiers fill in order up to the section cap:
-  //   1 = engaged this EXACT scene+tempo combo        (featured/high/medium)
-  //   2 = affiliated / same crew / same audience      (featured/high/medium)
-  //   3 = featured/high archive in the user's TOP scene
-  //   4 = featured/high archive in the user's TOP tempo
-  // Tiers 1-2 exclude low/hidden; tiers 3-4 are featured/high only.
+  // Discovery MEMBERSHIP flag (null = not a discovery candidate). Ordering is by
+  // the unified score, NOT by tier — the numeric value is retained only as a
+  // membership marker + legacy compatibility. An archive is a discovery
+  // candidate when: affiliated (ANY priority — crew/borrow bypasses the gate),
+  // OR a scene+tempo / top-scene / top-tempo match at featured/high.
   discoveryTier: 1 | 2 | 3 | 4 | null;
   // DJ self-taste: archive matches one of the DJ's OWN archives' scene/tempo →
   // gets a discovery rank boost.
   matchesSelfTaste: boolean;
+  // §1 FAVORITES ordering key (higher = ranks first): engagement-recency of the
+  // archive's most-recently-engaged credited DJ, blended with the archive's own
+  // release freshness. See buildCandidateInputs / rules.latestPerArtist.
+  favoritesRank: number;
 }
 
 // ── Scoring ─────────────────────────────────────────────────────────────────
@@ -135,6 +142,7 @@ export type ScoreComponentName =
   | "sectionBonus"
   | "sceneTempoAffinity"
   | "selfTasteBoost"
+  | "affiliationBoost"
   | "editorialBoost"
   | "alreadyHeardPenalty"
   | "unengagedIntensePenalty";
@@ -149,8 +157,9 @@ export interface ScoreComponent {
 export interface ScoredCandidate {
   item: ContentItem;
   section: SectionId | null; // null = only eligible as fallback-fill
-  discoveryTier: 1 | 2 | 3 | 4 | null; // strict discovery ordering (Suggestions)
+  discoveryTier: 1 | 2 | 3 | 4 | null; // discovery membership marker (ordering is by score)
   alreadyStreamedCount: number; // >0 = user already streamed this archive
+  favoritesRank: number; // §1 ordering key (engagement recency + release freshness blend)
   score: number;
   scoreBreakdown: ScoreComponent[];
   reasons: string[]; // never empty for a delivered item
@@ -179,10 +188,19 @@ export interface RecommendationConfig {
     sectionBonus: number; // flat bonus for landing in a personalized section
     sceneTempoAffinity: number; // weight on engagement strength for the scene+tempo
     selfTasteBoost: number; // boost for a DJ user's own scene/tempo (discovery)
+    affiliationBoost: number; // crew/audience-borrow (binary): flat bump when affiliated
   };
   recency: {
     halfLifeDays: number;
     windowDays: number; // only archives newer than this are candidates
+  };
+  // §1 Favorites ordering — rank engaged artists by engagement recency, blended
+  // with the archive's release freshness (a cold-but-loved DJ's new drop can
+  // resurface). See rules.latestPerArtist.
+  favoritesRecency: {
+    engagementHalfLifeDays: number; // half-life on days-since-last-engaged
+    releaseFreshnessWeight: number; // how much a new release lifts a stale-engaged artist
+    ownCrewDefaultDays: number; // DJ own-crew (no direct engagement) = engaged this many days ago
   };
   alreadyHeard: {
     penaltyStrength: number; // score /= (1 + count * strength)

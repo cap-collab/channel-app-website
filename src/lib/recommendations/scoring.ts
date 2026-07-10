@@ -25,11 +25,14 @@ import { assignSection } from "./sections";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// Priority tier → 0..1 raw signal. Featured/high are the top; medium mid; low low.
+// Priority tier → raw signal on the rationalized scale: featured/high = 2,
+// medium/low = 1, hidden = 0. With weights.priority=1 the priority bump is 2
+// (featured/high) or 1 (medium/low) — half a "pillar" for med/low, a full one
+// for featured/high. featured and high are equal here; featured still edges
+// high via the priorityRank tie-break in rules.
 function priorityRaw(priority: string): number {
-  if (priorityIsHigh(priority)) return 1;
-  if (priority === "medium") return 0.5;
-  if (priority === "low") return 0.2;
+  if (priorityIsHigh(priority)) return 2;
+  if (priority === "medium" || priority === "low") return 1;
   return 0; // hidden (excluded earlier anyway)
 }
 
@@ -109,6 +112,18 @@ export function scoreCandidate(
     contribution: selfRawVal * config.weights.selfTasteBoost,
   });
 
+  // Affiliation boost: crew (Affiliated with) OR audience-borrow (Similar to) —
+  // BINARY (+affiliationBoost once, regardless of how many crew/owner/contributor
+  // connections). One of the three equal pillars; lifts crew content in discovery
+  // and lets a low-priority crew archive compete with a featured non-crew one.
+  const affRawVal = input.isAffiliated ? 1 : 0;
+  components.push({
+    name: "affiliationBoost",
+    rawValue: affRawVal,
+    weight: config.weights.affiliationBoost,
+    contribution: affRawVal * config.weights.affiliationBoost,
+  });
+
   const additiveBase = components.reduce((sum, c) => sum + c.contribution, 0);
 
   // Un-engaged Intense damper (discovery): an Intense archive is multiplied down
@@ -139,6 +154,7 @@ export function scoreCandidate(
     section,
     discoveryTier: input.discoveryTier,
     alreadyStreamedCount: input.alreadyStreamedCount,
+    favoritesRank: input.favoritesRank,
     score: dampedScore,
     scoreBreakdown: components,
     reasons: buildReasons(input, section),

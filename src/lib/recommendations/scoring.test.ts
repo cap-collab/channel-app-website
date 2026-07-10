@@ -21,6 +21,7 @@ function candidate(over: Partial<CandidateInput> & { item: ContentItem }): Candi
     sceneTempoAffinity: 0,
     discoveryTier: null,
     matchesSelfTaste: false,
+    favoritesRank: 0,
     ...over,
   };
 }
@@ -44,6 +45,36 @@ describe("scoreCandidate", () => {
     const r = scoreCandidate(c, cfg, NOW_MS);
     const sum = r.scoreBreakdown.reduce((s, x) => s + x.contribution, 0);
     expect(sum).toBeCloseTo(r.score, 9);
+  });
+
+  it("affiliation adds a flat +affiliationBoost, binary (crew and borrow equal)", () => {
+    const item = normalizeArchive(archiveById("a-luke-new"));
+    const base = scoreCandidate(candidate({ item }), cfg, NOW_MS);
+    const crew = scoreCandidate(candidate({ item, isAffiliated: true, affiliationKind: "crew" }), cfg, NOW_MS);
+    const borrow = scoreCandidate(candidate({ item, isAffiliated: true, affiliationKind: "borrow" }), cfg, NOW_MS);
+    // Both add exactly affiliationBoost, equally.
+    expect(crew.score).toBeCloseTo(base.score + cfg.weights.affiliationBoost, 9);
+    expect(borrow.score).toBeCloseTo(crew.score, 9);
+    // Breakdown still reconciles.
+    const sum = crew.scoreBreakdown.reduce((s, x) => s + x.contribution, 0);
+    expect(sum).toBeCloseTo(crew.score, 9);
+  });
+
+  it("a LOW-priority affiliated archive can outscore a FEATURED non-affiliated one", () => {
+    const low = normalizeArchive({ ...archiveById("a-luke-new"), id: "x-low", priority: "low" });
+    const featured = normalizeArchive({ ...archiveById("a-luke-new"), id: "x-feat", priority: "featured" });
+    const lowAff = scoreCandidate(candidate({ item: low, isAffiliated: true }), cfg, NOW_MS);
+    const featNone = scoreCandidate(candidate({ item: featured }), cfg, NOW_MS);
+    // priority bump: featured=2, low=1 (×w1). affiliation=+2. So low+aff (1+2=3) beats
+    // featured-only (2). Crew signal overrides the priority gap.
+    expect(lowAff.score).toBeGreaterThan(featNone.score);
+  });
+
+  it("priorityRaw: featured==high (both bump 2), medium==low (both bump 1)", () => {
+    const mk = (p: string) => scoreCandidate(candidate({ item: normalizeArchive({ ...archiveById("a-luke-new"), id: `p-${p}`, priority: p as never }) }), cfg, NOW_MS).score;
+    expect(mk("featured")).toBeCloseTo(mk("high"), 9);
+    expect(mk("medium")).toBeCloseTo(mk("low"), 9);
+    expect(mk("featured")).toBeGreaterThan(mk("medium"));
   });
 
   it("already-heard penalty halves at count where 1+count*strength doubles", () => {

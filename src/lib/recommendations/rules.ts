@@ -95,28 +95,21 @@ export function applyRules(
     //    a HIGH one (priorityRank asc), THEN score desc, then id. Everything else
     //    is unchanged — featured just edges out high at the same tier/score.
     if (sectionId === "discovery") {
-      // Band 0 = Featured/High (or editorially boosted — an admin boost should
-      // still be able to lift a Medium); band 1 = everything else.
-      const band = (c: ScoredCandidate) =>
-        priorityIsHigh(c.item.priority) || (c.editorialMultiplier ?? 1) > 1 ? 0 : 1;
+      // Unified score: discovery ranks purely by the summed score (priority +
+      // recency + sceneTempoAffinity + affiliationBoost + selfTaste), NOT by rigid
+      // tiers. A low-priority crew archive can outrank a featured non-crew one on
+      // the strength of its affiliation bump. featured edges high on a score tie
+      // via priorityRank; final tie-break is id.
       candidates.sort((a, b) => {
-        const ba = band(a);
-        const bb = band(b);
-        if (ba !== bb) return ba - bb;
-        const ta = a.discoveryTier ?? 99;
-        const tb = b.discoveryTier ?? 99;
-        if (ta !== tb) return ta - tb;
-        // Within a tier: featured beats high (and high beats medium, etc).
+        if (b.score !== a.score) return b.score - a.score;
         const pa = priorityRank(a.item.priority);
         const pb = priorityRank(b.item.priority);
-        if (pa !== pb) return pa - pb;
-        if (b.score !== a.score) return b.score - a.score;
+        if (pa !== pb) return pa - pb; // featured beats high on a score tie
         return a.item.id < b.item.id ? -1 : 1;
       });
       // When the user engaged multiple scenes (or tempos) EQUALLY, alternate the
-      // tier-1 picks across those tied keys instead of clumping (catalog skew
-      // would otherwise over-represent one). Scene pass first, then tempo, so a
-      // tie in either dimension gets one-from-each. Only the tier-1 block moves.
+      // exact-scene+tempo (tier-1) picks across those tied keys instead of
+      // clumping. Only the tier-1 block moves; the rest of the score order holds.
       const tiedScenes = tiedKeys(user.engagedSceneCounts);
       if (tiedScenes.size >= 2) {
         interleaveTier1ByKey(candidates, tiedScenes, (c) => c.item.sceneSlugs.find((s) => s !== "grid") ?? "");
@@ -280,15 +273,18 @@ function interleaveTier1ByKey(
 
 const artistKey = (c: ScoredCandidate) => c.item.djUsernames[0] ?? c.item.id;
 
-// Per-artist: keep ONE archive (highest priority, then latest; pinned wins).
-// Artists ordered by PRIORITY (featured > high > medium > …), recency as the
-// tie-break. Deterministic (id final tie-break).
+// Per-artist: keep ONE archive per artist, then order artists by ENGAGEMENT
+// RECENCY (favoritesRank: how recently the user engaged that artist, blended with
+// the archive's release freshness). Recently-engaged artists rank first; a
+// stale-but-loved DJ's brand-new drop can still resurface. Pinned wins. Within
+// an artist, pick the best archive by favoritesRank then priority then id.
+// Deterministic (id final tie-break). Replaces the old priority-first order.
 function latestPerArtist(items: ScoredCandidate[]): ScoredCandidate[] {
-  // Higher = better. featured/high > medium > low; pinned beats all.
-  const score = (c: ScoredCandidate) => -priorityRank(c.item.priority);
   const better = (a: ScoredCandidate, b: ScoredCandidate) => {
     if (!!a.pinned !== !!b.pinned) return a.pinned; // pin wins
-    if (score(a) !== score(b)) return score(a) > score(b); // higher priority
+    if (a.favoritesRank !== b.favoritesRank) return a.favoritesRank > b.favoritesRank; // recency blend
+    const pr = priorityRank(a.item.priority) - priorityRank(b.item.priority);
+    if (pr !== 0) return pr < 0; // lower rank = higher priority
     if (a.item.recordedAtMs !== b.item.recordedAtMs) return a.item.recordedAtMs > b.item.recordedAtMs;
     return a.item.id < b.item.id;
   };

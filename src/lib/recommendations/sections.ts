@@ -27,8 +27,9 @@ export function assignSection(input: CandidateInput): SectionId | null {
   if (input.matchesOwnCrew) {
     return "favorite-artists";
   }
-  // Discovery membership is decided by the strict tier (computed in normalize):
-  // tier 1 exact scene+tempo, 2 affiliated/crew, 3 top-scene, 4 top-tempo.
+  // Discovery membership (computed in normalize): affiliated (ANY priority) OR a
+  // scene+tempo / top-scene / top-tempo match at featured/high. Ordering within
+  // discovery is by the unified score, not by the tier value.
   if (input.discoveryTier !== null) {
     return "discovery";
   }
