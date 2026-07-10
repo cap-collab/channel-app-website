@@ -20,22 +20,14 @@ export const DEFAULT_RECOMMENDATION_CONFIG: RecommendationConfig = {
     priority: 1, // priorityRaw is 2 (featured/high) / 1 (medium/low) → bump 2 or 1
     recency: 0.5, // small freshness nudge
     sectionBonus: 1,
-    sceneTempoAffinity: 2, // engagement strength for the archive's scene+tempo (0..1)
+    sceneTempoAffinity: 3, // DOMINANT taste signal — the user's engaged scene+tempo leads discovery
     selfTasteBoost: 1, // DJ user's own scene/tempo lifts matching discovery picks
-    affiliationBoost: 2, // crew/audience-borrow (binary): +2 when affiliated. Equal to the other pillars.
+    affiliationBoost: 1, // crew/audience-borrow (binary): a TIEBREAK, not a driver — surfaces crew
+    // content but only lifts it above equal non-crew, never above a stronger taste match.
   },
   recency: {
     halfLifeDays: 14,
     windowDays: 60, // only archives from the last 60 days are candidates
-  },
-  // §1 Favorites ordering: rank engaged artists by HOW RECENTLY the user engaged
-  // them, blended with the archive's own release freshness so a cold-but-loved
-  // DJ's brand-NEW drop can still resurface (a re-hook). Stale artists sink off
-  // the visible slice; re-engaging restores them. No hard drop.
-  favoritesRecency: {
-    engagementHalfLifeDays: 30, // decay on days-since-last-engaged
-    releaseFreshnessWeight: 0.5, // how much a new release can lift a stale-engaged artist
-    ownCrewDefaultDays: 30, // DJ own-crew (no direct engagement) treated as engaged 30d ago
   },
   alreadyHeard: {
     penaltyStrength: 1, // score /= (1 + count) — the house base/(1+recent) shape

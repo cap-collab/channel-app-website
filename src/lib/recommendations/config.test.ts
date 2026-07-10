@@ -59,24 +59,20 @@ describe("mergeConfig", () => {
     expect(DEFAULT_RECOMMENDATION_CONFIG.minRegenIntervalMs).toBe(24 * 60 * 60 * 1000);
   });
 
-  it("has the rationalized pillar weights + affiliationBoost", () => {
+  it("weights: taste dominates, affiliation is a tiebreak", () => {
     const w = DEFAULT_RECOMMENDATION_CONFIG.weights;
-    // Three pillars equal at max 2 (priorityRaw tops at 2 × w1).
-    expect(w.priority).toBe(1);
-    expect(w.affiliationBoost).toBe(2);
-    expect(w.sceneTempoAffinity).toBe(2);
+    expect(w.priority).toBe(1); // priorityRaw tops at 2 → bump 2
+    expect(w.sceneTempoAffinity).toBe(3); // dominant taste signal
+    expect(w.affiliationBoost).toBe(1); // tiebreak, below taste + priority
+    expect(w.sceneTempoAffinity).toBeGreaterThan(w.affiliationBoost);
   });
 
-  it("has favoritesRecency defaults, and mergeConfig preserves siblings", () => {
-    const fr = DEFAULT_RECOMMENDATION_CONFIG.favoritesRecency;
-    expect(fr.engagementHalfLifeDays).toBe(30);
-    expect(fr.releaseFreshnessWeight).toBe(0.5);
-    expect(fr.ownCrewDefaultDays).toBe(30);
+  it("mergeConfig preserves unrelated sibling weights on a partial override", () => {
     const merged = mergeConfig(DEFAULT_RECOMMENDATION_CONFIG, {
-      favoritesRecency: { engagementHalfLifeDays: 45 },
+      weights: { sceneTempoAffinity: 5 },
     });
-    expect(merged.favoritesRecency.engagementHalfLifeDays).toBe(45);
-    expect(merged.favoritesRecency.releaseFreshnessWeight).toBe(0.5); // sibling preserved
-    expect(merged.weights.affiliationBoost).toBe(2); // unrelated sibling preserved
+    expect(merged.weights.sceneTempoAffinity).toBe(5);
+    expect(merged.weights.affiliationBoost).toBe(1); // sibling preserved
+    expect(merged.weights.priority).toBe(1); // sibling preserved
   });
 });

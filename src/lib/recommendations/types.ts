@@ -85,11 +85,6 @@ export interface UserSignals {
   // picks that match the DJ's own scene/tempo. Empty for non-DJ users.
   selfScenes: Set<string>;
   selfTempos: Set<Tempo>;
-  // Per-DJ last-engagement timestamp (ms) — max over the DJ's loveHistory
-  // lastLovedAt and every streamHistory lastStreamedAt crediting them. Drives
-  // §1 favorites ordering (recently-engaged artists rank first). Absent DJ =
-  // never engaged.
-  lastEngagedMsByDj: Map<string, number>;
   // Display-facing summary of the above (for the admin preview header).
   tasteSummary: TasteSummary;
 }
@@ -129,10 +124,6 @@ export interface CandidateInput {
   // DJ self-taste: archive matches one of the DJ's OWN archives' scene/tempo →
   // gets a discovery rank boost.
   matchesSelfTaste: boolean;
-  // §1 FAVORITES ordering key (higher = ranks first): engagement-recency of the
-  // archive's most-recently-engaged credited DJ, blended with the archive's own
-  // release freshness. See buildCandidateInputs / rules.latestPerArtist.
-  favoritesRank: number;
 }
 
 // ── Scoring ─────────────────────────────────────────────────────────────────
@@ -159,7 +150,6 @@ export interface ScoredCandidate {
   section: SectionId | null; // null = only eligible as fallback-fill
   discoveryTier: 1 | 2 | 3 | 4 | null; // discovery membership marker (ordering is by score)
   alreadyStreamedCount: number; // >0 = user already streamed this archive
-  favoritesRank: number; // §1 ordering key (engagement recency + release freshness blend)
   score: number;
   scoreBreakdown: ScoreComponent[];
   reasons: string[]; // never empty for a delivered item
@@ -193,14 +183,6 @@ export interface RecommendationConfig {
   recency: {
     halfLifeDays: number;
     windowDays: number; // only archives newer than this are candidates
-  };
-  // §1 Favorites ordering — rank engaged artists by engagement recency, blended
-  // with the archive's release freshness (a cold-but-loved DJ's new drop can
-  // resurface). See rules.latestPerArtist.
-  favoritesRecency: {
-    engagementHalfLifeDays: number; // half-life on days-since-last-engaged
-    releaseFreshnessWeight: number; // how much a new release lifts a stale-engaged artist
-    ownCrewDefaultDays: number; // DJ own-crew (no direct engagement) = engaged this many days ago
   };
   alreadyHeard: {
     penaltyStrength: number; // score /= (1 + count * strength)

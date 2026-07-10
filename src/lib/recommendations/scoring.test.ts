@@ -21,7 +21,6 @@ function candidate(over: Partial<CandidateInput> & { item: ContentItem }): Candi
     sceneTempoAffinity: 0,
     discoveryTier: null,
     matchesSelfTaste: false,
-    favoritesRank: 0,
     ...over,
   };
 }
@@ -60,14 +59,17 @@ describe("scoreCandidate", () => {
     expect(sum).toBeCloseTo(crew.score, 9);
   });
 
-  it("a LOW-priority affiliated archive can outscore a FEATURED non-affiliated one", () => {
+  it("affiliation lifts a LOW archive to be competitive, but taste (scene+tempo) outweighs it", () => {
     const low = normalizeArchive({ ...archiveById("a-luke-new"), id: "x-low", priority: "low" });
     const featured = normalizeArchive({ ...archiveById("a-luke-new"), id: "x-feat", priority: "featured" });
+    // affiliation is now a TIEBREAK (w1): low+aff (priority 1 + aff 1 = 2) ties a
+    // featured non-affiliated (priority 2). Crew no longer dominates priority.
     const lowAff = scoreCandidate(candidate({ item: low, isAffiliated: true }), cfg, NOW_MS);
     const featNone = scoreCandidate(candidate({ item: featured }), cfg, NOW_MS);
-    // priority bump: featured=2, low=1 (×w1). affiliation=+2. So low+aff (1+2=3) beats
-    // featured-only (2). Crew signal overrides the priority gap.
-    expect(lowAff.score).toBeGreaterThan(featNone.score);
+    expect(lowAff.score).toBeCloseTo(featNone.score, 9);
+    // A strong TASTE match (sceneTempoAffinity, w3) beats a bare affiliation bump.
+    const lowTaste = scoreCandidate(candidate({ item: low, sceneTempoAffinity: 1 }), cfg, NOW_MS);
+    expect(lowTaste.score).toBeGreaterThan(lowAff.score);
   });
 
   it("priorityRaw: featured==high (both bump 2), medium==low (both bump 1)", () => {

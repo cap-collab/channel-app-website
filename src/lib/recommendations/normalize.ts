@@ -132,16 +132,12 @@ export interface RawLoveHistoryDoc {
   djUsername?: string;
   djUsernameNormalized?: string;
   djDisplayName?: string;
-  // Epoch ms of the most recent love — feeds §1 favorites recency ordering.
-  lastLovedAtMs?: number;
 }
 export interface RawStreamHistoryDoc {
   archiveId?: string;
   djUsernames?: { username?: string; name?: string }[];
   djUsernamesNormalized?: string[];
   streamCount?: number;
-  // Epoch ms of the most recent stream — feeds §1 favorites recency ordering.
-  lastStreamedAtMs?: number;
   // Legacy gate-trigger docs: logged the archive on sign-in WITHOUT a real
   // streamCount. These predate the gate-login fix (which now writes a full
   // stream). Such a doc must NOT feed taste — only exclusion. New gate-logins
@@ -201,20 +197,11 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
   const watchlistTerms: string[] = [];
   const sceneCount = new Map<string, number>();
   const tempoCount = new Map<Tempo, number>();
-  // Per-DJ most-recent engagement (ms) — max across love + stream. §1 favorites
-  // orders artists by this (recently-engaged first).
-  const lastEngagedMsByDj = new Map<string, number>();
-  const bumpEngaged = (norm: string | undefined, ms: number | undefined) => {
-    if (!norm || !ms) return;
-    const cur = lastEngagedMsByDj.get(norm) ?? 0;
-    if (ms > cur) lastEngagedMsByDj.set(norm, ms);
-  };
 
   // Loved DJs.
   for (const d of args.loveHistory) {
     const norm = d.djUsernameNormalized || (d.djUsername ? normalizeForLookup(d.djUsername) : undefined);
     if (norm) engagedDjs.add(norm);
-    bumpEngaged(norm, d.lastLovedAtMs);
     const display = d.djDisplayName || d.djUsername;
     if (display) lovedDjNames.add(display);
   }
@@ -231,15 +218,11 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
       continue;
     }
     for (const n of d.djUsernamesNormalized ?? []) {
-      if (n) { engagedDjs.add(n); bumpEngaged(n, d.lastStreamedAtMs); }
+      if (n) engagedDjs.add(n);
     }
     for (const dj of d.djUsernames ?? []) {
       const handle = dj.username || dj.name;
-      if (handle) {
-        const norm = normalizeForLookup(handle);
-        engagedDjs.add(norm);
-        bumpEngaged(norm, d.lastStreamedAtMs);
-      }
+      if (handle) engagedDjs.add(normalizeForLookup(handle));
       if (dj.name) streamedDjNames.add(dj.name);
     }
     if (d.archiveId) {
@@ -352,7 +335,6 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
     ownCrewDjUsernames: new Set((args.ownCrewDjUsernames ?? []).map((u) => normalizeForLookup(u))),
     selfScenes,
     selfTempos,
-    lastEngagedMsByDj,
     tasteSummary,
   };
 }
@@ -373,22 +355,11 @@ export interface AffiliationLookup {
  * Build one CandidateInput per archive for a given user. Pure: pre-derives the
  * per-(user,item) cross-products so the scorer is plain arithmetic.
  */
-export interface FavoritesRecencyConfig {
-  engagementHalfLifeDays: number;
-  releaseFreshnessWeight: number;
-  ownCrewDefaultDays: number;
-}
-
 export function buildCandidateInputs(
   user: UserSignals,
   items: ContentItem[],
   affiliation: AffiliationLookup,
-  favRecency: FavoritesRecencyConfig,
-  nowMs: number,
 ): CandidateInput[] {
-  const DAY = 24 * 60 * 60 * 1000;
-  const decay = (ageDays: number, halfLifeDays: number) =>
-    halfLifeDays > 0 ? Math.pow(0.5, Math.max(0, ageDays) / halfLifeDays) : 0;
   // Per-user engagement strength by scene + tempo (from the taste summary), and
   // the max combined strength, so each candidate's scene+tempo affinity can be
   // normalized to 0..1. A user's most-engaged scene+tempo → affinity ~1.
@@ -487,26 +458,6 @@ export function buildCandidateInputs(
       discoveryTier = 4; // featured/high in the user's top tempo
     }
 
-    // §1 favorites ordering key: engagement-recency of the archive's most-recently
-    // engaged credited DJ, blended with the archive's own release freshness (so a
-    // cold-but-loved DJ's brand-new drop can resurface). DJ own-crew with no direct
-    // engagement uses the ownCrewDefaultDays fallback (slots mid-list).
-    let bestEngagedMs = 0;
-    for (const u of item.djUsernames) {
-      const ms = user.lastEngagedMsByDj.get(u);
-      if (ms && ms > bestEngagedMs) bestEngagedMs = ms;
-    }
-    const engAgeDays =
-      bestEngagedMs > 0
-        ? (nowMs - bestEngagedMs) / DAY
-        : matchesOwnCrew
-          ? favRecency.ownCrewDefaultDays // crew but never engaged → mid-list default
-          : Infinity; // never engaged, not crew → no recency signal (0)
-    const engRecency = decay(engAgeDays, favRecency.engagementHalfLifeDays);
-    const releaseAgeDays = (nowMs - item.recordedAtMs) / DAY;
-    const releaseFreshness = decay(releaseAgeDays, 14);
-    const favoritesRank = engRecency + favRecency.releaseFreshnessWeight * releaseFreshness;
-
     return {
       item,
       // Exclusion signal = streamed OR played. rules.ts drops any candidate with
@@ -531,7 +482,6 @@ export function buildCandidateInputs(
       sceneTempoAffinity,
       discoveryTier,
       matchesSelfTaste,
-      favoritesRank,
     };
   });
 }

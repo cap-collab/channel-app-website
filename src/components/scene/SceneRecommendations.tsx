@@ -301,10 +301,10 @@ export function SceneRecommendations({
           {(limit) => (
             <ArchiveGrid
               archives={section.archives.slice(0, limit)}
+              // Favorites now carries a PER-CARD band ("New Show" for unheard,
+              // "Dive back in" for already-streamed) in bandByArchiveId, so no
+              // section-wide fixedBandLabel. Discovery uses scene/affiliation bands.
               bandByArchiveId={section.bandByArchiveId}
-              // §1 "Your Scene" → a "New Show" black bar on every card (these are
-              // not-yet-streamed archives from your favorite artists).
-              fixedBandLabel={section.id === 'favorite-artists' ? 'New Show' : undefined}
               editMode={editMode}
               removing={removing}
               onRemove={handleRemove}

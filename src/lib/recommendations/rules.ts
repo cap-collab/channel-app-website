@@ -79,7 +79,11 @@ export function applyRules(
   for (const s of ARCHIVE_SECTIONS) bySection.set(s, []);
   const fallbackPool: ScoredCandidate[] = [];
   for (const c of boosted) {
-    if (c.alreadyStreamedCount > 0) continue; // streamed → Dive back in, not rec sections
+    // Already-heard archives are dropped from DISCOVERY (they belong in "Dive
+    // back in"), but KEPT in favorite-artists — a heard archive by a favorite
+    // artist stays in §1, labeled "Dive back in" at serve time, so the section
+    // doesn't go near-empty once the user has heard their favorites' catalogue.
+    if (c.alreadyStreamedCount > 0 && c.section !== "favorite-artists") continue;
     if (c.section && bySection.has(c.section)) bySection.get(c.section)!.push(c);
     else fallbackPool.push(c);
   }
@@ -273,19 +277,17 @@ function interleaveTier1ByKey(
 
 const artistKey = (c: ScoredCandidate) => c.item.djUsernames[0] ?? c.item.id;
 
-// Per-artist: keep ONE archive per artist, then order artists by ENGAGEMENT
-// RECENCY (favoritesRank: how recently the user engaged that artist, blended with
-// the archive's release freshness). Recently-engaged artists rank first; a
-// stale-but-loved DJ's brand-new drop can still resurface. Pinned wins. Within
-// an artist, pick the best archive by favoritesRank then priority then id.
-// Deterministic (id final tie-break). Replaces the old priority-first order.
+// Per-artist: keep ONE archive per artist (the artist's NEWEST), then order the
+// section by archive recency — newest shows first. "New archives from your
+// favorite artists", plainly newest-first. Pinned wins; id is the final
+// tie-break. Deterministic. (Serve-time backfill in scene-payload adds already-
+// heard engaged-DJ archives into the same recency order, labeled "Dive back in".)
 function latestPerArtist(items: ScoredCandidate[]): ScoredCandidate[] {
   const better = (a: ScoredCandidate, b: ScoredCandidate) => {
     if (!!a.pinned !== !!b.pinned) return a.pinned; // pin wins
-    if (a.favoritesRank !== b.favoritesRank) return a.favoritesRank > b.favoritesRank; // recency blend
-    const pr = priorityRank(a.item.priority) - priorityRank(b.item.priority);
-    if (pr !== 0) return pr < 0; // lower rank = higher priority
     if (a.item.recordedAtMs !== b.item.recordedAtMs) return a.item.recordedAtMs > b.item.recordedAtMs;
+    const pr = priorityRank(a.item.priority) - priorityRank(b.item.priority);
+    if (pr !== 0) return pr < 0; // lower rank = higher priority (tie-break on same date)
     return a.item.id < b.item.id;
   };
   const byArtist = new Map<string, ScoredCandidate>();

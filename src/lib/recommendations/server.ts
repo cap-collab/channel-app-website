@@ -370,22 +370,8 @@ async function buildUserResultAndComingUp(
     db.collection("users").doc(uid).collection("tracklistViews").get(),
   ]);
 
-  // Coerce a Firestore Timestamp (admin) → epoch ms; tolerate plain {_seconds}.
-  const toMs = (t: unknown): number | undefined => {
-    if (!t) return undefined;
-    const ts = t as { toMillis?: () => number; _seconds?: number };
-    if (typeof ts.toMillis === "function") return ts.toMillis();
-    if (typeof ts._seconds === "number") return ts._seconds * 1000;
-    return undefined;
-  };
-  const loveHistory = loveSnap.docs.map((d) => {
-    const data = d.data();
-    return { ...data, lastLovedAtMs: toMs(data.lastLovedAt) };
-  });
-  const streamHistory = streamSnap.docs.map((d) => {
-    const data = d.data();
-    return { ...data, lastStreamedAtMs: toMs(data.lastStreamedAt) };
-  });
+  const loveHistory = loveSnap.docs.map((d) => d.data());
+  const streamHistory = streamSnap.docs.map((d) => d.data());
   const searchFavorites = favSnap.docs.map((d) => ({ term: d.data().term as string | undefined }));
   // Tracklist views: archive ids (doc id = archiveId) → scene/tempo taste only.
   const tracklistViewArchiveIds = tracklistViewSnap.docs.map((d) => d.id);

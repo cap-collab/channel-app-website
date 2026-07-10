@@ -16,14 +16,7 @@ function itemMap(): Map<string, ContentItem> {
 }
 
 const NO_AFFILIATION: AffiliationLookup = { relatedDisplayByDjUsername: new Map() };
-const FAV_RECENCY = { engagementHalfLifeDays: 30, releaseFreshnessWeight: 0.5, ownCrewDefaultDays: 30 };
-const NOW = 1_700_000_000_000; // fixed nowMs for deterministic tests
-// Wrapper so existing call sites keep working with the new 5-arg signature.
-const buildInputs = (
-  u: Parameters<typeof buildCandidateInputs>[0],
-  items: Parameters<typeof buildCandidateInputs>[1],
-  aff: AffiliationLookup,
-) => buildCandidateInputs(u, items, aff, FAV_RECENCY, NOW);
+const buildInputs = buildCandidateInputs;
 
 describe("normalizeArchive", () => {
   it("normalizes DJ usernames and defaults priority to medium", () => {
@@ -387,43 +380,3 @@ describe("buildCandidateInputs", () => {
   });
 });
 
-describe("favoritesRank — §1 ordering by engagement recency (blended with freshness)", () => {
-  const NOW_FIXED = NOW;
-  const daysAgoMs = (d: number) => NOW_FIXED - d * 24 * 60 * 60 * 1000;
-
-  it("a recently-engaged artist outranks a stale-engaged one", () => {
-    // recent DJ engaged 5d ago; stale DJ engaged 90d ago. Their archives are the
-    // same age, so engagement recency decides.
-    const recent = normalizeArchive({ ...archiveById("a-luke-new"), id: "a-recent", djs: [{ name: "Recent", username: "recentdj" }], recordedAt: daysAgoMs(5), createdAt: daysAgoMs(5) });
-    const stale = normalizeArchive({ ...archiveById("a-luke-new"), id: "a-stale-eng", djs: [{ name: "Stale", username: "staledj" }], recordedAt: daysAgoMs(5), createdAt: daysAgoMs(5) });
-    const u = normalizeUser({
-      uid: "u", email: "u@x.com", searchFavorites: [],
-      loveHistory: [
-        { djUsernameNormalized: "recentdj", djDisplayName: "Recent", lastLovedAtMs: daysAgoMs(5) },
-        { djUsernameNormalized: "staledj", djDisplayName: "Stale", lastLovedAtMs: daysAgoMs(90) },
-      ],
-      streamHistory: [],
-      archiveById: itemMap(),
-    });
-    const inputs = buildInputs(u, [recent, stale], NO_AFFILIATION);
-    const r = inputs.find((i) => i.item.id === "a-recent")!;
-    const s = inputs.find((i) => i.item.id === "a-stale-eng")!;
-    expect(r.favoritesRank).toBeGreaterThan(s.favoritesRank);
-  });
-
-  it("a stale-engaged DJ's brand-NEW archive outranks their OLD one (freshness re-hook)", () => {
-    // Same stale DJ (engaged 90d ago); one archive is fresh (1d), one old (60d).
-    const fresh = normalizeArchive({ ...archiveById("a-luke-new"), id: "a-fresh", djs: [{ name: "Stale", username: "staledj" }], recordedAt: daysAgoMs(1), createdAt: daysAgoMs(1) });
-    const old = normalizeArchive({ ...archiveById("a-luke-new"), id: "a-old", djs: [{ name: "Stale", username: "staledj" }], recordedAt: daysAgoMs(60), createdAt: daysAgoMs(60) });
-    const u = normalizeUser({
-      uid: "u", email: "u@x.com", searchFavorites: [],
-      loveHistory: [{ djUsernameNormalized: "staledj", djDisplayName: "Stale", lastLovedAtMs: daysAgoMs(90) }],
-      streamHistory: [],
-      archiveById: itemMap(),
-    });
-    const inputs = buildInputs(u, [fresh, old], NO_AFFILIATION);
-    const f = inputs.find((i) => i.item.id === "a-fresh")!;
-    const o = inputs.find((i) => i.item.id === "a-old")!;
-    expect(f.favoritesRank).toBeGreaterThan(o.favoritesRank);
-  });
-});

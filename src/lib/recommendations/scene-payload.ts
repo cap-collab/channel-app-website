@@ -209,24 +209,33 @@ export async function buildScenePayload(
     .map((section): RecSectionOut => {
       const bandByArchiveId: Record<string, RecBand> = {};
       let items = section.items.filter((it) => !dismissedArchiveIds.has(it.archiveId));
-      // Already-streamed archives belong in "Dive back in", not in the
-      // recommendation sections — drop them from both favorite-artists and
-      // discovery so a just-listened archive doesn't appear in two places.
-      // Played archives (pressed play, any duration) are likewise dropped here at
-      // serve time, so a show played TODAY vanishes from the recs on the next
-      // load without waiting for the snapshot to regenerate.
-      items = items.filter(
-        (it) => !streamedArchiveIds.has(it.archiveId) && !playedArchiveIds.has(it.archiveId),
-      );
+      // DISCOVERY drops anything already streamed OR played (belongs in "Dive back
+      // in"). FAVORITES keeps STREAMED archives (a real ≥15-min listen by a
+      // favorite artist → labeled "Dive back in") but still drops PLAYED-ONLY ones
+      // (pressed play, any duration — a skip, not a signal). So §1 = unheard "New
+      // Show" + re-listenable "Dive back in", never a played-and-bailed archive.
+      if (section.id === "discovery") {
+        items = items.filter(
+          (it) => !streamedArchiveIds.has(it.archiveId) && !playedArchiveIds.has(it.archiveId),
+        );
+      } else {
+        // favorite-artists: drop played-only (played but NOT streamed).
+        items = items.filter(
+          (it) => streamedArchiveIds.has(it.archiveId) || !playedArchiveIds.has(it.archiveId),
+        );
+      }
       const archives: ArchiveSerialized[] = [];
       for (const it of items) {
         const full = archiveById.get(it.archiveId);
         if (!full) continue;
         archives.push(publicCard(full));
-        if (section.id === "discovery") {
-          // Affiliation-tier picks show the reason ("Affiliated with X" /
-          // "Similar to X") in the banner instead of glyph+tempo. The engine put
-          // that exact string in reasons[0] for those tiers.
+        if (section.id === "favorite-artists") {
+          // Label by state: STREAMED (already listened) → "Dive back in";
+          // brand-new (never streamed) → "New Show".
+          bandByArchiveId[it.archiveId] = { label: streamedArchiveIds.has(it.archiveId) ? "Dive back in" : "New Show" };
+        } else {
+          // Discovery: affiliation-tier picks show the reason ("Affiliated with X"
+          // / "Similar to X"); otherwise glyph + tempo.
           const reason = it.reasons?.[0];
           const isAffiliationReason =
             !!reason && (reason.startsWith("Affiliated with ") || reason.startsWith("Similar to "));

@@ -154,7 +154,6 @@ export function scoreCandidate(
     section,
     discoveryTier: input.discoveryTier,
     alreadyStreamedCount: input.alreadyStreamedCount,
-    favoritesRank: input.favoritesRank,
     score: dampedScore,
     scoreBreakdown: components,
     reasons: buildReasons(input, section),

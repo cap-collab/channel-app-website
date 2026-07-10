@@ -190,22 +190,23 @@ describe("generateRecommendations — latest-per-artist & already-heard", () => 
     expect(mariaCount).toBe(1);
   });
 
-  it("favorite-artists EXCLUDES already-streamed archives (heard → Dive back in)", () => {
-    // USER_HEAVY streamed BOTH Maria archives → Maria is fully heard, so she
-    // contributes NOTHING to New Favorites (heard shows belong in Dive back in).
+  it("favorite-artists KEEPS already-streamed archives (labeled 'Dive back in' at serve time)", () => {
+    // USER_HEAVY streamed BOTH Maria archives. Heard archives now STAY in §1 (the
+    // engine keeps them; serve-time labels them "Dive back in") so the section
+    // doesn't go empty once the user has heard their favorites' catalogue.
+    // 1-per-artist + newest-first → keeps the newest (a-maria-new).
     const r = run(USER_HEAVY, MARIA_CREW_AFFILIATION);
     const maria = ids(r, "favorite-artists").filter((id) => id.startsWith("a-maria"));
-    expect(maria).toEqual([]);
+    expect(maria).toEqual(["a-maria-new"]);
   });
 
-  it("New Favorites shows an UNSTREAMED archive from an artist whose other show was streamed", () => {
-    // The Naomi Green case: USER_MARIA_FAN streamed a-maria-new (the newest) but
-    // NOT a-maria-old. Even though the streamed one is newer, New Favorites must
-    // still surface the unstreamed a-maria-old — an already-streamed archive must
-    // never consume the artist's single slot.
+  it("favorite-artists keeps the NEWEST archive per artist (heard or not)", () => {
+    // USER_MARIA_FAN streamed a-maria-new (newest) but not a-maria-old. §1 is now
+    // ordered newest-first, 1-per-artist — so it keeps a-maria-new regardless of
+    // heard state (it's labeled "Dive back in" at serve time).
     const r = run(USER_MARIA_FAN, MARIA_CREW_AFFILIATION);
     const maria = ids(r, "favorite-artists").filter((id) => id.startsWith("a-maria"));
-    expect(maria).toEqual(["a-maria-old"]); // the UNSTREAMED one
+    expect(maria).toEqual(["a-maria-new"]);
   });
 });
 
