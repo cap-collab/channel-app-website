@@ -55,7 +55,7 @@ export function SceneTempoChips({ filter }: { filter: SceneTempoFilter }) {
   );
 }
 
-// The black band above a featured/no-preference card: [scene glyph] TEMPO FAVORITE.
+// The black band above a featured/no-preference card: [scene glyph] TEMPO.
 // Space-separated, no separators. Reuses the shared band styling.
 export function FeaturedBand({ archive, djSceneMap }: { archive: ArchiveSerialized; djSceneMap: DjSceneMap }) {
   const glyphSlug = resolveArchiveScenes(archive, djSceneMap).find((s) => s !== 'grid');
@@ -64,7 +64,6 @@ export function FeaturedBand({ archive, djSceneMap }: { archive: ArchiveSerializ
     <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center gap-1.5">
       {glyphSlug && <SceneGlyph slug={glyphSlug} className="!w-3 !h-3" />}
       {tempoText && <span>{tempoText}</span>}
-      <span>Favorite</span>
     </div>
   );
 }
