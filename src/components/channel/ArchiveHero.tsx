@@ -431,7 +431,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const radioTipLink = radioDjProfile.tipButtonLink;
   const { sendLove: radioSendLove } = useDJProfileChat({
     chatUsernameNormalized: radioDjUsernameNormalized,
-    djUsername: radioArchive?.djs?.map(d => d.name).join(', ') || '',
+    // Fall back to the loop item's djs[] snapshot so the love message keeps the
+    // DJ name for a hidden/private anchor (radioArchive null on the client).
+    djUsername: radioArchive?.djs?.map(d => d.name).join(', ')
+      || radioCtx?.currentItem?.djs?.map(d => d.name).join(', ')
+      || '',
     username: chatUsername || undefined,
     enabled: false,
     userId: user?.uid,
