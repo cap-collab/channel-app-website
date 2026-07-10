@@ -12,6 +12,7 @@ import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 import { computeDJChatRoom } from '@/lib/broadcast-utils';
 import { useNowPlayingArchive } from '@/hooks/useNowPlayingArchive';
 import { isTrackIdRequest, buildTracklistReply, recordTracklistView } from '@/lib/track-ids';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { HeroChatMessage } from './LiveBroadcastHero';
 import { AuthModal } from '@/components/AuthModal';
 
@@ -210,10 +211,14 @@ export function FloatingChat() {
     const reply = buildTracklistReply(nowPlaying.archive);
     await postSystemMessage(reply, nowPlaying.djRoom);
     // Count the chat-triggered view (fire-and-forget, authed only). Skip a DJ
-    // asking for their OWN show's tracklist — no self-views at the source.
-    const isOwnShow = !!user?.uid && (nowPlaying.archive.djs ?? []).some((dj) => dj.userId === user.uid);
+    // asking for their OWN show's tracklist — no self-views at the source. Match
+    // the viewer's handle to the show's DJ username (payloads no longer carry
+    // djs[].userId — stripped as listener PII).
+    const isOwnShow = !!chatUsername && (nowPlaying.archive.djs ?? []).some(
+      (dj) => normalizeUsername(dj.username || '') === normalizeUsername(chatUsername),
+    );
     if (!isOwnShow) recordTracklistView(user?.uid, nowPlaying.archive.slug);
-  }, [nowPlaying, postSystemMessage, user?.uid]);
+  }, [nowPlaying, postSystemMessage, user?.uid, chatUsername]);
 
   const handleSendMessage = useCallback(async (e: FormEvent) => {
     e.preventDefault();

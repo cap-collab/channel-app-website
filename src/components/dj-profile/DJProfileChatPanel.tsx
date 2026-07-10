@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useDJProfileChat } from '@/hooks/useDJProfileChat';
 import { useNowPlayingArchive } from '@/hooks/useNowPlayingArchive';
 import { isTrackIdRequest, buildTracklistReply, recordTracklistView } from '@/lib/track-ids';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { ChatMessageSerialized } from '@/types/broadcast';
 import { AuthModal } from '@/components/AuthModal';
 import { FloatingHearts } from '@/components/channel/FloatingHearts';
@@ -328,8 +329,12 @@ export function DJProfileChatPanel({
     if (nowPlaying.isLive || !nowPlaying.archive) return;
     await postSystemMessage(buildTracklistReply(nowPlaying.archive), nowPlaying.djRoom);
     // Count the chat-triggered view (fire-and-forget, authed only). Skip a DJ
-    // asking for their OWN show's tracklist — no self-views at the source.
-    const isOwnShow = !!userId && (nowPlaying.archive.djs ?? []).some((dj) => dj.userId === userId);
+    // asking for their OWN show's tracklist — no self-views at the source. Match
+    // the viewer's handle to the show's DJ username (payloads no longer carry
+    // djs[].userId — stripped as listener PII).
+    const isOwnShow = !!username && (nowPlaying.archive.djs ?? []).some(
+      (dj) => normalizeUsername(dj.username || '') === normalizeUsername(username),
+    );
     if (!isOwnShow) recordTracklistView(userId, nowPlaying.archive.slug);
   };
 

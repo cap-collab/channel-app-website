@@ -22,21 +22,38 @@ export interface HeroSeed {
 }
 
 function resolveScenes(
-  archive: { sceneIdsOverride?: string[] | null; djs: Array<{ userId?: string; username?: string }> },
+  archive: {
+    sceneIdsOverride?: string[] | null;
+    sceneSlugs?: string[];
+    djs: Array<{ userId?: string; username?: string }>;
+  },
   byUserId: Map<string, string[]>,
   byUsername: Map<string, string[]>,
+  byCollectiveSlug: Map<string, string[]>,
 ): string[] {
   if (Array.isArray(archive.sceneIdsOverride)) return archive.sceneIdsOverride;
   const out = new Set<string>();
   for (const dj of archive.djs) {
+    // userId is stripped from listener payloads (PII); the archives here are
+    // already run through toPublicDj, so resolve via username + collective slug.
     if (dj.userId) {
       const s = byUserId.get(dj.userId);
       if (s) for (const id of s) out.add(id);
     }
     if (dj.username) {
-      const s = byUsername.get(normalizeUsername(dj.username));
+      const norm = normalizeUsername(dj.username);
+      const s = byUsername.get(norm);
       if (s) for (const id of s) out.add(id);
+      // Collective/B2B archives credit the collective slug in username — resolve
+      // the scene via the owning DJ(s) so they aren't dropped from the hero pool.
+      const c = byCollectiveSlug.get(norm);
+      if (c) for (const id of c) out.add(id);
     }
+  }
+  // Belt-and-suspenders: fall back to the archive's denormalized sceneSlugs when
+  // the DJ/collective lookup found nothing. Mirrors the client resolveArchiveScenes.
+  if (out.size === 0 && Array.isArray(archive.sceneSlugs)) {
+    for (const id of archive.sceneSlugs) out.add(id);
   }
   return Array.from(out);
 }
@@ -116,6 +133,7 @@ export async function getHeroArchives(): Promise<HeroSeed> {
 
     const byUserId = new Map<string, string[]>();
     const byUsername = new Map<string, string[]>();
+    const byCollectiveSlug = new Map<string, string[]>();
     usersSnap.forEach((doc) => {
       const data = doc.data();
       const sceneIds: string[] = data?.djProfile?.sceneIds ?? [];
@@ -128,6 +146,18 @@ export async function getHeroArchives(): Promise<HeroSeed> {
             ? normalizeUsername(data.chatUsername)
             : null;
       if (normalized) byUsername.set(normalized, sceneIds);
+      // Owned collectives inherit this owner's scene (keyed by normalized slug so
+      // it matches a collective/B2B archive's djs[].username).
+      const owned = data?.ownedCollectiveSlugs;
+      if (Array.isArray(owned)) {
+        for (const slug of owned) {
+          if (typeof slug !== 'string' || !slug) continue;
+          const key = normalizeUsername(slug);
+          if (!key) continue;
+          const existing = byCollectiveSlug.get(key) ?? [];
+          byCollectiveSlug.set(key, Array.from(new Set([...existing, ...sceneIds])));
+        }
+      }
     });
 
     const archives: ArchiveSerialized[] = archivesSnap.docs
@@ -151,6 +181,7 @@ export async function getHeroArchives(): Promise<HeroSeed> {
           publishedAt: data.publishedAt,
           priority: data.priority || 'medium',
           sceneIdsOverride: data.sceneIdsOverride ?? null,
+          sceneSlugs: Array.isArray(data.sceneSlugs) ? data.sceneSlugs : undefined,
           uploadStatus: data.uploadStatus,
         } as ArchiveSerialized & { uploadStatus?: string };
       })
@@ -165,7 +196,7 @@ export async function getHeroArchives(): Promise<HeroSeed> {
 
     const pickFromScene = (slug: string, excludeId?: string): ArchiveSerialized | null => {
       const pool = archives
-        .filter((a) => a.id !== excludeId && resolveScenes(a, byUserId, byUsername).includes(slug))
+        .filter((a) => a.id !== excludeId && resolveScenes(a, byUserId, byUsername, byCollectiveSlug).includes(slug))
         .slice(0, PER_SCENE_LIMIT);
       if (pool.length === 0) return null;
       return pool[Math.floor(Math.random() * pool.length)];
