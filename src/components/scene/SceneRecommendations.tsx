@@ -277,6 +277,9 @@ export function SceneRecommendations({
           title="Start here"
           headerRight={<SceneTempoChips filter={filter} />}
           count={startHereFiltered.length}
+          // "Start here" grid shows its full featured matrix (up to 8), not
+          // collapsed behind a "See more" after 4.
+          alwaysExpanded
         >
           {(limit) => <ArchiveGrid archives={startHereFiltered.slice(0, limit)} featuredBand />}
         </ExpandableSection>
@@ -388,19 +391,25 @@ function ExpandableSection({
   title,
   headerRight,
   count,
+  alwaysExpanded = false,
   children,
 }: {
   title: string;
   headerRight?: React.ReactNode;
   count: number; // total available items (drives whether "See more" shows)
+  // When true, render all cards (up to EXPANDED_PER_SECTION) with NO "See more"
+  // button — used for the "Start here" grid (logged-out + cold-start), which
+  // shows its full featured matrix rather than collapsing to 4.
+  alwaysExpanded?: boolean;
   children: (limit: number) => React.ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const limit = expanded ? EXPANDED_PER_SECTION : VISIBLE_PER_SECTION;
+  const isExpanded = alwaysExpanded || expanded;
+  const limit = isExpanded ? EXPANDED_PER_SECTION : VISIBLE_PER_SECTION;
   return (
     <Section title={title} headerRight={headerRight}>
       {children(limit)}
-      {!expanded && count > VISIBLE_PER_SECTION && (
+      {!isExpanded && count > VISIBLE_PER_SECTION && (
         <button
           onClick={() => setExpanded(true)}
           // Not an exit-edit-mode click — see SceneClient's handler.
