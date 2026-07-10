@@ -12,6 +12,11 @@ import type { SceneSerialized } from '@/types/scenes';
 export interface DjSceneMap {
   byUserId: Map<string, string[]>;
   byUsername: Map<string, string[]>; // normalized (lowercase, no whitespace)
+  // Collective slug (normalized) → owner's sceneIds. Lets a collective/B2B
+  // archive (whose djs[].username is the collective slug, not a real
+  // chatUsername) inherit the owner's scene without needing djs[].userId on the
+  // payload (which is stripped as PII).
+  byCollectiveSlug: Map<string, string[]>;
 }
 
 export function useScenesData() {
@@ -19,6 +24,7 @@ export function useScenesData() {
   const [djSceneMap, setDjSceneMap] = useState<DjSceneMap>({
     byUserId: new Map(),
     byUsername: new Map(),
+    byCollectiveSlug: new Map(),
   });
   const [loading, setLoading] = useState(true);
 
@@ -34,7 +40,7 @@ export function useScenesData() {
         setScenes(scenesList);
 
         if (!db || scenesList.length === 0) {
-          setDjSceneMap({ byUserId: new Map(), byUsername: new Map() });
+          setDjSceneMap({ byUserId: new Map(), byUsername: new Map(), byCollectiveSlug: new Map() });
           setLoading(false);
           return;
         }
@@ -50,6 +56,7 @@ export function useScenesData() {
 
         const byUserId = new Map<string, string[]>();
         const byUsername = new Map<string, string[]>();
+        const byCollectiveSlug = new Map<string, string[]>();
         snap.forEach((doc) => {
           const data = doc.data();
           const sceneIds: string[] = data?.djProfile?.sceneIds ?? [];
@@ -62,8 +69,21 @@ export function useScenesData() {
                 ? normalizeUsername(data.chatUsername)
                 : null;
           if (normalized) byUsername.set(normalized, sceneIds);
+          // Owned collectives inherit this owner's scene. Keyed by normalized
+          // slug so it matches an archive's djs[].username (the collective slug).
+          const owned = data?.ownedCollectiveSlugs;
+          if (Array.isArray(owned)) {
+            for (const slug of owned) {
+              if (typeof slug !== 'string' || !slug) continue;
+              const key = normalizeUsername(slug);
+              if (!key) continue;
+              // Union in case multiple owners of one collective have scenes.
+              const existing = byCollectiveSlug.get(key) ?? [];
+              byCollectiveSlug.set(key, Array.from(new Set([...existing, ...sceneIds])));
+            }
+          }
         });
-        setDjSceneMap({ byUserId, byUsername });
+        setDjSceneMap({ byUserId, byUsername, byCollectiveSlug });
       } catch (err) {
         console.warn('[useScenesData] failed', err);
       } finally {
@@ -84,6 +104,7 @@ export function useScenesData() {
 export function resolveArchiveScenes(
   archive: {
     sceneIdsOverride?: string[] | null;
+    sceneSlugs?: string[];
     djs: Array<{ userId?: string; username?: string }>;
   },
   djSceneMap: DjSceneMap
@@ -93,14 +114,28 @@ export function resolveArchiveScenes(
   }
   const out = new Set<string>();
   for (const dj of archive.djs) {
+    // userId may be absent on listener payloads (stripped as PII) — kept here
+    // for callers that still have it (admin/server).
     if (dj.userId) {
       const s = djSceneMap.byUserId.get(dj.userId);
       if (s) for (const id of s) out.add(id);
     }
     if (dj.username) {
-      const s = djSceneMap.byUsername.get(normalizeUsername(dj.username));
+      const norm = normalizeUsername(dj.username);
+      const s = djSceneMap.byUsername.get(norm);
       if (s) for (const id of s) out.add(id);
+      // Collective/B2B archives credit the collective slug in username — resolve
+      // the scene via the owning DJ(s) so the glyph shows without djs[].userId.
+      const c = djSceneMap.byCollectiveSlug.get(norm);
+      if (c) for (const id of c) out.add(id);
     }
+  }
+  // Belt-and-suspenders: if the DJ/collective lookup found nothing (e.g. a
+  // collective with no owned-slug mapping, or a DJ not yet in the scene map),
+  // fall back to the archive's own denormalized sceneSlugs snapshot — the same
+  // fallback the server recs path (normalize.ts effectiveScenes) uses.
+  if (out.size === 0 && Array.isArray(archive.sceneSlugs)) {
+    for (const id of archive.sceneSlugs) out.add(id);
   }
   return Array.from(out);
 }
