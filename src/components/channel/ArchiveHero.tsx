@@ -420,7 +420,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   const radioArchive =
     radioCtx?.currentArchive ??
     (initialRadioArchiveId ? archives.find((a) => a.id === initialRadioArchiveId) ?? null : null);
-  const radioPrimaryDj = radioArchive?.djs?.[0];
+  // Fall back to the loop item's own djs[] snapshot when the resolved archive
+  // doc hasn't loaded yet (async /api/archives) — otherwise the profile link
+  // and tip disappear even though the item carries a username. Mirrors
+  // GlobalBroadcastBar's radioPrimaryDj derivation so both bars stay in sync.
+  const radioPrimaryDj = radioArchive?.djs?.[0] ?? radioCtx?.currentItem?.djs?.[0];
   const radioDjUsername = radioPrimaryDj?.username || '';
   const radioDjUsernameNormalized = radioDjUsername.replace(/\s+/g, '').toLowerCase();
   const radioDjProfile = useDJProfileInfo(radioDjUsername || undefined);
@@ -446,7 +450,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   }, [radioSendLove]);
   const radioSceneSlug = radioArchive
     ? resolveArchiveScenes(radioArchive, djSceneMap).find((s) => s !== 'grid') || null
-    : null;
+    // Fall back to the loop item's sceneSlugs snapshot when the archive doc
+    // hasn't resolved (e.g. a hidden/private anchor the client's /api/archives
+    // list omits), so the scene glyph still renders. Mirrors GlobalBroadcastBar.
+    : (radioCtx?.currentItem?.sceneSlugs?.find((s) => s !== 'grid') || null);
 
   // Single-source rule: starting a regular archive must pause the radio
   // (archivePlayer.play already pauses the live broadcast). Mirrors the
@@ -1366,7 +1373,9 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                 : (radioArchive?.showName || radioCtx.currentItem?.title || (radioCtx.ready ? 'No archive scheduled' : 'Loading…'));
               const radioBarDjs = isInterlude
                 ? 'channel radio'
-                : (radioArchive?.djs?.map((d) => d.name).join(', ') || '');
+                : (radioArchive?.djs?.map((d) => d.name).join(', ')
+                  || radioCtx.currentItem?.djs?.map((d) => d.name).join(', ')
+                  || '');
               return (
             <>
               {/* Radio player bar — same chrome as the archive bar (scene
