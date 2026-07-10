@@ -122,6 +122,11 @@ interface SharedEvent {
 export interface ComingUpShared {
   online: SharedOnlineCand[];
   events: SharedEvent[];
+  // Beyond-window future IRL events (after windowEnd, up to a wider horizon),
+  // date-ascending. Used per-user to top up "Coming up" to a minimum of 3
+  // city-matched IRL events when this week has fewer. NOT shown wholesale — only
+  // the soonest city-matched ones needed to reach the minimum.
+  futureEvents: SharedEvent[];
 }
 
 const SHARED_TTL_MS = 5 * 60 * 1000; // 5 min — covers the UTC-midnight + Sun-7am-PT rollovers
@@ -220,21 +225,31 @@ export async function loadComingUpShared(db: Firestore, nowMs: number): Promise<
   });
 
   // ── IRL events ──────────────────────────────────────────────────────────
+  // Fetch this-week events (<= windowEnd) AND a wider horizon of FUTURE events
+  // (up to windowEnd + FUTURE_HORIZON) so the per-user filter can top up to a
+  // minimum of 3 city-matched IRL events when this week is thin. In-window and
+  // beyond-window are split into `events` / `futureEvents` below.
+  const FUTURE_HORIZON_MS = 8 * 7 * 24 * 60 * 60 * 1000; // ~8 weeks past windowEnd
+  const futureBound = windowEnd + FUTURE_HORIZON_MS;
   const startOfToday = new Date(nowMs);
   startOfToday.setUTCHours(0, 0, 0, 0);
   const evSnap = await db
     .collection("events")
     .where("date", ">=", startOfToday.getTime())
-    .where("date", "<=", windowEnd)
+    .where("date", "<=", futureBound)
     .get();
   const events: SharedEvent[] = [];
-  const eventCreatorByIdx: Array<string | undefined> = []; // createdBy uid per event
+  const futureEvents: SharedEvent[] = [];
+  // createdBy uid per event, tracked in load order across BOTH arrays so photo
+  // resolution below can map back to each event.
+  const eventCreatorByIdx: Array<string | undefined> = [];
+  const allEventsInOrder: SharedEvent[] = [];
   for (const doc of evSnap.docs) {
     const data = doc.data();
     const location = data.location as string | undefined;
     if (!location) continue;
-    if (typeof data.date !== "number" || data.date > windowEnd) continue;
-    events.push({
+    if (typeof data.date !== "number" || data.date > futureBound) continue;
+    const ev: SharedEvent = {
       location,
       date: data.date,
       name: (data.name as string) || "",
@@ -249,9 +264,14 @@ export async function loadComingUpShared(db: Firestore, nowMs: number): Promise<
         (data.linkedCollectives as Array<{ collectiveSlug?: string }> | undefined)?.[0]?.collectiveSlug ||
         undefined,
       djs: (data.djs as SharedEvent["djs"]) || [],
-    });
+    };
+    if (data.date <= windowEnd) events.push(ev);
+    else futureEvents.push(ev);
+    allEventsInOrder.push(ev);
     eventCreatorByIdx.push((data.createdBy as string) || undefined);
   }
+  // Beyond-window events date-ascending, so the per-user top-up takes the soonest.
+  futureEvents.sort((a, b) => a.date - b.date);
 
   // Resolve event image fallbacks (when the event has no `photo`):
   //  - tagged DJ = first lineup DJ's profile photo (by chatUsernameNormalized)
@@ -260,7 +280,7 @@ export async function loadComingUpShared(db: Firestore, nowMs: number): Promise<
   // must be looked up. Batched over the users/pending collections.
   const evNorms = Array.from(
     new Set(
-      events
+      allEventsInOrder
         .map((e) => normUser(e.djs[0]?.djUsername))
         .filter((n): n is string => !!n && !djPhotoByNorm.has(n)),
     ),
@@ -296,13 +316,16 @@ export async function loadComingUpShared(db: Firestore, nowMs: number): Promise<
       if (photo) creatorPhotoByUid.set(snap.id, photo);
     });
   }
-  events.forEach((e, idx) => {
+  // Resolve photos for BOTH in-window and future events (allEventsInOrder is
+  // parallel to eventCreatorByIdx). Each SharedEvent is a shared object ref, so
+  // mutating it here updates the entry in `events`/`futureEvents` too.
+  allEventsInOrder.forEach((e, idx) => {
     e.taggedDjPhotoUrl = djPhotoByNorm.get(normUser(e.djs[0]?.djUsername)) || undefined;
     const creatorUid = eventCreatorByIdx[idx];
     e.creatorPhotoUrl = creatorUid ? creatorPhotoByUid.get(creatorUid) : undefined;
   });
 
-  const data: ComingUpShared = { online, events };
+  const data: ComingUpShared = { online, events, futureEvents };
   sharedCache = { at: nowMs, data };
   return data;
 }
@@ -346,25 +369,22 @@ export function filterComingUpForUser(
   }
 
   const todayPt = ptDate(nowMs); // YYYY-MM-DD in PT
-  for (const ev of shared.events) {
-    // Hide events whose DAY (in PT) is already past — keep an event through the
-    // end of its calendar day, drop it the next day. Checked per-request against
-    // the live now (shared data is cached up to ~5 min). YYYY-MM-DD string
-    // compare is chronological.
-    if (ptDate(ev.date) < todayPt) continue;
-    // City gate (logged-in). Logged-out (userCity null) shows everything.
-    if (userCity && !matchesCity(ev.location, userCity)) continue;
 
+  // Build a ComingUpRow from a SharedEvent, or null if it should be hidden for
+  // this user (past-day, city mismatch, or a muted lineup DJ).
+  const buildEventRow = (ev: SharedEvent): ComingUpRow | null => {
+    // Hide events whose DAY (in PT) is already past — keep through end of day.
+    if (ptDate(ev.date) < todayPt) return null;
+    // City gate (logged-in). Logged-out (userCity null) shows everything.
+    if (userCity && !matchesCity(ev.location, userCity)) return null;
     const djs = ev.djs;
-    // Hide if ANY lineup DJ is muted. An artist DOES see their OWN IRL events
-    // (own-DJ is NOT excluded here — only for their own ONLINE shows above).
+    // Hide if ANY lineup DJ is muted. An artist DOES see their OWN IRL events.
     const lineupNorms = djs.map((d) => normUser(d.djUsername)).filter(Boolean);
-    if (lineupNorms.some((n) => muted.has(n))) continue;
+    if (lineupNorms.some((n) => muted.has(n))) return null;
     const firstDj = djs[0];
     const engagedDj = djs.find((d) => normUser(d.djUsername) && engagedDjUsernames.has(normUser(d.djUsername)));
     const reason = engagedDj?.djName ? `${engagedDj.djName} · ${ev.location}` : `In ${ev.location}`;
-
-    rows.push({
+    return {
       djUsername: firstDj?.djUsername || "",
       djName: firstDj?.djName || ev.name,
       djPhotoUrl: firstDj?.djPhotoUrl || ev.taggedDjPhotoUrl,
@@ -373,7 +393,6 @@ export function filterComingUpForUser(
       ticketUrl: ev.ticketLink || "",
       date: ptDate(ev.date),
       // Image fallback: event photo → tagged (first) DJ's photo → creator's.
-      // Undefined when none → email builder renders the initial-letter avatar.
       eventPhotoUrl: ev.photo || ev.taggedDjPhotoUrl || ev.creatorPhotoUrl,
       venueName: ev.venueName,
       allDjs: djs.filter((d) => d.djUsername && d.djName).map((d) => ({ djUsername: d.djUsername!, djName: d.djName! })),
@@ -381,9 +400,38 @@ export function filterComingUpForUser(
       isIRL: true,
       startMs: ev.date,
       collectiveSlug: ev.collectiveSlug,
-    });
+    };
+  };
+
+  // In-window (this-week) IRL rows.
+  let irlCount = 0;
+  const seenEventKeys = new Set<string>();
+  const eventKey = (ev: SharedEvent) => `${ev.name}|${ev.date}|${ev.location}`;
+  for (const ev of shared.events) {
+    const row = buildEventRow(ev);
+    if (!row) continue;
+    seenEventKeys.add(eventKey(ev));
+    rows.push(row);
+    irlCount++;
   }
 
+  // Top up to a minimum of MIN_IRL city-matched IRL events with the SOONEST
+  // future (beyond-this-week) events when this week has fewer. futureEvents is
+  // date-ascending, so we take the earliest qualifying ones first.
+  const MIN_IRL = 3;
+  if (irlCount < MIN_IRL) {
+    for (const ev of shared.futureEvents) {
+      if (irlCount >= MIN_IRL) break;
+      if (seenEventKeys.has(eventKey(ev))) continue; // dedupe against in-window
+      const row = buildEventRow(ev);
+      if (!row) continue;
+      seenEventKeys.add(eventKey(ev));
+      rows.push(row);
+      irlCount++;
+    }
+  }
+
+  // Chronological across online + IRL (in-window and backfilled future alike).
   rows.sort((a, b) => a.startMs - b.startMs);
   return rows;
 }

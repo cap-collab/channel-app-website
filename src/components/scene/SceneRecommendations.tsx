@@ -316,7 +316,13 @@ export function SceneRecommendations({
         </ExpandableSection>
       ))}
 
-      {/* Dive back in renders ABOVE Coming up. */}
+      {comingUp.length > 0 && (
+        <Section title={comingUpTitle}>
+          <ComingUpGrid rows={comingUp} onAuthRequired={onAuthRequired} onAdded={() => showToast('Added to watchlist')} />
+        </Section>
+      )}
+
+      {/* Dive back in renders BELOW Coming up. */}
       {diveBackIn.length > 0 && (
         <Section title="Dive back in">
           <ArchiveGrid
@@ -337,12 +343,6 @@ export function SceneRecommendations({
               See more
             </button>
           )}
-        </Section>
-      )}
-
-      {comingUp.length > 0 && (
-        <Section title={comingUpTitle}>
-          <ComingUpGrid rows={comingUp} onAuthRequired={onAuthRequired} onAdded={() => showToast('Added to watchlist')} />
         </Section>
       )}
 
