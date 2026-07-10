@@ -676,6 +676,16 @@ export function StudioProfileClient() {
       if (data) {
         setChatUsername(data.chatUsername || null);
         setIsResident(!!data.djProfile?.residency?.cadence);
+        // Collectives this user owns, denormalized on the user doc (kept in sync
+        // by /api/admin/collectives). Sourced here off the live user-doc
+        // subscription instead of a separate `owners array-contains` query, so
+        // it updates automatically if ownership changes. Stored raw — the slot
+        // matcher below compares against the raw slot djUsername.
+        myCollectiveSlugsRef.current = new Set(
+          Array.isArray(data.ownedCollectiveSlugs)
+            ? data.ownedCollectiveSlugs.filter((s: unknown): s is string => typeof s === "string")
+            : []
+        );
         // Brand-new DJs may not have a djProfile map yet — release the
         // initial-load gate so auto-save effects can fire. Without this,
         // every save is silently no-op'd at the `if (initialLoadRef.current) return`
@@ -766,23 +776,9 @@ export function StudioProfileClient() {
       orderBy("endTime", "asc")
     );
 
-    // Prefetch the collectives where this user is an owner.
-    (async () => {
-      if (!db) return;
-      try {
-        const collectivesRef = collection(db, "collectives");
-        const ownedQ = query(collectivesRef, where("owners", "array-contains", user.uid));
-        const snap = await getDocs(ownedQ);
-        const slugs = new Set<string>();
-        snap.forEach(d => {
-          const slug = d.data().slug;
-          if (typeof slug === "string") slugs.add(slug);
-        });
-        myCollectiveSlugsRef.current = slugs;
-      } catch (err) {
-        console.error("Error prefetching owned collectives:", err);
-      }
-    })();
+    // myCollectiveSlugsRef (collectives this user owns) is populated by the
+    // user-doc subscription above, from the denormalized ownedCollectiveSlugs
+    // field — no separate `owners array-contains` query needed here.
 
     const unsubscribe = onSnapshot(
       q,
@@ -979,15 +975,14 @@ export function StudioProfileClient() {
     // (Own UPLOADED recordings are already loaded realtime by Query 1.)
     (async () => {
       try {
-        // Resolve owned collective slugs (self-contained, race-free).
+        // Owned collective slugs, normalized to match archive djs[].username.
+        // Sourced from myCollectiveSlugsRef (populated by the user-doc
+        // subscription from the denormalized ownedCollectiveSlugs field) —
+        // no separate `owners array-contains` query.
         const ownedSlugs = new Set<string>();
         try {
-          const ownedSnap = await getDocs(
-            query(collection(db, "collectives"), where("owners", "array-contains", user.uid))
-          );
-          ownedSnap.forEach((d) => {
-            const slug = d.data().slug;
-            if (typeof slug === "string") ownedSlugs.add(normalizeUsername(slug));
+          myCollectiveSlugsRef.current.forEach((slug) => {
+            ownedSlugs.add(normalizeUsername(slug));
           });
         } catch (err) {
           console.error("Error resolving owned collectives:", err);
