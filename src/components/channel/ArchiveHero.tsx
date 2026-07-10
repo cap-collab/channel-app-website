@@ -22,7 +22,7 @@ import { DancingBars } from './DancingBars';
 import { AuthModal } from '@/components/AuthModal';
 import { ArchiveSerialized, type Tempo } from '@/types/broadcast';
 import { TEMPOS, tempoLabel } from '@/lib/tempo';
-import { priorityIsHigh, priorityIsFeatured, priorityRank } from '@/lib/archive-priority';
+import { priorityIsHigh, priorityIsFeatured, compareArchivesForGrid } from '@/lib/archive-priority';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 import { TempoFilterDropdown, FeaturedBand } from './SceneTempoChips';
 import { STATIC_SCENE_CHIPS } from './useSceneTempoFilter';
@@ -1754,11 +1754,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
         const prefiltered = archives
           .filter((a) => a.priority !== 'hidden' && a.isPublic !== false)
           .slice()
-          .sort((a, b) => {
-            const rank = priorityRank(a.priority) - priorityRank(b.priority);
-            if (rank !== 0) return rank;
-            return (b.recordedAt || 0) - (a.recordedAt || 0);
-          });
+          // Grid backfill order: featured + high lead (by recency), then medium
+          // and low mix together purely by recency (a recent low can sit above
+          // an older medium). This is the browse list under the curated/rec
+          // picks — the recommendation order is computed elsewhere.
+          .sort(compareArchivesForGrid);
 
         // Compute effective scenes per archive once and attach as a tuple list.
         const archivesWithScenes = prefiltered.map((a) => ({

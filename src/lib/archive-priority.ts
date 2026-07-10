@@ -56,3 +56,31 @@ export function priorityRank(p?: ArchivePriority | string): number {
       return 4; // hidden / unknown
   }
 }
+
+// Coarser rank for the browsable archive grid order: featured + high are the
+// top band (0); medium + low share a second band (1) that then mixes purely by
+// recency (a recent low can appear above an older medium). hidden/unknown last.
+export function gridPriorityBand(p?: ArchivePriority | string): number {
+  switch (p) {
+    case 'featured':
+    case 'high':
+      return 0;
+    case 'medium':
+    case 'low':
+      return 1;
+    default:
+      return 2; // hidden / unknown
+  }
+}
+
+// Comparator for the browsable archive grid: top band first, then recency
+// (newest first) within each band. Featured/high lead; medium + low mix by
+// recency below them.
+export function compareArchivesForGrid(
+  a: { priority?: ArchivePriority | string; recordedAt?: number | null },
+  b: { priority?: ArchivePriority | string; recordedAt?: number | null },
+): number {
+  const band = gridPriorityBand(a.priority) - gridPriorityBand(b.priority);
+  if (band !== 0) return band;
+  return (b.recordedAt || 0) - (a.recordedAt || 0);
+}

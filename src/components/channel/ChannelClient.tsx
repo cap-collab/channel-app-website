@@ -30,7 +30,7 @@ import { useGoLiveMutes } from '@/hooks/useGoLiveMutes';
 import { useCollectivePhotos } from '@/hooks/useCollectivePhotos';
 import { matchesCity, SUPPORTED_CITIES } from '@/lib/city-detection';
 import { GENRE_ALIASES, SUPPORTED_GENRES, matchesGenre as matchesGenreLib } from '@/lib/genres';
-import { priorityRank } from '@/lib/archive-priority';
+import { compareArchivesForGrid } from '@/lib/archive-priority';
 
 type MatchedItem =
   | { type: 'irl'; data: IRLShowData; matchLabel: string | undefined }
@@ -237,19 +237,16 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
     return matching.map((g) => g.toUpperCase()).join(' + ');
   }, [getMatchingGenres]);
 
-  // Sort archives by priority tier first (featured above high above medium),
-  // then by recency within a tier. With a genre filter active, matching archives
-  // still float to the top, but priority breaks ties ahead of recency.
+  // Grid backfill order: featured + high lead (by recency), then medium and low
+  // mix together purely by recency (a recent low can sit above an older medium).
+  // With a genre filter active, matching archives still float to the top, but the
+  // same band comparator breaks ties below the genre-match sort.
   const { archives, featuredArchive } = useMemo(() => {
     const sourceArchives = rawArchives;
     if (sourceArchives.length === 0) return { archives: sourceArchives, featuredArchive: rawFeaturedArchive };
 
     if (selectedGenres.length === 0) {
-      const sorted = [...sourceArchives].sort((a, b) => {
-        const rank = priorityRank(a.priority) - priorityRank(b.priority);
-        if (rank !== 0) return rank;
-        return (b.recordedAt || 0) - (a.recordedAt || 0);
-      });
+      const sorted = [...sourceArchives].sort(compareArchivesForGrid);
       return { archives: sorted, featuredArchive: sorted[0] };
     }
 
@@ -269,9 +266,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
       const bMatched = b.genreScore > 0 ? 0 : 1;
       if (aMatched !== bMatched) return aMatched - bMatched;
       if (a.genreScore !== b.genreScore) return b.genreScore - a.genreScore;
-      const rank = priorityRank(a.archive.priority) - priorityRank(b.archive.priority);
-      if (rank !== 0) return rank;
-      return (b.archive.recordedAt || 0) - (a.archive.recordedAt || 0);
+      return compareArchivesForGrid(a.archive, b.archive);
     });
 
     const sorted = scored.map((s) => s.archive);

@@ -13,6 +13,7 @@ import { tempoLabel } from '@/lib/tempo';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useArchives } from '@/hooks/useArchives';
+import { compareArchivesForGrid } from '@/lib/archive-priority';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
 import { useSceneTempoFilter } from '@/components/channel/useSceneTempoFilter';
@@ -209,9 +210,13 @@ export function SceneRecommendations({
   const { archives: allArchives } = useArchives();
   const startHereIds = useMemo(() => new Set((startHere || []).map((a) => a.id)), [startHere]);
   const startHereFiltered = (startHere || []).filter(filter.matchesArchive);
-  const moreArchivesFiltered = allArchives.filter(
-    (a) => !startHereIds.has(a.id) && filter.matchesArchive(a),
-  );
+  // Match the homepage Archives grid order: featured + high lead (by recency),
+  // then medium and low mix together purely by recency. useArchives returns raw
+  // /api/archives recency order, so apply the same band comparator here.
+  const moreArchivesFiltered = allArchives
+    .filter((a) => !startHereIds.has(a.id) && filter.matchesArchive(a))
+    .slice()
+    .sort(compareArchivesForGrid);
 
   // While the heavy personalized payload is still loading, paint the (fast,
   // public) "Coming up" section if it's ready — but keep the spinner ABOVE it,
