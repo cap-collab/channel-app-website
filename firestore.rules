@@ -149,12 +149,26 @@ service cloud.firestore {
       allow write: if isBroadcaster();
     }
 
-    // Collectives (admin-managed)
+    // Collectives (admin-managed + owner self-service)
     // - Anyone can read (needed for public collective pages)
-    // - Only broadcasters/admins can write
+    // - Broadcasters/admins can write anything
+    // - OWNERS may self-edit ONLY cosmetic display fields on collectives they
+    //   own (slug ∈ their ownedCollectiveSlugs, kept in sync by
+    //   /api/admin/collectives). The hasOnly() whitelist keeps owners OUT of
+    //   name/slug/owners/residentDJs/guestDJs/sceneIds/linked* — those stay
+    //   admin- or owner-API-only. This mirrors the archives tracklist rule.
     match /collectives/{collectiveId} {
       allow read: if true;
       allow write: if isBroadcaster();
+      allow update: if request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid))
+             .data.ownedCollectiveSlugs is list
+        && (resource.data.slug in
+            get(/databases/$(database)/documents/users/$(request.auth.uid))
+              .data.ownedCollectiveSlugs)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['photo', 'description', 'location', 'genres', 'socialLinks', 'tipButtonLink']);
     }
 
     // Scheduled notifications (cron job)

@@ -78,6 +78,11 @@ export interface UserDocument {
   timezone: string;
   role?: 'user' | 'dj' | 'broadcaster' | 'admin';
   djTermsAcceptedAt?: Date;
+  // Collective owner accepted the Collective Terms. Separate axis from `role`
+  // (a user can be a DJ, a collective owner, or both). Unlike djTermsAcceptedAt
+  // — which is only recorded — this ACTIVELY gates entry to the collective
+  // studio. Set by /api/collective/assign-role.
+  collectiveTermsAcceptedAt?: Date;
   googleCalendar?: {
     accessToken: string;
     refreshToken: string;

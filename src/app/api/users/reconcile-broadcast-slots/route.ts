@@ -161,6 +161,52 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Check for pending COLLECTIVE role assignments (admin pre-attributed an
+    // owner by email, or they accepted collective terms before signup). This is
+    // the ownership axis — it grants ownedCollectiveSlugs + collectiveTermsAcceptedAt
+    // and NEVER touches `role`, so it can't interfere with DJ-role assignment above.
+    const pendingCollectiveRoleSnap = await db.collection('pending-collective-roles')
+      .where('email', '==', email.toLowerCase())
+      .get();
+
+    if (!pendingCollectiveRoleSnap.empty) {
+      const slugs = pendingCollectiveRoleSnap.docs
+        .map((d) => d.data().collectiveSlug)
+        .filter((s): s is string => typeof s === 'string' && s.length > 0);
+      const acceptedAt = pendingCollectiveRoleSnap.docs
+        .map((d) => d.data().collectiveTermsAcceptedAt)
+        .find((t) => t) || null;
+
+      const collectiveUpdate: Record<string, unknown> = {};
+      if (slugs.length > 0) {
+        collectiveUpdate.ownedCollectiveSlugs = FieldValue.arrayUnion(...slugs);
+      }
+      if (acceptedAt) {
+        collectiveUpdate.collectiveTermsAcceptedAt = acceptedAt;
+      }
+      if (Object.keys(collectiveUpdate).length > 0) {
+        await db.collection('users').doc(userId).update(collectiveUpdate);
+        console.log(`[reconcile] Granted collective rights to user ${userId}: slugs=${slugs.join(',')}`);
+      }
+
+      // Sync collectives.owners[] for each attributed slug.
+      for (const slug of slugs) {
+        const collSnap = await db.collection('collectives')
+          .where('slug', '==', slug)
+          .limit(1)
+          .get();
+        if (!collSnap.empty) {
+          await collSnap.docs[0].ref.update({ owners: FieldValue.arrayUnion(userId) });
+        }
+      }
+
+      // Consume the pending record(s).
+      for (const doc of pendingCollectiveRoleSnap.docs) {
+        await doc.ref.delete();
+        console.log(`[reconcile] Deleted pending-collective-role ${doc.id}`);
+      }
+    }
+
     // Check for pending DJ profiles (pre-registered DJs who haven't signed up yet)
     let pendingProfileClaimed = false;
     const normalizedEmail = email.toLowerCase();
