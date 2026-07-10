@@ -191,6 +191,14 @@ export async function POST(request: NextRequest) {
         userId: userId,
         email: userData?.email,
         photoUrl: djProfile.photoUrl || null,
+        // Snapshot the DJ's genres/location onto the archive at upload time so
+        // cards render the genre line WITHOUT a per-card profile lookup. Only
+        // set when present (keeps the shape clean; consumers treat absence as
+        // "no genres").
+        ...(Array.isArray(djProfile.genres) && djProfile.genres.length > 0
+          ? { genres: djProfile.genres }
+          : {}),
+        ...(djProfile.location ? { location: djProfile.location } : {}),
       }],
       recordingUrl,
       duration: durationSeconds,

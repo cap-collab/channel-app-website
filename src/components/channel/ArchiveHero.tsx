@@ -2143,9 +2143,11 @@ export function ArchiveGridCard({
   const djNames = archive.djs.map((d) => d.name).join(', ');
   const primaryDj = archive.djs[0];
   const primaryUsername = primaryDj?.username;
-  const profileInfo = useDJProfileInfo(primaryUsername);
-  // Archive-stored data takes priority over profile lookup
-  const genres = (primaryDj?.genres?.length ? primaryDj.genres : profileInfo.genres) || [];
+  // Genres are snapshotted onto the archive at creation (upload route + live
+  // webhook enrich djs[].genres), so the grid card reads them directly — NO
+  // per-card DJ-profile Firestore lookup (that fan-out fired ~3 queries per card
+  // = a scroll-lag network storm on the homepage / /foryou grids).
+  const genres = primaryDj?.genres || [];
   const genreText = genres.length > 0 ? genres.map((g) => g.toUpperCase()).join(' · ') : null;
   const displayImage = archive.showImageUrl || primaryDj?.photoUrl;
 
