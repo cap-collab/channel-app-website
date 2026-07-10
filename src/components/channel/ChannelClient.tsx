@@ -290,7 +290,6 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
     title: string;
     archives: import('@/types/broadcast').ArchiveSerialized[];
     bandByArchiveId?: Record<string, { glyphSlug?: string; label?: string; tempo?: string }>;
-    fixedNewIds?: string[]; // favorite-artists ids → "New Show" banner
   } | null>(
     initialSceneArchives && initialSceneArchives.length > 0
       ? { title: 'Find Your Scene', archives: initialSceneArchives }
@@ -342,12 +341,19 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
           const seen = new Set<string>();
           const merged: import('@/types/broadcast').ArchiveSerialized[] = [];
           const bandByArchiveId: Record<string, { glyphSlug?: string; label?: string; tempo?: string }> = {};
-          const fixedNewIds: string[] = [];
+          // Both sections carry per-card bands from the API — favorite-artists
+          // labels each card "New Show" (unheard) or "Dive back in" (streamed);
+          // discovery carries scene/affiliation bands. Trust that single source
+          // (no more blanket "New Show" for all §1 cards).
           for (const a of newSec?.archives || []) {
             if (seen.has(a.id)) continue;
             seen.add(a.id);
             merged.push(a);
-            fixedNewIds.push(a.id);
+            const band = newSec?.bandByArchiveId?.[a.id];
+            // Homepage copy: "New Show" → "New Show For You" (label kept verbatim
+            // otherwise, e.g. "Dive back in").
+            if (band?.label === 'New Show') bandByArchiveId[a.id] = { ...band, label: 'New Show For You' };
+            else if (band) bandByArchiveId[a.id] = band;
           }
           for (const a of recSec?.archives || []) {
             if (seen.has(a.id)) continue;
@@ -358,7 +364,7 @@ export function ChannelClient({ skipHero, topSearchSlot, discoveryFiltersSlot, s
           }
           const capped = merged.slice(0, 6);
           if (capped.length > 0) {
-            setSceneSection({ title: 'For You', archives: capped, bandByArchiveId, fixedNewIds });
+            setSceneSection({ title: 'For You', archives: capped, bandByArchiveId });
             return;
           }
         }

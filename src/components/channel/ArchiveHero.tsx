@@ -169,13 +169,12 @@ interface ArchiveHeroProps {
   // Curated "Find Your Scene" / "For You" grid rendered in place of the
   // Featured section under the hero (homepage only). Its archives are a small
   // fixed pick set (not scene/tempo-filtered) and are de-duped out of More
-  // Archives. When present, `bandByArchiveId` / `fixedNewIds` drive the black
-  // banner above each card explaining why it's recommended.
+  // Archives. When present, `bandByArchiveId` drives the black banner above each
+  // card explaining why it's recommended.
   sceneSection?: {
     title: string;
     archives: ArchiveSerialized[];
     bandByArchiveId?: Record<string, { glyphSlug?: string; label?: string; tempo?: string }>;
-    fixedNewIds?: string[];
   } | null;
 }
 
@@ -1889,19 +1888,11 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           ) : null;
 
         // Black "why we recommend this" banner above a card in the curated scene
-        // grid — mirrors /scene. §"new" (favorite-artists) → "New Show"; §rec
-        // (discovery) → an affiliation reason ("Similar to X") or scene glyph +
-        // tempo. Only the curated grid passes `withBands`; More Archives never
-        // shows a banner.
+        // grid — mirrors /scene. The per-card band label comes from the API:
+        // favorite-artists → "New Show For You" (unheard) / "Dive back in"
+        // (streamed); discovery → an affiliation reason ("Similar to X") or scene
+        // glyph + tempo. Only the curated grid passes `withBands`.
         const renderSceneBand = (archiveId: string) => {
-          const isNew = sceneSection?.fixedNewIds?.includes(archiveId);
-          if (isNew) {
-            return (
-              <div className="bg-black text-white text-[10px] font-mono uppercase tracking-[0.2em] py-1 px-2 flex items-center justify-center">
-                New Show For You
-              </div>
-            );
-          }
           const band = sceneSection?.bandByArchiveId?.[archiveId];
           if (!band) return null;
           if (band.label) {
@@ -1921,12 +1912,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
           );
         };
 
-        // The curated top grid is either personalized ("For You" — has bands /
-        // fixedNewIds) or the logged-out / no-preference featured seed (no bands).
-        // The no-pref seed gets a [glyph] TEMPO FAVORITE band on every card.
+        // The curated top grid is either personalized ("For You" — every card has
+        // a band in bandByArchiveId) or the logged-out / no-preference featured
+        // seed (no bands). The no-pref seed gets a [glyph] TEMPO FAVORITE band on
+        // every card.
         const isNoPrefSeed =
           hasSceneSection &&
-          !(sceneSection?.fixedNewIds && sceneSection.fixedNewIds.length > 0) &&
           Object.keys(sceneSection?.bandByArchiveId || {}).length === 0;
 
         // Card-grid renderer shared by both sections. `bandCount` = how many of
