@@ -2898,9 +2898,6 @@ export function StudioProfileClient() {
             <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-1">
               My Recordings
             </h2>
-            <p className="text-gray-500 text-xs mb-3 px-1">
-              Manage your recorded sets. Publish them to your profile or delete them.
-            </p>
             <div className="bg-[#1e1e1e] rounded">
               {loadingRecordings ? (
                 <div className="p-4 flex items-center justify-center">
