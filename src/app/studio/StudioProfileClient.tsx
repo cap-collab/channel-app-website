@@ -23,6 +23,11 @@ import { parseGenresInput, extractInstagramHandle } from "@/lib/genres";
 import { ShareableShowCardStory } from "@/components/studio/ShareableShowCardStory";
 import { Checkbox } from "@/components/Checkbox";
 
+// Shown when a DJ tries to edit or delete a recording that has already been
+// booked into an upcoming anchor or restream slot.
+const SCHEDULED_LOCK_MESSAGE =
+  'Your show has already been scheduled, reach out to Cap 415 316 3109 if you need to edit anything.';
+
 // Word boundary matching for DJ/show names
 // e.g. "PAC" matches "PAC" or "Night PAC" but NOT "pace" or "space"
 function containsMatch(text: string, term: string): boolean {
@@ -388,6 +393,10 @@ export function StudioProfileClient() {
   const [tracklistDrafts, setTracklistDrafts] = useState<Record<string, TrackId[]>>({});
   const [savingTracklistId, setSavingTracklistId] = useState<string | null>(null);
   const [tracklistErrors, setTracklistErrors] = useState<Record<string, string | null>>({});
+  // Archive ids that are already scheduled into an upcoming anchor or restream
+  // slot. Once scheduled, a DJ must not silently edit/delete the recording out
+  // from under the broadcast — they're told to reach out to Cap instead.
+  const [scheduledArchiveIds, setScheduledArchiveIds] = useState<Set<string>>(new Set());
 
   // Pre-recording upload state
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -1055,6 +1064,32 @@ export function StudioProfileClient() {
       unsubArchives();
       unsubSessions();
     };
+  }, [user]);
+
+  // Track which archives are already booked into an upcoming anchor or restream
+  // slot. A scheduled slot points at its archive via `archiveId` (set only for
+  // restream/anchor) and, for anchors, via `postLiveArchiveId`. We only care
+  // about slots that haven't ended yet — a past broadcast no longer locks the
+  // recording. broadcast-slots is world-readable, so this runs client-side.
+  useEffect(() => {
+    if (!user || !db) return;
+    const slotsRef = collection(db, "broadcast-slots");
+    const q = query(slotsRef, where("endTime", ">", Timestamp.fromDate(new Date())));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const ids = new Set<string>();
+        snap.forEach((d) => {
+          const data = d.data();
+          if (data.broadcastType !== 'anchor' && data.broadcastType !== 'restream') return;
+          if (typeof data.archiveId === 'string' && data.archiveId) ids.add(data.archiveId);
+          if (typeof data.postLiveArchiveId === 'string' && data.postLiveArchiveId) ids.add(data.postLiveArchiveId);
+        });
+        setScheduledArchiveIds(ids);
+      },
+      (err) => console.error("Error loading scheduled slots:", err)
+    );
+    return () => unsub();
   }, [user]);
 
   // Handle publish/unpublish recording
@@ -2883,10 +2918,14 @@ export function StudioProfileClient() {
               ) : (
                 <div className="space-y-2 p-2">
                   {recordings.map((recording) => {
-                    const canEditImage = recording.source === 'archive' && recording.sourceType !== 'live';
+                    // Booked into an upcoming anchor/restream slot → the DJ can't
+                    // edit or delete it out from under the broadcast; hide the
+                    // edit affordances and show a notice instead.
+                    const isScheduled = scheduledArchiveIds.has(recording.id);
+                    const canEditImage = recording.source === 'archive' && recording.sourceType !== 'live' && !isScheduled;
                     // Tracklist is editable on ANY of the artist's own archive
                     // recordings — including live ones (they get YouTube claims).
-                    const canEditTracklist = recording.source === 'archive';
+                    const canEditTracklist = recording.source === 'archive' && !isScheduled;
                     const isUploadingImage = uploadingRecordingImageId === recording.id;
                     const imageError = recordingImageErrors[recording.id];
                     return (
@@ -2986,7 +3025,7 @@ export function StudioProfileClient() {
                               ) : (
                                 <div className="flex items-center gap-1.5">
                                   <h3 className="text-white font-semibold text-sm truncate">{recording.showName}</h3>
-                                  {recording.source === 'archive' && recording.sourceType !== 'live' && (
+                                  {recording.source === 'archive' && recording.sourceType !== 'live' && !isScheduled && (
                                     <button
                                       onClick={() => handleStartEditRecordingName(recording.id, recording.showName)}
                                       className="text-gray-500 hover:text-white text-xs transition-colors flex-shrink-0"
@@ -3009,13 +3048,17 @@ export function StudioProfileClient() {
                                 ) : (
                                   <span className="text-gray-500 ml-2">· Private</span>
                                 )}
+                                {isScheduled && (
+                                  <span className="text-amber-400 ml-2">· Scheduled</span>
+                                )}
                               </p>
                             </div>
                             {/* Action buttons */}
                             <div className="flex items-center gap-1 flex-shrink-0">
                               {/* Publish/Unpublish button — not for live recordings
-                                  (they're already public broadcasts). */}
-                              {recording.sourceType !== 'live' && (
+                                  (they're already public broadcasts), and locked
+                                  once the show is booked into a slot. */}
+                              {recording.sourceType !== 'live' && !isScheduled && (
                               <button
                                 onClick={() => handlePublishRecording(recording.id, !recording.isPublic)}
                                 disabled={publishingRecording === recording.id}
@@ -3046,6 +3089,7 @@ export function StudioProfileClient() {
                                   longer owns (owner reassigned away). Session
                                   recs have no owner field → uploader is owner. */}
                               {recording.sourceType !== 'live'
+                                && !isScheduled
                                 && (recording.source !== 'archive' || recording.ownerUserId === user?.uid) && (
                               <button
                                 onClick={() => handleDeleteRecording(recording.id)}
@@ -3075,6 +3119,15 @@ export function StudioProfileClient() {
                           />
                         </div>
                       </div>
+
+                      {/* Locked notice — this recording is already booked into an
+                          upcoming anchor/restream slot, so editing/deleting is
+                          disabled and the DJ is pointed to Cap. */}
+                      {isScheduled && (
+                        <p className="text-amber-400/90 text-xs mt-2">
+                          {SCHEDULED_LOCK_MESSAGE}
+                        </p>
+                      )}
 
                       {/* Hidden audio element */}
                       {recording.audioUrl && (
