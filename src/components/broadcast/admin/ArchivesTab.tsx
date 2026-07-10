@@ -739,6 +739,16 @@ function ArchiveCard({
       return next;
     }));
   };
+  // Move a preview row up/down one position (reorder; saved order = displayed).
+  const moveRow = (index: number, dir: -1 | 1) => {
+    setTrackIdsPreview((prev) => {
+      const to = index + dir;
+      if (to < 0 || to >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[to]] = [next[to], next[index]];
+      return next;
+    });
+  };
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1047,6 +1057,27 @@ function ArchiveCard({
                           return (
                             <li key={i} className="flex items-start gap-2 text-xs text-gray-300">
                               <span className="text-gray-600 tabular-nums pt-0.5">{i + 1}.</span>
+                              {/* Reorder up/down (saved order = displayed order). */}
+                              <div className="flex flex-col pt-0.5 -my-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => moveRow(i, -1)}
+                                  disabled={i === 0}
+                                  title="Move up"
+                                  className="text-gray-500 hover:text-white disabled:opacity-25 leading-none text-[10px]"
+                                >
+                                  ▲
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => moveRow(i, 1)}
+                                  disabled={i === trackIdsPreview.length - 1}
+                                  title="Move down"
+                                  className="text-gray-500 hover:text-white disabled:opacity-25 leading-none text-[10px]"
+                                >
+                                  ▼
+                                </button>
+                              </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span>{t.text}</span>

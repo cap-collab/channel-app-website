@@ -1264,6 +1264,17 @@ export function StudioProfileClient() {
     });
   }, []);
 
+  // Move a row up/down one position (reorder). Saved order = displayed order.
+  const handleTracklistMove = useCallback((recordingId: string, index: number, dir: -1 | 1) => {
+    setTracklistDrafts(prev => {
+      const rows = prev[recordingId] ? [...prev[recordingId]] : [];
+      const to = index + dir;
+      if (to < 0 || to >= rows.length) return prev; // at an edge
+      [rows[index], rows[to]] = [rows[to], rows[index]];
+      return { ...prev, [recordingId]: rows };
+    });
+  }, []);
+
   // Edit one row's text.
   const handleTracklistRowText = useCallback((recordingId: string, index: number, text: string) => {
     setTracklistDrafts(prev => {
@@ -3155,6 +3166,27 @@ export function StudioProfileClient() {
                                   <div key={i}>
                                     <div className="flex items-center gap-2">
                                       <span className="text-gray-600 tabular-nums text-xs w-5">{i + 1}.</span>
+                                      {/* Reorder up/down (saved order = displayed order). */}
+                                      <div className="flex flex-col -my-0.5">
+                                        <button
+                                          onClick={() => handleTracklistMove(recording.id, i, -1)}
+                                          disabled={i === 0}
+                                          title="Move up"
+                                          aria-label="Move track up"
+                                          className="text-gray-500 hover:text-white disabled:opacity-25 disabled:hover:text-gray-500 leading-none text-[10px]"
+                                        >
+                                          ▲
+                                        </button>
+                                        <button
+                                          onClick={() => handleTracklistMove(recording.id, i, 1)}
+                                          disabled={i === rows.length - 1}
+                                          title="Move down"
+                                          aria-label="Move track down"
+                                          className="text-gray-500 hover:text-white disabled:opacity-25 disabled:hover:text-gray-500 leading-none text-[10px]"
+                                        >
+                                          ▼
+                                        </button>
+                                      </div>
                                       <input
                                         value={t.text}
                                         onChange={(e) => handleTracklistRowText(recording.id, i, e.target.value)}
