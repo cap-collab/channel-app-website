@@ -88,10 +88,6 @@ export default function CollectiveStudioClient({ slug, onExit }: Props) {
   const [savingSocial, setSavingSocial] = useState(false);
   const [saveSocialSuccess, setSaveSocialSuccess] = useState(false);
 
-  const [tipButtonLinkInput, setTipButtonLinkInput] = useState("");
-  const [savingTip, setSavingTip] = useState(false);
-  const [saveTipSuccess, setSaveTipSuccess] = useState(false);
-
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
 
@@ -151,7 +147,6 @@ export default function CollectiveStudioClient({ slug, onExit }: Props) {
           setResidentAdvisorInput(s.residentAdvisor || "");
           setWebsiteInput(s.website || "");
           setEmailInput(s.email || "");
-          setTipButtonLinkInput(d.tipButtonLink || "");
         }
       });
     })();
@@ -231,22 +226,6 @@ export default function CollectiveStudioClient({ slug, onExit }: Props) {
     }
   }, [collectiveRef, instagramInput, soundcloudInput, bandcampInput, youtubeInput, mixcloudInput, residentAdvisorInput, websiteInput, emailInput]);
 
-  const saveTip = useCallback(async (link: string) => {
-    const ref = collectiveRef();
-    if (!ref) return;
-    setSavingTip(true);
-    setSaveTipSuccess(false);
-    try {
-      await updateDoc(ref, { tipButtonLink: link.trim() ? normalizeUrl(link.trim()) : null });
-      setSaveTipSuccess(true);
-      setTimeout(() => setSaveTipSuccess(false), 2000);
-    } catch (e) {
-      console.error("Error saving tip link:", e);
-    } finally {
-      setSavingTip(false);
-    }
-  }, [collectiveRef]);
-
   // Debounced auto-save for bio + details (mirrors DJ studio: 1s delay).
   useEffect(() => {
     if (!hydratedRef.current) return;
@@ -310,7 +289,7 @@ export default function CollectiveStudioClient({ slug, onExit }: Props) {
   if (authLoading || loadingTerms || loadingCollective) {
     return (
       <div className="min-h-screen bg-black">
-        <Header />
+        <Header currentPage="studio" position="sticky" />
         <div className="flex items-center justify-center py-32">
           <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
         </div>
@@ -321,7 +300,7 @@ export default function CollectiveStudioClient({ slug, onExit }: Props) {
   if (!collective) {
     return (
       <div className="min-h-screen bg-black">
-        <Header />
+        <Header currentPage="studio" position="sticky" />
         <div className="max-w-2xl mx-auto px-4 py-16 text-center">
           <p className="text-gray-400">Collective not found.</p>
         </div>
@@ -333,7 +312,7 @@ export default function CollectiveStudioClient({ slug, onExit }: Props) {
   if (!termsAcceptedAt) {
     return (
       <div className="min-h-screen bg-black">
-        <Header />
+        <Header currentPage="studio" position="sticky" />
         <div className="max-w-lg mx-auto px-4 py-16">
           <h1 className="text-2xl font-bold text-white mb-2">Manage {collective.name}</h1>
           <p className="text-gray-400 text-sm mb-6">
@@ -367,7 +346,7 @@ export default function CollectiveStudioClient({ slug, onExit }: Props) {
   // --- Studio body ---
   return (
     <div className="min-h-screen bg-black">
-      <Header />
+      <Header currentPage="studio" position="sticky" />
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
         <div className="flex items-center justify-between">
           <div>
@@ -535,31 +514,6 @@ export default function CollectiveStudioClient({ slug, onExit }: Props) {
                 className="bg-white text-black text-sm px-4 py-2 rounded font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
               >
                 {savingSocial ? "Saving..." : "Save links"}
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* Tip button */}
-        <section>
-          <h2 className="text-gray-400 text-xs uppercase tracking-wide mb-1">Support Link</h2>
-          <p className="text-gray-500 text-xs mb-3 px-1">A support/tip button on the public page (optional).</p>
-          <div className="bg-[#1e1e1e] rounded p-4 space-y-3">
-            <input
-              type="text"
-              value={tipButtonLinkInput}
-              onChange={(e) => setTipButtonLinkInput(e.target.value)}
-              placeholder="https://..."
-              className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-            />
-            <div className="flex items-center justify-between">
-              <span className="text-gray-500 text-xs">{saveTipSuccess ? "Saved" : ""}</span>
-              <button
-                onClick={() => saveTip(tipButtonLinkInput)}
-                disabled={savingTip}
-                className="bg-white text-black text-sm px-4 py-2 rounded font-medium hover:bg-gray-100 transition-colors disabled:opacity-50"
-              >
-                {savingTip ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

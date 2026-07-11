@@ -30,12 +30,20 @@ interface FormState {
   id?: string;
   name: string;
   date: string; // YYYY-MM-DD
+  startTime: string; // HH:MM, defaults to 20:00 (8 PM) like the DJ setup
   location: string;
   ticketLink: string;
   discountCode: string;
 }
 
-const EMPTY_FORM: FormState = { name: "", date: "", location: "", ticketLink: "", discountCode: "" };
+const EMPTY_FORM: FormState = { name: "", date: "", startTime: "20:00", location: "", ticketLink: "", discountCode: "" };
+
+// Compose date + start time into a unix-ms timestamp in the browser's LOCAL
+// timezone (bare datetime string parses as local). Mirrors the DJ studio's
+// eventDateMs so read-back and display line up.
+function composeDateMs(date: string, startTime: string): number {
+  return new Date(`${date}T${startTime || "20:00"}:00`).getTime();
+}
 
 export function CollectiveEventsCard({ user, collectiveId, collectiveName }: Props) {
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -89,14 +97,14 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName }: Pro
   }, [user]);
 
   const startEdit = (ev: EventRow) => {
+    // Read back in LOCAL time to match how composeDateMs stored it.
     const d = new Date(ev.date);
-    const yyyy = d.getUTCFullYear();
-    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const dd = String(d.getUTCDate()).padStart(2, "0");
+    const pad = (n: number) => String(n).padStart(2, "0");
     setForm({
       id: ev.id,
       name: ev.name,
-      date: `${yyyy}-${mm}-${dd}`,
+      date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+      startTime: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
       location: ev.location || "",
       ticketLink: ev.ticketLink || "",
       discountCode: ev.discountCode || "",
@@ -116,7 +124,8 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName }: Pro
       const linkedCollectives = [{ collectiveId, collectiveName }];
       const payload = {
         name: form.name.trim(),
-        date: form.date,
+        // Send a composed unix-ms timestamp (date + start time, default 8 PM).
+        date: composeDateMs(form.date, form.startTime),
         location: form.location.trim() || undefined,
         ticketLink: form.ticketLink.trim() ? normalizeUrl(form.ticketLink.trim()) : undefined,
         discountCode: form.discountCode.trim() || undefined,
@@ -174,7 +183,9 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName }: Pro
               <div className="min-w-0">
                 <p className="text-white text-sm truncate">{ev.name}</p>
                 <p className="text-gray-500 text-xs">
-                  {new Date(ev.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}
+                  {new Date(ev.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  {" · "}
+                  {new Date(ev.date).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                   {ev.location ? ` · ${ev.location}` : ""}
                   {ev.discountCode ? ` · code: ${ev.discountCode}` : ""}
                 </p>
@@ -207,13 +218,19 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName }: Pro
               className="w-40 bg-black border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none [color-scheme:dark]"
             />
             <input
-              type="text"
-              value={form.location}
-              onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-              placeholder="City / venue"
-              className="flex-1 bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+              type="time"
+              value={form.startTime}
+              onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
+              className="w-28 bg-black border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none [color-scheme:dark]"
             />
           </div>
+          <input
+            type="text"
+            value={form.location}
+            onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+            placeholder="City / venue"
+            className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+          />
           <input
             type="text"
             value={form.ticketLink}
