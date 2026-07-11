@@ -229,21 +229,20 @@ export function StudioProfileClient() {
   // this drives the collective-studio routing + toggle). Empty = not an owner.
   const [ownedCollectiveSlugs, setOwnedCollectiveSlugs] = useState<string[]>([]);
   // When set, /studio renders the collective studio for this slug instead of the
-  // personal artist studio (collective-only owner, ?collective=, or toggled in).
+  // personal artist studio (collective-only owner, or toggled in).
   const [managingCollectiveSlug, setManagingCollectiveSlug] = useState<string | null>(null);
 
   // Auto-enter the collective studio for collective owners. A collective-only
   // owner (not a DJ) has no personal studio, so /studio IS their collective
-  // studio. A DJ who also owns a collective stays on their artist studio unless
-  // ?collective= asks for the collective view (or they click the toggle).
+  // studio. A DJ who also owns a collective stays on their artist studio until
+  // they click the toggle.
   useEffect(() => {
     if (managingCollectiveSlug) return;
     if (ownedCollectiveSlugs.length === 0) return;
-    const wantsCollective = searchParams.get("collective");
-    if (!isDJ(role) || wantsCollective) {
+    if (!isDJ(role)) {
       setManagingCollectiveSlug(ownedCollectiveSlugs[0]);
     }
-  }, [ownedCollectiveSlugs, role, searchParams, managingCollectiveSlug]);
+  }, [ownedCollectiveSlugs, role, managingCollectiveSlug]);
 
   // Fetch monthly residents for the logged-out referral grid. Only relevant
   // before the user becomes a DJ; once they have a profile this view is gone.
@@ -2381,11 +2380,11 @@ export function StudioProfileClient() {
   //
   // Compute the effective slug INLINE (not just from the managingCollectiveSlug
   // state, which the auto-enter effect sets one render late) so a collective-only
-  // owner — or ?collective= — mounts the collective studio on the FIRST render.
-  // Without this, a non-DJ owner flashes the DJ studio body for a frame.
+  // owner mounts the collective studio on the FIRST render. Without this, a
+  // non-DJ owner flashes the DJ studio body for a frame.
   const effectiveCollectiveSlug =
     managingCollectiveSlug ||
-    (isAuthenticated && ownedCollectiveSlugs.length > 0 && (!isDJ(role) || searchParams.get("collective"))
+    (isAuthenticated && ownedCollectiveSlugs.length > 0 && !isDJ(role)
       ? ownedCollectiveSlugs[0]
       : null);
   if (isAuthenticated && effectiveCollectiveSlug) {
@@ -2401,35 +2400,6 @@ export function StudioProfileClient() {
 
   // Not authenticated, or sign-in is in progress (keep AuthModal mounted until flow completes)
   if (!isAuthenticated || (signingInInline && !signInFlowComplete)) {
-    // Collective-owner funnel: ?collective= present → sign up / sign in with the
-    // Collective Terms. Attribution (which collective) comes from the admin-set
-    // pending-collective-roles for this email; assign-collective-role grants it.
-    if (searchParams.get("collective")) {
-      return (
-        <div className="min-h-screen bg-black">
-          <Header currentPage="studio" position="sticky" />
-          <main className="max-w-xl mx-auto p-4">
-            <div className="text-center py-12">
-              <h1 className="text-2xl font-semibold text-white mb-2">Collective Studio</h1>
-              <p className="text-gray-400 mb-8">
-                {signingInInline ? 'Setting up your account...' : 'Sign in or create your account to manage your collective'}
-              </p>
-              <div className="max-w-sm mx-auto">
-                <AuthModal
-                  isOpen={true}
-                  onClose={() => {}}
-                  inline
-                  includeCollectiveTerms
-                  onSignInStart={() => setSigningInInline(true)}
-                  onSignInComplete={() => setSignInFlowComplete(true)}
-                />
-              </div>
-            </div>
-          </main>
-        </div>
-      );
-    }
-
     // Code validated — show sign-up modal with DJ terms
     if (codeValidated) {
       return (
@@ -2535,27 +2505,6 @@ export function StudioProfileClient() {
           <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-400">Setting up your account...</p>
         </div>
-      </div>
-    );
-  }
-
-  // Grant never landed — collective funnel with an email that wasn't attributed
-  // to any collective. Terms are accepted; they just need an admin to add them.
-  if (!enteredStudio && grantGaveUp && searchParams.get("collective")) {
-    return (
-      <div className="min-h-screen bg-black">
-        <Header currentPage="studio" position="sticky" />
-        <main className="max-w-xl mx-auto p-4">
-          <div className="text-center py-16">
-            <h1 className="text-2xl font-semibold text-white mb-3">You&apos;re all set</h1>
-            <p className="text-gray-400 mb-2">
-              Your account is ready, but no collective is linked to it yet.
-            </p>
-            <p className="text-gray-500 text-sm">
-              Ask a Channel admin to add you as an owner of your collective, then refresh this page.
-            </p>
-          </div>
-        </main>
       </div>
     );
   }
