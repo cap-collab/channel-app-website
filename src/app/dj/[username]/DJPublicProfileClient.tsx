@@ -12,6 +12,7 @@ import { useSchedule } from "@/contexts/ScheduleContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { AuthModal } from "@/components/AuthModal";
+import { DiscountCodeButton } from "@/components/DiscountCodeButton";
 import { TipButton } from "@/components/channel/TipButton";
 import { DJProfileChatPanel } from "@/components/dj-profile/DJProfileChatPanel";
 import { useBroadcastStreamContext } from "@/contexts/BroadcastStreamContext";
@@ -1324,6 +1325,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               genres: data.genres || [],
               location: data.location || null,
               ticketLink: data.ticketLink || null,
+              discountCode: data.discountCode || null,
               createdAt: data.createdAt?.toMillis?.() || Date.now(),
               createdBy: data.createdBy,
             };
@@ -2522,16 +2524,32 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                             })()}
                           </div>
                         </div>
-                        {event.ticketLink && (
-                          <a
-                            href={event.ticketLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full py-3 px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5"
-                          >
-                            Tickets
-                            <ExternalLinkIcon size={12} />
-                          </a>
+                        {(event.ticketLink || event.discountCode) && (
+                          <div className="flex items-stretch gap-2">
+                            {event.ticketLink && (
+                              <a
+                                href={event.ticketLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 py-3 px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5"
+                              >
+                                Tickets
+                                <ExternalLinkIcon size={12} />
+                              </a>
+                            )}
+                            {event.discountCode && (
+                              <div className="flex-1">
+                                <DiscountCodeButton
+                                  code={event.discountCode}
+                                  isAuthenticated={isAuthenticated}
+                                  onRequireAuth={() => {
+                                    setAuthModalMessage("Log in to access discount code");
+                                    setShowAuthModal(true);
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

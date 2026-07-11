@@ -7,6 +7,7 @@ import { ArchiveSerialized } from '@/types/broadcast';
 import { IRLShowData } from '@/types';
 import { ArchiveGridCard } from '@/components/channel/ArchiveHero';
 import { CardActions } from '@/components/channel/CardActions';
+import { DiscountCodeButton } from '@/components/DiscountCodeButton';
 import { SceneGlyph } from '@/components/SceneGlyph';
 import { CardRemoveButton } from '@/components/CardRemoveButton';
 import { tempoLabel } from '@/lib/tempo';
@@ -41,6 +42,7 @@ interface ComingUpRow extends IRLShowData {
   isIRL: boolean;
   startMs: number;
   station?: string;
+  discountCode?: string;
 }
 interface MeResponse {
   sections: RecSection[];
@@ -545,11 +547,15 @@ function ComingUpRow({
   isFollowing,
   isAdding,
   onFollow,
+  isAuthenticated,
+  onAuthRequired,
 }: {
   row: ComingUpRow;
   isFollowing: boolean;
   isAdding: boolean;
   onFollow: () => void;
+  isAuthenticated: boolean;
+  onAuthRequired: () => void;
 }) {
   const photoUrl = row.eventPhotoUrl || row.djPhotoUrl;
   const [imgError, setImgError] = useState(false);
@@ -636,7 +642,15 @@ function ComingUpRow({
       )}
       {/* Action on the right, above the row link. CardActions' button already
           stopPropagation()s the +watchlist click. */}
-      <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+      <div className="shrink-0 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+        {row.discountCode && (
+          <DiscountCodeButton
+            code={row.discountCode}
+            isAuthenticated={isAuthenticated}
+            onRequireAuth={onAuthRequired}
+            variant="chip"
+          />
+        )}
         <CardActions
           djUsername={row.djUsername}
           ticketUrl={row.ticketUrl}
@@ -694,6 +708,8 @@ function ComingUpGrid({
             isFollowing={isInWatchlist(row.djName)}
             isAdding={adding.has(addKey)}
             onFollow={() => handleFollow(row)}
+            isAuthenticated={isAuthenticated}
+            onAuthRequired={onAuthRequired}
           />
         );
       })}

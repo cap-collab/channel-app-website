@@ -22,6 +22,7 @@ export interface ComingUpRow extends IRLShowData {
   startMs: number; // for chronological sort across online + IRL
   station?: string; // online shows: station label for the badge (e.g. "Channel")
   collectiveSlug?: string; // IRL: event's collective, for a /dj/<slug> link
+  discountCode?: string; // IRL: optional discount code (gated to logged-in users)
 }
 
 // Canonical username normalization (strips ALL non-alphanumerics incl dots),
@@ -110,6 +111,7 @@ interface SharedEvent {
   date: number;
   name: string;
   ticketLink?: string;
+  discountCode?: string;
   photo?: string;
   venueName?: string;
   collectiveSlug?: string; // event's collective (venue-collective or first linked), for a /dj/<slug> link
@@ -254,6 +256,7 @@ export async function loadComingUpShared(db: Firestore, nowMs: number): Promise<
       date: data.date,
       name: (data.name as string) || "",
       ticketLink: (data.ticketLink as string) || undefined,
+      discountCode: (data.discountCode as string) || undefined,
       photo: (data.photo as string) || undefined,
       venueName: (data.venueName as string) || undefined,
       // Collective slug for a /dj/<slug> click-through: prefer a collective
@@ -391,6 +394,7 @@ export function filterComingUpForUser(
       eventName: ev.name,
       location: ev.location,
       ticketUrl: ev.ticketLink || "",
+      discountCode: ev.discountCode || undefined,
       date: ptDate(ev.date),
       // Image fallback: event photo → tagged (first) DJ's photo → creator's.
       eventPhotoUrl: ev.photo || ev.taggedDjPhotoUrl || ev.creatorPhotoUrl,
