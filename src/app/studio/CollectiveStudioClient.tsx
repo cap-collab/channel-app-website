@@ -51,15 +51,18 @@ interface CollectiveDoc {
 }
 
 interface Props {
-  // The collective slug this studio manages (first owned slug; multi-collective
-  // deferred). Passed by /studio routing.
+  // The collective slug this studio manages. Passed by /studio routing.
   slug: string;
+  // All collectives this user owns — drives the switcher dropdown when > 1.
+  ownedSlugs?: string[];
+  // Switch to (and remember) another owned collective.
+  onSwitchCollective?: (slug: string) => void;
   // When true, this studio is embedded inside /studio for a DJ who ALSO owns a
   // collective — show a "back to your artist page" affordance handled by parent.
   onExit?: () => void;
 }
 
-export default function CollectiveStudioClient({ slug, onExit }: Props) {
+export default function CollectiveStudioClient({ slug, ownedSlugs = [], onSwitchCollective, onExit }: Props) {
   const { user, loading: authLoading } = useAuthContext();
 
   const [collective, setCollective] = useState<CollectiveDoc | null>(null);
@@ -115,6 +118,11 @@ export default function CollectiveStudioClient({ slug, onExit }: Props) {
   // Resolve + subscribe to the collective doc by slug.
   useEffect(() => {
     if (!db || !slug) return;
+    // Switching collectives (slug change) must re-hydrate the form with the new
+    // collective's values — reset the guard so the snapshot below re-populates
+    // inputs (else the old collective's edits could auto-save onto the new one).
+    hydratedRef.current = false;
+    setLoadingCollective(true);
     let unsub: (() => void) | undefined;
     let cancelled = false;
     (async () => {
@@ -348,10 +356,10 @@ export default function CollectiveStudioClient({ slug, onExit }: Props) {
     <div className="min-h-screen bg-black">
       <Header currentPage="studio" position="sticky" />
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <p className="text-gray-500 text-xs uppercase tracking-wide">Collective Studio</p>
-            <h1 className="text-2xl font-bold text-white">{collective.name}</h1>
+            <h1 className="text-2xl font-bold text-white truncate">{collective.name}</h1>
             <Link
               href={`/dj/${collective.slug}`}
               className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
@@ -359,14 +367,29 @@ export default function CollectiveStudioClient({ slug, onExit }: Props) {
               /dj/{collective.slug} &rarr;
             </Link>
           </div>
-          {onExit && (
-            <button
-              onClick={onExit}
-              className="text-gray-400 hover:text-white text-sm transition-colors border border-gray-700 rounded px-3 py-1.5"
-            >
-              Manage your artist page
-            </button>
-          )}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Switcher — only when the user owns more than one collective. */}
+            {ownedSlugs.length > 1 && onSwitchCollective && (
+              <select
+                value={collective.slug}
+                onChange={(e) => onSwitchCollective(e.target.value)}
+                className="bg-[#1e1e1e] border border-gray-700 rounded text-white text-sm px-2 py-1.5 focus:border-gray-500 focus:outline-none max-w-[9rem]"
+                aria-label="Switch collective"
+              >
+                {ownedSlugs.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            )}
+            {onExit && (
+              <button
+                onClick={onExit}
+                className="text-gray-400 hover:text-white text-sm transition-colors border border-gray-700 rounded px-3 py-1.5"
+              >
+                Manage your artist page
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Profile Photo */}

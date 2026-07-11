@@ -232,6 +232,27 @@ export function StudioProfileClient() {
   // personal artist studio (collective-only owner, or toggled in).
   const [managingCollectiveSlug, setManagingCollectiveSlug] = useState<string | null>(null);
 
+  // Preferred collective for owners of MULTIPLE collectives: the last one they
+  // managed (localStorage), if still owned; else the first. Single-collective
+  // owners just get their one slug.
+  const LAST_COLLECTIVE_KEY = "lastManagedCollectiveSlug";
+  const preferredCollectiveSlug = useCallback((): string | null => {
+    if (ownedCollectiveSlugs.length === 0) return null;
+    if (typeof window !== "undefined") {
+      const last = window.localStorage.getItem(LAST_COLLECTIVE_KEY);
+      if (last && ownedCollectiveSlugs.includes(last)) return last;
+    }
+    return ownedCollectiveSlugs[0];
+  }, [ownedCollectiveSlugs]);
+
+  // Switch (and remember) which collective is being managed.
+  const manageCollective = useCallback((slug: string) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(LAST_COLLECTIVE_KEY, slug);
+    }
+    setManagingCollectiveSlug(slug);
+  }, []);
+
   // Auto-enter the collective studio for collective owners. A collective-only
   // owner (not a DJ) has no personal studio, so /studio IS their collective
   // studio. A DJ who also owns a collective stays on their artist studio until
@@ -240,9 +261,9 @@ export function StudioProfileClient() {
     if (managingCollectiveSlug) return;
     if (ownedCollectiveSlugs.length === 0) return;
     if (!isDJ(role)) {
-      setManagingCollectiveSlug(ownedCollectiveSlugs[0]);
+      setManagingCollectiveSlug(preferredCollectiveSlug());
     }
-  }, [ownedCollectiveSlugs, role, managingCollectiveSlug]);
+  }, [ownedCollectiveSlugs, role, managingCollectiveSlug, preferredCollectiveSlug]);
 
   // Fetch monthly residents for the logged-out referral grid. Only relevant
   // before the user becomes a DJ; once they have a profile this view is gone.
@@ -2385,12 +2406,14 @@ export function StudioProfileClient() {
   const effectiveCollectiveSlug =
     managingCollectiveSlug ||
     (isAuthenticated && ownedCollectiveSlugs.length > 0 && !isDJ(role)
-      ? ownedCollectiveSlugs[0]
+      ? preferredCollectiveSlug()
       : null);
   if (isAuthenticated && effectiveCollectiveSlug) {
     return (
       <CollectiveStudioClient
         slug={effectiveCollectiveSlug}
+        ownedSlugs={ownedCollectiveSlugs}
+        onSwitchCollective={manageCollective}
         // Only offer "back to artist page" to actual DJs; a collective-only
         // owner has no personal studio to return to.
         onExit={isDJ(role) ? () => setManagingCollectiveSlug(null) : undefined}
@@ -2631,14 +2654,18 @@ export function StudioProfileClient() {
       <Header currentPage="studio" position="sticky" />
 
       <main className="max-w-xl mx-auto p-4">
-        {/* Manage-collective toggle — only for a DJ who also owns a collective. */}
+        {/* Manage-collective toggle — only for a DJ who also owns a collective.
+            Opens the preferred (last-managed) collective; the in-studio dropdown
+            switches between them when they own more than one. */}
         {ownedCollectiveSlugs.length > 0 && (
           <div className="mb-4 flex justify-end">
             <button
-              onClick={() => setManagingCollectiveSlug(ownedCollectiveSlugs[0])}
+              onClick={() => { const s = preferredCollectiveSlug(); if (s) manageCollective(s); }}
               className="text-gray-400 hover:text-white text-sm transition-colors border border-gray-700 rounded px-3 py-1.5"
             >
-              Manage {ownedCollectiveSlugs[0]} page &rarr;
+              {ownedCollectiveSlugs.length > 1
+                ? "Manage your collectives →"
+                : `Manage ${ownedCollectiveSlugs[0]} page →`}
             </button>
           </div>
         )}
