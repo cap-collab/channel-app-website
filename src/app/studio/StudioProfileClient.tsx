@@ -2378,6 +2378,35 @@ export function StudioProfileClient() {
 
   // Not authenticated, or sign-in is in progress (keep AuthModal mounted until flow completes)
   if (!isAuthenticated || (signingInInline && !signInFlowComplete)) {
+    // Collective-owner funnel: ?collective= present → sign up / sign in with the
+    // Collective Terms. Attribution (which collective) comes from the admin-set
+    // pending-collective-roles for this email; assign-collective-role grants it.
+    if (searchParams.get("collective")) {
+      return (
+        <div className="min-h-screen bg-black">
+          <Header currentPage="studio" position="sticky" />
+          <main className="max-w-xl mx-auto p-4">
+            <div className="text-center py-12">
+              <h1 className="text-2xl font-semibold text-white mb-2">Collective Studio</h1>
+              <p className="text-gray-400 mb-8">
+                {signingInInline ? 'Setting up your account...' : 'Sign in or create your account to manage your collective'}
+              </p>
+              <div className="max-w-sm mx-auto">
+                <AuthModal
+                  isOpen={true}
+                  onClose={() => {}}
+                  inline
+                  includeCollectiveTerms
+                  onSignInStart={() => setSigningInInline(true)}
+                  onSignInComplete={() => setSignInFlowComplete(true)}
+                />
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
     // Code validated — show sign-up modal with DJ terms
     if (codeValidated) {
       return (

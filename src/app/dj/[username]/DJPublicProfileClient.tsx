@@ -2479,62 +2479,66 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="text-white font-medium mb-1">{event.name}</p>
-                            {(() => {
-                              const visibleDjs = filterEventDjs(event.djs);
-                              const visibleColls = filterLinkedCollectives(event.linkedCollectives);
-                              if (visibleDjs.length === 0 && visibleColls.length === 0) return null;
-                              return (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {visibleDjs.map((dj: EventDJRef, i: number) => (
-                                    dj.djUsername ? (
-                                      <Link
-                                        key={`dj-${i}`}
-                                        href={`/dj/${dj.djUsername}`}
-                                        className="text-xs text-zinc-400 hover:text-white transition-colors"
-                                      >
-                                        {dj.djName}
-                                        {(i < visibleDjs.length - 1 || visibleColls.length > 0) ? "," : ""}
-                                      </Link>
-                                    ) : (
-                                      <span key={`dj-${i}`} className="text-xs text-zinc-400">
-                                        {dj.djName}
-                                        {(i < visibleDjs.length - 1 || visibleColls.length > 0) ? "," : ""}
-                                      </span>
-                                    )
-                                  ))}
-                                  {visibleColls.map((coll: CollectiveRef, i: number) => (
-                                    coll.collectiveSlug ? (
-                                      <Link
-                                        key={`coll-${coll.collectiveId}`}
-                                        href={`/collective/${coll.collectiveSlug}`}
-                                        className="text-xs text-zinc-400 hover:text-white transition-colors"
-                                      >
-                                        {coll.collectiveName}
-                                        {i < visibleColls.length - 1 ? "," : ""}
-                                      </Link>
-                                    ) : (
-                                      <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
-                                        {coll.collectiveName}
-                                        {i < visibleColls.length - 1 ? "," : ""}
-                                      </span>
-                                    )
-                                  ))}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                {(() => {
+                                  const visibleDjs = filterEventDjs(event.djs);
+                                  const visibleColls = filterLinkedCollectives(event.linkedCollectives);
+                                  if (visibleDjs.length === 0 && visibleColls.length === 0) return null;
+                                  return (
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {visibleDjs.map((dj: EventDJRef, i: number) => (
+                                        dj.djUsername ? (
+                                          <Link
+                                            key={`dj-${i}`}
+                                            href={`/dj/${dj.djUsername}`}
+                                            className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                          >
+                                            {dj.djName}
+                                            {(i < visibleDjs.length - 1 || visibleColls.length > 0) ? "," : ""}
+                                          </Link>
+                                        ) : (
+                                          <span key={`dj-${i}`} className="text-xs text-zinc-400">
+                                            {dj.djName}
+                                            {(i < visibleDjs.length - 1 || visibleColls.length > 0) ? "," : ""}
+                                          </span>
+                                        )
+                                      ))}
+                                      {visibleColls.map((coll: CollectiveRef, i: number) => (
+                                        coll.collectiveSlug ? (
+                                          <Link
+                                            key={`coll-${coll.collectiveId}`}
+                                            href={`/collective/${coll.collectiveSlug}`}
+                                            className="text-xs text-zinc-400 hover:text-white transition-colors"
+                                          >
+                                            {coll.collectiveName}
+                                            {i < visibleColls.length - 1 ? "," : ""}
+                                          </Link>
+                                        ) : (
+                                          <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
+                                            {coll.collectiveName}
+                                            {i < visibleColls.length - 1 ? "," : ""}
+                                          </span>
+                                        )
+                                      ))}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                              {event.discountCode && (
+                                <div className="flex-shrink-0">
+                                  <DiscountCodeButton
+                                    code={event.discountCode}
+                                    isAuthenticated={isAuthenticated}
+                                    onRequireAuth={() => {
+                                      setAuthModalMessage("Log in to access discount code");
+                                      setShowAuthModal(true);
+                                    }}
+                                  />
                                 </div>
-                              );
-                            })()}
-                          </div>
-                          {event.discountCode && (
-                            <div className="flex-shrink-0 self-center">
-                              <DiscountCodeButton
-                                code={event.discountCode}
-                                isAuthenticated={isAuthenticated}
-                                onRequireAuth={() => {
-                                  setAuthModalMessage("Log in to access discount code");
-                                  setShowAuthModal(true);
-                                }}
-                              />
+                              )}
                             </div>
-                          )}
+                          </div>
                         </div>
                         {event.ticketLink && (
                           <a

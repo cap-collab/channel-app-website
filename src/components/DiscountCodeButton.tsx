@@ -55,7 +55,7 @@ export function DiscountCodeButton({ code, isAuthenticated, onRequireAuth }: Pro
         onClick={handleClick}
         aria-label="Discount code"
         title="Discount code"
-        className="inline-flex items-center justify-center leading-none px-3 py-1.5 rounded-full border border-white/40 text-white text-[10px] font-semibold uppercase tracking-wide bg-white/5 hover:bg-white/15 transition-colors"
+        className="inline-flex items-center justify-center leading-none px-3 py-1.5 rounded-full border border-green-500 text-white text-[10px] font-semibold uppercase tracking-wide bg-white/5 hover:bg-white/15 transition-colors"
       >
         Discount
       </button>
@@ -66,7 +66,7 @@ export function DiscountCodeButton({ code, isAuthenticated, onRequireAuth }: Pro
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex flex-col items-center justify-center leading-tight px-3 py-1.5 rounded-full border border-white/40 text-white bg-white/5 hover:bg-white/15 transition-colors"
+      className="inline-flex flex-col items-center justify-center leading-tight px-3 py-1.5 rounded-full border border-green-500 text-white bg-white/5 hover:bg-white/15 transition-colors"
     >
       <span className="text-sm font-semibold">{code}</span>
       <span className="text-[10px] text-white/60 font-normal">{copied ? "copied!" : "click to copy"}</span>

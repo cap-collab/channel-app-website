@@ -641,8 +641,9 @@ function ComingUpRow({
         <div className="flex items-center gap-3 min-w-0 flex-1">{inner}</div>
       )}
       {/* Action on the right, above the row link. CardActions' button already
-          stopPropagation()s the +watchlist click. */}
-      <div className="shrink-0 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          stopPropagation()s the +watchlist click. The discount chip is
+          top-aligned so it lines up with the IRL badge/title row. */}
+      <div className="shrink-0 flex items-start gap-1.5" onClick={(e) => e.stopPropagation()}>
         {row.discountCode && (
           <DiscountCodeButton
             code={row.discountCode}
@@ -650,13 +651,15 @@ function ComingUpRow({
             onRequireAuth={onAuthRequired}
           />
         )}
-        <CardActions
-          djUsername={row.djUsername}
-          ticketUrl={row.ticketUrl}
-          isFollowing={isFollowing}
-          onAddToWatchlist={onFollow}
-          isAddingWatchlist={isAdding}
-        />
+        <div className="self-center">
+          <CardActions
+            djUsername={row.djUsername}
+            ticketUrl={row.ticketUrl}
+            isFollowing={isFollowing}
+            onAddToWatchlist={onFollow}
+            isAddingWatchlist={isAdding}
+          />
+        </div>
       </div>
     </div>
   );

@@ -88,10 +88,25 @@ export default function EmailSignInPage() {
         }
       }
 
+      // Collective-owner funnel: grant collective rights on the magic-link return.
+      const collectiveTermsAccepted = window.localStorage.getItem('collectiveTermsAccepted') === 'true';
+      if (collectiveTermsAccepted && user.email) {
+        window.localStorage.removeItem('collectiveTermsAccepted');
+        try {
+          await fetch('/api/collective/assign-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email }),
+          });
+        } catch (err) {
+          console.error('Failed to assign collective role:', err);
+        }
+      }
+
       setStatus("success");
 
       // Redirect to stored destination or default to home
-      const redirectTo = window.localStorage.getItem('authRedirectTo') || (djTermsAccepted ? '/studio' : '/');
+      const redirectTo = window.localStorage.getItem('authRedirectTo') || ((djTermsAccepted || collectiveTermsAccepted) ? '/studio' : '/');
       window.localStorage.removeItem('authRedirectTo');
       setTimeout(() => {
         window.location.href = redirectTo;
