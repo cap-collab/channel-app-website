@@ -263,25 +263,31 @@ export function StudioProfileClient() {
     return () => { cancelled = true; };
   }, [role]);
 
-  // Clear the flag once role is confirmed
+  // "Entered a studio" = the terminal state that ends the just-accepted spinner
+  // and the safety reload. A DJ role, OR a collective owner (who may stay
+  // role:'user' forever — without this, the reload below loops every 5s because
+  // !isDJ(role) is permanently true for a collective-only owner).
+  const enteredStudio = isDJ(role) || ownedCollectiveSlugs.length > 0;
+
+  // Clear the flag once the studio is reachable (DJ role or collective ownership).
   useEffect(() => {
-    if (isDJ(role) && typeof window !== 'undefined') {
+    if (enteredStudio && typeof window !== 'undefined') {
       sessionStorage.removeItem('djTermsJustAccepted');
       setSignInFlowComplete(false);
       setSigningInInline(false);
     }
-  }, [role]);
+  }, [enteredStudio]);
 
-  // Safety: if stuck on loading screen for >5s, reload to re-fetch role
-  // This handles edge cases where onSnapshot misses the role update
+  // Safety: if stuck on loading screen for >5s, reload to re-fetch role.
+  // Only while NEITHER a DJ nor a collective owner (else it loops for owners).
   useEffect(() => {
-    if (!isDJ(role) && djTermsJustAccepted && isAuthenticated) {
+    if (!enteredStudio && djTermsJustAccepted && isAuthenticated) {
       const timer = setTimeout(() => {
         window.location.reload();
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [role, djTermsJustAccepted, isAuthenticated]);
+  }, [enteredStudio, djTermsJustAccepted, isAuthenticated]);
 
 
   // Profile data
@@ -2501,8 +2507,10 @@ export function StudioProfileClient() {
     );
   }
 
-  // DJ terms just accepted via inline sign-in — show loading while role propagates
-  if (!isDJ(role) && djTermsJustAccepted) {
+  // DJ terms just accepted via inline sign-in — show loading while role propagates.
+  // Excludes collective owners (handled above by the collective-studio mount);
+  // without !enteredStudio they'd be trapped here since role stays 'user'.
+  if (!enteredStudio && djTermsJustAccepted) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
@@ -2513,8 +2521,10 @@ export function StudioProfileClient() {
     );
   }
 
-  // Authenticated but not a DJ — show two options (code or apply)
-  if (!isDJ(role)) {
+  // Authenticated but not a DJ — show two options (code or apply). A collective
+  // owner skips this entirely (they're mounted into the collective studio above;
+  // this guard avoids flashing the DJ apply-wall before the auto-enter effect runs).
+  if (!isDJ(role) && ownedCollectiveSlugs.length === 0) {
     // Code validated — show DJ terms acceptance and upgrade
     if (codeValidated) {
       return (
