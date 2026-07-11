@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { tempoLabel } from "@/lib/tempo";
+import { normalizeUsername } from "@/lib/dj-matching";
 
 // Initialize Resend only if API key is available
 const resend = process.env.RESEND_API_KEY
@@ -254,9 +255,12 @@ function _wrapEmailContent(
 // Standard button style (dark on white)
 const BUTTON_STYLE = "display: inline-block; background-color: #0a0a0a; color: #fff !important; padding: 14px 28px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 14px;";
 
-// Normalize a DJ username for use in URLs (e.g. "COPYPASTE w/ KLS.RDR" → "copypastewklsrdr")
+// Normalize a DJ username for use in URLs (e.g. "COPYPASTE w/ KLS.RDR" →
+// "copypastewklsrdr"). Delegates to the canonical normalizeUsername so email
+// /dj/<slug> links + the dj-photo proxy match the stored chatUsernameNormalized
+// and fold accents to ASCII (e.g. "agraybé" → "agraybe").
 function normalizeDjUsername(djUsername: string): string {
-  return djUsername.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return normalizeUsername(djUsername);
 }
 
 // Get a photo URL for emails.

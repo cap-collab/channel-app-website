@@ -36,20 +36,23 @@ interface DJProfileChatPanelProps {
 // Reserved usernames that cannot be registered (case-insensitive)
 const RESERVED_USERNAMES = ['channel', 'admin', 'system', 'moderator', 'mod'];
 
-// Validate username format (same rules as iOS app)
+// Validate username DISPLAY format. Accented letters and . - & ' are allowed;
+// the handle is derived by normalizeUsername (folds accents, strips
+// non-alphanumerics), which must be >=2 alnum and non-reserved.
 function isValidUsername(username: string): boolean {
   const trimmed = username.trim();
   if (trimmed.length < 2 || trimmed.length > 20) return false;
 
-  // Must contain at least 2 alphanumeric characters (when spaces removed)
-  const handle = trimmed.replace(/\s+/g, '');
+  // Display allowlist: Unicode letters/marks/numbers, space, dot, hyphen,
+  // ampersand, apostrophe.
+  if (!/^[A-Za-z0-9\u00C0-\u024F\u1E00-\u1EFF .\-&']+$/.test(trimmed)) return false;
+
+  // The folded handle must have at least 2 letters/numbers and not be reserved.
+  const handle = normalizeUsername(trimmed);
   if (handle.length < 2) return false;
+  if (RESERVED_USERNAMES.includes(handle)) return false;
 
-  // Check reserved usernames against normalized handle
-  if (RESERVED_USERNAMES.includes(handle.toLowerCase())) return false;
-
-  // Alphanumeric and single spaces only
-  return /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed);
+  return true;
 }
 
 function formatTimeAgo(timestamp: number): string {
@@ -169,7 +172,7 @@ function UsernameSetup({
     const trimmed = inputUsername.trim();
 
     if (!isValidUsername(trimmed)) {
-      setErrorMessage('Invalid username. Use 2-20 characters, letters and numbers only.');
+      setErrorMessage('Invalid username. Use 2-20 characters: letters, numbers, spaces, dots, or hyphens.');
       return;
     }
 
@@ -564,13 +567,12 @@ export function DJProfileChatPanel({
                 <button
                   onClick={() => {
                     const trimmed = newUsernameInput.trim();
-                    const handle = trimmed.replace(/\s+/g, '');
-                    if (trimmed.length >= 2 && trimmed.length <= 20 && handle.length >= 2 && /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed)) {
+                    if (isValidUsername(trimmed)) {
                       onChangeUsername(trimmed);
                       setShowUsernameModal(false);
                     }
                   }}
-                  disabled={!newUsernameInput.trim() || newUsernameInput.trim().length < 2 || newUsernameInput.trim().replace(/\s+/g, '').length < 2 || !/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(newUsernameInput.trim())}
+                  disabled={!isValidUsername(newUsernameInput.trim())}
                   className="flex-1 bg-accent hover:bg-accent-hover disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-3 rounded-lg transition-colors"
                 >
                   Save

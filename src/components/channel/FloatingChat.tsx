@@ -59,14 +59,14 @@ export function FloatingChat() {
   const isArchivePlaying = archivePlayer.isPlaying || archivePlayer.isLoading;
   const archiveForWrite = archivePlayer.currentArchive || archivePlayer.featuredArchive;
   const archivePrimaryDj = archiveForWrite?.djs[0];
-  const archiveDjRoom = archivePrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
+  const archiveDjRoom = archivePrimaryDj?.username ? normalizeUsername(archivePrimaryDj.username) : '';
   const archiveDjName = archiveForWrite?.djs.map(d => d.name).join(', ') || '';
 
   // Archive radio's currently-playing item (the auto-scheduled stream). Same
   // username→room mapping as regular archives — every DJ room cross-posts to
   // channelbroadcast in useDJProfileChat, so loves still surface globally.
   const radioPrimaryDj = radioCtx?.currentItem?.djs?.[0];
-  const radioDjRoom = radioPrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
+  const radioDjRoom = radioPrimaryDj?.username ? normalizeUsername(radioPrimaryDj.username) : '';
   const radioDjName = radioCtx?.currentItem?.djs?.map(d => d.name).join(', ') || '';
   const isRadioPlaying = !!radioCtx?.isPlaying || !!radioCtx?.isLoading;
 

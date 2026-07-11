@@ -19,7 +19,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Show, IRLShowData } from "@/types";
-import { wordBoundaryMatch, showMatchesDJ, irlShowMatchesDJ } from "@/lib/dj-matching";
+import { wordBoundaryMatch, showMatchesDJ, irlShowMatchesDJ, normalizeUsername } from "@/lib/dj-matching";
 import { generateSlug } from "@/lib/slug";
 
 // Helper to fetch enriched shows and IRL shows from API
@@ -223,7 +223,7 @@ export function useFavorites() {
         let djPhotoUrl = show.djPhotoUrl || null;
 
         if (show.dj && (!djUsername || !djPhotoUrl)) {
-          const normalized = show.dj.replace(/[\s-]+/g, "").toLowerCase();
+          const normalized = normalizeUsername(show.dj);
           console.log(`[addFavorite] Looking up DJ profile for "${show.dj}" (normalized: ${normalized})`);
 
           try {
@@ -434,7 +434,7 @@ export function useFavorites() {
         }
 
         // Look up DJ profile first to get djUsername and djPhotoUrl
-        const normalizedSearchTerm = term.replace(/[\s-]+/g, "").toLowerCase();
+        const normalizedSearchTerm = normalizeUsername(term);
         let djUsername: string | null = null;
         let djPhotoUrl: string | null = null;
         let resolvedDjUserId = djUserId;
@@ -490,9 +490,9 @@ export function useFavorites() {
               } else {
                 // Last resort: a collective followed via search (no uid passed).
                 // Match by slug or name against the collectives collection.
-                // Collective slugs strip ALL non-alphanumerics (generateSlug),
-                // so re-slug the term — normalizedSearchTerm keeps dots and
-                // would miss e.g. "B. Rod b2b David L" (slug "brodb2bdavidl").
+                // generateSlug === normalizeUsername (fold accents, strip ALL
+                // non-alphanumerics), so this equals normalizedSearchTerm — e.g.
+                // "B. Rod b2b David L" → "brodb2bdavidl".
                 const collectivesRef = collection(db, "collectives");
                 const bySlug = await getDocs(
                   query(collectivesRef, where("slug", "==", generateSlug(term)))
@@ -652,7 +652,7 @@ export function useFavorites() {
             let djPhotoUrl = show.djPhotoUrl || null;
 
             if (show.dj && (!djUsername || !djPhotoUrl)) {
-              const djNormalized = show.dj.replace(/[\s-]+/g, "").toLowerCase();
+              const djNormalized = normalizeUsername(show.dj);
               try {
                 // Check pending-dj-profiles first
                 const pendingRef = collection(db, "pending-dj-profiles");
@@ -1070,7 +1070,7 @@ export function useFavorites() {
             let djPhotoUrl = show.djPhotoUrl || null;
 
             if (show.dj && (!djUsername || !djPhotoUrl)) {
-              const djNormalized = show.dj.replace(/[\s-]+/g, "").toLowerCase();
+              const djNormalized = normalizeUsername(show.dj);
               try {
                 // Check pending-dj-profiles first
                 const pendingRef = collection(db, "pending-dj-profiles");

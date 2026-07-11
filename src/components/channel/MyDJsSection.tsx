@@ -9,7 +9,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { Show, IRLShowData } from '@/types';
 import { getStationById } from '@/lib/stations';
 import { getContrastTextColor } from '@/lib/colorUtils';
-import { showMatchesAnyDJ, irlShowMatchesAnyDJ } from '@/lib/dj-matching';
+import { showMatchesAnyDJ, irlShowMatchesAnyDJ, normalizeUsername } from '@/lib/dj-matching';
 
 // Cache for DJ profile lookups to avoid repeated queries
 interface DJProfileCache {
@@ -153,7 +153,7 @@ export function MyDJsSection({ shows, irlShows, isAuthenticated, isLoading }: My
         }
 
         // Normalize the name the same way as chatUsernameNormalized
-        const normalized = name.replace(/[\s-]+/g, '').toLowerCase();
+        const normalized = normalizeUsername(name);
 
         try {
           // Check pending-dj-profiles FIRST (has public read, avoids permission issues)

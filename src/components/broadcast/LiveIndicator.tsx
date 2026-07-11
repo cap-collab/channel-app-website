@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 import { DJProfileChatPanel } from '@/components/dj-profile/DJProfileChatPanel';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -324,7 +325,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
       {broadcastToken && djUsername && slot && (
         <div className="lg:w-96 lg:flex-shrink-0 lg:h-full flex flex-col">
           <DJProfileChatPanel
-            chatUsernameNormalized={djUsername.replace(/[\s-]+/g, '').toLowerCase()}
+            chatUsernameNormalized={normalizeUsername(djUsername)}
             djUserId={user?.uid || ''}
             djUsername={djUsername}
             djEmail=""

@@ -10,19 +10,21 @@
  * dry-run trace, send/stamp) stay in the cron and are NOT part of this module.
  *
  * IMPORTANT: this module must stay behavior-identical to the inline matcher.
- * Relationship sets are keyed by `normalizeForLookup` (strip ALL non-alphanumeric),
- * which is the email cron's own normalizer — distinct from dj-matching's
- * `normalizeUsername` (strips only spaces/hyphens). Both are exported here so
- * callers build sets and look up with the same function.
+ * Relationship sets are keyed by `normalizeForLookup`, which folds accents to
+ * ASCII then strips ALL non-alphanumerics (spaces, hyphens, dots) — identical
+ * to dj-matching's `normalizeUsername`, which it delegates to. Both are the
+ * same canonical form that produces `chatUsernameNormalized`, so relationship
+ * sets and lookups agree.
  */
 
-import { wordBoundaryMatch } from "@/lib/dj-matching";
+import { wordBoundaryMatch, normalizeUsername } from "@/lib/dj-matching";
 
-// Normalize for DJ profile lookup - strip ALL non-alphanumeric and lowercase.
-// This matches how pending-dj-profiles stores chatUsernameNormalized, and is
-// the canonical key for every relationship-set map below.
+// Normalize for DJ profile lookup — canonical form (fold accents, strip ALL
+// non-alphanumerics, lowercase). Delegates to the shared normalizeUsername so
+// there is one fold implementation; matches how pending-dj-profiles stores
+// chatUsernameNormalized, the key for every relationship-set map below.
 export function normalizeForLookup(str: string): string {
-  return str.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return normalizeUsername(str);
 }
 
 // The subset of a "live show" the matcher actually reads. The email cron's

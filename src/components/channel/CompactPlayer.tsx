@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { BroadcastSlotSerialized } from '@/types/broadcast';
 import { BPMBadge } from './BPMBadge';
 import { useBPM } from '@/contexts/BPMContext';
@@ -194,7 +195,7 @@ export function CompactPlayer({
           djProfiles.filter(p => p.hasProfile).map((profile) => (
             <Link
               key={profile.username}
-              href={`/dj/${profile.usernameNormalized || profile.username.replace(/\s+/g, '').toLowerCase()}`}
+              href={`/dj/${profile.usernameNormalized || normalizeUsername(profile.username)}`}
               className="w-8 h-8 flex items-center justify-center text-accent hover:text-accent/80 transition-colors"
               title={`View ${profile.username}'s profile`}
             >

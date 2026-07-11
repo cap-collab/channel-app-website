@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
@@ -54,7 +55,7 @@ export function GlobalBroadcastBar() {
   // Compute current DJ chat room (same logic as LiveBroadcastHero)
   const currentDJChatRoom = useMemo(() => {
     if (!currentShow) return '';
-    const normalize = (u: string) => u.replace(/[\s-]+/g, '').toLowerCase();
+    const normalize = (u: string) => normalizeUsername(u);
     if (currentShow.djSlots && currentShow.djSlots.length > 0) {
       const slot = findActiveDjSlot(currentShow.djSlots);
       if (slot) return normalize(slot.liveDjUsername || slot.djUsername || slot.djName || '');
@@ -107,7 +108,7 @@ export function GlobalBroadcastBar() {
     archivePlayer.heroDisplayedArchive ||
     archivePlayer.featuredArchive;
   const archivePrimaryDj = archiveForBar?.djs[0];
-  const archiveDjProfileUsername = archivePrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
+  const archiveDjProfileUsername = archivePrimaryDj?.username ? normalizeUsername(archivePrimaryDj.username) : '';
   const archiveDjProfile = useDJProfileInfo(archivePrimaryDj?.username);
   const archiveTipLink = archiveDjProfile.tipButtonLink;
 
@@ -144,7 +145,7 @@ export function GlobalBroadcastBar() {
   // mount ArchiveHero (e.g. /studio, /archives, /broadcast/admin).
   const radioArchive = radioCtx?.currentArchive ?? null;
   const radioPrimaryDj = radioCtx?.currentItem?.djs?.[0] ?? radioArchive?.djs?.[0];
-  const radioDjProfileUsername = radioPrimaryDj?.username?.replace(/\s+/g, '').toLowerCase() || '';
+  const radioDjProfileUsername = radioPrimaryDj?.username ? normalizeUsername(radioPrimaryDj.username) : '';
   const radioDjProfile = useDJProfileInfo(radioPrimaryDj?.username);
   const radioTipLink = radioDjProfile.tipButtonLink;
   const { sendLove: radioSendLove, sendLockedIn: radioSendLockedIn } = useDJProfileChat({
@@ -291,7 +292,7 @@ export function GlobalBroadcastBar() {
 
           {/* DJ profile link */}
           {liveDjProfileUsername && (
-            <Link href={`/dj/${liveDjProfileUsername.replace(/\s+/g, '').toLowerCase()}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
+            <Link href={`/dj/${normalizeUsername(liveDjProfileUsername)}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
               <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
             </Link>
           )}

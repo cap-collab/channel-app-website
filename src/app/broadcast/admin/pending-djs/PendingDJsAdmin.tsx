@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ScenePillEditor } from '@/components/broadcast/admin/ScenePillEditor';
 import { useScenesData } from '@/hooks/useScenesData';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -858,7 +859,7 @@ export function PendingDJsAdmin() {
               linkedVenues: show.venueId ? [{ venueId: show.venueId, venueName: show.venueName || '' }] : [],
               linkedCollectives: show.linkedCollectives || [],
               djs: [
-                { djName: djName.trim(), djUsername: djName.trim().replace(/\s+/g, '').toLowerCase(), djPhotoUrl: photoUrl || undefined },
+                { djName: djName.trim(), djUsername: normalizeUsername(djName.trim()), djPhotoUrl: photoUrl || undefined },
                 ...(show.djs || []),
               ],
               source: 'pending-admin',
@@ -1092,7 +1093,7 @@ Cap`;
                   <p className="text-xs text-gray-500 mt-1">
                     {editingProfile
                       ? `Profile URL: /dj/${editingProfile.chatUsernameNormalized}`
-                      : `Profile URL: /dj/${djName.trim().replace(/[\s-]+/g, '').toLowerCase() || 'djname'}`}
+                      : `Profile URL: /dj/${normalizeUsername(djName.trim()) || 'djname'}`}
                   </p>
                 </div>
               </div>

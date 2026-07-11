@@ -31,21 +31,26 @@ async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin: boole
   }
 }
 
-// Validate username format (same rules as register-username)
+// Validate username DISPLAY format (same rules as register-username). Accented
+// letters and . - & ' are allowed in the display name; the handle is derived by
+// normalizeUsername (folds accents, strips non-alphanumerics).
 function isValidUsername(username: string): boolean {
   const trimmed = username.trim();
   if (trimmed.length < 2 || trimmed.length > 20) {
     return false;
   }
-  const handle = trimmed.replace(/\s+/g, '');
+  if (!/^[A-Za-z0-9\u00C0-\u024F\u1E00-\u1EFF .\-&']+$/.test(trimmed)) {
+    return false;
+  }
+  const handle = normalizeUsername(trimmed);
   if (handle.length < 2) {
     return false;
   }
   const RESERVED_USERNAMES = ['channel', 'admin', 'system', 'moderator', 'mod'];
-  if (RESERVED_USERNAMES.includes(handle.toLowerCase())) {
+  if (RESERVED_USERNAMES.includes(handle)) {
     return false;
   }
-  return /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed);
+  return true;
 }
 
 interface CustomLink {

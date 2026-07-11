@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import type { Firestore } from 'firebase-admin/firestore';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // up to 5 min on Vercel; backfill should finish well under that
@@ -49,7 +50,7 @@ async function buildBackfill(db: Firestore) {
       if (dj.bio) continue;
       if (dj.userId) neededUserIds.add(dj.userId);
       else if (dj.username) {
-        neededUsernames.add(dj.username.replace(/[\s-]+/g, '').toLowerCase());
+        neededUsernames.add(normalizeUsername(dj.username));
       }
     }
   }

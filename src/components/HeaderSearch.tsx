@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { collection, query as fbQuery, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useFavorites } from '@/hooks/useFavorites';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
 import { Show } from '@/types';
@@ -149,7 +150,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
           djRoleSnapshot.forEach((docSnap) => {
             const data = docSnap.data();
             const username = data.chatUsername || data.displayName || '';
-            const normalizedUsername = data.chatUsernameNormalized || username.replace(/[\s-]+/g, '').toLowerCase();
+            const normalizedUsername = data.chatUsernameNormalized || normalizeUsername(username);
             if (username && !seenUsernames.has(normalizedUsername)) {
               seenUsernames.add(normalizedUsername);
               allRegistered.push({

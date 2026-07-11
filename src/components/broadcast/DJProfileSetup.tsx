@@ -26,6 +26,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useDebouncedCallback } from 'use-debounce';
 import type { BroadcastType } from '@/types/broadcast';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 
 interface DJProfileSetupProps {
@@ -163,20 +164,23 @@ export function DJProfileSetup({ defaultUsername, showName, broadcastType, isVen
       return 'Artist name must be 20 characters or less';
     }
 
-    // Must contain at least 2 alphanumeric characters (when spaces removed)
-    const handle = trimmed.replace(/\s+/g, '');
-    if (handle.length < 2) {
-      return 'Artist name must have at least 2 characters (excluding spaces)';
+    // Display allowlist: Unicode letters/marks/numbers, space, dot, hyphen,
+    // ampersand, apostrophe. The @mention/URL handle is derived by
+    // normalizeUsername (folds accents to ASCII, strips non-alphanumerics), so
+    // "agraybé" and "fleet.dreams" are valid display names.
+    if (!/^[A-Za-z0-9\u00C0-\u024F\u1E00-\u1EFF .\-&']+$/.test(trimmed)) {
+      return 'Artist name can only contain letters, numbers, spaces, dots, and hyphens';
     }
 
-    // Alphanumeric and single spaces only
-    if (!/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed)) {
-      return 'Artist name can only contain letters, numbers, and spaces';
+    // The folded handle must have at least 2 letters/numbers.
+    const handle = normalizeUsername(trimmed);
+    if (handle.length < 2) {
+      return 'Artist name must have at least 2 letters or numbers';
     }
 
     // Check reserved usernames against normalized handle
     const reserved = ['channel', 'admin', 'system', 'moderator', 'mod'];
-    if (reserved.includes(handle.toLowerCase())) {
+    if (reserved.includes(handle)) {
       return 'This name is reserved';
     }
     return null;

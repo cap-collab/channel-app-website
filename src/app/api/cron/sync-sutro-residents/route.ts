@@ -33,8 +33,15 @@ interface SutroResident {
   residents: string[];
 }
 
+// Canonical form: fold accents to ASCII, then strip ALL non-alphanumerics,
+// lowercase. Must match normalizeUsername (src/lib/dj-matching.ts) so the doc
+// ID equals the handle /dj/<username> resolves to (e.g. "Béa" -> "bea").
 function normalizeForId(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 }
 
 function decodeEntities(str: string): string {

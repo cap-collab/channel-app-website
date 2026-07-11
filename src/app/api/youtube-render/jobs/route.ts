@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 import { isListenerVisibleArchive } from '@/lib/archive-priority';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 export const runtime = 'nodejs';
 
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
         const userSnap = await db.collection('users').doc(primaryDj.userId).get();
         if (userSnap.exists) return (userSnap.data()?.djProfile as Record<string, unknown>) || null;
       } else if (primaryDj?.username) {
-        const normalized = primaryDj.username.replace(/[\s-]+/g, '').toLowerCase();
+        const normalized = normalizeUsername(primaryDj.username);
         const userQ = await db
           .collection('users')
           .where('chatUsernameNormalized', '==', normalized)

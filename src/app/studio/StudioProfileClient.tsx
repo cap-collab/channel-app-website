@@ -1874,7 +1874,7 @@ export function StudioProfileClient() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             djUserId: user.uid,
-            djUsername: chatUsername?.replace(/\s+/g, "").toLowerCase() || "",
+            djUsername: chatUsername ? normalizeUsername(chatUsername) : "",
             djName: chatUsername || "",
             djPhotoUrl: djProfile.photoUrl || undefined,
             irlShows: [],
@@ -2730,7 +2730,7 @@ export function StudioProfileClient() {
               )}
               {djNameAvailable && djNameInput.trim() && (
                 <p className="text-gray-500 text-sm">
-                  Your profile URL will be: <span className="text-purple-400">/dj/{djNameInput.trim().replace(/[\s-]+/g, '').toLowerCase()}</span>
+                  Your profile URL will be: <span className="text-purple-400">/dj/{normalizeUsername(djNameInput.trim())}</span>
                 </p>
               )}
             </div>
@@ -2758,10 +2758,10 @@ export function StudioProfileClient() {
                 <div className="p-4 flex items-center justify-between">
                   <span className="text-gray-400">Public Profile</span>
                   <Link
-                    href={`/dj/${chatUsername.replace(/\s+/g, '').toLowerCase()}`}
+                    href={`/dj/${normalizeUsername(chatUsername)}`}
                     className="text-blue-400 hover:text-blue-300 text-sm transition-colors"
                   >
-                    /dj/{chatUsername.replace(/\s+/g, '').toLowerCase()} &rarr;
+                    /dj/{normalizeUsername(chatUsername)} &rarr;
                   </Link>
                 </div>
               )}

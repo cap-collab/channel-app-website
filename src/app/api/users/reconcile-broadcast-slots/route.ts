@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 interface DJSlot {
   id: string;
@@ -273,8 +274,9 @@ export async function POST(request: NextRequest) {
 
         for (const watchDoc of watchlistSnapshot.docs) {
           const watchData = watchDoc.data();
-          const term = (watchData.term || '').toLowerCase();
-          const termNormalized = term.replace(/[\s-]+/g, '');
+          // Fold to the canonical handle so it matches the stored
+          // chatUsernameNormalized (normalizedUsername) for dotted/accented names.
+          const termNormalized = normalizeUsername(watchData.term || '');
 
           // Check if this watchlist term matches the new DJ's username
           if (termNormalized === normalizedUsername && !watchData.djUsername) {

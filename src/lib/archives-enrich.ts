@@ -1,6 +1,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { ArchiveSerialized } from '@/types/broadcast';
 import { normalizeTrackIds, publicTrackIds } from '@/lib/track-ids';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 export interface DJInfo {
   name: string;
@@ -171,7 +172,7 @@ export async function enrichArchives(db: Firestore, rawArchives: RawArchive[]): 
   for (const { djs } of enrichedRawArchives) {
     for (const dj of djs) {
       if (dj.userId) userIdsForGenres.add(dj.userId);
-      if (dj.username) usernamesForGenres.add(dj.username.replace(/\s+/g, '').toLowerCase());
+      if (dj.username) usernamesForGenres.add(normalizeUsername(dj.username));
     }
   }
 
@@ -211,8 +212,8 @@ export async function enrichArchives(db: Firestore, rawArchives: RawArchive[]): 
         if (username) enriched = { ...enriched, username };
       }
       const profileData = (dj.userId && djProfileByUserId.get(dj.userId))
-        || (dj.username && djProfileByUsername.get(dj.username.replace(/\s+/g, '').toLowerCase()))
-        || (enriched.username && djProfileByUsername.get(enriched.username.replace(/\s+/g, '').toLowerCase()));
+        || (dj.username && djProfileByUsername.get(normalizeUsername(dj.username)))
+        || (enriched.username && djProfileByUsername.get(normalizeUsername(enriched.username)));
       if (profileData) {
         if (!enriched.genres && profileData.genres) enriched = { ...enriched, genres: profileData.genres };
         if (!enriched.location && profileData.location) enriched = { ...enriched, location: profileData.location };

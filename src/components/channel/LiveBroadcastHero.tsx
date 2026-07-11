@@ -10,6 +10,7 @@ import { useBroadcastSchedule } from '@/hooks/useBroadcastSchedule';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { BroadcastSchedule } from './BroadcastSchedule';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
 import { AuthModal } from '@/components/AuthModal';
@@ -144,13 +145,17 @@ export function ScrollingDJName({ text, className }: { text: string; className?:
 
 const RESERVED_USERNAMES = ['channel', 'admin', 'system', 'moderator', 'mod'];
 
+// Validate username DISPLAY format. Accented letters and . - & ' are allowed;
+// the handle is derived by normalizeUsername (folds accents, strips
+// non-alphanumerics), which must be >=2 alnum and non-reserved.
 function isValidUsername(username: string): boolean {
   const trimmed = username.trim();
   if (trimmed.length < 2 || trimmed.length > 20) return false;
-  const handle = trimmed.replace(/\s+/g, '');
+  if (!/^[A-Za-z0-9\u00C0-\u024F\u1E00-\u1EFF .\-&']+$/.test(trimmed)) return false;
+  const handle = normalizeUsername(trimmed);
   if (handle.length < 2) return false;
-  if (RESERVED_USERNAMES.includes(handle.toLowerCase())) return false;
-  return /^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmed);
+  if (RESERVED_USERNAMES.includes(handle)) return false;
+  return true;
 }
 
 function formatTimeAgo(timestamp: number): string {
@@ -368,10 +373,13 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // Determine the current DJ's chat room from live broadcast data
+  // Determine the current DJ's chat room from live broadcast data. Must use the
+  // canonical normalizeUsername (folds accents, strips dots) so the DJ's room
+  // matches the listener-facing room computed by the shared computeDJChatRoom /
+  // /dj/<slug> profile — otherwise a dotted/accented name splits the chat.
   const computeDJChatRoom = useCallback(() => {
     if (!currentShow) return '';
-    const normalize = (u: string) => u.replace(/[\s-]+/g, '').toLowerCase();
+    const normalize = (u: string) => normalizeUsername(u);
     if (currentShow.djSlots && currentShow.djSlots.length > 0) {
       const slot = findActiveDjSlot(currentShow.djSlots);
       const username = slot?.liveDjUsername || slot?.djUsername || slot?.djName;

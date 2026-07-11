@@ -3,6 +3,18 @@ import { getAdminDb } from "@/lib/firebase-admin";
 import { getAllShows } from "@/lib/metadata";
 import { FieldValue } from "firebase-admin/firestore";
 
+// Normalize a DJ name to its document ID / handle — canonical form: fold accents
+// to ASCII, then strip ALL non-alphanumerics, lowercase. Must match
+// normalizeUsername (src/lib/dj-matching.ts) so the doc ID equals the handle
+// /dj/<username> resolves to (e.g. "Béa" -> "bea", not "ba").
+function normalizeForId(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
 // Verify request is from Vercel Cron or has valid secret
 function verifyCronRequest(request: NextRequest): boolean {
   const isVercelCron = request.headers.get("x-vercel-cron") === "1";
@@ -244,7 +256,7 @@ export async function GET(request: NextRequest) {
 
         // Helper to add a candidate to djMap
         const addCandidateToDjMap = (candidate: string) => {
-          const normalized = candidate.toLowerCase().replace(/[^a-z0-9]/g, "");
+          const normalized = normalizeForId(candidate);
           if (normalized.length >= 2 && !djMap.has(normalized)) {
             djMap.set(normalized, {
               djName: candidate,
@@ -292,10 +304,8 @@ export async function GET(request: NextRequest) {
       // Skip if no valid name to use
       if (!nameForProfile) continue;
 
-      // Normalize name for document ID (no spaces, no hyphens - just alphanumeric)
-      const normalized = nameForProfile
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "");
+      // Normalize name for document ID (canonical handle form)
+      const normalized = normalizeForId(nameForProfile);
 
       // Skip empty or very short normalized names
       if (normalized.length < 2) continue;

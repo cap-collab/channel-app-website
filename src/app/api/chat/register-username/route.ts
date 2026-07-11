@@ -6,9 +6,12 @@ import { normalizeUsername } from '@/lib/dj-matching';
 // Reserved usernames that cannot be registered (case-insensitive)
 const RESERVED_USERNAMES = ['channel', 'admin', 'system', 'moderator', 'mod'];
 
-// Validate username format (same rules as iOS app, plus hyphens for display).
-// Hyphens are allowed in the display name but stripped from the handle (same
-// treatment as spaces) so the @mention key stays alphanumeric.
+// Validate username DISPLAY format. Accented letters and a small set of
+// punctuation (. - & ') are allowed in the display name; the @mention/URL
+// handle is derived by normalizeUsername (folds accents to ASCII, strips all
+// non-alphanumerics). We only require the folded handle to be >=2 alnum and
+// non-reserved, so "agraybé" (handle "agraybe") and "fleet.dreams" (handle
+// "fleetdreams") are valid.
 function isValidUsername(username: string): boolean {
   const trimmed = username.trim();
 
@@ -17,19 +20,22 @@ function isValidUsername(username: string): boolean {
     return false;
   }
 
-  // Must contain at least 2 alphanumeric characters (when separators removed)
-  const handle = trimmed.replace(/[\s-]+/g, '');
+  // Display allowlist: Unicode letters/marks/numbers, space, dot, hyphen,
+  // ampersand, apostrophe. Rejects URL-structural/control chars and emoji.
+  if (!/^[A-Za-z0-9\u00C0-\u024F\u1E00-\u1EFF .\-&']+$/.test(trimmed)) {
+    return false;
+  }
+
+  // Derive the canonical handle and guard it (>=2 alnum, non-reserved).
+  const handle = normalizeUsername(trimmed);
   if (handle.length < 2) {
     return false;
   }
-
-  // Check reserved usernames against normalized handle
-  if (RESERVED_USERNAMES.includes(handle.toLowerCase())) {
+  if (RESERVED_USERNAMES.includes(handle)) {
     return false;
   }
 
-  // Alphanumeric tokens separated by single spaces or hyphens
-  return /^[A-Za-z0-9]+(?:[ -][A-Za-z0-9]+)*$/.test(trimmed);
+  return true;
 }
 
 // POST - Register a unique chat username
@@ -72,7 +78,7 @@ export async function POST(request: NextRequest) {
     // Validate username format
     if (!isValidUsername(trimmedUsername)) {
       return NextResponse.json({
-        error: 'Invalid username. Use 2-20 characters, letters, numbers, and spaces.'
+        error: 'Invalid username. Use 2-20 characters: letters, numbers, spaces, dots, or hyphens.'
       }, { status: 400 });
     }
 

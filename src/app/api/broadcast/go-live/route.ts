@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { BroadcastSlot } from '@/types/broadcast';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { FieldValue } from 'firebase-admin/firestore';
 import { generateSlug } from '@/lib/slug';
 
@@ -231,7 +232,7 @@ export async function POST(request: NextRequest) {
 
       // If the logged-in user doesn't have a chatUsername yet, register the one from the form
       if (!existingChatUsername && djUsername) {
-        const normalizedHandle = djUsername.trim().replace(/\s+/g, '').toLowerCase();
+        const normalizedHandle = normalizeUsername(djUsername.trim());
         const usernameDocRef = db.collection('usernames').doc(normalizedHandle);
         const usernameDoc = await usernameDocRef.get();
 

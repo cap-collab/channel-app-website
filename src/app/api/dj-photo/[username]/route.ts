@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { normalizeUsername } from "@/lib/dj-matching";
 
 export const dynamic = "force-dynamic";
 
@@ -7,11 +8,16 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ username: string }> }
 ) {
-  const { username } = await params;
+  const { username: rawUsername } = await params;
 
-  if (!username) {
+  if (!rawUsername) {
     return new NextResponse(null, { status: 400 });
   }
+
+  // Defensively fold the incoming param to the canonical handle so a caller
+  // that passes a raw/dotted/accented value still matches the stored
+  // chatUsernameNormalized (e.g. "agraybé" or "fleet.dreams").
+  const username = normalizeUsername(decodeURIComponent(rawUsername));
 
   const adminDb = getAdminDb();
   if (!adminDb) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { BroadcastSlot } from '@/types/broadcast';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 // POST - Update DJ username for a broadcast slot
 export async function POST(request: NextRequest) {
@@ -21,26 +22,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No username provided' }, { status: 400 });
     }
 
-    // Validate username format (2-20 chars, alphanumeric and single spaces)
+    // Validate username DISPLAY format (2-20 chars). Accented letters and
+    // . - & ' are allowed; the handle is derived by normalizeUsername.
     const trimmedUsername = username.trim();
     if (trimmedUsername.length < 2 || trimmedUsername.length > 20) {
       return NextResponse.json({ error: 'Username must be 2-20 characters' }, { status: 400 });
     }
 
-    // Must contain at least 2 alphanumeric characters (when spaces removed)
-    const handle = trimmedUsername.replace(/\s+/g, '');
-    if (handle.length < 2) {
-      return NextResponse.json({ error: 'Username must have at least 2 characters (excluding spaces)' }, { status: 400 });
+    // Display allowlist: Unicode letters/marks/numbers, space, dot, hyphen,
+    // ampersand, apostrophe.
+    if (!/^[A-Za-z0-9\u00C0-\u024F\u1E00-\u1EFF .\-&']+$/.test(trimmedUsername)) {
+      return NextResponse.json({ error: 'Username can only contain letters, numbers, spaces, dots, and hyphens' }, { status: 400 });
     }
 
-    // Alphanumeric and single spaces only
-    if (!/^[A-Za-z0-9]+(?: [A-Za-z0-9]+)*$/.test(trimmedUsername)) {
-      return NextResponse.json({ error: 'Username can only contain letters, numbers, and spaces' }, { status: 400 });
+    // Derive the canonical handle and guard it.
+    const handle = normalizeUsername(trimmedUsername);
+    if (handle.length < 2) {
+      return NextResponse.json({ error: 'Username must have at least 2 letters or numbers' }, { status: 400 });
     }
 
     // Check reserved usernames against normalized handle
     const reserved = ['channel', 'admin', 'system', 'moderator', 'mod'];
-    if (reserved.includes(handle.toLowerCase())) {
+    if (reserved.includes(handle)) {
       return NextResponse.json({ error: 'This username is reserved' }, { status: 400 });
     }
 

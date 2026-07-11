@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef } from 'react';
 import { BroadcastSlotSerialized, AudioInputMethod, RedChannelChoice } from '@/types/broadcast';
 import { ChannelContentClass } from '@/lib/audio-analysis';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { LiveControlBar } from './LiveControlBar';
 import { AudioStatusPanel } from './AudioStatusPanel';
 import { DJProfileChatPanel } from '@/components/dj-profile/DJProfileChatPanel';
@@ -83,8 +84,11 @@ export function DJControlCenter({
     setTimeout(() => setHighlightPanel(false), 1200);
   };
 
+  // Canonical handle (folds accents, strips dots) so the DJ's console chat room
+  // matches the listener-facing room on /dj/<slug>. A weaker strip would split
+  // the chat for dotted/accented names.
   const chatUsernameNormalized = useMemo(() => {
-    return djUsername.replace(/[\s-]+/g, '').toLowerCase();
+    return normalizeUsername(djUsername);
   }, [djUsername]);
 
   const shareUrl = "https://channel-app.com";

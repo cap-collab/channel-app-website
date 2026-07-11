@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApplication, updateApplicationStatus } from '@/lib/dj-applications';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { Timestamp } from 'firebase-admin/firestore';
 import { STATION_ID, BroadcastSlotSerialized } from '@/types/broadcast';
 
@@ -87,8 +88,9 @@ export async function POST(
 
           for (const watchDoc of watchlistSnapshot.docs) {
             const watchData = watchDoc.data();
-            const term = (watchData.term || '').toLowerCase();
-            const termNormalized = term.replace(/[\s-]+/g, '');
+            // Fold to the canonical handle so it matches the stored
+            // chatUsernameNormalized for dotted/accented names.
+            const termNormalized = normalizeUsername(watchData.term || '');
 
             // Check if this watchlist term matches the new DJ's username
             if (termNormalized === userData.chatUsernameNormalized && !watchData.djUsername) {

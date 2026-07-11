@@ -387,7 +387,7 @@ export async function POST(request: NextRequest) {
                     }
                   }
                   if (!profileData && dj.username) {
-                    const normalized = dj.username.replace(/[\s-]+/g, '').toLowerCase();
+                    const normalized = normalizeUsername(dj.username);
                     const snap = await db.collection('users')
                       .where('chatUsernameNormalized', '==', normalized)
                       .limit(1)

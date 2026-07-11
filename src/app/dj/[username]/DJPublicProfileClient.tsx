@@ -944,8 +944,11 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       // so it never matches the user's own username/uid/email. Read the owned
       // slugs straight off the user doc (ownedCollectiveSlugs, denormalized by
       // /api/admin/collectives) instead of a live `owners array-contains` query.
+      // Key the set with the canonical normalizeUsername (same fn used on the
+      // lookup side below) so owned-slug matching stays aligned for dotted/
+      // accented collective slugs.
       const myCollectiveSlugs = new Set<string>(
-        (djProfile.ownedCollectiveSlugs ?? []).map((s) => s.toLowerCase())
+        (djProfile.ownedCollectiveSlugs ?? []).map((s) => normalizeUsername(s))
       );
 
       // 1. Fetch broadcast slots from Firebase (Channel Radio)
@@ -977,7 +980,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             // against the slugs of collectives this user owns.
             const matchesOwnedCollective = !!(
               data.djUsername && myCollectiveSlugs.size > 0 &&
-              myCollectiveSlugs.has(String(data.djUsername).toLowerCase().replace(/[^a-z0-9]/g, ""))
+              myCollectiveSlugs.has(normalizeUsername(String(data.djUsername)))
             );
             const isMatch =
               (data.djUsername && containsMatch(data.djUsername, djProfile.chatUsername)) ||
@@ -1158,9 +1161,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       if (!djProfile) return;
 
       try {
-        const normalizedUsername = (djProfile.chatUsername || "")
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "");
+        const normalizedUsername = normalizeUsername(djProfile.chatUsername || "");
 
         if (!normalizedUsername) return;
 

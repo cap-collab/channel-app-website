@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 // Client-side map of collective → photo, keyed by BOTH normalized name and
 // slug. Used on /scene to self-heal followed-collective cards whose favorite
@@ -16,8 +17,11 @@ export interface CollectivePhotoMap {
   get: (key: string | undefined | null) => string | undefined;
 }
 
+// Canonical fold (matches generateSlug / normalizeUsername) so the stored name
+// and slug keys agree with each other and with any raw djName/slug a caller
+// passes — dotted/accented collectives resolve consistently.
 function norm(s: string): string {
-  return s.replace(/[\s-]+/g, '').toLowerCase();
+  return normalizeUsername(s);
 }
 
 export function useCollectivePhotos(enabled: boolean): CollectivePhotoMap {

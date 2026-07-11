@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { normalizeUsername } from "@/lib/dj-matching";
 
-// Normalize to alphanumeric only (no hyphens, no spaces)
+// The "correct" pending-dj-profiles doc ID is the canonical handle — fold
+// accents to ASCII, strip all non-alphanumerics (delegates to normalizeUsername).
 function normalizeId(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return normalizeUsername(name);
 }
 
 export async function POST(request: NextRequest) {

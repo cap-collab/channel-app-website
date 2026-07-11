@@ -10,9 +10,16 @@ function verifyCronRequest(request: NextRequest): boolean {
   return isVercelCron || hasValidSecret;
 }
 
-// Normalize DJ name for use as document ID (no spaces, no hyphens - just alphanumeric)
+// Normalize DJ name for use as document ID — canonical form: fold accents to
+// ASCII, then strip ALL non-alphanumerics, lowercase. Must match
+// normalizeUsername (src/lib/dj-matching.ts) so the doc ID equals the handle
+// /dj/<username> resolves to (e.g. "Béa" -> "bea", not "ba").
 function normalizeForId(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 }
 
 // Strip HTML tags and decode entities

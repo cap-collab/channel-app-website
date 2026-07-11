@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -30,7 +31,7 @@ export async function POST() {
         if (!hasGenres || !hasLocation || !hasPhoto) {
           needsUpdate = true;
           if (dj.userId) userIdsToLookup.add(dj.userId);
-          if (dj.username) usernamesToLookup.add(dj.username.replace(/[\s-]+/g, '').toLowerCase());
+          if (dj.username) usernamesToLookup.add(normalizeUsername(dj.username));
         }
       }
 

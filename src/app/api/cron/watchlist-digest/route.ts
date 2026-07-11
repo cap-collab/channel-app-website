@@ -9,7 +9,7 @@ import {
   isRestApiConfigured,
   queryCollection,
 } from "@/lib/firebase-rest";
-import { wordBoundaryMatch } from "@/lib/dj-matching";
+import { wordBoundaryMatch, normalizeUsername } from "@/lib/dj-matching";
 import { matchesGenre } from "@/lib/genres";
 import { matchesCity, getCityFromTimezone } from "@/lib/city-detection";
 
@@ -310,11 +310,9 @@ export async function GET(request: NextRequest) {
     // Value: { username (for URL), photoUrl (for picture) }
     // Sources: 1) pending-dj-profiles, 2) users with DJ role
     const djNameToProfile = new Map<string, { username: string; photoUrl?: string; genres?: string[]; location?: string; isChannelUser: boolean }>();
-    // Normalize to match how pending-dj-profiles stores chatUsernameNormalized
-    // Strip ALL non-alphanumeric characters and lowercase (like dublab sync does)
-    const normalizeForLookup = (str: string): string => {
-      return str.toLowerCase().replace(/[^a-z0-9]/g, "");
-    };
+    // Normalize to match how pending-dj-profiles stores chatUsernameNormalized:
+    // canonical form (fold accents, strip ALL non-alphanumerics, lowercase).
+    const normalizeForLookup = (str: string): string => normalizeUsername(str);
 
     // 1. Add from pending-dj-profiles (these take priority)
     const pendingProfiles = await queryCollection("pending-dj-profiles", [], 10000);
@@ -409,7 +407,7 @@ export async function GET(request: NextRequest) {
       const rawRecs = djProfile.myRecs;
       if (!rawRecs) continue;
 
-      const djUsername = chatUsername.replace(/\s+/g, "").toLowerCase();
+      const djUsername = normalizeUsername(chatUsername);
       const djPhotoUrl = (djProfile.photoUrl as string) || undefined;
       const recDjName = (djProfile.djName as string) || chatUsername;
 

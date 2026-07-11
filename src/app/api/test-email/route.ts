@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendWatchlistDigestEmail, sendShowStartingEmail, sendBroadcast1WeekReminderEmail, sendBroadcast48HourReminderEmail, sendBroadcast2HourReminderEmail, sendPostBroadcastEmail } from "@/lib/email";
 import { queryUsersWhere, queryCollection, getUserFavorites } from "@/lib/firebase-rest";
-import { wordBoundaryMatch } from "@/lib/dj-matching";
+import { wordBoundaryMatch, normalizeUsername } from "@/lib/dj-matching";
 import { matchesGenre } from "@/lib/genres";
 import { matchesCity, getCityFromTimezone } from "@/lib/city-detection";
 
@@ -45,9 +45,10 @@ interface ShowData {
   irlTicketUrl?: string;
 }
 
-// Strip ALL non-alphanumeric characters and lowercase (like the cron does)
+// Canonical form (fold accents, strip ALL non-alphanumerics, lowercase) — like
+// the cron does. Delegates to the shared normalizeUsername.
 function normalizeForLookup(str: string): string {
-  return str.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return normalizeUsername(str);
 }
 
 // Fetch OG metadata from a URL (with timeout)
@@ -408,7 +409,7 @@ async function sendTestEmail(to: string, section?: string) {
     if (!chatUsername || !djProfile) continue;
 
     // Check if this DJ is followed by the user
-    const djUsernameLower = chatUsername.replace(/\s+/g, "").toLowerCase();
+    const djUsernameLower = normalizeUsername(chatUsername);
     const isFollowed = followedTerms.some((term) =>
       term === djUsernameLower || term === chatUsername.toLowerCase()
     );

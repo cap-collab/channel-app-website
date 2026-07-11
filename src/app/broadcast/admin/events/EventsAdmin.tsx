@@ -85,7 +85,7 @@ export function EventsAdmin() {
         for (const id of djSceneMap.byUserId.get(dj.djUserId) ?? []) out.add(id);
       }
       if (dj.djUsername) {
-        const key = dj.djUsername.toLowerCase().replace(/\s+/g, '');
+        const key = normalizeUsername(dj.djUsername);
         for (const id of djSceneMap.byUsername.get(key) ?? []) out.add(id);
       }
     }

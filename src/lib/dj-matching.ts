@@ -12,15 +12,23 @@ export function normalizeName(name: string): string {
   return name.toLowerCase().trim();
 }
 
-// Canonical username form: strip ALL non-alphanumerics (spaces, hyphens, AND
-// dots/punctuation), lowercase. This intentionally matches generateSlug() in
-// src/lib/slug.ts so usernames and collective slugs normalize identically —
-// e.g. "B. Rod" → "brod", never "b.rod". Dotted DJ names previously broke
-// /dj/<username> resolution because the lookup kept the dot while the stored
-// chatUsernameNormalized had it stripped. ANY field meant to match
-// chatUsernameNormalized at query time MUST be produced by this function.
+// Canonical username form: fold accents to ASCII, then strip ALL
+// non-alphanumerics (spaces, hyphens, AND dots/punctuation), lowercase. This
+// intentionally matches generateSlug() in src/lib/slug.ts so usernames and
+// collective slugs normalize identically — e.g. "B. Rod" → "brod", never
+// "b.rod". The NFD de-accent step FOLDS accented display names to ASCII rather
+// than deleting the accent, so a pretty name like "agraybé" resolves as
+// "agraybe" (not "agrayb") — display keeps the accent, the handle/URL stays
+// clean ASCII. Dotted DJ names previously broke /dj/<username> resolution
+// because the lookup kept the dot while the stored chatUsernameNormalized had
+// it stripped. ANY field meant to match chatUsernameNormalized at query time
+// MUST be produced by this function.
 export function normalizeUsername(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 }
 
 /**

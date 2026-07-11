@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { BroadcastSlotSerialized, DJSlot } from '@/types/broadcast';
+import { normalizeUsername } from '@/lib/dj-matching';
 
 interface BroadcastScheduleProps {
   shows: BroadcastSlotSerialized[];
@@ -90,7 +91,7 @@ function ShowRow({ slot }: { slot: DisplaySlot }) {
   })();
 
   const djProfileSlug = djProfileUsername
-    ? djProfileUsername.replace(/[\s-]+/g, '').toLowerCase()
+    ? normalizeUsername(djProfileUsername)
     : null;
 
   // Show image priority: show image > primary restream DJ photo > DJ photo (via API)
@@ -107,7 +108,7 @@ function ShowRow({ slot }: { slot: DisplaySlot }) {
   const primaryDjPhoto = primaryRestreamDj?.photoUrl || null;
   const djNameForPhoto = primaryRestreamDj?.name || slot.djName || djProfileUsername;
   const djPhotoApiUrl = djNameForPhoto
-    ? `/api/dj-photo/${encodeURIComponent(djNameForPhoto.replace(/[\s-]+/g, '').toLowerCase())}`
+    ? `/api/dj-photo/${encodeURIComponent(normalizeUsername(djNameForPhoto))}`
     : null;
   const photoUrl = showImageUrl || primaryDjPhoto || djPhotoApiUrl;
 

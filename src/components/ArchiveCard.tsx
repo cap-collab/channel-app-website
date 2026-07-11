@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { ArchiveSerialized } from '@/types/broadcast';
 
 function formatDuration(seconds: number): string {
@@ -39,7 +40,7 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
     e.stopPropagation();
     const primary = archive.djs.find(dj => dj.username);
     const slug = primary?.username
-      ? primary.username.replace(/\s+/g, '').toLowerCase()
+      ? normalizeUsername(primary.username)
       : null;
     // Prefer the DJ page; if the show has no DJ username, fall back to the site
     // root (the standalone /archives/[slug] page was removed).
@@ -120,7 +121,7 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
                         {index > 0 && ', '}
                         {dj.username ? (
                           <Link
-                            href={`/dj/${dj.username.replace(/\s+/g, '').toLowerCase()}`}
+                            href={`/dj/${normalizeUsername(dj.username)}`}
                             className="hover:text-white transition-colors"
                           >
                             {dj.name}
@@ -142,7 +143,7 @@ export function ArchiveCard({ archive, isPlaying, onPlayPause, currentTime, onSe
               {archive.djs.filter(dj => dj.username).map((dj) => (
                 <Link
                   key={dj.username}
-                  href={`/dj/${dj.username!.replace(/\s+/g, '').toLowerCase()}`}
+                  href={`/dj/${normalizeUsername(dj.username!)}`}
                   className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-xs bg-white/10 hover:bg-white/20 text-white"
                   title={`View ${dj.name}'s profile`}
                 >

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
+import { normalizeUsername } from '@/lib/dj-matching';
 import { SceneGlyph } from '@/components/SceneGlyph';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -425,7 +426,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // GlobalBroadcastBar's radioPrimaryDj derivation so both bars stay in sync.
   const radioPrimaryDj = radioArchive?.djs?.[0] ?? radioCtx?.currentItem?.djs?.[0];
   const radioDjUsername = radioPrimaryDj?.username || '';
-  const radioDjUsernameNormalized = radioDjUsername.replace(/\s+/g, '').toLowerCase();
+  const radioDjUsernameNormalized = normalizeUsername(radioDjUsername);
   const radioDjProfile = useDJProfileInfo(radioDjUsername || undefined);
   const radioTipLink = radioDjProfile.tipButtonLink;
   const { sendLove: radioSendLove } = useDJProfileChat({
@@ -947,7 +948,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   //   radio fallback → radio DJ (slide 0 when live is off)
   //   final fallback → featured archive DJ
   const loveSourceArchive = archivePlayer.currentArchive || radioArchive || featuredArchive;
-  const archiveDjProfileUsername = loveSourceArchive.djs[0]?.username?.replace(/\s+/g, '').toLowerCase() || '';
+  const archiveDjProfileUsername = loveSourceArchive.djs[0]?.username ? normalizeUsername(loveSourceArchive.djs[0].username) : '';
   const archiveDjName = loveSourceArchive.djs.map((d) => d.name).join(', ');
   // Route to live DJ whenever live is on AND the listener hasn't explicitly
   // engaged a different archive on slide 1. Drops the old `showLiveInHero`
@@ -1546,7 +1547,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   )}
                 </div>
                 {liveDjProfileUsername && (
-                  <Link href={`/dj/${liveDjProfileUsername.replace(/\s+/g, '').toLowerCase()}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
+                  <Link href={`/dj/${normalizeUsername(liveDjProfileUsername)}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
                     <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                   </Link>
                 )}
@@ -1675,7 +1676,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                   </svg>
                 </div>
                 {(() => {
-                  const archiveDjUsername = displayedArchive.djs[0]?.username?.replace(/\s+/g, '').toLowerCase();
+                  const archiveDjUsername = displayedArchive.djs[0]?.username ? normalizeUsername(displayedArchive.djs[0].username) : undefined;
                   return archiveDjUsername ? (
                     <Link href={`/dj/${archiveDjUsername}`} className="w-7 h-7 sm:w-10 sm:h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors flex-shrink-0">
                       <svg className="w-4 h-4 sm:w-[18px] sm:h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -2161,7 +2162,7 @@ export function ArchiveGridCard({
   const hasTopRightBadge = isLiveCard || !!glyphSlug;
 
   const profileSlug = primaryUsername
-    ? primaryUsername.replace(/\s+/g, '').toLowerCase()
+    ? normalizeUsername(primaryUsername)
     : null;
 
   return (

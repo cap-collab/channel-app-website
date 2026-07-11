@@ -10,7 +10,7 @@ import {
   queryCollectionGroup,
   isRestApiConfigured,
 } from "@/lib/firebase-rest";
-import { wordBoundaryMatch } from "@/lib/dj-matching";
+import { wordBoundaryMatch, normalizeUsername } from "@/lib/dj-matching";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { fetchComingUp } from "@/lib/recommendations/coming-up";
 import { getCityFromTimezone } from "@/lib/city-detection";
@@ -101,10 +101,11 @@ const STATION_NAMES: Record<string, string> = {
   newtown: "Newtown Radio",
 };
 
-// Normalize for DJ profile lookup - strip ALL non-alphanumeric and lowercase
-// This matches how pending-dj-profiles stores chatUsernameNormalized
+// Normalize for DJ profile lookup — canonical form (fold accents, strip ALL
+// non-alphanumerics, lowercase). Delegates to the shared normalizeUsername so
+// it matches how pending-dj-profiles stores chatUsernameNormalized.
 function normalizeForLookup(str: string): string {
-  return str.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return normalizeUsername(str);
 }
 
 // Resolve a Firestore startTime field to epoch ms across every shape it can
