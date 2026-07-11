@@ -49,9 +49,12 @@ export async function recordPlay(
 
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(userRef);
-    // If the user doc doesn't exist we still create the field via merge — but a
-    // play should always come from an authenticated existing user, so this is a
-    // safety net, not the common path.
+    // NEVER create the user doc from a play. `userId` here comes unverified from
+    // the request body, so a logged-out / anonymous session would otherwise mint
+    // an email-less "phantom" users doc (this created ~80 junk docs). A play is a
+    // recs signal that only matters for an existing account — if there's no doc,
+    // skip silently.
+    if (!snap.exists) return;
     const existing =
       (snap.data()?.playedArchiveIds as Record<string, number> | undefined) ?? {};
 

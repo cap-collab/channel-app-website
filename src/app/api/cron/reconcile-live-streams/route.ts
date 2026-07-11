@@ -217,6 +217,9 @@ export async function GET(request: NextRequest) {
 
       const created = await db.runTransaction(async (tx) => {
         const snap = await tx.get(userRef);
+        // Never create the user doc from a play-transfer — an orphan playedSlots
+        // subcollection (no parent users doc) must not mint an email-less phantom.
+        if (!snap.exists) return false;
         const map = (snap.data()?.playedArchiveIds as Record<string, number> | undefined) ?? {};
         if (map[archive.id] !== undefined) return false; // already transferred
         // Single-key dot-path merge — leaves every other played entry intact.

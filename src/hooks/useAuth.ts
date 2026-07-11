@@ -308,6 +308,15 @@ export function useAuth() {
         if (djUsername && !existingData.chatUsername) {
           Object.assign(updateData, chatUsernameFields(djUsername));
         }
+        // Self-heal email-less docs: a doc created by the (old) LastSeenStamp
+        // race, or any past path, may lack `email` — which makes the account
+        // invisible to every email-keyed lookup (assign-dj-role,
+        // reconcile-broadcast-slots) and traps the user on "Activate Artist
+        // Profile". Backfill it (and displayName/photoURL) when missing, without
+        // clobbering existing good data. Idempotent no-op for healthy docs.
+        if (!existingData.email && user.email) updateData.email = user.email;
+        if (!existingData.displayName && user.displayName) updateData.displayName = user.displayName;
+        if (!existingData.photoURL && user.photoURL) updateData.photoURL = user.photoURL;
         await setDoc(userRef, updateData, { merge: true });
       }
 
@@ -409,6 +418,15 @@ export function useAuth() {
         if (djUsername && !existingData.chatUsername) {
           Object.assign(updateData, chatUsernameFields(djUsername));
         }
+        // Self-heal email-less docs: a doc created by the (old) LastSeenStamp
+        // race, or any past path, may lack `email` — which makes the account
+        // invisible to every email-keyed lookup (assign-dj-role,
+        // reconcile-broadcast-slots) and traps the user on "Activate Artist
+        // Profile". Backfill it (and displayName/photoURL) when missing, without
+        // clobbering existing good data. Idempotent no-op for healthy docs.
+        if (!existingData.email && user.email) updateData.email = user.email;
+        if (!existingData.displayName && user.displayName) updateData.displayName = user.displayName;
+        if (!existingData.photoURL && user.photoURL) updateData.photoURL = user.photoURL;
         await setDoc(userRef, updateData, { merge: true });
       }
 
@@ -712,6 +730,12 @@ export function useAuth() {
               watchlistMatch: true,
               engagementGoLive: true,
             };
+          }
+          // Self-heal: backfill email onto an existing doc that lacks it (e.g. a
+          // phantom created by the old LastSeenStamp race), so email-keyed
+          // lookups can find the account. No-op for healthy docs.
+          if (userSnap.exists() && !userSnap.data()?.email && user.email) {
+            updateData.email = user.email;
           }
           if (!userSnap.exists()) {
             await setDoc(userRef, {
