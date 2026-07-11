@@ -1435,6 +1435,19 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     archivePlayer.seek(time);
   }, [archivePlayer]);
 
+  // Latest playable recording — drives the play overlay on the profile photo.
+  // pastRecordings is already visibility-filtered (endpoint drops private/hidden)
+  // and sorted newest-first; match the same duration floor the cards below use so
+  // the overlay plays exactly the top recording card. Only appears once loaded.
+  const latestRecording = useMemo(
+    () => pastRecordings.find((a) => a.duration > 1200) ?? null,
+    [pastRecordings],
+  );
+  const isPlayingLatest =
+    !!latestRecording &&
+    archivePlayer.currentArchive?.id === latestRecording.id &&
+    archivePlayer.isPlaying;
+
   // Create unified Activity Feed
   const { upcomingShows, pastActivities } = useMemo(() => {
     const upcoming: ActivityFeedItem[] = [];
@@ -1724,7 +1737,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
         {/* SECTION A: IDENTITY */}
         <section className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6 md:items-start">
           <div className="md:col-span-4">
-            <div className="aspect-square bg-zinc-900 overflow-hidden border border-white/10">
+            <div className="group relative aspect-square bg-zinc-900 overflow-hidden border border-white/10">
               {profile.djProfile.photoUrl ? (
                 <Image
                   src={profile.djProfile.photoUrl}
@@ -1742,12 +1755,36 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                   </svg>
                 </div>
               )}
+
+              {/* Play overlay — appears once recordings load, plays the latest.
+                  Same centered frosted circle + triangle as the featured archive
+                  grid on the homepage. */}
+              {latestRecording && (
+                <button
+                  onClick={() => handlePlayPause(latestRecording)}
+                  aria-label={isPlayingLatest ? 'Pause latest recording' : 'Play latest recording'}
+                  title={isPlayingLatest ? 'Pause' : 'Play latest recording'}
+                  className="absolute inset-0 flex items-center justify-center transition-colors hover:bg-black/20"
+                >
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center drop-shadow-lg ${isPlayingLatest ? 'bg-white/15' : 'bg-black/20 border border-white/20'}`}>
+                    {isPlayingLatest ? (
+                      <svg className="w-7 h-7 text-white/70" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-7 h-7 text-white/70 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </div>
+                </button>
+              )}
             </div>
           </div>
 
           <div className="md:col-span-8 flex flex-col md:h-full">
             {/* Large: DJ Name */}
-            <h1 className="text-3xl sm:text-5xl md:text-7xl font-black uppercase tracking-tighter leading-none mb-4 [overflow-wrap:normal] [word-break:keep-all]">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-black tracking-tighter leading-none mb-4 [overflow-wrap:normal] [word-break:keep-all]">
               {profile.chatUsername}
             </h1>
 
@@ -2223,7 +2260,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                       </div>
                     )}
                     <div className="flex-1 min-w-0 flex flex-col justify-center" style={showImage ? { minHeight: '96px' } : undefined}>
-                      <p className="text-sm font-bold text-white uppercase tracking-wide pr-24">{archive.showName}</p>
+                      <p className="text-sm font-bold text-white tracking-wide pr-24">{archive.showName}</p>
                     </div>
 
                     {/* Scene glyph + tempo pill — same frosted-glass overlay used on
