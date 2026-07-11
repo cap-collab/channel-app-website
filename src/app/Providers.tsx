@@ -10,7 +10,7 @@ import { ArchivePlayerProvider } from "@/contexts/ArchivePlayerContext";
 import { ArchiveRadioProvider } from "@/contexts/ArchiveRadioContext";
 import { FilterProvider } from "@/contexts/FilterContext";
 import { HeartNudgeProvider } from "@/contexts/HeartNudgeContext";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { initPostHog, identifyUser } from "@/lib/posthog";
 import { useChunkErrorReload } from "@/hooks/useChunkErrorReload";
@@ -61,9 +61,19 @@ function LastSeenStamp() {
       // Firestore write is fire-and-forget (a failed write just means we retry
       // next load — no user-facing impact).
       window.localStorage.setItem(key, String(now));
-      void setDoc(doc(firestore, "users", uid), { lastSeenAt: serverTimestamp() }, { merge: true }).catch(
+      // updateDoc (NOT setDoc merge): only touch an EXISTING doc. A merge-setDoc
+      // creates the doc if absent, which races the sign-in handler on a brand-new
+      // account — LastSeenStamp fires the instant `user` resolves and would create
+      // a bare {lastSeenAt} doc BEFORE signInWithGoogle's getDoc runs, flipping it
+      // into its "existing user" branch so it never writes email/role. That leaves
+      // an email-less doc that assign-dj-role (email-keyed) can't find → the
+      // "Activate Artist Profile" loop. updateDoc throws on a missing doc; the
+      // catch reverts the throttle so the next load (after sign-in created the
+      // doc) stamps it.
+      void updateDoc(doc(firestore, "users", uid), { lastSeenAt: serverTimestamp() }).catch(
         () => {
-          // Revert the throttle marker on failure so the next load retries.
+          // Doc doesn't exist yet (or write failed) — revert the throttle marker
+          // so the next load retries once the sign-in handler has created it.
           try {
             window.localStorage.removeItem(key);
           } catch {
