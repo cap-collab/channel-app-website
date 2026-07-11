@@ -359,6 +359,9 @@ interface ShowStartingEmailParams {
   // When the primary show is a restream (not a live broadcast), the subject
   // and headline say "airing" instead of "is live".
   isRestream?: boolean;
+  // Scheduled anchors are looped radio content, not a real-time DJ set, so they
+  // also say "airing" rather than "is live".
+  isAnchor?: boolean;
 }
 
 export async function sendShowStartingEmail({
@@ -381,7 +384,11 @@ export async function sendShowStartingEmail({
   irlEvents,
   userTimezone,
   isRestream,
+  isAnchor,
 }: ShowStartingEmailParams) {
+  // Restreams and anchors are both pre-recorded/looped, so they say "airing"
+  // rather than the real-time "is live".
+  const isAiring = isRestream || isAnchor;
   if (!resend) {
     console.warn("Email service not configured - skipping email");
     return false;
@@ -456,7 +463,7 @@ export async function sendShowStartingEmail({
   // Channel Radio shows omit the "on channel" suffix (recipients already know
   // where they subscribed); external stations keep "on {station}" as real info.
   const stationSuffix = isChannelRadio ? "" : ` on ${stationName}`;
-  const subject = isRestream
+  const subject = isAiring
     ? `${primarySubjectName} airing${stationSuffix}`
     : `${primarySubjectName} is live${stationSuffix}`;
 
@@ -468,7 +475,7 @@ export async function sendShowStartingEmail({
             ${photoHtml}
           </div>
           <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #1a1a1a;">
-            ${displayName} <span style="color: #999;">${isRestream ? "is airing" : "is live"}</span>
+            ${displayName} <span style="color: #999;">${isAiring ? "is airing" : "is live"}</span>
           </h1>
           <p style="margin: 0 0 24px; font-size: 14px; color: #666;">on ${isChannelRadio ? "channel" : stationName}</p>
           <a href="${buttonUrl}" style="${BUTTON_STYLE}">${buttonText}</a>

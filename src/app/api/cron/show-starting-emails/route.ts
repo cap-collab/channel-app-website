@@ -253,9 +253,9 @@ export async function GET(request: NextRequest) {
     // live" (>30 min in) and falls out of the live set, so users who only
     // just started streaming/liking the DJ mid-show don't get a late email.
     const now = new Date();
-    const LIVE_START_LOOKBACK_MS = 30 * 60 * 1000;
+    const LIVE_START_LOOKBACK_MS = 2 * 60 * 1000;
     const windowStart = new Date(now.getTime() - LIVE_START_LOOKBACK_MS);
-    const windowEnd = new Date(now.getTime() + 5 * 60 * 1000);
+    const windowEnd = new Date(now.getTime() + 1 * 60 * 1000);
     const liveShows: LiveShow[] = [];
     // End of the CURRENT broadcast week = next Sunday 07:00 Pacific, strictly
     // after now. FIXED anchor (same instant for every recipient, not per-user
@@ -475,18 +475,29 @@ export async function GET(request: NextRequest) {
       // passed anchor is completed, not live — see complete-expired-slots), so
       // it can never enter the status=='live' broadcastSlots set above. To
       // still notify when an emails-enabled anchor airs (e.g. a collective
-      // anchor → fan out to collective + owner fans), treat an anchor whose
-      // start falls in the SAME live window as a fresh primary go-live, pulled
-      // from the scheduled set. pushBroadcastSlot honors goLiveEmailsDisabled,
-      // so an anchor only fires here if the admin unchecked "disable go-live
-      // emails" (anchors default that flag to true).
-      if (
-        bTypeSched === "anchor" &&
-        startMs >= windowStart.getTime() &&
-        startMs <= windowEnd.getTime()
-      ) {
-        pushBroadcastSlot(slot, liveShows);
-        continue;
+      // anchor → fan out to collective + owner fans), we can't rely on the tiny
+      // live-start window the way live shows do — an anchor's start might fall
+      // between hourly ticks and be missed with no recovery. Instead detect it
+      // straight from the calendar: an anchor counts as airing when
+      // startTime <= now < endTime, so it's caught on ANY tick during airtime.
+      // A multi-hour anchor therefore matches on several ticks, but the per-user
+      // dedup (lastShowStartingEmailAt[showId], stable across ticks for the same
+      // slot) guarantees each recipient is emailed at most once — the same guard
+      // that already protects long live shows. pushBroadcastSlot still honors
+      // goLiveEmailsDisabled + channelbroadcast (anchors default disabled=true).
+      if (bTypeSched === "anchor") {
+        const endMs = slotStartMs(slot.data.endTime);
+        const airing =
+          startMs <= now.getTime() &&
+          (typeof endMs !== "number" || now.getTime() < endMs);
+        if (airing) {
+          // Currently airing → fan out as a primary go-live. It's not a future
+          // schedule row, so don't fall through to the weekly bundle.
+          pushBroadcastSlot(slot, liveShows);
+          continue;
+        }
+        // Not airing yet → fall through so a FUTURE anchor still appears in the
+        // "coming up this week" bundle via pushScheduleRow below.
       }
 
       if (startMs <= windowEnd.getTime()) continue;
@@ -1471,6 +1482,7 @@ export async function GET(request: NextRequest) {
             stationId: primary.stationId,
             streamingUrl: primary.streamingUrl,
             isRestream: primary.broadcastType === "restream",
+            isAnchor: primary.broadcastType === "anchor",
             engagementReason: primaryMatch.engagementReason,
             savedReason: primaryMatch.savedReason,
             affiliationBridgeDj: primaryMatch.crewBridgeDj || primaryMatch.borrowBridgeDj,
@@ -1503,6 +1515,7 @@ export async function GET(request: NextRequest) {
         stationId: primary.stationId,
         streamingUrl: primary.streamingUrl,
         isRestream: primary.broadcastType === "restream",
+        isAnchor: primary.broadcastType === "anchor",
         engagementReason: primaryMatch.engagementReason,
         savedReason: primaryMatch.savedReason,
         affiliationBridgeDj: primaryMatch.borrowBridgeDj,

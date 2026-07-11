@@ -217,10 +217,19 @@ function GoLiveEmailsControl({ slot }: { slot: BroadcastSlotSerialized }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Only render for currently-live shows — the cron only fans out for
-  // status: live broadcasts, so clicking on a scheduled card would do
-  // nothing.
-  if (slot.status !== 'live') return null;
+  // Render for currently-live shows (the cron fans out for status: live) and
+  // for a scheduled ANCHOR that is currently airing. Anchors never flip to
+  // status: live and are picked up by the cron via calendar detection
+  // (startTime <= now < endTime), so the button just re-runs the cron now
+  // instead of waiting for the next hourly tick. Clicking it and the auto tick
+  // are both safe — the per-user dedup guarantees at most one email per person.
+  // Don't render on a not-yet-airing anchor: nothing would send.
+  const nowMs = Date.now();
+  const isAiringAnchor =
+    slot.broadcastType === 'anchor' &&
+    slot.startTime <= nowMs &&
+    (typeof slot.endTime !== 'number' || nowMs < slot.endTime);
+  if (slot.status !== 'live' && !isAiringAnchor) return null;
 
   const handleSend = async () => {
     if (!user) return;
