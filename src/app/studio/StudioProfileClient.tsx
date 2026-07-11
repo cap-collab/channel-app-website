@@ -2378,10 +2378,20 @@ export function StudioProfileClient() {
   // Collective studio: a DJ who owns a collective toggled "Manage collective",
   // OR a collective-only owner (role:'user') whose /studio IS the collective
   // studio. Rendered BEFORE the isDJ(role) wall so a non-DJ owner isn't bounced.
-  if (isAuthenticated && managingCollectiveSlug) {
+  //
+  // Compute the effective slug INLINE (not just from the managingCollectiveSlug
+  // state, which the auto-enter effect sets one render late) so a collective-only
+  // owner — or ?collective= — mounts the collective studio on the FIRST render.
+  // Without this, a non-DJ owner flashes the DJ studio body for a frame.
+  const effectiveCollectiveSlug =
+    managingCollectiveSlug ||
+    (isAuthenticated && ownedCollectiveSlugs.length > 0 && (!isDJ(role) || searchParams.get("collective"))
+      ? ownedCollectiveSlugs[0]
+      : null);
+  if (isAuthenticated && effectiveCollectiveSlug) {
     return (
       <CollectiveStudioClient
-        slug={managingCollectiveSlug}
+        slug={effectiveCollectiveSlug}
         // Only offer "back to artist page" to actual DJs; a collective-only
         // owner has no personal studio to return to.
         onExit={isDJ(role) ? () => setManagingCollectiveSlug(null) : undefined}
