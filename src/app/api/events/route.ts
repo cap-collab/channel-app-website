@@ -62,7 +62,11 @@ async function verifyDJAccess(request: NextRequest): Promise<{
 }
 
 // True if the user may edit/delete this event: admin, the creator, OR an owner
-// of a collective the event is linked to (linkedCollectives ∩ ownedCollectiveSlugs).
+// of a collective the event is linked to. Ownership is keyed on collectiveSlug
+// (that's what ownedCollectiveSlugs holds), but we resolve the linked ref's slug
+// from EITHER its collectiveSlug or by mapping its collectiveId — some refs carry
+// only one. This must stay consistent with the collective studio's event LIST
+// (CollectiveEventsCard.loadEvents), which matches on collectiveId/slug too.
 function canEditEvent(
   currentData: FirebaseFirestore.DocumentData,
   userId: string,
@@ -71,8 +75,13 @@ function canEditEvent(
 ): boolean {
   if (role === 'admin' || role === 'broadcaster') return true;
   if (currentData.createdBy === userId) return true;
-  if (ownedCollectiveSlugs.length > 0 && Array.isArray(currentData.linkedCollectives)) {
-    const owned = new Set(ownedCollectiveSlugs);
+  if (ownedCollectiveSlugs.length === 0) return false;
+  const owned = new Set(ownedCollectiveSlugs);
+  // Match on the linked ref's collectiveSlug OR its denormalized collectiveSlug.
+  // Studio-created events carry the full ref (id+slug), so slug matching covers
+  // them; stays consistent with the studio's event LIST.
+  if (currentData.collectiveSlug && owned.has(currentData.collectiveSlug)) return true;
+  if (Array.isArray(currentData.linkedCollectives)) {
     return currentData.linkedCollectives.some(
       (c: { collectiveSlug?: string }) => c.collectiveSlug && owned.has(c.collectiveSlug)
     );

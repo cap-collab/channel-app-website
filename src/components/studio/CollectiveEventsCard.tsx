@@ -69,9 +69,15 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName, colle
       snap.forEach((docSnap) => {
         const d = docSnap.data();
         const linked = Array.isArray(d.linkedCollectives) ? d.linkedCollectives : [];
+        // Match on id OR slug, consistent with the events API's canEditEvent so
+        // an owner never sees an event they can't edit (or vice versa).
         const isLinked =
           d.collectiveId === collectiveId ||
-          linked.some((c: { collectiveId?: string }) => c.collectiveId === collectiveId);
+          d.collectiveSlug === collectiveSlug ||
+          linked.some(
+            (c: { collectiveId?: string; collectiveSlug?: string }) =>
+              c.collectiveId === collectiveId || c.collectiveSlug === collectiveSlug
+          );
         if (!isLinked) return;
         rows.push({
           id: docSnap.id,
