@@ -157,6 +157,9 @@ export interface WeeklyRecBackfillStatus {
   completedAtMs: number;
   usersScanned: number;
   generated: number;
+  // Users whose snapshot was left untouched by the 24h floor (skipped-fresh).
+  // Present on scope=active daily runs; optional for older/full docs.
+  skippedFresh?: number;
   failed: number;
   shard: number | null;
 }

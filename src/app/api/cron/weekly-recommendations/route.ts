@@ -234,6 +234,7 @@ export async function GET(request: NextRequest) {
     let skippedNoEmail = 0;
     let skippedRecentSend = 0;
     let skippedDormant = 0;
+    let skippedFresh = 0;
     let failed = 0;
     let fallbackExtraSent = 0;
     type Trace = { email: string; s1: number; s2: number; comingUp: number; fallback: boolean };
@@ -296,7 +297,11 @@ export async function GET(request: NextRequest) {
             recConfig,
           );
           prebuilt = outcome.snapshot;
-          generated++;
+          // generateForUser returns skipped:"fresh" when the 24h floor left the
+          // existing snapshot untouched — count those separately so `generated`
+          // reflects snapshots actually (re)written, not just users processed.
+          if (outcome.skipped === "fresh") skippedFresh++;
+          else generated++;
         }
         // Backfill-only run: snapshot persisted, no email. Move on.
         if (!doSend) continue;
@@ -643,9 +648,10 @@ export async function GET(request: NextRequest) {
     // full; active-only for the daily run) so failRate math stays meaningful.
     if (mode === "backfill" && !dryRun && !previewTo) {
       // For the active daily run, "scanned" = users that passed the active
-      // filter and reached a generation attempt (generated + failed) — NOT the
-      // whole user table, so failRate = failed/scanned reflects active users.
-      const usersScanned = scope === "active" ? generated + failed : usersSnap.size;
+      // filter and reached a generation attempt (generated + skipped-fresh +
+      // failed) — NOT the whole user table, so failRate = failed/scanned
+      // reflects active users.
+      const usersScanned = scope === "active" ? generated + skippedFresh + failed : usersSnap.size;
       await db
         .collection("system")
         .doc(statusDocId(scope, shard))
@@ -653,6 +659,7 @@ export async function GET(request: NextRequest) {
           completedAtMs: nowMs,
           usersScanned,
           generated,
+          skippedFresh,
           failed,
           shard,
           scope,
@@ -673,6 +680,7 @@ export async function GET(request: NextRequest) {
       skippedNoEmail,
       skippedRecentSend,
       skippedDormant,
+      skippedFresh,
       failed,
       featuredCount: featuredRows.length,
       trace: dryRun && !previewTo ? trace : undefined,
