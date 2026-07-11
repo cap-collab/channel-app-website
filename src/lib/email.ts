@@ -464,7 +464,7 @@ export async function sendShowStartingEmail({
   // where they subscribed); external stations keep "on {station}" as real info.
   const stationSuffix = isChannelRadio ? "" : ` on ${stationName}`;
   const subject = isAiring
-    ? `${primarySubjectName} airing${stationSuffix}`
+    ? `${primarySubjectName} is airing${stationSuffix}`
     : `${primarySubjectName} is live${stationSuffix}`;
 
   const content = `
