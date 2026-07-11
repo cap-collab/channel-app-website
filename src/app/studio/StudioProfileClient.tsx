@@ -113,6 +113,7 @@ interface DJEvent {
   startTime: string; // HH:MM for form input, defaults to 20:00 (8 PM)
   location: string;
   ticketLink: string;
+  discountCode: string;
   photo: string | null;
   linkedVenues: { venueId: string; venueName: string }[];
   linkedCollectives: { collectiveId: string; collectiveName: string }[];
@@ -309,7 +310,7 @@ export function StudioProfileClient() {
   // Form state - IRL Events section
   const [djEvents, setDjEvents] = useState<DJEvent[]>([]);
   const [loadingDjEvents, setLoadingDjEvents] = useState(true);
-  const [newEvent, setNewEvent] = useState<DJEvent>({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
+  const [newEvent, setNewEvent] = useState<DJEvent>({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", discountCode: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
   const [showNewEventForm, setShowNewEventForm] = useState(false);
   const [savingNewEvent, setSavingNewEvent] = useState(false);
   const [eventError, setEventError] = useState<string | null>(null);
@@ -1592,6 +1593,7 @@ export function StudioProfileClient() {
             startTime: timeStr,
             location: data.location || "",
             ticketLink: data.ticketLink || "",
+            discountCode: data.discountCode || "",
             photo: data.photo || null,
             linkedVenues: data.linkedVenues || [],
             linkedCollectives: data.linkedCollectives || [],
@@ -1671,6 +1673,7 @@ export function StudioProfileClient() {
           date: eventDateMs(),
           location: newEvent.location.trim() || undefined,
           ticketLink: newEvent.ticketLink.trim() ? normalizeUrl(newEvent.ticketLink.trim()) : undefined,
+          discountCode: newEvent.discountCode.trim() || undefined,
           photo: newEvent.photo || undefined,
           linkedVenues: newEvent.linkedVenues.length > 0 ? newEvent.linkedVenues : undefined,
           linkedCollectives: newEvent.linkedCollectives.length > 0 ? newEvent.linkedCollectives : undefined,
@@ -1679,7 +1682,7 @@ export function StudioProfileClient() {
       });
 
       if (response.ok) {
-        setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
+        setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", discountCode: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
         setShowNewEventForm(false);
         await fetchDjEvents();
       } else {
@@ -1722,6 +1725,7 @@ export function StudioProfileClient() {
           date: eventDateMs(),
           location: newEvent.location.trim() || null,
           ticketLink: newEvent.ticketLink.trim() ? normalizeUrl(newEvent.ticketLink.trim()) : null,
+          discountCode: newEvent.discountCode.trim() || null,
           photo: newEvent.photo || null,
           linkedVenues: newEvent.linkedVenues,
           linkedCollectives: newEvent.linkedCollectives,
@@ -1730,7 +1734,7 @@ export function StudioProfileClient() {
       });
 
       if (response.ok) {
-        setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
+        setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", discountCode: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
         setShowNewEventForm(false);
         setEditingEventId(null);
         await fetchDjEvents();
@@ -3754,6 +3758,9 @@ export function StudioProfileClient() {
                     <input type="date" value={newEvent.date} onChange={(e) => setNewEvent(prev => ({ ...prev, date: e.target.value }))} className="w-36 bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none [color-scheme:dark]" />
                     <input type="time" value={newEvent.startTime} onChange={(e) => setNewEvent(prev => ({ ...prev, startTime: e.target.value }))} className="w-28 bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white focus:border-gray-600 focus:outline-none [color-scheme:dark]" />
                   </div>
+                  <div className="flex gap-2">
+                    <input type="text" value={newEvent.discountCode} onChange={(e) => setNewEvent(prev => ({ ...prev, discountCode: e.target.value }))} placeholder="Discount code (optional)" className="flex-1 bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none" />
+                  </div>
                   {/* Venue — search available venues or type a new name */}
                   <CreatableChipField<{ id: string; name: string }, { venueId: string; venueName: string }>
                     label="Venue"
@@ -3805,7 +3812,7 @@ export function StudioProfileClient() {
                     <button type="button" onClick={editingEventId ? updateEvent : createEvent} disabled={savingNewEvent || !newEvent.name.trim()} className="px-4 py-2 bg-white text-black text-xs font-medium rounded hover:bg-gray-200 transition-colors disabled:opacity-50">
                       {savingNewEvent ? "Saving..." : editingEventId ? "Update Event" : "Create Event"}
                     </button>
-                    <button type="button" onClick={() => { setShowNewEventForm(false); setEditingEventId(null); setEventError(null); setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] }); }} className="px-4 py-2 text-gray-400 hover:text-white text-xs transition-colors">
+                    <button type="button" onClick={() => { setShowNewEventForm(false); setEditingEventId(null); setEventError(null); setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", discountCode: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] }); }} className="px-4 py-2 text-gray-400 hover:text-white text-xs transition-colors">
                       Cancel
                     </button>
                   </div>

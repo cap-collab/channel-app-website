@@ -10,7 +10,10 @@ import {
 } from '@/lib/bidirectional-sync';
 import { syncIRLEventToFollowers } from '@/lib/sync-irl-event';
 
-// Verify user is authenticated and has DJ-level access
+// Verify user is authenticated and has DJ-level access.
+// Collective owners (who may be role:'user') are ALSO authorized — they manage
+// their collective's events. ownedCollectiveSlugs is returned so PATCH/DELETE
+// can grant edit access to any event linked to a collective the user owns.
 async function verifyDJAccess(request: NextRequest): Promise<{
   isAuthorized: boolean;
   userId?: string;
@@ -18,6 +21,7 @@ async function verifyDJAccess(request: NextRequest): Promise<{
   chatUsername?: string;
   chatUsernameNormalized?: string;
   djPhotoUrl?: string;
+  ownedCollectiveSlugs?: string[];
 }> {
   try {
     const authHeader = request.headers.get('authorization');
@@ -36,8 +40,13 @@ async function verifyDJAccess(request: NextRequest): Promise<{
     const userDoc = await db.collection('users').doc(decodedToken.uid).get();
     const userData = userDoc.data();
     const role = userData?.role;
+    const ownedCollectiveSlugs = Array.isArray(userData?.ownedCollectiveSlugs)
+      ? (userData!.ownedCollectiveSlugs as unknown[]).filter((s): s is string => typeof s === 'string')
+      : [];
 
-    const isAuthorized = role === 'dj' || role === 'admin' || role === 'broadcaster';
+    // DJ-role OR a collective owner (even role:'user') may use the events API.
+    const isAuthorized =
+      role === 'dj' || role === 'admin' || role === 'broadcaster' || ownedCollectiveSlugs.length > 0;
     return {
       isAuthorized,
       userId: decodedToken.uid,
@@ -45,15 +54,35 @@ async function verifyDJAccess(request: NextRequest): Promise<{
       chatUsername: userData?.chatUsername,
       chatUsernameNormalized: userData?.chatUsernameNormalized,
       djPhotoUrl: userData?.djProfile?.photoUrl || undefined,
+      ownedCollectiveSlugs,
     };
   } catch {
     return { isAuthorized: false };
   }
 }
 
+// True if the user may edit/delete this event: admin, the creator, OR an owner
+// of a collective the event is linked to (linkedCollectives ∩ ownedCollectiveSlugs).
+function canEditEvent(
+  currentData: FirebaseFirestore.DocumentData,
+  userId: string,
+  role: string | undefined,
+  ownedCollectiveSlugs: string[]
+): boolean {
+  if (role === 'admin' || role === 'broadcaster') return true;
+  if (currentData.createdBy === userId) return true;
+  if (ownedCollectiveSlugs.length > 0 && Array.isArray(currentData.linkedCollectives)) {
+    const owned = new Set(ownedCollectiveSlugs);
+    return currentData.linkedCollectives.some(
+      (c: { collectiveSlug?: string }) => c.collectiveSlug && owned.has(c.collectiveSlug)
+    );
+  }
+  return false;
+}
+
 // POST - Create an event
 export async function POST(request: NextRequest) {
-  const { isAuthorized, userId, chatUsername, chatUsernameNormalized, djPhotoUrl } = await verifyDJAccess(request);
+  const { isAuthorized, userId, role, chatUsername, chatUsernameNormalized, djPhotoUrl } = await verifyDJAccess(request);
   if (!isAuthorized || !userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -68,8 +97,12 @@ export async function POST(request: NextRequest) {
     const {
       name, date, endDate, photo, description,
       linkedVenues, linkedCollectives, djs,
-      genres, location, ticketLink,
+      genres, location, ticketLink, discountCode,
     } = body;
+
+    // A collective-only owner (role:'user') is NOT a DJ and must never be
+    // auto-credited on the lineup. Only DJ-role users get self-added.
+    const creatorIsDj = role === 'dj' || role === 'admin' || role === 'broadcaster';
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Event name is required' }, { status: 400 });
@@ -122,13 +155,14 @@ export async function POST(request: NextRequest) {
     };
 
     let eventDjs = (djs || []).map((d: Record<string, unknown>) => cleanDj(d));
-    // Only add self if not already in the djs array
+    // Only add self if a DJ AND not already in the djs array. Collective-only
+    // owners are excluded — they organize but aren't part of the lineup.
     const selfAlreadyIncluded = eventDjs.some(
       (d: { djUserId?: string; djUsername?: string }) =>
         (d.djUserId && d.djUserId === userId) ||
         (d.djUsername && d.djUsername === djSelf.djUsername)
     );
-    if (!selfAlreadyIncluded) {
+    if (creatorIsDj && !selfAlreadyIncluded) {
       eventDjs = [djSelf, ...eventDjs];
     }
 
@@ -157,6 +191,7 @@ export async function POST(request: NextRequest) {
       genres: genres || [],
       location: location || null,
       ticketLink: ticketLink || null,
+      discountCode: discountCode || null,
       socialLinks: {},
       source: 'dj',
       createdAt: FieldValue.serverTimestamp(),
@@ -198,7 +233,7 @@ export async function POST(request: NextRequest) {
 
 // PATCH - Update an event (only own events, or admin/broadcaster can edit any)
 export async function PATCH(request: NextRequest) {
-  const { isAuthorized, userId, role } = await verifyDJAccess(request);
+  const { isAuthorized, userId, role, ownedCollectiveSlugs } = await verifyDJAccess(request);
   if (!isAuthorized || !userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -213,7 +248,7 @@ export async function PATCH(request: NextRequest) {
     const {
       eventId, name, date, endDate, photo, description,
       linkedVenues, linkedCollectives, djs,
-      genres, location, ticketLink,
+      genres, location, ticketLink, discountCode,
     } = body;
 
     if (!eventId) {
@@ -228,9 +263,8 @@ export async function PATCH(request: NextRequest) {
 
     const currentData = eventDoc.data()!;
 
-    // Ownership check: DJs can only edit their own events
-    const isAdminRole = role === 'admin' || role === 'broadcaster';
-    if (!isAdminRole && currentData.createdBy !== userId) {
+    // Ownership: admin, the creator, OR an owner of a linked collective.
+    if (!canEditEvent(currentData, userId, role, ownedCollectiveSlugs || [])) {
       return NextResponse.json({ error: 'You can only edit your own events' }, { status: 403 });
     }
 
@@ -257,6 +291,7 @@ export async function PATCH(request: NextRequest) {
     if (genres !== undefined) updateData.genres = genres;
     if (location !== undefined) updateData.location = location;
     if (ticketLink !== undefined) updateData.ticketLink = ticketLink;
+    if (discountCode !== undefined) updateData.discountCode = discountCode || null;
     if (linkedVenues !== undefined) {
       updateData.linkedVenues = linkedVenues;
       // Update denormalized venue fields
@@ -334,7 +369,7 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE - Delete an event (only own events, or admin/broadcaster can delete any)
 export async function DELETE(request: NextRequest) {
-  const { isAuthorized, userId, role } = await verifyDJAccess(request);
+  const { isAuthorized, userId, role, ownedCollectiveSlugs } = await verifyDJAccess(request);
   if (!isAuthorized || !userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -360,9 +395,8 @@ export async function DELETE(request: NextRequest) {
 
     const eventData = eventDoc.data()!;
 
-    // Ownership check
-    const isAdminRole = role === 'admin' || role === 'broadcaster';
-    if (!isAdminRole && eventData.createdBy !== userId) {
+    // Ownership: admin, the creator, OR an owner of a linked collective.
+    if (!canEditEvent(eventData, userId, role, ownedCollectiveSlugs || [])) {
       return NextResponse.json({ error: 'You can only delete your own events' }, { status: 403 });
     }
 

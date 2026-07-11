@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, date, endDate, photo, description, venueId, venueName: manualVenueName, venueCollectiveId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks, sceneIdsOverride } = body;
+    const { name, date, endDate, photo, description, venueId, venueName: manualVenueName, venueCollectiveId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, discountCode, socialLinks, sceneIdsOverride } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Event name is required' }, { status: 400 });
@@ -128,6 +128,7 @@ export async function POST(request: NextRequest) {
       genres: genres || [],
       location: location || null,
       ticketLink: ticketLink || null,
+      discountCode: discountCode || null,
       socialLinks: socialLinks || {},
       sceneIdsOverride:
         sceneIdsOverride === null
@@ -186,7 +187,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { eventId, name, date, endDate, photo, description, venueId, venueName: manualVenueName, venueCollectiveId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, socialLinks, sceneIdsOverride } = body;
+    const { eventId, name, date, endDate, photo, description, venueId, venueName: manualVenueName, venueCollectiveId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, discountCode, socialLinks, sceneIdsOverride } = body;
 
     if (!eventId) {
       return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
@@ -210,6 +211,7 @@ export async function PATCH(request: NextRequest) {
     if (genres !== undefined) updateData.genres = genres;
     if (location !== undefined) updateData.location = location;
     if (ticketLink !== undefined) updateData.ticketLink = ticketLink;
+    if (discountCode !== undefined) updateData.discountCode = discountCode || null;
     if (socialLinks !== undefined) updateData.socialLinks = socialLinks;
     if (linkedVenues !== undefined) updateData.linkedVenues = linkedVenues;
     if (linkedCollectives !== undefined) updateData.linkedCollectives = linkedCollectives;

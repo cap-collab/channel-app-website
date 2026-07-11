@@ -131,6 +131,9 @@ export interface Event {
   genres?: string[];
   location?: string | null;
   ticketLink?: string | null;
+  // Optional discount/promo code for the event. Display is gated to logged-in
+  // users on the public card (rendering added later).
+  discountCode?: string | null;
   source?: 'admin' | 'dj' | 'pending-admin';
   socialLinks?: {
     instagram?: string;

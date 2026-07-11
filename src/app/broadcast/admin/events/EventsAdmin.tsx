@@ -45,6 +45,7 @@ export function EventsAdmin() {
   const [location, setLocation] = useState('');
   const [genres, setGenres] = useState('');
   const [ticketLink, setTicketLink] = useState('');
+  const [discountCode, setDiscountCode] = useState('');
   const [instagram, setInstagram] = useState('');
   const [soundcloud, setSoundcloud] = useState('');
   const [bandcamp, setBandcamp] = useState('');
@@ -292,6 +293,7 @@ export function EventsAdmin() {
     setLocation('');
     setGenres('');
     setTicketLink('');
+    setDiscountCode('');
     setInstagram('');
     setSoundcloud('');
     setBandcamp('');
@@ -337,6 +339,7 @@ export function EventsAdmin() {
     setLocation(event.location || '');
     setGenres(event.genres?.join(', ') || '');
     setTicketLink(event.ticketLink || '');
+    setDiscountCode(event.discountCode || '');
     setInstagram(event.socialLinks?.instagram || '');
     setSoundcloud(event.socialLinks?.soundcloud || '');
     setBandcamp(event.socialLinks?.bandcamp || '');
@@ -455,6 +458,7 @@ export function EventsAdmin() {
         genres: genres.trim() ? genres.split(',').map(g => g.trim()).filter(Boolean) : [],
         location: location.trim() || null,
         ticketLink: ticketLink.trim() ? normalizeUrl(ticketLink.trim()) : null,
+        discountCode: discountCode.trim() || null,
         socialLinks: socialLinksData,
       };
 
@@ -768,6 +772,18 @@ export function EventsAdmin() {
                 onChange={(e) => setTicketLink(e.target.value)}
                 className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
                 placeholder="https://ra.co/events/..."
+              />
+            </div>
+
+            {/* Discount Code */}
+            <div className="mb-4">
+              <label className="block text-sm text-gray-400 mb-1">Discount Code</label>
+              <input
+                type="text"
+                value={discountCode}
+                onChange={(e) => setDiscountCode(e.target.value)}
+                className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                placeholder="e.g. CHANNEL20"
               />
             </div>
 
