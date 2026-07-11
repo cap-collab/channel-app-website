@@ -2,10 +2,10 @@
 
 import { useState, useCallback } from "react";
 
-// Discount-code button for event cards + "Coming up" rows. Three states:
-//   1. "DISCOUNT CODE" (2-line label)  — default
+// Compact inline discount-code pill for event cards + "Coming up" rows.
+//   1. 2-line "DISCOUNT CODE"                       — default
 //   2. tap (logged in) → reveals the code in place
-//   3. tap the code    → copies it → "Copied!" briefly, then back to the code
+//   3. tap the code    → copies it ("copied!"), hint stays non-bold
 // Logged out → onRequireAuth() (opens the app sign-in modal).
 // Renders nothing when there's no code.
 
@@ -13,12 +13,9 @@ interface Props {
   code: string | null | undefined;
   isAuthenticated: boolean;
   onRequireAuth: () => void;
-  // "full" = full-width stacked button (event cards); "chip" = compact square
-  // to sit next to the ticket chip ("Coming up" rows).
-  variant?: "full" | "chip";
 }
 
-export function DiscountCodeButton({ code, isAuthenticated, onRequireAuth, variant = "full" }: Props) {
+export function DiscountCodeButton({ code, isAuthenticated, onRequireAuth }: Props) {
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -49,22 +46,19 @@ export function DiscountCodeButton({ code, isAuthenticated, onRequireAuth, varia
     copy();
   };
 
-  if (variant === "chip") {
+  // Default (not revealed): compact rounded pill with a 2-line "DISCOUNT CODE".
+  // Revealed: the code itself, with a lighter "click to copy" hint (not bold).
+  if (!revealed) {
     return (
       <button
         type="button"
         onClick={handleClick}
         aria-label="Discount code"
         title="Discount code"
-        className="inline-flex items-center justify-center h-7 px-2 rounded-full border border-white/40 text-white text-[10px] font-semibold uppercase tracking-wide bg-white/5 hover:bg-white/15 backdrop-blur-md transition-colors"
+        className="inline-flex flex-col items-center justify-center leading-tight px-3 py-1.5 rounded-full border border-white/40 text-white text-[10px] font-semibold uppercase tracking-wide bg-white/5 hover:bg-white/15 transition-colors"
       >
-        {!revealed ? (
-          <span className="leading-none">CODE</span>
-        ) : copied ? (
-          <span className="leading-none">Copied!</span>
-        ) : (
-          <span className="leading-none">{code}</span>
-        )}
+        <span>Discount</span>
+        <span>Code</span>
       </button>
     );
   }
@@ -73,18 +67,10 @@ export function DiscountCodeButton({ code, isAuthenticated, onRequireAuth, varia
     <button
       type="button"
       onClick={handleClick}
-      className="w-full py-2 px-4 rounded-full border border-white/40 text-white text-xs font-semibold uppercase tracking-wide bg-white/5 hover:bg-white/15 transition-colors flex flex-col items-center justify-center leading-tight"
+      className="inline-flex flex-col items-center justify-center leading-tight px-3 py-1.5 rounded-full border border-white/40 text-white bg-white/5 hover:bg-white/15 transition-colors"
     >
-      {!revealed ? (
-        <>
-          <span>Discount</span>
-          <span>Code</span>
-        </>
-      ) : copied ? (
-        <span className="normal-case tracking-normal text-sm">Copied!</span>
-      ) : (
-        <span className="normal-case tracking-normal text-sm">{code} · tap to copy</span>
-      )}
+      <span className="text-sm font-semibold">{code}</span>
+      <span className="text-[10px] text-white/60 font-normal">{copied ? "copied!" : "click to copy"}</span>
     </button>
   );
 }

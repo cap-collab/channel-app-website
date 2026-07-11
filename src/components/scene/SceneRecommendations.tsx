@@ -648,7 +648,6 @@ function ComingUpRow({
             code={row.discountCode}
             isAuthenticated={isAuthenticated}
             onRequireAuth={onAuthRequired}
-            variant="chip"
           />
         )}
         <CardActions

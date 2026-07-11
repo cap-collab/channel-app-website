@@ -2523,33 +2523,29 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                               );
                             })()}
                           </div>
+                          {event.discountCode && (
+                            <div className="flex-shrink-0 self-center">
+                              <DiscountCodeButton
+                                code={event.discountCode}
+                                isAuthenticated={isAuthenticated}
+                                onRequireAuth={() => {
+                                  setAuthModalMessage("Log in to access discount code");
+                                  setShowAuthModal(true);
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
-                        {(event.ticketLink || event.discountCode) && (
-                          <div className="flex items-stretch gap-2">
-                            {event.ticketLink && (
-                              <a
-                                href={event.ticketLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 py-3 px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5"
-                              >
-                                Tickets
-                                <ExternalLinkIcon size={12} />
-                              </a>
-                            )}
-                            {event.discountCode && (
-                              <div className="flex-1">
-                                <DiscountCodeButton
-                                  code={event.discountCode}
-                                  isAuthenticated={isAuthenticated}
-                                  onRequireAuth={() => {
-                                    setAuthModalMessage("Log in to access discount code");
-                                    setShowAuthModal(true);
-                                  }}
-                                />
-                              </div>
-                            )}
-                          </div>
+                        {event.ticketLink && (
+                          <a
+                            href={event.ticketLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full py-3 px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            Tickets
+                            <ExternalLinkIcon size={12} />
+                          </a>
                         )}
                       </div>
                     </div>

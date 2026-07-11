@@ -15,6 +15,8 @@ interface Props {
   user: User;
   collectiveId: string;
   collectiveName: string;
+  collectiveSlug: string;
+  collectivePhoto?: string | null;
 }
 
 interface EventRow {
@@ -45,7 +47,7 @@ function composeDateMs(date: string, startTime: string): number {
   return new Date(`${date}T${startTime || "20:00"}:00`).getTime();
 }
 
-export function CollectiveEventsCard({ user, collectiveId, collectiveName }: Props) {
+export function CollectiveEventsCard({ user, collectiveId, collectiveName, collectiveSlug, collectivePhoto }: Props) {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -121,7 +123,14 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName }: Pro
     setError(null);
     try {
       const headers = await authHeaders();
-      const linkedCollectives = [{ collectiveId, collectiveName }];
+      // Auto-tag this collective on the event (full ref so the public event card
+      // can link back to /dj/<slug> and show the photo).
+      const linkedCollectives = [{
+        collectiveId,
+        collectiveName,
+        collectiveSlug,
+        collectivePhoto: collectivePhoto || null,
+      }];
       const payload = {
         name: form.name.trim(),
         // Send a composed unix-ms timestamp (date + start time, default 8 PM).

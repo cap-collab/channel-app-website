@@ -565,6 +565,8 @@ export default function CollectiveStudioClient({ slug, onExit }: Props) {
                 user={user}
                 collectiveId={collective.id}
                 collectiveName={collective.name}
+                collectiveSlug={collective.slug}
+                collectivePhoto={collective.photo}
               />
             )}
           </div>
