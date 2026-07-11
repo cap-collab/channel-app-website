@@ -278,15 +278,22 @@ export function StudioProfileClient() {
     }
   }, [enteredStudio]);
 
-  // Safety: if stuck on loading screen for >5s, reload to re-fetch role.
-  // Only while NEITHER a DJ nor a collective owner (else it loops for owners).
+  // The live user-doc onSnapshot flips role/ownership as soon as the grant lands,
+  // so the spinner normally clears on its own. If after 8s nothing has landed
+  // (e.g. a new email with no admin attribution), give up so we can show a
+  // dead-end message instead of spinning forever. No reload gymnastics.
+  const [grantGaveUp, setGrantGaveUp] = useState(false);
   useEffect(() => {
-    if (!enteredStudio && djTermsJustAccepted && isAuthenticated) {
-      const timer = setTimeout(() => {
-        window.location.reload();
-      }, 5000);
-      return () => clearTimeout(timer);
+    if (enteredStudio) {
+      setGrantGaveUp(false);
+      return;
     }
+    if (!djTermsJustAccepted || !isAuthenticated) return;
+    const timer = setTimeout(() => {
+      sessionStorage.removeItem('djTermsJustAccepted');
+      setGrantGaveUp(true);
+    }, 8000);
+    return () => clearTimeout(timer);
   }, [enteredStudio, djTermsJustAccepted, isAuthenticated]);
 
 
@@ -2507,16 +2514,38 @@ export function StudioProfileClient() {
     );
   }
 
-  // DJ terms just accepted via inline sign-in — show loading while role propagates.
-  // Excludes collective owners (handled above by the collective-studio mount);
-  // without !enteredStudio they'd be trapped here since role stays 'user'.
-  if (!enteredStudio && djTermsJustAccepted) {
+  // Terms just accepted via inline sign-in — show loading while the grant
+  // propagates. Excludes users already granted (DJ or collective). If the grant
+  // never lands (grantGaveUp: e.g. a new email with no admin attribution), show
+  // a dead-end message instead of spinning forever.
+  if (!enteredStudio && djTermsJustAccepted && !grantGaveUp) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
           <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Building your artist profile...</p>
+          <p className="text-gray-400">Setting up your account...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Grant never landed — collective funnel with an email that wasn't attributed
+  // to any collective. Terms are accepted; they just need an admin to add them.
+  if (!enteredStudio && grantGaveUp && searchParams.get("collective")) {
+    return (
+      <div className="min-h-screen bg-black">
+        <Header currentPage="studio" position="sticky" />
+        <main className="max-w-xl mx-auto p-4">
+          <div className="text-center py-16">
+            <h1 className="text-2xl font-semibold text-white mb-3">You&apos;re all set</h1>
+            <p className="text-gray-400 mb-2">
+              Your account is ready, but no collective is linked to it yet.
+            </p>
+            <p className="text-gray-500 text-sm">
+              Ask a Channel admin to add you as an owner of your collective, then refresh this page.
+            </p>
+          </div>
+        </main>
       </div>
     );
   }
