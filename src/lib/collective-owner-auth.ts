@@ -72,16 +72,13 @@ export async function verifyOwnerAccess(
     const collectiveDoc = collectiveSnap.docs[0];
     const collectiveData = collectiveDoc.data();
 
-    // Defense-in-depth: the denormalized slug list is the primary gate, but the
-    // collective's own owners[] must also list this user. Admins skip this — they
-    // manage collectives they don't own. If these ever diverge for a real owner
-    // (they're synced by the admin API), deny rather than trust the stale side.
-    if (!isAdmin) {
-      const owners = collectiveData?.owners;
-      if (!Array.isArray(owners) || !owners.includes(userId)) {
-        return { isOwner: false, userId };
-      }
-    }
+    // ownedCollectiveSlugs (checked above) is the SINGLE source of truth for
+    // studio management access — same field the firestore cosmetic rule checks,
+    // so the two gates agree. We deliberately do NOT also require membership in
+    // the collective's owners[] array: owners[] is the *public* owner credit
+    // (rendered in the Owners row), and some owners are management-only and must
+    // stay off the public page (e.g. a non-performing admin). Such an owner has
+    // ownedCollectiveSlugs set but is intentionally absent from owners[].
 
     return {
       isOwner: true,
