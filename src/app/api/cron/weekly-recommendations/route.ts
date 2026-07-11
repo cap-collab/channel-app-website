@@ -85,8 +85,23 @@ function emailAtMs(v: unknown): number | null {
 // ran. Backfill is Wed 1AM PT, send Wed 10AM PT (~9h gap), so 18h is safe.
 const BACKFILL_FRESHNESS_MS = 18 * 60 * 60 * 1000;
 
+// A user counts as "active" (eligible for the daily scope=active backfill) if
+// their lastSeenAt is within this window. 48h so a daily run always catches
+// anyone seen since roughly the previous run, with a day of margin.
+const ACTIVE_WINDOW_MS = 48 * 60 * 60 * 1000;
+
 function backfillStatusDocId(shard: number | null): string {
   return shard != null ? `weekly-rec-backfill-status-${shard}` : "weekly-rec-backfill-status";
+}
+
+// The scope=active daily run stamps its OWN status doc so the "Daily recs cron"
+// Tech Health line reports independently of the full run's "Newsletter readiness"
+// line (weekly-rec-backfill-status).
+function statusDocId(scope: "active" | "all", shard: number | null): string {
+  if (scope === "active") {
+    return shard != null ? `daily-rec-status-${shard}` : "daily-rec-status";
+  }
+  return backfillStatusDocId(shard);
 }
 
 function uidInShard(uid: string, shard: number, shardCount: number): boolean {
@@ -150,6 +165,13 @@ export async function GET(request: NextRequest) {
   const doGenerate = !doReport && !dryRun && mode !== "send"; // backfill + legacy generate
   const doSend = !doReport && mode !== "backfill"; // send + legacy send
 
+  // scope=active restricts a BACKFILL run to users seen on the site within
+  // ACTIVE_WINDOW_MS (the daily "lazy" refresh). Full/default backfill covers
+  // everyone (the pre-newsletter run). Only meaningful for backfill; send/report
+  // ignore it. Stamps a SEPARATE status doc so the Tech Health "Daily recs cron"
+  // line reports independently from "Newsletter readiness" (the full run).
+  const scope = params.get("scope") === "active" ? "active" : "all";
+
   const nowMs = Date.now();
 
   // ── REPORT MODE ──────────────────────────────────────────────────────────
@@ -211,6 +233,7 @@ export async function GET(request: NextRequest) {
     let skippedOptOut = 0;
     let skippedNoEmail = 0;
     let skippedRecentSend = 0;
+    let skippedDormant = 0;
     let failed = 0;
     let fallbackExtraSent = 0;
     type Trace = { email: string; s1: number; s2: number; comingUp: number; fallback: boolean };
@@ -229,6 +252,15 @@ export async function GET(request: NextRequest) {
       const en = data.emailNotifications as Record<string, unknown> | undefined;
       if (en?.weeklyRecommendations === false) { skippedOptOut++; continue; }
       if (shard != null && !uidInShard(userDoc.id, shard, shardCount)) continue;
+
+      // scope=active (daily run): only regenerate users seen on the site within
+      // ACTIVE_WINDOW_MS. Dormant users are left for the weekly full backfill.
+      // lastSeenAt may be a Firestore Timestamp OR a flattened {_seconds} shape,
+      // so coerce via emailAtMs (handles both) rather than calling .toMillis().
+      if (scope === "active") {
+        const seenMs = emailAtMs(data.lastSeenAt);
+        if (seenMs == null || nowMs - seenMs > ACTIVE_WINDOW_MS) { skippedDormant++; continue; }
+      }
 
       // previewTo: only process the one preview recipient (sends a real email,
       // stamps nothing). All others are skipped entirely in preview mode.
@@ -596,23 +628,33 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // BACKFILL run: stamp a status doc the SEND run gates on. Keyed per shard so
-    // a sharded backfill records each shard's completion independently.
+    // BACKFILL run: stamp a status doc. The full run's doc (weekly-rec-backfill-
+    // status) is what the SEND run gates on and drives the "Newsletter readiness"
+    // Tech Health line; the scope=active daily run stamps a SEPARATE doc
+    // (daily-rec-status) that drives the "Daily recs cron" line. Keyed per shard.
+    // usersScanned reflects the users actually considered by this scope (all for
+    // full; active-only for the daily run) so failRate math stays meaningful.
     if (mode === "backfill" && !dryRun && !previewTo) {
+      // For the active daily run, "scanned" = users that passed the active
+      // filter and reached a generation attempt (generated + failed) — NOT the
+      // whole user table, so failRate = failed/scanned reflects active users.
+      const usersScanned = scope === "active" ? generated + failed : usersSnap.size;
       await db
         .collection("system")
-        .doc(backfillStatusDocId(shard))
+        .doc(statusDocId(scope, shard))
         .set({
           completedAtMs: nowMs,
-          usersScanned: usersSnap.size,
+          usersScanned,
           generated,
           failed,
           shard,
+          scope,
         });
     }
 
     return NextResponse.json({
       mode: mode ?? "legacy",
+      scope,
       dryRun,
       previewTo: previewTo ?? null,
       shard,
@@ -623,6 +665,7 @@ export async function GET(request: NextRequest) {
       skippedOptOut,
       skippedNoEmail,
       skippedRecentSend,
+      skippedDormant,
       failed,
       featuredCount: featuredRows.length,
       trace: dryRun && !previewTo ? trace : undefined,

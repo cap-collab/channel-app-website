@@ -9,7 +9,7 @@
  * Generation scope + load (per the plan):
  *   - cron generates for EMAIL-ENABLED users only, sharded by uid prefix.
  *   - website generates lazily on first visit.
- *   - a global 48h freshness floor (config.minRegenIntervalMs) skips users whose
+ *   - a global 24h freshness floor (config.minRegenIntervalMs) skips users whose
  *     snapshot is younger than the floor (force/preview bypass it).
  */
 
@@ -305,6 +305,30 @@ export async function loadSharedData(db: Firestore, nowMs: number): Promise<Shar
   };
 }
 
+// Module-level TTL cache of SharedData. loadSharedData reads the WHOLE catalog
+// (all archives + DJ users + collectives + scheduled slots) — user-independent
+// work identical for every generation. Without this, each lazy (per-visit)
+// generation re-reads the full catalog (O(C+D) reads). Mirrors the TTL caches in
+// featured-payload.ts and coming-up.ts. The cron threads its own single
+// loadSharedData through generateForUser, so this cache serves the visit-time
+// path (getSharedData below); a short TTL keeps newly-published archives fresh.
+const SHARED_DATA_TTL_MS = 5 * 60 * 1000; // 5 min, matching featured-payload/coming-up
+let sharedDataCache: { at: number; data: SharedData } | null = null;
+
+/**
+ * Return the cached SharedData when warm (within TTL of the passed nowMs), else
+ * load it fresh and cache it. Use this on read/visit paths so concurrent users
+ * share one catalog scan instead of each re-reading the whole collection.
+ */
+export async function getSharedData(db: Firestore, nowMs: number): Promise<SharedData> {
+  if (sharedDataCache && nowMs - sharedDataCache.at < SHARED_DATA_TTL_MS) {
+    return sharedDataCache.data;
+  }
+  const data = await loadSharedData(db, nowMs);
+  sharedDataCache = { at: nowMs, data };
+  return data;
+}
+
 // Build the per-cron relationship sets for the upcoming shows (used by the
 // coming-up matcher). Engagement sets are built per-user (forward) below.
 function buildUpcomingRelationshipSets(
@@ -570,7 +594,7 @@ function buildComingUp(
 export interface GenerateOptions {
   persist: boolean;
   generatedBy: RecommendationSnapshot["generatedBy"];
-  force?: boolean; // bypass the 48h freshness floor
+  force?: boolean; // bypass the 24h freshness floor
   nowMs?: number; // injectable for tests; defaults to Date.now()
 }
 
@@ -583,7 +607,7 @@ export interface GenerateForUserOutcome {
 }
 
 /**
- * Generate (and optionally persist) a snapshot for one user. Respects the 48h
+ * Generate (and optionally persist) a snapshot for one user. Respects the 24h
  * freshness floor unless force is set. persist:false → live preview, no write.
  */
 export async function generateForUser(
@@ -597,7 +621,7 @@ export async function generateForUser(
   const nowMs = opts.nowMs ?? Date.now();
   const cfg = config ?? (await loadConfig(db));
 
-  // 48h freshness floor (skip only when persisting; preview/force ignore it).
+  // 24h freshness floor (skip only when persisting; preview/force ignore it).
   if (opts.persist && !opts.force) {
     const existing = await db.collection(SNAPSHOT_COLLECTION).doc(snapshotDocId(uid, context)).get();
     const prev = existing.data() as RecommendationSnapshot | undefined;
@@ -695,7 +719,7 @@ export async function generateForAllUsers(
     if (shard != null && !uidInShard(doc.id, shard, shardCount)) continue;
 
     try {
-      // 48h floor check.
+      // 24h floor check.
       const existing = await db.collection(SNAPSHOT_COLLECTION).doc(snapshotDocId(doc.id, context)).get();
       const prev = existing.data() as RecommendationSnapshot | undefined;
       if (prev && nowMs - prev.generatedAtMs < config.minRegenIntervalMs) {

@@ -204,7 +204,7 @@ export interface RecommendationConfig {
     requirePublic: boolean;
   };
   editorial: EditorialRules;
-  minRegenIntervalMs: number; // global 48h freshness floor
+  minRegenIntervalMs: number; // global 24h freshness floor
 }
 
 // ── Context passed into the pure engine (no globals) ────────────────────────

@@ -15,6 +15,7 @@
 import type { Firestore } from "firebase-admin/firestore";
 import type { Archive, ArchiveSerialized } from "@/types/broadcast";
 import { getOrGenerateWebsiteSnapshot } from "./delivery";
+import { getSharedData } from "./server";
 import { fetchComingUp, type ComingUpRow } from "./coming-up";
 import { getCityFromTimezone } from "@/lib/city-detection";
 import type { SnapshotSection, RecommendationSnapshot } from "./types";
@@ -192,15 +193,28 @@ export async function buildScenePayload(
   }
   const collectiveArchiveIds = new Set<string>();
   if (ownedCollectiveSlugs.size > 0) {
-    const allArchivesSnap = await db.collection("archives").get();
-    for (const snap of allArchivesSnap.docs) {
-      const data = snap.data() as Omit<Archive, "id">;
-      const credited = (data.djs ?? []).some(
-        (dj) => typeof dj.username === "string" && ownedCollectiveSlugs.has(normU(dj.username)),
-      );
-      if (!credited) continue;
-      collectiveArchiveIds.add(snap.id);
-      archiveById.set(snap.id, { id: snap.id, ...data });
+    // Firestore can't array-contains on an array of objects, so we can't query
+    // collective-credited archives directly. Instead of re-reading the WHOLE
+    // catalog here, use the TTL-cached SharedData (its ContentItems carry
+    // normalized djUsernames) to find the credited archive IDS in memory, then
+    // fetch only those full docs via getAll (chunked, like playedRefIds below).
+    const shared = await getSharedData(db, nowMs);
+    const creditedIds: string[] = [];
+    for (const item of shared.items) {
+      if (item.djUsernames.some((u) => ownedCollectiveSlugs.has(u))) {
+        collectiveArchiveIds.add(item.id);
+        // Only fetch docs we don't already have (own-archive overlap).
+        if (!archiveById.has(item.id)) creditedIds.push(item.id);
+      }
+    }
+    for (let i = 0; i < creditedIds.length; i += CHUNK) {
+      const refs = creditedIds.slice(i, i + CHUNK).map((id) => db.collection("archives").doc(id));
+      if (refs.length === 0) continue;
+      const snaps = await db.getAll(...refs);
+      for (const snap of snaps) {
+        if (!snap.exists) continue;
+        archiveById.set(snap.id, { id: snap.id, ...(snap.data() as Omit<Archive, "id">) });
+      }
     }
   }
 

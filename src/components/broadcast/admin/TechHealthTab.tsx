@@ -462,13 +462,51 @@ export function TechHealthTab() {
             </div>
           </section>
 
-          {/* Weekly-rec snapshot backfill (Tue 1 AM PT). The send (Tue 10 AM PT)
-              is GATED on this being recent + clean — green = send will proceed. */}
+          {/* Recommendation snapshot backfills — two independent lines:
+              1) Daily recs cron  = scope=active daily run keeping ACTIVE users'
+                 website snapshots ≤24h fresh (6 non-newsletter days).
+              2) Newsletter readiness = the full (all-users) backfill the Tuesday
+                 send is GATED on — green means the send will proceed. */}
           <section>
-            <h3 className="text-sm uppercase tracking-wide text-gray-400 mb-2">Weekly recs backfill</h3>
+            <h3 className="text-sm uppercase tracking-wide text-gray-400 mb-2">Daily recs cron</h3>
+            <div className="bg-[#1e1e1e] border border-white/10 p-4 text-sm">
+              {!data.dailyRecBackfill ? (
+                <div className="text-gray-500">Has not run yet — daily (active users), 08:45 UTC on non-newsletter days.</div>
+              ) : (() => {
+                const b = data.dailyRecBackfill;
+                const ageMs = Date.now() - b.completedAtMs;
+                const failRate = b.usersScanned > 0 ? b.failed / b.usersScanned : 0;
+                // Daily cadence: healthy if it ran within ~30h (a missed day is a
+                // warning, not red) AND ≤5% failures.
+                const recent = ageMs <= 30 * 60 * 60 * 1000;
+                const healthy = recent && failRate <= 0.05;
+                return (
+                  <div className="space-y-1">
+                    <div className="text-gray-300">
+                      <span className={healthy ? 'text-green-400' : recent ? 'text-yellow-400' : 'text-red-400'}>●</span>{' '}
+                      Ran {fmtAgo(b.completedAtMs)} · {b.generated} snapshots / {b.usersScanned} active users
+                      {b.failed > 0 ? (
+                        <span className={failRate > 0.05 ? 'text-red-400' : 'text-yellow-400'}> · {b.failed} failed ({(failRate * 100).toFixed(1)}%)</span>
+                      ) : null}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {healthy
+                        ? 'Healthy — active users’ recs are fresh.'
+                        : !recent
+                          ? '⚠ Stale — daily active backfill has not run in >30h.'
+                          : '⚠ Failure rate >5% on the daily run.'}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-sm uppercase tracking-wide text-gray-400 mb-2">Newsletter readiness</h3>
             <div className="bg-[#1e1e1e] border border-white/10 p-4 text-sm">
               {!data.weeklyRecBackfill ? (
-                <div className="text-gray-500">Has not run yet — weekly, Tue 09:00 UTC (1 AM PT). Send is gated on it.</div>
+                <div className="text-gray-500">Has not run yet — full backfill weekly, Tue 08:45 UTC. Send is gated on it.</div>
               ) : (() => {
                 const b = data.weeklyRecBackfill;
                 const ageMs = Date.now() - b.completedAtMs;
