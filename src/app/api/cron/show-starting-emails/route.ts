@@ -1124,6 +1124,7 @@ export async function GET(request: NextRequest) {
               venueName: r.venueName,
               dateMs: r.startMs,
               ticketUrl: r.ticketUrl || r.linkUrl || undefined,
+              discountCode: r.discountCode || undefined,
             }));
         } catch (err) {
           console.error(`[show-starting] IRL fetch failed for city "${city}":`, err);

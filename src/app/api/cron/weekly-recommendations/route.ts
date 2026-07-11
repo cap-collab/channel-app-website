@@ -356,6 +356,8 @@ export async function GET(request: NextRequest) {
               ? (r.allDjs || []).map((d) => d.djName).filter((n): n is string => !!n)
               : undefined,
             venueName: r.isIRL ? r.venueName : undefined,
+            collectiveSlug: r.isIRL ? (r.collectiveSlug || undefined) : undefined,
+            discountCode: r.isIRL ? (r.discountCode || undefined) : undefined,
           }));
 
         if (dryRun && !previewTo) {
@@ -480,6 +482,8 @@ export async function GET(request: NextRequest) {
                 ? (r.allDjs || []).map((d) => d.djName).filter((n): n is string => !!n)
                 : undefined,
               venueName: r.isIRL ? r.venueName : undefined,
+              collectiveSlug: r.isIRL ? (r.collectiveSlug || undefined) : undefined,
+              discountCode: r.isIRL ? (r.discountCode || undefined) : undefined,
             }));
           comingUpByCity.set(city, mapped);
           return mapped;

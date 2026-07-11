@@ -313,6 +313,30 @@ export interface IrlEventRow {
   venueName?: string;
   dateMs: number; // event start — rendered as a weekday + date, no time
   ticketUrl?: string; // preferred click target
+  // Optional discount code. When present, the row renders a second column with
+  // a green-outline "Discount" pill linking to the event's collective (fallback
+  // DJ) page, where the logged-in user gets the code. Absent → single-link row.
+  discountCode?: string;
+}
+
+// Green-outline "Discount" pill for an IRL event row — mirrors the /foryou
+// DiscountCodeButton look (green border, black text, transparent fill,
+// rounded-full, uppercase). Email has no JS, so instead of reveal-then-copy it
+// links to the event's collective page (fallback DJ page) where the code lives.
+// Returns the <a>-wrapped pill, or "" when there's no code / no link target.
+function buildDiscountPillHtml(opts: {
+  discountCode?: string;
+  collectiveSlug?: string;
+  djUsername?: string;
+}): string {
+  if (!opts.discountCode) return "";
+  const href = opts.collectiveSlug
+    ? `https://channel-app.com/dj/${opts.collectiveSlug}` // generateSlug output — verbatim
+    : opts.djUsername
+      ? `https://channel-app.com/dj/${normalizeDjUsername(opts.djUsername)}`
+      : undefined;
+  if (!href) return "";
+  return `<a href="${href}" style="text-decoration:none;display:inline-block;"><span style="display:inline-block;padding:8px 15px;border:1px solid #22c55e;border-radius:999px;color:#1a1a1a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;background:transparent;line-height:1;">Discount</span></a>`;
 }
 
 interface ShowStartingEmailParams {
@@ -788,8 +812,9 @@ function buildIrlEventRowHtml(ev: IrlEventRow): string {
         </tr>
       </table>`;
 
-  const inner = `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
+  // The event body (photo + name + meta) — the left column / row content.
+  const body = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
         <td width="48" valign="top" style="padding-right: 12px;">
           ${photoHtml}
@@ -805,9 +830,9 @@ function buildIrlEventRowHtml(ev: IrlEventRow): string {
       </tr>
     </table>
   `;
-  // Click target: ticket link → the event's collective page → the headliner's
-  // DJ page. Collectives share the /dj/<slug> route. Only events with none of
-  // the three stay plain text (rare).
+  // Body click target: ticket link → the event's collective page → the
+  // headliner's DJ page. Collectives share the /dj/<slug> route. Only events
+  // with none of the three stay plain text (rare).
   const href = ev.ticketUrl
     ? ev.ticketUrl
     : ev.collectiveSlug
@@ -815,9 +840,31 @@ function buildIrlEventRowHtml(ev: IrlEventRow): string {
       : ev.djUsername
         ? `https://channel-app.com/dj/${normalizeDjUsername(ev.djUsername)}`
         : undefined;
-  return href
-    ? `<a href="${href}" style="text-decoration: none; color: inherit; display: block;">${inner}</a>`
-    : inner;
+  const bodyLinked = href
+    ? `<a href="${href}" style="text-decoration: none; color: inherit; display: block;">${body}</a>`
+    : body;
+
+  // Discount pill — only when the event has a code. Its own link (collective →
+  // DJ), independent of the body's ticket link, so the row carries two targets.
+  const pill = buildDiscountPillHtml({
+    discountCode: ev.discountCode,
+    collectiveSlug: ev.collectiveSlug,
+    djUsername: ev.djUsername,
+  });
+  if (!pill) {
+    // No code → single full-width row, unchanged from before.
+    return `<div style="margin-bottom: 8px;">${bodyLinked}</div>`;
+  }
+  // With a code → two columns: event body (ticket link) + right-aligned pill
+  // (collective/DJ link).
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
+      <tr>
+        <td valign="middle">${bodyLinked}</td>
+        <td valign="middle" align="right" width="104" style="padding-left: 10px; white-space: nowrap;">${pill}</td>
+      </tr>
+    </table>
+  `;
 }
 
 // The "IRL near you" block — in-person events in the recipient's city this
@@ -1184,6 +1231,8 @@ export interface WeeklyRecComingUpRow {
   // "+N more" so the row height never grows). Online shows: omit / single DJ.
   allDjArtists?: string[];
   venueName?: string; // IRL only — shown in the meta line right after the badge
+  collectiveSlug?: string; // IRL: event's collective — discount-pill link target
+  discountCode?: string; // IRL: optional code → renders the green Discount pill
 }
 
 interface WeeklyRecommendationsEmailParams {
@@ -1322,18 +1371,38 @@ function buildWeeklyComingUpRowHtml(row: WeeklyRecComingUpRow, timezone: string)
   const photoHtml = emailPhotoUrl
     ? `<img src="${emailPhotoUrl}" alt="${djDisplayName}" width="48" height="48" style="width: 48px; height: 48px; border-radius: 0; object-fit: cover; border: 1px solid #e5e5e5; display: block;" />`
     : `<table width="48" height="48" cellpadding="0" cellspacing="0" border="0" style="border-radius: 0; border: 1px solid #e5e5e5; background-color: ${fallbackColor};"><tr><td align="center" valign="middle" style="font-size: 20px; font-weight: bold; color: #fff;">${djDisplayName.charAt(0).toUpperCase()}</td></tr></table>`;
+  const body = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
+        <td valign="top">
+          <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 3px; line-height: 1.3;">${row.showName}</div>
+          <div style="font-size: 12px; color: #999; line-height: 1.3;">${[badge, row.isIRL && row.venueName ? row.venueName : null, artistStr, timeStr].filter(Boolean).join(" · ")}</div>
+        </td>
+      </tr>
+    </table>
+  `;
+  const bodyLinked = `<a href="${url}" style="text-decoration: none; color: inherit; display: block;">${body}</a>`;
+
+  // Discount pill (IRL events with a code) — a second column linking to the
+  // event's collective (fallback DJ) page, independent of the body's link.
+  const pill = row.isIRL
+    ? buildDiscountPillHtml({
+        discountCode: row.discountCode,
+        collectiveSlug: row.collectiveSlug,
+        djUsername: row.djUsername,
+      })
+    : "";
+  if (!pill) {
+    return `<div style="margin-bottom: 8px;">${bodyLinked}</div>`;
+  }
   return `
-    <a href="${url}" style="text-decoration: none; color: inherit; display: block;">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
-        <tr>
-          <td width="48" valign="top" style="padding-right: 12px;">${photoHtml}</td>
-          <td valign="top">
-            <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; margin: 0 0 3px; line-height: 1.3;">${row.showName}</div>
-            <div style="font-size: 12px; color: #999; line-height: 1.3;">${[badge, row.isIRL && row.venueName ? row.venueName : null, artistStr, timeStr].filter(Boolean).join(" · ")}</div>
-          </td>
-        </tr>
-      </table>
-    </a>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
+      <tr>
+        <td valign="middle">${bodyLinked}</td>
+        <td valign="middle" align="right" width="104" style="padding-left: 10px; white-space: nowrap;">${pill}</td>
+      </tr>
+    </table>
   `;
 }
 
