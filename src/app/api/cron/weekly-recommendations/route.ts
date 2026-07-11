@@ -247,10 +247,17 @@ export async function GET(request: NextRequest) {
     for (const userDoc of usersSnap.docs) {
       const data = userDoc.data();
       const email = data.email as string | undefined;
+      // No email = no real account/preferences (waitlist-style docs) — skip in
+      // every scope; they have no personalized recs to build.
       if (!email) { skippedNoEmail++; continue; }
       usersEmails.add(email.toLowerCase());
-      const en = data.emailNotifications as Record<string, unknown> | undefined;
-      if (en?.weeklyRecommendations === false) { skippedOptOut++; continue; }
+      // The weekly-email opt-out governs the SEND path only. scope=active builds
+      // WEBSITE snapshots (never emails), so an email-opted-out user must still
+      // get their /foryou & home recs refreshed daily — bypass the opt-out here.
+      if (scope !== "active") {
+        const en = data.emailNotifications as Record<string, unknown> | undefined;
+        if (en?.weeklyRecommendations === false) { skippedOptOut++; continue; }
+      }
       if (shard != null && !uidInShard(userDoc.id, shard, shardCount)) continue;
 
       // scope=active (daily run): only regenerate users seen on the site within
