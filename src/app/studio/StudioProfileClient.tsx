@@ -22,6 +22,7 @@ import type { Tempo } from "@/types/broadcast";
 import { parseGenresInput, extractInstagramHandle } from "@/lib/genres";
 import { ShareableShowCardStory } from "@/components/studio/ShareableShowCardStory";
 import { Checkbox } from "@/components/Checkbox";
+import CollectiveStudioClient from "@/app/studio/CollectiveStudioClient";
 
 // Shown when a DJ tries to edit or delete a recording that has already been
 // booked into an upcoming anchor or restream slot.
@@ -223,6 +224,26 @@ export function StudioProfileClient() {
         .finally(() => setCodeValidating(false));
     }
   }, [searchParams]);
+
+  // Owned collective slugs as STATE (myCollectiveSlugsRef drives slot matching;
+  // this drives the collective-studio routing + toggle). Empty = not an owner.
+  const [ownedCollectiveSlugs, setOwnedCollectiveSlugs] = useState<string[]>([]);
+  // When set, /studio renders the collective studio for this slug instead of the
+  // personal artist studio (collective-only owner, ?collective=, or toggled in).
+  const [managingCollectiveSlug, setManagingCollectiveSlug] = useState<string | null>(null);
+
+  // Auto-enter the collective studio for collective owners. A collective-only
+  // owner (not a DJ) has no personal studio, so /studio IS their collective
+  // studio. A DJ who also owns a collective stays on their artist studio unless
+  // ?collective= asks for the collective view (or they click the toggle).
+  useEffect(() => {
+    if (managingCollectiveSlug) return;
+    if (ownedCollectiveSlugs.length === 0) return;
+    const wantsCollective = searchParams.get("collective");
+    if (!isDJ(role) || wantsCollective) {
+      setManagingCollectiveSlug(ownedCollectiveSlugs[0]);
+    }
+  }, [ownedCollectiveSlugs, role, searchParams, managingCollectiveSlug]);
 
   // Fetch monthly residents for the logged-out referral grid. Only relevant
   // before the user becomes a DJ; once they have a profile this view is gone.
@@ -682,11 +703,11 @@ export function StudioProfileClient() {
         // subscription instead of a separate `owners array-contains` query, so
         // it updates automatically if ownership changes. Stored raw — the slot
         // matcher below compares against the raw slot djUsername.
-        myCollectiveSlugsRef.current = new Set(
-          Array.isArray(data.ownedCollectiveSlugs)
-            ? data.ownedCollectiveSlugs.filter((s: unknown): s is string => typeof s === "string")
-            : []
-        );
+        const ownedSlugs = Array.isArray(data.ownedCollectiveSlugs)
+          ? data.ownedCollectiveSlugs.filter((s: unknown): s is string => typeof s === "string")
+          : [];
+        myCollectiveSlugsRef.current = new Set(ownedSlugs);
+        setOwnedCollectiveSlugs(ownedSlugs);
         // Brand-new DJs may not have a djProfile map yet — release the
         // initial-load gate so auto-save effects can fire. Without this,
         // every save is silently no-op'd at the `if (initialLoadRef.current) return`
@@ -2341,6 +2362,20 @@ export function StudioProfileClient() {
     );
   }
 
+  // Collective studio: a DJ who owns a collective toggled "Manage collective",
+  // OR a collective-only owner (role:'user') whose /studio IS the collective
+  // studio. Rendered BEFORE the isDJ(role) wall so a non-DJ owner isn't bounced.
+  if (isAuthenticated && managingCollectiveSlug) {
+    return (
+      <CollectiveStudioClient
+        slug={managingCollectiveSlug}
+        // Only offer "back to artist page" to actual DJs; a collective-only
+        // owner has no personal studio to return to.
+        onExit={isDJ(role) ? () => setManagingCollectiveSlug(null) : undefined}
+      />
+    );
+  }
+
   // Not authenticated, or sign-in is in progress (keep AuthModal mounted until flow completes)
   if (!isAuthenticated || (signingInInline && !signInFlowComplete)) {
     // Code validated — show sign-up modal with DJ terms
@@ -2569,6 +2604,18 @@ export function StudioProfileClient() {
       <Header currentPage="studio" position="sticky" />
 
       <main className="max-w-xl mx-auto p-4">
+        {/* Manage-collective toggle — only for a DJ who also owns a collective. */}
+        {ownedCollectiveSlugs.length > 0 && (
+          <div className="mb-4 flex justify-end">
+            <button
+              onClick={() => setManagingCollectiveSlug(ownedCollectiveSlugs[0])}
+              className="text-gray-400 hover:text-white text-sm transition-colors border border-gray-700 rounded px-3 py-1.5"
+            >
+              Manage {ownedCollectiveSlugs[0]} page &rarr;
+            </button>
+          </div>
+        )}
+
         {/* Curator Name Setup Banner - shown when chatUsername is not set */}
         {!chatUsername && (
           <div className="mb-6 bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/30 rounded p-4">
