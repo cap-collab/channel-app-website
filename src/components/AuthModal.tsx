@@ -15,8 +15,6 @@ interface AuthModalProps {
   inline?: boolean;
   /** Include DJ Terms in the agreement footer */
   includeDjTerms?: boolean;
-  /** Include Collective Terms in the agreement footer (collective-owner funnel) */
-  includeCollectiveTerms?: boolean;
   /** Redirect to this URL after successful auth (instead of reloading) */
   redirectTo?: string;
   /** Called when sign-in starts (popup opened) to prevent premature unmount */
@@ -109,38 +107,10 @@ export function AuthModal({
   message = "",
   inline = false,
   includeDjTerms = false,
-  includeCollectiveTerms = false,
   redirectTo,
   onSignInStart,
   onSignInComplete,
 }: AuthModalProps) {
-  // Grant DJ and/or collective rights after auth, based on which terms footer is
-  // shown. Both are email-keyed and safe to call together; collective assign is a
-  // no-op unless admin pre-attributed the email.
-  const assignRolesAfterAuth = async (userEmail: string | null | undefined) => {
-    if (includeDjTerms) {
-      try {
-        await fetch('/api/users/assign-dj-role', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: userEmail }),
-        });
-      } catch (err) {
-        console.error('Failed to assign DJ role:', err);
-      }
-    }
-    if (includeCollectiveTerms) {
-      try {
-        await fetch('/api/collective/assign-role', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: userEmail }),
-        });
-      } catch (err) {
-        console.error('Failed to assign collective role:', err);
-      }
-    }
-  };
   const {
     sendEmailLink,
     signInWithGoogle,
@@ -174,13 +144,9 @@ export function AuthModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // True when EITHER terms footer is shown — gates the "just accepted" spinner
-  // flag + redirect-carry that both funnels share.
-  const anyTerms = includeDjTerms || includeCollectiveTerms;
-
   const handleGoogleSignIn = async () => {
     // Set flag BEFORE sign-in so it's available when the component re-renders
-    if (anyTerms) {
+    if (includeDjTerms) {
       sessionStorage.setItem('djTermsJustAccepted', 'true');
     }
     onSignInStart?.();
@@ -188,21 +154,31 @@ export function AuthModal({
     if (user) {
       captureEvent('email_submitted', { source: 'auth_modal', method: 'google' });
       trackLeadConversion();
-      await assignRolesAfterAuth(user.email);
+      if (includeDjTerms) {
+        try {
+          await fetch('/api/users/assign-dj-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email }),
+          });
+        } catch (err) {
+          console.error('Failed to assign DJ role:', err);
+        }
+      }
       onSignInComplete?.();
       if (!inline && redirectTo) {
         window.location.href = redirectTo;
         return;
       }
       onClose();
-    } else if (anyTerms) {
+    } else if (includeDjTerms) {
       // Sign-in failed — remove the flag
       sessionStorage.removeItem('djTermsJustAccepted');
     }
   };
 
   const handleAppleSignIn = async () => {
-    if (anyTerms) {
+    if (includeDjTerms) {
       sessionStorage.setItem('djTermsJustAccepted', 'true');
     }
     onSignInStart?.();
@@ -210,14 +186,24 @@ export function AuthModal({
     if (user) {
       captureEvent('email_submitted', { source: 'auth_modal', method: 'apple' });
       trackLeadConversion();
-      await assignRolesAfterAuth(user.email);
+      if (includeDjTerms) {
+        try {
+          await fetch('/api/users/assign-dj-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email }),
+          });
+        } catch (err) {
+          console.error('Failed to assign DJ role:', err);
+        }
+      }
       onSignInComplete?.();
       if (!inline && redirectTo) {
         window.location.href = redirectTo;
         return;
       }
       onClose();
-    } else if (anyTerms) {
+    } else if (includeDjTerms) {
       sessionStorage.removeItem('djTermsJustAccepted');
     }
   };
@@ -233,22 +219,16 @@ export function AuthModal({
 
   const handleSendMagicLink = async () => {
     if (!email.trim()) return;
-    // Store terms acceptance for when the magic link is clicked (consumed on the
-    // emailSignIn return leg). DJ and collective are independent flags.
+    // Store DJ terms acceptance for when magic link is clicked
     if (includeDjTerms) {
       window.localStorage.setItem('djTermsAccepted', 'true');
-    }
-    if (includeCollectiveTerms) {
-      window.localStorage.setItem('collectiveTermsAccepted', 'true');
-    }
-    if (anyTerms) {
       sessionStorage.setItem('djTermsJustAccepted', 'true');
     }
-    // Store redirect target — if from /studio, return to the current URL
-    // (preserves ?collective=/?code= so the gate re-resolves on return).
+    // Store redirect target — if from /studio (includeDjTerms), return to the
+    // current URL (preserves ?code= so the gate re-validates on return).
     const targetRedirect =
       redirectTo ||
-      (anyTerms ? window.location.pathname + window.location.search : null);
+      (includeDjTerms ? window.location.pathname + window.location.search : null);
     if (targetRedirect) {
       window.localStorage.setItem('authRedirectTo', targetRedirect);
     }
@@ -260,7 +240,7 @@ export function AuthModal({
     if (!email.trim() || !password) return;
 
     // Set flag before auth so it survives component unmount
-    if (anyTerms) {
+    if (includeDjTerms) {
       sessionStorage.setItem('djTermsJustAccepted', 'true');
     }
     onSignInStart?.();
@@ -270,14 +250,24 @@ export function AuthModal({
 
     if (user) {
       trackLeadConversion();
-      await assignRolesAfterAuth(user.email);
+      if (includeDjTerms) {
+        try {
+          await fetch('/api/users/assign-dj-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email }),
+          });
+        } catch (err) {
+          console.error('Failed to assign DJ role:', err);
+        }
+      }
       onSignInComplete?.();
       if (!inline && redirectTo) {
         window.location.href = redirectTo;
         return;
       }
       onClose();
-    } else if (anyTerms) {
+    } else if (includeDjTerms) {
       sessionStorage.removeItem('djTermsJustAccepted');
     }
   };
@@ -637,14 +627,6 @@ export function AuthModal({
                 ,{" "}
                 <Link href="/dj-terms" className="text-white/60 hover:text-white underline">
                   Artist Terms
-                </Link>
-              </>
-            )}
-            {includeCollectiveTerms && (
-              <>
-                ,{" "}
-                <Link href="/collective-terms" className="text-white/60 hover:text-white underline">
-                  Collective Terms
                 </Link>
               </>
             )}
