@@ -103,6 +103,11 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   // and the milestone never fires; wall-clock survives that (fires on the next
   // tick after the user returns). Lets us tick slowly (10s) with no accuracy loss.
   const listenLastTickAtRef = useRef<number | null>(null);
+  // Wall-clock anchor for the 16-min logged-out gate, same rationale as the
+  // milestone above: mobile freezes setInterval when backgrounded/locked, so a
+  // flat +1-per-tick counter never reaches 960 for the exact users we're trying
+  // to gate. Accumulate REAL elapsed time so a throttled timer still totals up.
+  const gateLastTickAtRef = useRef<number | null>(null);
   // Fires the exclusion-only "played" marker once per archive, on play-start.
   const playedFiredRef = useRef<string | null>(null);
   const retryCountRef = useRef(0);
@@ -429,11 +434,16 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     audio.play().catch(() => { cleanup(); finish(); });
   }, [writeGatePromptMediaSession]);
 
-  // Archive gate: track cumulative listening for unauthenticated users
+  // Archive gate: track cumulative listening for unauthenticated users.
+  // Uses WALL-CLOCK accumulation (real elapsed ms since the last tick), not a
+  // flat +1-per-tick — mobile freezes setInterval when backgrounded/locked, so
+  // tick-counting under-counts and the gate never fires for the backgrounded
+  // listeners we most want to gate. Mirrors the 15-min milestone above.
   useEffect(() => {
     if (isAuthenticated) return;
     if (!isPlaying) return;
-    if (gateSecondsRef.current >= GATE_THRESHOLD_SECONDS) {
+
+    const fireGate = () => {
       if (currentArchive) {
         try {
           localStorage.setItem(GATE_TRIGGER_KEY, JSON.stringify({
@@ -443,37 +453,38 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
           }));
         } catch {}
       }
+      try { localStorage.setItem(GATE_STORAGE_KEY, String(Math.round(gateSecondsRef.current))); } catch {}
       startGatePrompt();
+    };
+
+    // Already past threshold on (re)mount (e.g. resumed after a prior session).
+    if (gateSecondsRef.current >= GATE_THRESHOLD_SECONDS) {
+      fireGate();
       return;
     }
+
+    // Anchor accumulation to now — covers first mount and resume-after-pause;
+    // the effect re-runs and re-anchors when isPlaying flips, so we never count
+    // time across a pause.
+    gateLastTickAtRef.current = Date.now();
 
     const interval = setInterval(() => {
       // A stray tick can land while the prompt is already playing — no-op.
       if (isPlayingGatePromptRef.current) return;
-      gateSecondsRef.current += 1;
+      const now = Date.now();
+      gateSecondsRef.current += (now - (gateLastTickAtRef.current ?? now)) / 1000;
+      gateLastTickAtRef.current = now;
 
-      if (gateSecondsRef.current % 5 === 0) {
-        try { localStorage.setItem(GATE_STORAGE_KEY, String(gateSecondsRef.current)); } catch {}
-      }
+      try { localStorage.setItem(GATE_STORAGE_KEY, String(Math.round(gateSecondsRef.current))); } catch {}
 
       if (gateSecondsRef.current >= GATE_THRESHOLD_SECONDS) {
-        try { localStorage.setItem(GATE_STORAGE_KEY, String(gateSecondsRef.current)); } catch {}
-        if (currentArchive) {
-          try {
-            localStorage.setItem(GATE_TRIGGER_KEY, JSON.stringify({
-              slug: currentArchive.slug,
-              archiveId: currentArchive.id,
-              triggeredAt: Date.now(),
-            }));
-          } catch {}
-        }
-        startGatePrompt();
+        fireGate();
       }
-    }, 1000);
+    }, 10000); // 10s: wall-clock math stays accurate while ticking 10× less often
 
     return () => {
       clearInterval(interval);
-      try { localStorage.setItem(GATE_STORAGE_KEY, String(gateSecondsRef.current)); } catch {}
+      try { localStorage.setItem(GATE_STORAGE_KEY, String(Math.round(gateSecondsRef.current))); } catch {}
     };
   }, [isPlaying, isAuthenticated, currentArchive, startGatePrompt]);
 
