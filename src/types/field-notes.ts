@@ -64,8 +64,9 @@ export interface FieldNoteDoc {
   transcribeStatus?: 'in-progress' | 'done' | 'failed' | null;
   transcribeError?: string | null;
 
-  // Loudness waveform for the /tape player bar: ~40 values 0..1, self-normalized
-  // to the tape's own min→max. Machine-computed (worker/backfill), not admin-edited.
+  // Loudness waveform for the /tape player bar: 160 values 0..1, self-normalized
+  // to the tape's own min→max (tapes transcribed before 2026-07 have 80).
+  // Machine-computed (worker/backfill), not admin-edited.
   waveform?: number[] | null;
 
   // Loudness normalization — fired alongside "Transcribe" (admin action). The

@@ -8,7 +8,7 @@ interface Props {
   createdAt: number;           // unix ms
   name?: string | null;        // admin-given tape name, shown in the header
   captions?: FieldNoteCaption[] | null;  // line-by-line captions, synced to playback
-  waveform?: number[] | null;  // ~40 loudness values 0..1 for the player bar
+  waveform?: number[] | null;  // 160 loudness values 0..1 for the player bar (older tapes may have 80)
   upvotes: number;
   downvotes: number;
   myVote: 1 | -1 | 0;
@@ -42,7 +42,7 @@ export function FieldNoteAudioPlayer({ src, name, captions, waveform, upvotes, d
   // still looks like a waveform (never flat) before a real one is computed.
   const bars = useMemo<number[]>(() => {
     if (waveform && waveform.length > 0) return waveform;
-    const N = 80;
+    const N = 160;
     let seed = 0;
     for (let i = 0; i < src.length; i++) seed = (seed * 31 + src.charCodeAt(i)) >>> 0;
     const rand = () => {

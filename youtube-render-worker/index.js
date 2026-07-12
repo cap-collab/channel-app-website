@@ -1122,7 +1122,7 @@ function groupWordsIntoCaptions(words) {
 // the tape's own min→max scaled into 0.15..1.0 (quietest bar keeps a visible
 // stub). Absolute dB mapping looks flat; self-normalization gives real dynamics.
 // Matches the recipe validated in the local backfill. Returns [] on failure.
-const WAVEFORM_BARS = 80;
+const WAVEFORM_BARS = 160;
 function sampleWaveform(wavPath, durationSec, N = WAVEFORM_BARS) {
   if (!durationSec || durationSec <= 0) return [];
   const win = durationSec / N;
