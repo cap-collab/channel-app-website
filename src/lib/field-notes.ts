@@ -149,6 +149,12 @@ function serializeFieldNote(id: string, data: Record<string, unknown>): FieldNot
     transcriptModel: (data.transcriptModel as string | null) ?? null,
     transcribeStatus: (data.transcribeStatus as 'in-progress' | 'done' | 'failed' | null) ?? null,
     transcribeError: (data.transcribeError as string | null) ?? null,
+    previousAudioUrl: (data.previousAudioUrl as string | null) ?? null,
+    previousAudioMimeType: (data.previousAudioMimeType as string | null) ?? null,
+    normalizedAt: (data.normalizedAt as number | null) ?? null,
+    normalizeStatus: (data.normalizeStatus as 'in-progress' | 'done' | 'skipped' | 'failed' | null) ?? null,
+    normalizeError: (data.normalizeError as string | null) ?? null,
+    normalization: (data.normalization as FieldNoteSerialized['normalization']) ?? null,
     upvotes: (data.upvotes as number) || 0,
     downvotes: (data.downvotes as number) || 0,
     reachedCount: (data.reachedCount as number) || 0,
@@ -166,7 +172,19 @@ function serializeFieldNote(id: string, data: Record<string, unknown>): FieldNot
 
 // Strip admin-only fields before returning a note to non-admin surfaces.
 function stripAdminFields(note: FieldNoteSerialized): FieldNoteSerialized {
-  return { ...note, adminNotes: null, reviewedBy: null };
+  return {
+    ...note,
+    adminNotes: null,
+    reviewedBy: null,
+    // Normalization is an internal audio-pipeline detail — listeners just get
+    // the (already-swapped) audioUrl. Hide the pre-swap URL, raw measurements,
+    // and worker status/errors.
+    previousAudioUrl: null,
+    previousAudioMimeType: null,
+    normalizeStatus: null,
+    normalizeError: null,
+    normalization: null,
+  };
 }
 
 // ---- Reads ----------------------------------------------------------------

@@ -56,7 +56,7 @@ export function makeS3(cfg: R2Config): S3Client {
   });
 }
 
-function keyFromUrl(url: string, publicBase: string): string | null {
+export function keyFromUrl(url: string, publicBase: string): string | null {
   if (!url) return null;
   const base = publicBase.replace(/\/$/, '');
   if (url.startsWith(base + '/')) return url.slice(base.length + 1);

@@ -68,6 +68,22 @@ export interface FieldNoteDoc {
   // to the tape's own min→max. Machine-computed (worker/backfill), not admin-edited.
   waveform?: number[] | null;
 
+  // Loudness normalization — fired alongside "Transcribe" (admin action). The
+  // youtube-render-worker /normalize does a two-pass loudnorm to -14 LUFS and
+  // uploads a `<key>-normalized-v2.m4a` sibling; the callback swaps `audioUrl`
+  // to it and stashes the pre-normalization URL in `previousAudioUrl` (so it's
+  // reversible and already-referenced URLs still resolve). Matches the
+  // interstitial/recording `url` + `previousUrl` convention.
+  previousAudioUrl?: string | null;       // pre-normalization audioUrl, if swapped
+  previousAudioMimeType?: string | null;  // pre-normalization mime (e.g. video/mp4), so a revert restores video detection
+  normalizedAt?: number | null;           // unix ms
+  normalizeStatus?: 'in-progress' | 'done' | 'skipped' | 'failed' | null;
+  normalizeError?: string | null;
+  normalization?: {                   // measured loudness in/out (from worker)
+    inputI?: number; inputTP?: number; inputLRA?: number;
+    outputI?: number; outputTP?: number; outputLRA?: number;
+  } | null;
+
   // Voting — denormalized counts; per-user vote lives in the `votes` subcollection.
   upvotes?: number;
   downvotes?: number;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireBroadcaster } from '@/lib/field-notes';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { keyFromUrl } from '@/lib/r2-backup';
 
 // POST — admin-triggered, on-demand transcription of a tape (field note).
 // Broadcaster-gated. Loads the note, then enqueues the Social Render worker
@@ -38,6 +39,14 @@ export async function POST(request: NextRequest) {
   if (!audioUrl) {
     return NextResponse.json({ error: 'Note has no audioUrl' }, { status: 400 });
   }
+  // /normalize takes the R2 KEY (it GetObject's it), not the public URL. The
+  // tape's audioKey is stored at submit; fall back to deriving it from the URL
+  // via the shared keyFromUrl helper (host-agnostic — handles a CDN base that
+  // differs from R2_PUBLIC_URL, which the plain startsWith check would miss).
+  const audioKey =
+    (snap.data()?.audioKey as string | undefined) ||
+    keyFromUrl(audioUrl, process.env.R2_PUBLIC_URL || '') ||
+    undefined;
 
   // Transcription runs on the Social Render worker (youtube-render-worker) — a
   // SEPARATE VPS with nothing live on it. NEVER the restream-worker box, which
@@ -78,6 +87,44 @@ export async function POST(request: NextRequest) {
         { status: 502 },
       );
     }
+
+    // Also enqueue loudness normalization on the SAME worker (youtube-render —
+    // never touches live). /normalize does a two-pass loudnorm to -14 LUFS and
+    // posts back to /api/field-notes/normalize-callback, which swaps `audioUrl`
+    // to the normalized `.m4a`. Fired here so "Transcribe" is the single admin
+    // action that both captions AND loudness-matches a tape to the archive band.
+    // Best-effort: a normalize enqueue failure must NOT fail the transcribe that
+    // already succeeded — record the error on the doc and move on.
+    if (audioKey) {
+      const normalizeCallbackUrl = `${appUrl.replace(/\/$/, '')}/api/field-notes/normalize-callback`;
+      await ref.update({ normalizeStatus: 'in-progress', normalizeError: null });
+      // Bound the enqueue call — the worker returns 202 within ms in async mode,
+      // so anything past a few seconds means it's stalled. Without this an admin
+      // "Transcribe" click would hang until Vercel kills the lambda. (Mirrors the
+      // drain cron's WORKER_ENQUEUE_TIMEOUT_MS.)
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15_000);
+      try {
+        const nres = await fetch(`${workerUrl}/normalize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
+          body: JSON.stringify({ r2Key: audioKey, callbackUrl: normalizeCallbackUrl, callbackContext: { noteId } }),
+          signal: ctrl.signal,
+        });
+        if (!nres.ok && nres.status !== 202) {
+          const ntext = await nres.text().catch(() => '');
+          await ref.update({ normalizeStatus: 'failed', normalizeError: `worker ${nres.status}: ${ntext.slice(0, 200)}` });
+        }
+      } catch (ne) {
+        const nmsg = ctrl.signal.aborted ? 'enqueue timeout after 15s' : (ne instanceof Error ? ne.message : String(ne));
+        await ref.update({ normalizeStatus: 'failed', normalizeError: `unreachable: ${nmsg}`.slice(0, 300) });
+      } finally {
+        clearTimeout(timer);
+      }
+    } else {
+      await ref.update({ normalizeStatus: 'failed', normalizeError: 'could not resolve audioKey for normalize' });
+    }
+
     return NextResponse.json({ ok: true, status: 'in-progress' });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
