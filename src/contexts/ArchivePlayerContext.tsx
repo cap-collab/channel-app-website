@@ -74,6 +74,10 @@ export { ArchivePlayerContext };
 const GATE_STORAGE_KEY = 'archive_cumulative_seconds';
 const GATE_TRIGGER_KEY = 'archive_gate_trigger';
 const GATE_THRESHOLD_SECONDS = 960;
+// Spoken "sign up to keep listening" prompt played through the archive <audio>
+// element at the gate moment, so backgrounded/locked-screen listeners hear the
+// nudge (they never see the popup). Static asset in /public — same-origin.
+const GATE_PROMPT_MP3_URL = '/LoginAudioPrompt.mp3';
 
 export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, user } = useAuthContext();
@@ -130,6 +134,10 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   // handlers (registered once, so they can't close over the latest state).
   const currentArchiveRef = useRef<ArchiveSerialized | null>(null);
   useEffect(() => { currentArchiveRef.current = currentArchive; }, [currentArchive]);
+  // True only while the gate sign-up MP3 is loaded/playing through the shared
+  // <audio> element. Short-circuits the shared pause/ended/error handlers and
+  // the MediaSession effect so the prompt isn't mistaken for the archive.
+  const isPlayingGatePromptRef = useRef(false);
 
   // Clean up on unmount
   useEffect(() => {
@@ -179,6 +187,13 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       audio.addEventListener('pause', () => {
         sawPauseSincePlayingRef.current = true;
         setIsPlaying(false);
+        // Manual pause while the gate prompt plays = user acknowledgment. Gate
+        // immediately so the sign-up popup opens (the prompt's 'ended' path
+        // won't fire once we're paused here).
+        if (isPlayingGatePromptRef.current) {
+          isPlayingGatePromptRef.current = false;
+          setIsGated(true);
+        }
       });
       audio.addEventListener('waiting', () => {
         // Don't flip back to loading if we've errored and are awaiting user action
@@ -186,6 +201,9 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         setIsLoading(true);
       });
       audio.addEventListener('ended', () => {
+        // Gate prompt ending is handled by its own one-shot listener; don't let
+        // it fire playback_ended or auto-advance to the next archive.
+        if (isPlayingGatePromptRef.current) return;
         setIsPlaying(false);
         setCurrentTime(0);
         if (playbackStartedAtRef.current) {
@@ -200,6 +218,9 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         }
       });
       audio.addEventListener('error', () => {
+        // Gate prompt load/decode failures are handled by its own one-shot
+        // listener (which falls back to gating the user).
+        if (isPlayingGatePromptRef.current) return;
         // Ignore errors caused by rapid seeking (aborted range requests)
         if (isSeeking.current) return;
         // Ignore the synthetic error that fires when we clear src during recovery
@@ -319,6 +340,11 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   // credit it as a full stream (taste) + play (exclusion) + love, server-side.
   useEffect(() => {
     if (!isAuthenticated || !user) return;
+    // Signed in while the sign-up prompt was mid-play: stop nagging them.
+    if (isPlayingGatePromptRef.current) {
+      isPlayingGatePromptRef.current = false;
+      audioRef.current?.pause();
+    }
     if (isGated) setIsGated(false);
 
     try {
@@ -336,6 +362,73 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [isAuthenticated, isGated, user]);
 
+  // Lock-screen metadata shown while the gate sign-up prompt plays, so a
+  // backgrounded/locked listener sees why the audio changed. Reuses the same
+  // MediaMetadata pattern as archive playback (fallback artwork, 128x128).
+  const writeGatePromptMediaSession = useCallback(() => {
+    if (!('mediaSession' in navigator)) return;
+    const fallbackArtworkUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/artwork-fallback.png`
+      : '';
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: 'Sign up to keep listening',
+        artist: 'channel radio',
+        album: 'channel radio',
+        artwork: [{ src: fallbackArtworkUrl, sizes: '128x128', type: 'image/png' }],
+      });
+      // Force the main MediaSession effect to rewrite real metadata next run.
+      lastMediaSessionSigRef.current = null;
+    } catch {}
+  }, []);
+
+  // Gate moment: open the sign-up popup immediately, then — instead of silently
+  // pausing — play the sign-up prompt MP3 through the SAME <audio> element
+  // (keeps the media session alive so it plays even backgrounded/locked), and
+  // stop when it ends. Single source of truth for both gate trigger sites below.
+  const startGatePrompt = useCallback(() => {
+    const audio = audioRef.current;
+
+    // Open the sign-up popup immediately (foregrounded users see it right away)
+    // — the MP3 then plays underneath for backgrounded/locked listeners. isGated
+    // blocks play()/toggle(), but not the direct src swap below, so setting it
+    // now is safe.
+    setIsGated(true);
+
+    // Stop the prompt audio. Runs on normal completion and any failure.
+    // needsHardReloadRef ensures the next play() after sign-in reloads the real
+    // archive (src currently points at the MP3).
+    const finish = () => {
+      isPlayingGatePromptRef.current = false;
+      needsHardReloadRef.current = true;
+      audioRef.current?.pause();
+    };
+
+    if (!audio) { finish(); return; }
+
+    isPlayingGatePromptRef.current = true;
+    writeGatePromptMediaSession();
+
+    const cleanup = () => {
+      audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('error', onError);
+    };
+    const onEnded = () => { cleanup(); finish(); };
+    const onError = () => { cleanup(); finish(); };
+    audio.addEventListener('ended', onEnded);
+    audio.addEventListener('error', onError);
+
+    // Keep currentArchive state unchanged so the popup message + post-prompt
+    // MediaSession stay correct — only the audio element's src is swapped.
+    // No crossfade, no preload/standby: the element is already unlocked and
+    // playing (user pressed play 16 min ago), so a plain .src swap + .play()
+    // inherits the live media session and plays even backgrounded/locked. A
+    // fresh src starts at 0, so no currentTime reset is needed (setting it
+    // before metadata loads can throw/race).
+    audio.src = GATE_PROMPT_MP3_URL;
+    audio.play().catch(() => { cleanup(); finish(); });
+  }, [writeGatePromptMediaSession]);
+
   // Archive gate: track cumulative listening for unauthenticated users
   useEffect(() => {
     if (isAuthenticated) return;
@@ -350,12 +443,13 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
           }));
         } catch {}
       }
-      audioRef.current?.pause();
-      setIsGated(true);
+      startGatePrompt();
       return;
     }
 
     const interval = setInterval(() => {
+      // A stray tick can land while the prompt is already playing — no-op.
+      if (isPlayingGatePromptRef.current) return;
       gateSecondsRef.current += 1;
 
       if (gateSecondsRef.current % 5 === 0) {
@@ -373,8 +467,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
             }));
           } catch {}
         }
-        audioRef.current?.pause();
-        setIsGated(true);
+        startGatePrompt();
       }
     }, 1000);
 
@@ -382,7 +475,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
       clearInterval(interval);
       try { localStorage.setItem(GATE_STORAGE_KEY, String(gateSecondsRef.current)); } catch {}
     };
-  }, [isPlaying, isAuthenticated, currentArchive]);
+  }, [isPlaying, isAuthenticated, currentArchive, startGatePrompt]);
 
   const clearGate = useCallback(() => {
     setIsGated(false);
@@ -391,6 +484,10 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
   // Lock screen / Media Session metadata for archive playback
   useEffect(() => {
     if (!('mediaSession' in navigator) || !currentArchive) return;
+    // Yield to the gate prompt's metadata while it's playing — currentArchive
+    // is unchanged during the prompt, so this effect would otherwise overwrite
+    // "Sign up to keep listening" with the archive's title.
+    if (isPlayingGatePromptRef.current) return;
 
     const djNames = currentArchive.djs.map(d => d.name).join(', ');
     const rawArtworkUrl = currentArchive.showImageUrl || currentArchive.djs[0]?.photoUrl;
