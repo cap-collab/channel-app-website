@@ -37,6 +37,20 @@ const INTERLUDES = [
   { label: 'water refill smoking area', durationSec: 20, url: 'https://media.channel-app.com/interludes/water-refill-smoking-area-1779973923793-normalized-v2.m4a' },
   { label: 'weed convo birds', durationSec: 24, url: 'https://media.channel-app.com/interludes/weed-convo-birds-1779973930315-normalized-v2.m4a' },
 ];
+// Fake caption + waveform fixtures for previewing the InterludeSlide overlay
+// locally with zero prod dependency (no Firestore). Timings are illustrative;
+// the real data is backfilled onto the interstitials docs from their tapes.
+const PREVIEW_CAPTIONS = [
+  { from: 0, to: 4, text: 'this is a preview caption' },
+  { from: 4, to: 9, text: 'it swaps as the clip plays' },
+  { from: 9, to: 15, text: 'synced to the interlude audio' },
+  { from: 15, to: 60, text: 'like film subtitles, one line at a time' },
+];
+// Deterministic 160-bar loudness-ish shape (0..1) so the preview shows a real
+// waveform fill rather than the seeded fallback.
+const PREVIEW_WAVEFORM = Array.from({ length: 160 }, (_, i) =>
+  0.3 + 0.6 * Math.abs(Math.sin(i * 0.5) * Math.cos(i * 0.13)),
+);
 const CROSSFADE_MS = 5000;
 // Seconds of archive A before the fade STARTS. With crossfade ON the fade
 // runs from A_PRE_SEC to A_PRE_SEC + 5s; with crossfade OFF the hard-cut
@@ -66,6 +80,10 @@ export default function CrossfadeTestPage() {
   // fade ticks survive backgrounded tabs and locked screens. When OFF, the
   // legacy rAF tick loop runs on the main thread and freezes in background.
   const [useWorker, setUseWorker] = useState(true);
+  // Elapsed seconds within the currently-playing interlude, sampled at 1 Hz to
+  // match prod's schedule-derived itemSeekSec cadence. Drives the preview
+  // overlay's bar fill + active caption.
+  const [interludeSeekSec, setInterludeSeekSec] = useState(0);
 
   const audioARef = useRef<HTMLAudioElement | null>(null);
   const audioBRef = useRef<HTMLAudioElement | null>(null);
@@ -117,6 +135,19 @@ export default function CrossfadeTestPage() {
       }
     };
   }, []);
+
+  // Sample the active element's currentTime at 1 Hz while an interlude plays, so
+  // the InterludeSlide preview advances its bar fill + captions like prod.
+  useEffect(() => {
+    if (stage !== 'interlude') { setInterludeSeekSec(0); return; }
+    const tick = () => {
+      const active = activeKeyRef.current === 'A' ? audioARef.current : audioBRef.current;
+      setInterludeSeekSec(active?.currentTime ?? 0);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [stage]);
 
   // Mirror prod: visibilitychange listener stub (no resync in the simple test).
   useEffect(() => {
@@ -676,7 +707,15 @@ export default function CrossfadeTestPage() {
               </div>
             )}
             {stage === 'interlude' ? (
-              <InterludeSlide onPlay={() => append('preview hero tapped (no-op)')} />
+              <InterludeSlide
+                onPlay={() => append('preview hero tapped (no-op)')}
+                waveform={PREVIEW_WAVEFORM}
+                captions={PREVIEW_CAPTIONS}
+                itemSeekSec={interludeSeekSec}
+                itemDurationSec={INTERLUDES[interludeIdx].durationSec}
+                isPlaying={stage === 'interlude'}
+                seed={INTERLUDES[interludeIdx].url}
+              />
             ) : (
               <div className="w-full aspect-[16/9] lg:aspect-[5/2] bg-zinc-900 flex items-center justify-center text-zinc-500 text-sm">
                 (normal archive hero — not mounted in this test)

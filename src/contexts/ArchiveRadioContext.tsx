@@ -10,7 +10,7 @@ import { captureEvent } from '@/lib/posthog';
 import { db } from '@/lib/firebase';
 import { hasActiveOrImminentBroadcastSlot } from '@/hooks/useBroadcastLiveStatus';
 import { collection } from 'firebase/firestore';
-import type { ArchiveSerialized, ScheduleItem } from '@/types/broadcast';
+import type { ArchiveSerialized, Interstitial, ScheduleItem } from '@/types/broadcast';
 
 interface ArchiveRadioContextValue {
   enabled: boolean;
@@ -47,6 +47,11 @@ interface ArchiveRadioContextValue {
   // username, photo, tip-link all come from here, no denormalization.
   currentArchive: ArchiveSerialized | null;
   setArchives: (archives: ArchiveSerialized[]) => void;
+  // Resolved interstitial doc for the currently-playing interlude — looked up
+  // by currentItem.interstitialId in the self-fetched interstitials list.
+  // Carries the denormalized captions + waveform used by the interlude hero
+  // overlay. Null unless the current item is an interstitial.
+  currentInterstitial: Interstitial | null;
   // Listen-milestone refs — same shape as ArchivePlayerContext +
   // BroadcastStreamContext. GlobalBroadcastBar populates these with the
   // radio DJ's chat handler; the context fires it at 15 min of
@@ -212,6 +217,7 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
   // otherwise (avoids a flash of sticky on first paint).
   const [inlineCoversActive, setInlineCoversActive] = useState(true);
   const [archives, setArchives] = useState<ArchiveSerialized[]>([]);
+  const [interstitials, setInterstitials] = useState<Interstitial[]>([]);
 
   // Self-fetch archives so the sticky bar's scene/username/tip resolves
   // identically on every page — not just on / where ArchiveHero feeds the
@@ -245,6 +251,36 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     if (!id) return null;
     return archives.find((a) => a.id === id) ?? null;
   }, [radio.currentItem?.archiveId, archives]);
+
+  // Self-fetch the interstitials once per mount (same shape as the archives
+  // fetch above — keyed on `enabled`, NEVER on currentItem/itemSeekSec, so it's
+  // one lightweight request per provider mount, no per-tick cost). Lets the
+  // interlude hero slide resolve captions + waveform for whatever's playing.
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/interstitials');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const list = Array.isArray(data?.interstitials) ? data.interstitials as Interstitial[] : [];
+        setInterstitials(list);
+      } catch {
+        // Best-effort; the interlude slide falls back to its seeded waveform.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [enabled]);
+
+  // Resolve the current interstitial doc from the schedule item's id, mirroring
+  // currentArchive. Its captions + waveform drive the interlude hero overlay.
+  const currentInterstitial = useMemo<Interstitial | null>(() => {
+    const id = radio.currentItem?.interstitialId;
+    if (!id) return null;
+    return interstitials.find((ix) => ix.id === id) ?? null;
+  }, [radio.currentItem?.interstitialId, interstitials]);
 
   // Listen-milestone tracking — mirrors ArchivePlayerContext's per-archive
   // cumulative timer. At 900s (15 min) we both record a stream count and
@@ -340,12 +376,13 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     setInlineCoversActive,
     currentArchive,
     setArchives,
+    currentInterstitial,
     onLockedInRef,
   }), [
     enabled, radio.ready, radio.isPlaying, radio.isLoading, radio.error,
     radio.stalled, radio.currentItem, radio.nextItem, radio.itemSeekSec, radio.itemDurationSec,
     radio.itemStartMs, radio.itemEndMs, radio.pause, toggle, play, visibleSlide,
-    inlineCoversActive, currentArchive,
+    inlineCoversActive, currentArchive, currentInterstitial,
   ]);
 
   return (

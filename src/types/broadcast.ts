@@ -1,4 +1,5 @@
 import type { TrackId } from '@/lib/track-ids';
+import type { FieldNoteCaption } from '@/types/field-notes';
 
 // Audio input methods for DJ broadcasting
 export type AudioInputMethod = 'system' | 'device' | 'rtmp';
@@ -466,4 +467,13 @@ export interface Interstitial {
   durationSec: number;
   label?: string;
   uploadedAtMs: number;
+
+  // Denormalized from the interlude's matching tape (a `field-notes` doc), which
+  // is already transcribed + waveform-sampled. Copied on a one-off backfill so
+  // the interlude hero slide can render synced subtitles + a loudness waveform
+  // without any transcription pipeline of its own. Matching is manual by id
+  // (interlude R2 URLs share no key with tape URLs). Absent until backfilled.
+  fieldNoteId?: string;                 // source tape, for provenance / re-backfill
+  captions?: FieldNoteCaption[];        // line-by-line cues (seconds), synced to playback
+  waveform?: number[];                  // loudness values 0..1 (160; older tapes 80)
 }

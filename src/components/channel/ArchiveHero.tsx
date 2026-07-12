@@ -20,6 +20,8 @@ import { DJImageOverlay, ScrollingShowName, ScrollingDJName } from './LiveBroadc
 import { FloatingHearts } from './FloatingHearts';
 import { TipButton } from './TipButton';
 import { DancingBars } from './DancingBars';
+import { InterludeWaveform } from './InterludeWaveform';
+import type { FieldNoteCaption } from '@/types/field-notes';
 import { AuthModal } from '@/components/AuthModal';
 import { ArchiveSerialized, type Tempo } from '@/types/broadcast';
 import { TEMPOS, tempoLabel } from '@/lib/tempo';
@@ -1188,6 +1190,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                           return (
                             <InterludeSlide
                               onPlay={() => { void radioCtx?.toggle(); }}
+                              waveform={radioCtx.currentInterstitial?.waveform}
+                              captions={radioCtx.currentInterstitial?.captions}
+                              itemSeekSec={radioCtx.itemSeekSec}
+                              itemDurationSec={radioCtx.itemDurationSec}
+                              isPlaying={radioCtx.isPlaying}
+                              seed={radioCtx.currentItem.interstitialId || radioCtx.currentItem.recordingUrl}
                             />
                           );
                         }
@@ -2008,7 +2016,26 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 // Station-ID slide rendered when the radio schedule is on an interlude clip.
 // Same aspect / chrome as HeroSlide so swapping in/out doesn't shift layout.
 // Exported so the /internal/crossfade-test preview can mount it directly.
-export function InterludeSlide({ onPlay }: { onPlay: () => void }) {
+export function InterludeSlide({
+  onPlay,
+  waveform,
+  captions,
+  itemSeekSec,
+  itemDurationSec,
+  isPlaying,
+  seed,
+}: {
+  onPlay: () => void;
+  // Interlude overlay data (from the resolved interstitial doc) + radio
+  // progress. All optional so the /internal/crossfade-test mount (onPlay only)
+  // still works — absent data falls back to a seeded waveform, no caption.
+  waveform?: number[] | null;
+  captions?: FieldNoteCaption[] | null;
+  itemSeekSec?: number;
+  itemDurationSec?: number;
+  isPlaying?: boolean;
+  seed?: string;
+}) {
   return (
     <button
       onClick={onPlay}
@@ -2024,7 +2051,14 @@ export function InterludeSlide({ onPlay }: { onPlay: () => void }) {
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
-      <DancingBars />
+      <InterludeWaveform
+        waveform={waveform}
+        captions={captions}
+        itemSeekSec={itemSeekSec ?? 0}
+        itemDurationSec={itemDurationSec ?? 0}
+        isPlaying={isPlaying ?? false}
+        seed={seed}
+      />
       {/* Top-left show name — matches isLiveOrRadio HeroSlide chrome. */}
       <div className="absolute top-2 left-2 right-9 drop-shadow-lg">
         <span className="text-[17px] font-bold text-white uppercase tracking-wide block truncate">interlude</span>
