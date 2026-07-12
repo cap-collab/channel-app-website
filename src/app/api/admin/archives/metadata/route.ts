@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { isTempo } from '@/lib/tempo';
 import { normalizeTrackIds } from '@/lib/track-ids';
+import { sendTrackIdsEmailForArchive } from '@/lib/archive-track-ids-email';
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -135,18 +136,26 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Flag for the daily "your track IDs are ready" email ONLY the FIRST time
-    // track IDs are generated for this archive (i.e. it has never been flagged
-    // before). The `trackIdsReadyEmailStatus === undefined` gate is what makes
-    // this first-time-only: once the field exists ('pending' or 'sent'), no
-    // later edit — adding, changing, clearing, or re-adding tracks — re-sets it.
-    // A daily cron queries where(trackIdsReadyEmailStatus == 'pending') and
-    // emails the show owner once. Studio self-edits deliberately do NOT flag.
+    // The "your track IDs are ready" email fires ONLY the FIRST time track IDs
+    // are generated for this archive (i.e. it has never been flagged before).
+    // The `trackIdsReadyEmailStatus === undefined` gate is what makes this
+    // first-time-only: once the field exists ('pending' or 'sent'), no later
+    // edit — adding, changing, clearing, or re-adding tracks — re-triggers it.
+    // Studio self-edits go through a different route and never reach here.
+    //
+    // We send immediately (right after the doc write), stamping 'sent' on
+    // success. The daily archive-track-ids-emails cron drains anything left
+    // 'pending' — which now only happens if this click-time send hit a
+    // transient error, so it's a safety net, not the primary path.
+    let shouldSendNow = false;
     if (updates.trackIds !== undefined) {
       const neverFlagged = archiveDoc.data()?.trackIdsReadyEmailStatus === undefined;
       const nowHasTracks = normalizeTrackIds(updates.trackIds).length > 0;
       if (neverFlagged && nowHasTracks) {
+        // Provisionally mark 'pending' in the same write, so the cron catches it
+        // if the send below throws before we can stamp the final status.
         updates.trackIdsReadyEmailStatus = 'pending';
+        shouldSendNow = true;
       }
     }
 
@@ -155,6 +164,27 @@ export async function PATCH(request: NextRequest) {
     }
 
     await archiveRef.update(updates);
+
+    // First-ever track IDs → send the owner email now. Reuses the exact owner +
+    // tag resolution the cron uses. On success stamp 'sent'; on skip (no
+    // eligible owner) also stamp 'sent' so it never re-queues; on a send failure
+    // leave it 'pending' for the cron to retry. Never block the admin response
+    // on a hard error — the cron is the backstop.
+    if (shouldSendNow) {
+      try {
+        const fresh = { ...(archiveDoc.data() || {}), ...updates };
+        const outcome = await sendTrackIdsEmailForArchive(db, { id: archiveId, data: fresh });
+        if (outcome.status === 'sent' || outcome.status === 'skipped') {
+          await archiveRef.update({
+            trackIdsReadyEmailStatus: 'sent',
+            trackIdsReadyEmailSentAt: Date.now(),
+          });
+        }
+        // 'failed' → leave 'pending'; cron retries.
+      } catch (e) {
+        console.error('Immediate track-IDs email failed; cron will retry:', e);
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,10 +1,6 @@
 {
   "crons": [
     {
-      "path": "/api/cron/archive-track-ids-emails",
-      "schedule": "0 17 * * *"
-    },
-    {
       "path": "/api/cron/refresh-tokens",
       "schedule": "*/30 * * * *"
     },
