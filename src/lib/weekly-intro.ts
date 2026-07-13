@@ -48,7 +48,7 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
     tight(`You can edit, reorder, add missing tracks, or hide individual ones from your Studio.`),
     tight(
       `Thanks to ${proseDjLink("marienyx", "Marie")}, ${proseDjLink("gstyle", "Gabri")}, ` +
-        `${proseDjLink("andyoro", "Andy")}, and ${proseDjLink("apili", "Alex")} for helping shape the feature.`,
+        `${proseDjLink("andyoro", "Andy Oro")}, and ${proseDjLink("apili", "A-Pili")} for helping shape the feature.`,
     ),
     tight(
       `Special shoutout to ${proseDjLink("akumen", "Akumen")}, whose tracks were played by three ` +
@@ -80,7 +80,7 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
     tight(shareLine),
     tight(
       `Thanks to ${proseDjLink("tsgo", "TS Go")}, ${proseDjLink("dizi", "Dizi")}, and ` +
-        `${proseDjLink("andyoro", "Andy")} for catching the issue.`,
+        `${proseDjLink("andyoro", "Andy Oro")} for catching the issue.`,
     ),
 
     heading("💾", "More reliable recordings"),

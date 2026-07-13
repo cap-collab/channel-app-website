@@ -1619,8 +1619,14 @@ export async function sendWeeklyRecommendationsEmail({
     </div>
   `;
 
+  // Breathing room between the hand-written intro and the automated rec cards —
+  // the intro's closing line has margin-bottom 0, so without this the prose runs
+  // straight into the first card.
+  const introGap = introHtml ? `<div style="height: 28px; line-height: 28px; font-size: 0;">&nbsp;</div>` : "";
+
   const content = `
     ${introHtml || ""}
+    ${introGap}
     ${eyebrowHtml}
     ${topBlocks}
     ${block3}
