@@ -103,14 +103,15 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
 
 function buildListenerIntro(): string {
   // Same tight rhythm as the DJ intro — two loose 16px paragraphs read as an
-  // airy fragment rather than a short note.
+  // airy fragment rather than a short note. The closing line gets a section-sized
+  // gap so it doesn't run straight into the sentence above it.
   return [
     tight(
-      `A couple of new things this week. Type "track id" in the chat while listening to any show ` +
-        `to instantly get the full tracklist, and keep an eye out for exclusive discount codes on ` +
-        `selected events.`,
+      `A couple of new things this week. Type <strong>"track id"</strong> in the chat while ` +
+        `listening to any show to instantly get the full tracklist, and keep an eye out for ` +
+        `<strong>exclusive discount codes</strong> on selected events.`,
     ),
-    tight(`I've also updated your recommendations. They're just below.`),
+    `<p style="margin: 22px 0 0; font-size: 14px; line-height: 1.6; color: #1a1a1a;">I've also updated your recommendations. They're just below.</p>`,
   ].join("");
 }
 

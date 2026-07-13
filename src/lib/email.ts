@@ -143,10 +143,19 @@ function wrapEmailContent(
   unsubscribeOverride?: { url: string; label: string },
   aboveContentHtml?: string,
   sidePaddingPx?: number,
+  maxWidthPx?: number,
 ): string {
   const unsubUrl = unsubscribeOverride?.url ?? SETTINGS_DEEP_LINK;
   const unsubLabel = unsubscribeOverride?.label ?? "Unsubscribe";
-  return _wrapEmailContent(content, footerText, unsubUrl, unsubLabel, aboveContentHtml, sidePaddingPx);
+  return _wrapEmailContent(
+    content,
+    footerText,
+    unsubUrl,
+    unsubLabel,
+    aboveContentHtml,
+    sidePaddingPx,
+    maxWidthPx,
+  );
 }
 
 // How a DJ signs in, recorded on their user doc at login (see useAuth.ts) and
@@ -189,6 +198,10 @@ function _wrapEmailContent(
   // Horizontal padding around the content (px). Default 20; the weekly rec email
   // passes a smaller value (matching the Monday newsletter) for more width.
   sidePaddingPx: number = 20,
+  // Content column width (px). 600 is the classic email card. The weekly send
+  // passes a wider value: it opens with a long prose intro, and at 600px that
+  // reads as a narrow column floating in whitespace rather than a letter.
+  maxWidthPx: number = 600,
 ): string {
   const aboveBlock = aboveContentHtml
     ? `<tr>
@@ -220,7 +233,7 @@ function _wrapEmailContent(
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background-color: #ffffff;">
         <tr>
           <td align="center" style="padding: 40px ${sidePaddingPx}px;" bgcolor="#ffffff">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: ${maxWidthPx}px;">
               ${aboveBlock}
               <tr>
                 <td bgcolor="#ffffff" style="font-size: 15px; line-height: 1.6; color: #1a1a1a;">
@@ -1612,10 +1625,12 @@ export async function sendWeeklyRecommendationsEmail({
       from: FROM_EMAIL,
       to,
       subject,
-      // Default side padding (20px) — the intro is a plain TEXT email and needs
-      // room to breathe, matching the track-IDs send. This is one value for the
-      // whole body, so the rec cards below sit at the same width.
-      html: wrapEmailContent(content, ""),
+      // Wide + tight: this email opens with a long prose intro, and the classic
+      // 600px card makes that read as a narrow column stranded in whitespace.
+      // (The track-IDs email felt right precisely because it had NO wrapper at
+      // all — bare <br/> text, full client width.) 800px + 12px side padding
+      // gets close to that while keeping the logo, footer, and unsubscribe.
+      html: wrapEmailContent(content, "", undefined, undefined, 12, 800),
       headers: getUnsubscribeHeaders("marketing"),
     });
     if (error) {
