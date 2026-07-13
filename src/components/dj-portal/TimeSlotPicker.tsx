@@ -9,6 +9,10 @@ interface TimeSlotPickerProps {
   selectedSlots: TimeSlot[];
   onChange: (slots: TimeSlot[]) => void;
   setDuration: number; // Duration in hours
+  // Optional extra floor on pickable times (millis). Residents booking their next
+  // show can't pick a date sooner than their cadence allows; anything before this
+  // renders as unavailable. Omit for no extra floor (public applications).
+  earliestStart?: number;
 }
 
 // All 24 hours, default view 9am–6pm
@@ -106,11 +110,14 @@ function getTimestamp(baseDate: Date, hour: number): number {
   return d.getTime();
 }
 
-export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlotPickerProps) {
+export function TimeSlotPicker({ selectedSlots, onChange, setDuration, earliestStart }: TimeSlotPickerProps) {
+  // Open on the first week the picker could offer anything: today, pushed past
+  // the global cutoff and past the resident's cadence floor. Seeded here rather
+  // than corrected in an effect — a post-mount setState would race the
+  // auto-scroll effect below, which would page forward from the wrong week.
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
-    const today = getSunday(new Date());
-    const firstOpen = getSunday(new Date(BLOCKED_UNTIL));
-    return firstOpen > today ? firstOpen : today;
+    const floor = Math.max(Date.now(), BLOCKED_UNTIL, earliestStart ?? 0);
+    return getSunday(new Date(floor));
   });
   const [bookedRanges, setBookedRanges] = useState<Array<{ start: number; end: number }>>([]);
   const [hoverSlot, setHoverSlot] = useState<{ dayIndex: number; startHour: number } | null>(null);
@@ -120,6 +127,14 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
   const hasAutoScrolled = useRef(false);
 
   const durationMs = setDuration * 60 * 60 * 1000;
+
+  // The floor on pickable start times: the standard 36-hour lead time, raised to
+  // `earliestStart` for a resident whose cadence pushes their next show out.
+  const minStartTime = (now: number) => Math.max(now + 36 * 60 * 60 * 1000, earliestStart ?? 0);
+
+  // Set once the forward search below gives up without finding a single bookable
+  // slot — the calendar is fully blocked, so stop paging and say so.
+  const [exhausted, setExhausted] = useState(false);
 
   const days = useMemo(() => {
     const result = [];
@@ -185,7 +200,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
   useEffect(() => {
     if (hasAutoScrolled.current) return;
 
-    const minTime = Date.now() + 36 * 60 * 60 * 1000;
+    const minTime = minStartTime(Date.now());
 
     let firstAvailableDay = -1;
     for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
@@ -200,17 +215,23 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
     }
 
     if (firstAvailableDay === -1) {
-      const maxWeeksAhead = getSunday(new Date());
+      // Search up to 4 weeks forward from wherever the view legitimately starts —
+      // for a resident that's their cadence floor, which can be months out.
+      const maxWeeksAhead = getSunday(new Date(Math.max(Date.now(), earliestStart ?? 0)));
       maxWeeksAhead.setDate(maxWeeksAhead.getDate() + 28);
       if (currentWeekStart < maxWeeksAhead) {
         goToNextWeek();
         return;
       }
+      // Four weeks of nothing — every slot is booked or blocked. Don't leave the
+      // DJ staring at a wall of red with no way forward.
       hasAutoScrolled.current = true;
+      setExhausted(true);
       return;
     }
 
     hasAutoScrolled.current = true;
+    setExhausted(false);
 
     if (horizontalScrollRef.current && firstAvailableDay > 0) {
       requestAnimationFrame(() => {
@@ -228,7 +249,7 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
   };
 
   const isTimeUnavailable = (timestamp: number): boolean => {
-    const minTime = Date.now() + 36 * 60 * 60 * 1000;
+    const minTime = minStartTime(Date.now());
     return (
       timestamp < minTime ||
       timestamp < BLOCKED_UNTIL ||
@@ -322,12 +343,26 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration }: TimeSlo
   };
 
   const canGoPrev = useMemo(() => {
-    const thisSunday = getSunday(new Date());
-    return currentWeekStart > thisSunday;
-  }, [currentWeekStart]);
+    // Don't let a resident page back past their cadence floor — every week there
+    // is un-bookable anyway.
+    const floor = getSunday(new Date(Math.max(Date.now(), earliestStart ?? 0)));
+    return currentWeekStart > floor;
+  }, [currentWeekStart, earliestStart]);
 
   return (
     <div className="border border-gray-800 rounded-xl overflow-hidden">
+      {/* Nothing bookable within the search horizon — tell the DJ rather than
+          leaving them to page through weeks of red on their own. */}
+      {exhausted && (
+        <div className="px-4 py-3 bg-yellow-900/20 border-b border-yellow-900/50 text-sm text-yellow-200/90">
+          No slots are open in the coming weeks. Email{' '}
+          <a href="mailto:info@channel-app.com" className="underline hover:text-yellow-100">
+            info@channel-app.com
+          </a>{' '}
+          and we&apos;ll find you a time.
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-[#1a1a1a] border-b border-gray-800">
         <button

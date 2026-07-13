@@ -336,6 +336,10 @@ export function StudioProfileClient() {
   // Profile data
   const [chatUsername, setChatUsername] = useState<string | null>(null);
   const [isResident, setIsResident] = useState(false);
+  // Earliest date this resident may book their next show (cadence floor: 30 days
+  // after their last show for monthly, 120 for quarterly). Null = no floor —
+  // either they've never played, or the gap has already elapsed.
+  const [earliestBooking, setEarliestBooking] = useState<number | null>(null);
   const [djProfile, setDjProfile] = useState<DJProfile>({
     bio: null,
     tipButtonLink: null,
@@ -825,6 +829,35 @@ export function StudioProfileClient() {
     return () => unsubscribe();
   }, [user, effectiveUid]);
 
+
+  // Residents book their own next show, but not sooner than their cadence allows.
+  // Fetch the floor so the button can name the date instead of sending them to a
+  // calendar with nothing pickable for weeks.
+  useEffect(() => {
+    if (!user || !isResident) {
+      setEarliestBooking(null);
+      return;
+    }
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch("/api/residents/booking-window", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setEarliestBooking(data.earliestStart ?? null);
+      } catch {
+        // Non-fatal: the booking page enforces the floor regardless.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isResident]);
 
   // Set of collective slugs where this user is an owner. Refreshed alongside
   // the snapshot listener so a slot assigned to a collective the user owns
@@ -2838,12 +2871,25 @@ export function StudioProfileClient() {
                       <Link
                         href="/studio/livestream"
                         className={`flex-1 block text-white text-center py-3 rounded font-medium transition-colors border ${
-                          hasImminentShow
+                          hasImminentShow || earliestBooking
                             ? "bg-gray-800 hover:bg-gray-700 border-gray-700"
                             : "bg-green-600 hover:bg-green-500 border-green-500"
                         }`}
                       >
-                        Book your next show
+                        {earliestBooking ? (
+                          <>
+                            Book your next show
+                            <span className="block text-xs font-normal text-gray-400 mt-0.5">
+                              from{" "}
+                              {new Date(earliestBooking).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </span>
+                          </>
+                        ) : (
+                          "Book your next show"
+                        )}
                       </Link>
                     )}
                   </>

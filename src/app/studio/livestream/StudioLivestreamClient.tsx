@@ -14,11 +14,24 @@ import { db } from '@/lib/firebase';
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
+// Booking window for the signed-in resident — see /api/residents/booking-window.
+interface BookingWindow {
+  cadence: 'monthly' | 'quarterly' | null;
+  lastShowAt: number | null;
+  cooldownDays: number | null;
+  earliestStart: number | null;
+}
+
 export function StudioLivestreamClient() {
   const router = useRouter();
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
   const userIsDJ = isDJ(role);
+
+  // Only residents self-book, and their cadence sets the earliest date they may
+  // pick. `null` = still loading; a resolved window with cadence: null = not a
+  // resident, which sends them back to /studio.
+  const [bookingWindow, setBookingWindow] = useState<BookingWindow | null>(null);
 
   const [formData, setFormData] = useState<DJApplicationFormData>({
     djName: '',
@@ -44,6 +57,39 @@ export function StudioLivestreamClient() {
       router.replace('/studio/join');
     }
   }, [authLoading, isAuthenticated, roleLoading, userIsDJ, router]);
+
+  // Load the resident's booking window (cadence + earliest bookable date).
+  useEffect(() => {
+    if (!user || !userIsDJ) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/residents/booking-window', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error('Failed to load booking window');
+        const data: BookingWindow = await res.json();
+        if (!cancelled) setBookingWindow(data);
+      } catch (error) {
+        console.error('Failed to load booking window:', error);
+        // Can't confirm residency → don't let them book. Back to the studio.
+        if (!cancelled) router.replace('/studio');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, userIsDJ, router]);
+
+  // Self-booking is a resident perk — everyone else goes back to the studio.
+  useEffect(() => {
+    if (bookingWindow && bookingWindow.cadence === null) {
+      router.replace('/studio');
+    }
+  }, [bookingWindow, router]);
 
   // Pre-fill form with user data when logged in
   useEffect(() => {
@@ -139,9 +185,17 @@ export function StudioLivestreamClient() {
     try {
       setStatus('submitting');
 
+      // The show-request path is resident-only and re-checks the cadence floor
+      // server-side, so it needs the signed-in DJ's token.
+      if (!user) throw new Error('You must be signed in to book a show.');
+      const token = await user.getIdToken();
+
       const response = await fetch('/api/dj-applications', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           ...formData,
           source: 'show-request',
@@ -217,8 +271,16 @@ export function StudioLivestreamClient() {
     );
   }
 
-  // Show spinner while resolving auth/role, or while redirecting non-DJs to /studio/join
-  if (authLoading || !isAuthenticated || roleLoading || !userIsDJ) {
+  // Show spinner while resolving auth/role/residency, or while redirecting a
+  // non-DJ to /studio/join or a non-resident back to /studio.
+  if (
+    authLoading ||
+    !isAuthenticated ||
+    roleLoading ||
+    !userIsDJ ||
+    !bookingWindow ||
+    bookingWindow.cadence === null
+  ) {
     return (
       <div className="min-h-screen bg-black">
         <Header currentPage="studio" position="sticky" />
@@ -345,10 +407,25 @@ export function StudioLivestreamClient() {
               <p className="text-sm text-gray-500 mb-4">
                 Click a start time to add a {formData.setDuration}-hour slot. Click again to remove it.
               </p>
+              {bookingWindow.earliestStart && (
+                <p className="text-sm text-gray-400 mb-4 p-3 bg-[#1a1a1a] border border-gray-800 rounded">
+                  As a {bookingWindow.cadence} resident, your next show can be booked from{' '}
+                  <span className="text-white font-medium">
+                    {new Date(bookingWindow.earliestStart).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </span>{' '}
+                  — {bookingWindow.cooldownDays} days after your last show. Earlier dates
+                  aren&apos;t available to pick.
+                </p>
+              )}
               <TimeSlotPicker
                 selectedSlots={formData.preferredSlots || []}
                 onChange={handleSlotsChange}
                 setDuration={formData.setDuration || 2}
+                earliestStart={bookingWindow.earliestStart ?? undefined}
               />
             </div>
 

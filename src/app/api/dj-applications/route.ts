@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getApplications, createApplication } from '@/lib/dj-applications';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
+import { getResidentBookingWindow } from '@/lib/resident-booking';
 import { DJApplicationFormData } from '@/types/dj-application';
 
 const resend = process.env.RESEND_API_KEY
@@ -21,6 +22,58 @@ export async function POST(request: NextRequest) {
     }
     if (!data.email?.trim()) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    }
+
+    // Show requests are the resident self-booking flow (/studio/livestream): only
+    // residents may submit one, and their cadence sets how soon after their last
+    // show they may book. The form hides earlier dates — enforce it here too, so
+    // the rule can't be skipped by posting directly. Open applications from
+    // /studio/join (no `source`) are unauthenticated and unaffected.
+    if (isShowRequest) {
+      const auth = getAdminAuth();
+      const adminDb = getAdminDb();
+      if (!auth || !adminDb) {
+        return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
+      }
+
+      const authHeader = request.headers.get('authorization');
+      if (!authHeader?.startsWith('Bearer ')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      let uid: string;
+      try {
+        const decoded = await auth.verifyIdToken(authHeader.slice(7));
+        uid = decoded.uid;
+      } catch {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      const window = await getResidentBookingWindow(adminDb, uid);
+      if (!window.cadence) {
+        return NextResponse.json(
+          { error: 'Only residents can book a show from the studio.' },
+          { status: 403 },
+        );
+      }
+
+      const { earliestStart, cooldownDays } = window;
+      if (earliestStart) {
+        const tooSoon = (data.preferredSlots || []).some((slot) => slot.start < earliestStart);
+        if (tooSoon) {
+          const earliest = new Date(earliestStart).toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+          });
+          return NextResponse.json(
+            {
+              error: `As a ${window.cadence} resident, your next show can't start before ${earliest} (${cooldownDays} days after your last show). Please pick a later time.`,
+            },
+            { status: 400 },
+          );
+        }
+      }
     }
 
     const application = await createApplication(data);
