@@ -48,7 +48,7 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
     tight(
       `I've made another round of improvements to make recordings more resilient to unstable ` +
         `Wi-Fi during live broadcasts. Thanks to ${proseDjLink("davidl", "David L")}, ` +
-        `${proseDjLink("brod", "B. Rod")}, ${proseDjLink("m0lly", "M0lly")}, and ` +
+        `${proseDjLink("brod", "B. Rod")}, ${proseDjLink("m0lly", "M0LLY")}, and ` +
         `${proseDjLink("znc", "Znc")} for their patience while I continue improving the ` +
         `recording experience.`,
     ),
@@ -64,7 +64,7 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
     heading("\u{1F3B5}", "Automatic Track IDs"),
     tight(
       `Every show now gets automatic Track IDs, editable from your Studio. Thanks to ` +
-        `${proseDjLink("marienyx", "Marie")}, ${proseDjLink("gstyle", "Gabri")}, ` +
+        `${proseDjLink("marienyx", "Marie Nyx")}, ${proseDjLink("gstyle", "G-Style")}, ` +
         `${proseDjLink("andyoro", "Andy Oro")}, and ${proseDjLink("apili", "A-Pili")} for ` +
         `helping shape the feature, and shoutout to ${proseDjLink("akumen", "Akumen")}, whose ` +
         `tracks were played by three different Channel artists.`,
@@ -81,7 +81,7 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
     heading("\u{1F4DA}", "Archives"),
     tight(
       `Archives are back on the homepage, and every show now has ${shareable}. Thanks to ` +
-        `${proseDjLink("tsgo", "TS Go")}, ${proseDjLink("dizi", "Dizi")}, and ` +
+        `${proseDjLink("tsgo", "ts GO")}, ${proseDjLink("dizi", "DIZI")}, and ` +
         `${proseDjLink("andyoro", "Andy Oro")} for catching the issue.`,
     ),
 
