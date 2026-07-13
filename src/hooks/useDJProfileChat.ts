@@ -23,6 +23,21 @@ function getFirebaseApp() {
   return getApps()[0];
 }
 
+/**
+ * How many messages the chat subscription pulls.
+ *
+ * onSnapshot bills the FULL result set on initial subscribe, and FloatingChat
+ * mounts in the Header — so this subscribes on every page load for every
+ * visitor, open panel or not. This number IS the read cost per page load;
+ * ongoing chat traffic (~30-46 msgs/day) is negligible next to it.
+ *
+ * 100 keeps ~2x headroom over the busiest day observed (~45 msgs/24h), so the
+ * since-7am-PT messageCount and loveCount normally see a full day's window.
+ * Exported so the count badge can tell when it has hit this ceiling and render
+ * "100+" instead of a wrong exact number — keep the two in lockstep.
+ */
+export const CHAT_MESSAGE_LIMIT = 100;
+
 interface UseDJProfileChatOptions {
   chatUsernameNormalized: string;  // Used as stationId
   djUsername: string;               // For love messages: "user is 🤍 {djUsername}"
@@ -106,15 +121,10 @@ export function useDJProfileChat({
       if (cancelled) return;
       // Use chatUsernameNormalized as the stationId for per-DJ chat rooms
       const messagesRef = collection(db, 'chats', chatUsernameNormalized, 'messages');
-      // Last 100 messages. onSnapshot bills the full result set on initial
-      // subscribe, and FloatingChat mounts in the Header on every page — so this
-      // limit IS the read cost per page load. 100 stays well clear of the busiest
-      // day seen (~45 msgs/24h), so the since-7am-PT messageCount and loveCount
-      // still see a full day's window.
       const q = query(
         messagesRef,
         orderBy('timestamp', 'desc'),
-        limit(100)
+        limit(CHAT_MESSAGE_LIMIT)
       );
 
       unsubscribe = onSnapshot(

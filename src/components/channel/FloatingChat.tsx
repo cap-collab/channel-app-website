@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { useDJProfileChat } from '@/hooks/useDJProfileChat';
+import { useDJProfileChat, CHAT_MESSAGE_LIMIT } from '@/hooks/useDJProfileChat';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchivePlayer } from '@/contexts/ArchivePlayerContext';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
@@ -140,6 +140,11 @@ export function FloatingChat() {
     return resetPT.getTime() + ptToUtcOffset;
   })();
   const messageCount = messages.filter(m => m.timestamp >= dailyResetCutoff).length;
+  // We only fetch the last CHAT_MESSAGE_LIMIT messages, so if every one of them
+  // falls after the reset we've hit the ceiling and there may be more we never
+  // pulled. Show "100+" rather than an exact number we can't stand behind.
+  const messageCountLabel =
+    messageCount >= CHAT_MESSAGE_LIMIT ? `${CHAT_MESSAGE_LIMIT}+` : String(messageCount);
 
   // Legacy show-vibe messages (feature removed) are filtered out of the feed
   // so any that remain in Firestore from past broadcasts don't surface.
@@ -416,7 +421,7 @@ export function FloatingChat() {
             {/* Message count — always top-right */}
             {messageCount > 0 && (
               <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-zinc-700 border border-white/10 text-[10px] text-white font-medium flex items-center justify-center">
-                {messageCount}
+                {messageCountLabel}
               </span>
             )}
           </>
