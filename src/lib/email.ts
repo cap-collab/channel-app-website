@@ -1469,9 +1469,9 @@ function buildWeeklyComingUpRowHtml(row: WeeklyRecComingUpRow, timezone: string)
 // the email (there's no title/subtitle above it).
 function buildWeeklyBlock(label: string, rowsHtml: string[], first = false): string {
   if (rowsHtml.length === 0) return "";
-  const wrapStyle = first
-    ? ""
-    : "margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e5e5;";
+  // Spacing only — no rule. The section's own uppercase label already marks the
+  // boundary; a border on top of it reads as a box drawn around the content.
+  const wrapStyle = first ? "" : "margin-top: 24px;";
   // Empty label → no heading paragraph (e.g. the fallback featured rows, where
   // the scene is conveyed by each row's glyph).
   const labelHtml = label
@@ -1619,10 +1619,11 @@ export async function sendWeeklyRecommendationsEmail({
     </div>
   `;
 
-  // Breathing room between the hand-written intro and the automated rec cards —
-  // the intro's closing line has margin-bottom 0, so without this the prose runs
-  // straight into the first card.
-  const introGap = introHtml ? `<div style="height: 28px; line-height: 28px; font-size: 0;">&nbsp;</div>` : "";
+  // Breathing room between the hand-written intro and the automated rec cards.
+  // Kept small: the intro's closing line already carries a 22px top margin, and
+  // the first rec block adds its own spacing — a big spacer here stacks with
+  // both and reads as a gap you could park a car in.
+  const introGap = introHtml ? `<div style="height: 12px; line-height: 12px; font-size: 0;">&nbsp;</div>` : "";
 
   const content = `
     ${introHtml || ""}
