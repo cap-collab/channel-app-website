@@ -404,21 +404,31 @@ export async function GET(request: NextRequest) {
           // naturally surfaces this week's new/risen picks.
           const picks = sec.archives.filter((a) => !seen[a.id]).slice(0, SECTION_CAP);
 
-          // If a section runs thin, fill from what they were PREVIOUSLY shown,
-          // in original order — not the featured grid. Scope to ids still in
-          // this section's ranked list; skip ones already picked.
+          // If a section runs thin, TOP IT UP to the cap rather than shipping a
+          // near-empty block. Two passes, in order of preference:
+          //
+          //   1. Archives they were previously shown (prevShownIds, original
+          //      order) — the least-surprising re-show.
+          //   2. Anything else still ranked in this section.
+          //
+          // Pass 2 matters: a regular opener eventually has `seen` covering the
+          // whole section, so pass 1 alone leaves favorites starved — measured at
+          // 13 openers fully drained, 7 users seeing ZERO favorites. That's the
+          // same "favorites went near-empty" failure 06637a0b fixed on /foryou;
+          // the email just had its own dedup layer that reintroduced it. The
+          // engine deliberately KEEPS already-streamed archives in
+          // favorite-artists, so re-showing from its ranked list is intended, not
+          // a leak.
           if (picks.length < SECTION_CAP) {
             const pickedIds = new Set(picks.map((a) => a.id));
             const byId = new Map(sec.archives.map((a) => [a.id, a]));
-            for (const prevId of prevShownIds) {
-              if (picks.length >= SECTION_CAP) break;
-              if (pickedIds.has(prevId)) continue;
-              const a = byId.get(prevId);
-              if (a) {
-                picks.push(a);
-                pickedIds.add(prevId);
-              }
-            }
+            const topUp = (a: ArchiveSerialized | undefined) => {
+              if (!a || pickedIds.has(a.id) || picks.length >= SECTION_CAP) return;
+              picks.push(a);
+              pickedIds.add(a.id);
+            };
+            for (const prevId of prevShownIds) topUp(byId.get(prevId));
+            for (const a of sec.archives) topUp(a);
           }
           return picks.map(toRow);
         };
