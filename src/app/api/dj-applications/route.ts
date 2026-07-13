@@ -57,6 +57,22 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // One booking at a time — the studio button already hides in this case, so
+      // reaching here means a stale link or a hand-rolled POST.
+      if (window.upcomingShowAt) {
+        const booked = new Date(window.upcomingShowAt).toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+        });
+        return NextResponse.json(
+          {
+            error: `You already have a show booked for ${booked}. You can request your next one once it has aired.`,
+          },
+          { status: 409 },
+        );
+      }
+
       const { earliestStart, cooldownDays } = window;
       if (earliestStart) {
         const tooSoon = (data.preferredSlots || []).some((slot) => slot.start < earliestStart);

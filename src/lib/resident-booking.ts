@@ -40,6 +40,12 @@ export interface BookingWindow {
    * no history (no floor beyond the picker's usual rules) or not a resident.
    */
   earliestStart: number | null;
+  /**
+   * Start millis of a show they already have on the calendar, or null. One
+   * booking at a time — they request the next after this one airs. The studio
+   * button has always hidden in this case; the form and API enforce it too.
+   */
+  upcomingShowAt: number | null;
 }
 
 function toMillis(t: unknown): number | null {
@@ -65,6 +71,7 @@ export async function getResidentBookingWindow(db: Db, uid: string): Promise<Boo
     lastShowAt: null,
     cooldownDays: null,
     earliestStart: null,
+    upcomingShowAt: null,
   };
 
   const getUser = async (id: string) => {
@@ -112,13 +119,15 @@ export async function getResidentBookingWindow(db: Db, uid: string): Promise<Boo
 
   const now = Date.now();
   let lastShowAt: number | null = null;
+  let upcomingShowAt: number | null = null;
   const mark = (ms: number | null) => {
     if (ms !== null && ms <= now && (lastShowAt === null || ms > lastShowAt)) lastShowAt = ms;
   };
 
-  // ── Last live broadcast ────────────────────────────────────────────────
-  // A slot counts once it has ended; one on air right now counts as of its
-  // start. Cancelled slots and audio-capture recordings aren't shows.
+  // ── Live broadcasts ────────────────────────────────────────────────────
+  // Past (or on air now) → their last show, which sets the cadence floor.
+  // Still to come → an existing booking, which blocks a second one outright.
+  // Cancelled slots and audio-capture recordings are neither.
   const slotsSnap = await db.collection('broadcast-slots').get();
   for (const doc of slotsSnap.docs) {
     const slot = doc.data();
@@ -128,8 +137,22 @@ export async function getResidentBookingWindow(db: Db, uid: string): Promise<Boo
     const slotEnd = toMillis(slot.endTime);
 
     const markShow = (startMs: number | null, endMs: number | null) => {
-      if (endMs !== null && endMs <= now) mark(endMs);
-      else if (startMs !== null && startMs <= now) mark(startMs); // live right now
+      // Finished → it's their last show, and sets the cadence floor.
+      if (endMs !== null && endMs <= now) {
+        mark(endMs);
+        return;
+      }
+      if (startMs === null) return;
+
+      // Not finished — either on air now or still to come. Either way it's a show
+      // they have in hand, so it blocks a second booking. This matches the studio
+      // button, which counts anything with endTime > now.
+      if (upcomingShowAt === null || startMs < upcomingShowAt) upcomingShowAt = startMs;
+
+      // On air right now also counts as recent activity for the cadence floor.
+      // (`mark` ignores future timestamps, so a booked-ahead show can't become
+      // "last show" — but bound it here too rather than lean on that.)
+      if (startMs <= now) mark(startMs);
     };
 
     if (isMine(slot.djUserId, slot.djUsername) || isMine(slot.liveDjUserId, slot.liveDjUsername)) {
@@ -166,6 +189,7 @@ export async function getResidentBookingWindow(db: Db, uid: string): Promise<Boo
     cadence,
     lastShowAt,
     cooldownDays,
+    upcomingShowAt,
     // No history → no floor at all.
     earliestStart: lastShowAt === null ? null : lastShowAt + cooldownDays * DAY_MS,
   };

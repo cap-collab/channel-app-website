@@ -20,6 +20,7 @@ interface BookingWindow {
   lastShowAt: number | null;
   cooldownDays: number | null;
   earliestStart: number | null;
+  upcomingShowAt: number | null;
 }
 
 export function StudioLivestreamClient() {
@@ -84,9 +85,15 @@ export function StudioLivestreamClient() {
     };
   }, [user, userIsDJ, router]);
 
-  // Self-booking is a resident perk — everyone else goes back to the studio.
+  // Two things bar you from this form outright, and the studio button already
+  // hides for both: you're not a resident, or you have a show booked already
+  // (one at a time). Reaching here means a stale link — send them back.
+  //
+  // The cadence gap is NOT one of them: a resident inside their 30/120 days can
+  // still use the form, they just can't pick a date before the floor.
   useEffect(() => {
-    if (bookingWindow && bookingWindow.cadence === null) {
+    if (!bookingWindow) return;
+    if (bookingWindow.cadence === null || bookingWindow.upcomingShowAt !== null) {
       router.replace('/studio');
     }
   }, [bookingWindow, router]);
@@ -271,15 +278,16 @@ export function StudioLivestreamClient() {
     );
   }
 
-  // Show spinner while resolving auth/role/residency, or while redirecting a
-  // non-DJ to /studio/join or a non-resident back to /studio.
+  // Spinner while auth/role/residency resolve, and while either redirect above
+  // is in flight — so the form never flashes for someone who can't use it.
   if (
     authLoading ||
     !isAuthenticated ||
     roleLoading ||
     !userIsDJ ||
     !bookingWindow ||
-    bookingWindow.cadence === null
+    bookingWindow.cadence === null ||
+    bookingWindow.upcomingShowAt !== null
   ) {
     return (
       <div className="min-h-screen bg-black">
