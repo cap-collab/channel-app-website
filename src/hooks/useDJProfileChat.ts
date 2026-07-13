@@ -106,11 +106,15 @@ export function useDJProfileChat({
       if (cancelled) return;
       // Use chatUsernameNormalized as the stationId for per-DJ chat rooms
       const messagesRef = collection(db, 'chats', chatUsernameNormalized, 'messages');
-      // No time filtering - just get last 500 messages
+      // Last 100 messages. onSnapshot bills the full result set on initial
+      // subscribe, and FloatingChat mounts in the Header on every page — so this
+      // limit IS the read cost per page load. 100 stays well clear of the busiest
+      // day seen (~45 msgs/24h), so the since-7am-PT messageCount and loveCount
+      // still see a full day's window.
       const q = query(
         messagesRef,
         orderBy('timestamp', 'desc'),
-        limit(500)
+        limit(100)
       );
 
       unsubscribe = onSnapshot(
