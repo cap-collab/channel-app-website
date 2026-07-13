@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Show } from '@/types';
 import { trackLeadConversion } from '@/lib/gtag';
+import { suggestEmail } from '@/lib/suggest-email';
 
 interface EmailCaptureModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export function EmailCaptureModal({
   onSignInClick,
 }: EmailCaptureModalProps) {
   const [email, setEmail] = useState('');
+  const [suggestion, setSuggestion] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -69,9 +71,15 @@ export function EmailCaptureModal({
 
   const handleClose = () => {
     setEmail('');
+    setSuggestion(null);
     setError(null);
     setSuccess(false);
     onClose();
+  };
+
+  const acceptSuggestion = () => {
+    if (suggestion) setEmail(suggestion);
+    setSuggestion(null);
   };
 
   const handleSignIn = () => {
@@ -135,11 +143,29 @@ export function EmailCaptureModal({
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setSuggestion(null);
+                }}
+                onBlur={() => setSuggestion(suggestEmail(email))}
                 placeholder="your@email.com"
                 className="w-full px-4 py-3 bg-black/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent transition-colors mb-3"
                 autoFocus
               />
+
+              {suggestion && (
+                <p className="text-gray-400 text-sm mb-3 -mt-1">
+                  Did you mean{' '}
+                  <button
+                    type="button"
+                    onClick={acceptSuggestion}
+                    className="text-accent hover:underline font-medium"
+                  >
+                    {suggestion}
+                  </button>
+                  ?
+                </p>
+              )}
 
               {error && (
                 <p className="text-red-400 text-sm mb-3">{error}</p>

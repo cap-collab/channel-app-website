@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { captureEvent } from "@/lib/posthog";
 import { trackLeadConversion } from "@/lib/gtag";
+import { suggestEmail } from "@/lib/suggest-email";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -126,6 +127,7 @@ export function AuthModal({
   } = useAuthContext();
 
   const [email, setEmail] = useState("");
+  const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null);
   const [enableNotifications, setEnableNotifications] = useState(true);
   const [view, setView] = useState<ModalView>("main");
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
@@ -136,6 +138,7 @@ export function AuthModal({
       captureEvent('auth_modal_shown');
     } else {
       setEmail("");
+      setEmailSuggestion(null);
       setView("main");
       setForgotPasswordEmail("");
       resetEmailSent();
@@ -486,7 +489,11 @@ export function AuthModal({
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailSuggestion(null);
+                }}
+                onBlur={() => setEmailSuggestion(suggestEmail(email))}
                 placeholder="Enter your email"
                 autoFocus
                 className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
@@ -496,6 +503,22 @@ export function AuthModal({
                   }
                 }}
               />
+              {emailSuggestion && (
+                <p className="text-white/60 text-sm mt-2">
+                  Did you mean{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail(emailSuggestion);
+                      setEmailSuggestion(null);
+                    }}
+                    className="text-white underline font-medium"
+                  >
+                    {emailSuggestion}
+                  </button>
+                  ?
+                </p>
+              )}
             </div>
 
             <button

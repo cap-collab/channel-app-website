@@ -3,9 +3,11 @@
 import { useState, FormEvent } from 'react';
 import { captureEvent } from '@/lib/posthog';
 import { trackLeadConversion } from '@/lib/gtag';
+import { suggestEmail } from '@/lib/suggest-email';
 
 export function AboutEmailSignup() {
   const [email, setEmail] = useState('');
+  const [suggestion, setSuggestion] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
 
   const handleSubmit = async (e: FormEvent) => {
@@ -39,7 +41,11 @@ export function AboutEmailSignup() {
           type="email"
           placeholder="Get really cool email updates"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setSuggestion(null);
+          }}
+          onBlur={() => setSuggestion(suggestEmail(email))}
           required
           className="bg-white/10 border border-white/20 rounded-l px-4 py-3 text-white placeholder-gray-400 text-sm focus:outline-none focus:border-white/40 min-w-[250px] flex-1 h-[48px]"
         />
@@ -51,6 +57,22 @@ export function AboutEmailSignup() {
           {status === 'submitting' ? '...' : 'Submit'}
         </button>
       </form>
+      {suggestion && (
+        <p className="text-gray-300 text-xs mt-1 text-center">
+          Did you mean{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setEmail(suggestion);
+              setSuggestion(null);
+            }}
+            className="text-white underline font-medium"
+          >
+            {suggestion}
+          </button>
+          ?
+        </p>
+      )}
       {status === 'error' && (
         <p className="text-red-400 text-xs mt-1 text-center">Something went wrong. Try again.</p>
       )}
