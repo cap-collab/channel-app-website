@@ -23,6 +23,12 @@ import { UsersTab } from '@/components/broadcast/admin/UsersTab';
 
 type AdminTab = 'schedule' | 'applications' | 'archives' | 'archive-radio' | 'marketing' | 'scenes' | 'social-render' | 'tech-health' | 'recommendations' | 'field-notes' | 'users';
 
+const ADMIN_LINKS = [
+  { href: '/broadcast/admin/pending-djs', label: 'Create DJ' },
+  { href: '/broadcast/admin/collectives', label: 'Collectives' },
+  { href: '/broadcast/admin/events', label: 'Events' },
+];
+
 // Get start of current week (Sunday)
 function getWeekStart(date: Date = new Date()): Date {
   const d = new Date(date);
@@ -368,188 +374,68 @@ export function AdminDashboard() {
     );
   }
 
+  const TABS: { id: AdminTab; label: string; count: number }[] = [
+    { id: 'schedule', label: 'Schedule', count: 0 },
+    { id: 'applications', label: 'DJ Apps', count: applicationCount },
+    { id: 'field-notes', label: 'Tapes', count: fieldNoteCount },
+    { id: 'archives', label: 'Archives', count: archiveCount },
+    { id: 'archive-radio', label: 'Archive radio', count: 0 },
+    { id: 'marketing', label: 'Marketing', count: 0 },
+    { id: 'scenes', label: 'Scenes', count: 0 },
+    { id: 'social-render', label: 'Social', count: 0 },
+    { id: 'tech-health', label: 'Tech', count: 0 },
+    { id: 'recommendations', label: 'Recs', count: 0 },
+    { id: 'users', label: 'Users', count: 0 },
+  ];
+
   return (
     <div className="min-h-screen bg-black text-white">
       <Header currentPage="broadcast-admin" position="sticky" />
-      <div className="p-4 md:p-8">
+      <div className="py-4 pr-4 md:py-8 md:pr-8">
         <div className="max-w-7xl mx-auto">
           {/* Tabs */}
-          <div className="flex gap-2 mb-6">
-            <button
-              onClick={() => setActiveTab('schedule')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'schedule'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              Schedule
-            </button>
-            <button
-              onClick={() => setActiveTab('applications')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                activeTab === 'applications'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              DJ Applications
-              {applicationCount > 0 && (
-                <span className={`px-2 py-0.5 text-xs rounded-full ${
-                  activeTab === 'applications'
-                    ? 'bg-black text-white'
-                    : 'bg-yellow-500 text-black'
-                }`}>
-                  {applicationCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('field-notes')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                activeTab === 'field-notes'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              Tapes
-              {fieldNoteCount > 0 && (
-                <span className={`px-2 py-0.5 text-xs rounded-full ${
-                  activeTab === 'field-notes'
-                    ? 'bg-black text-white'
-                    : 'bg-yellow-500 text-black'
-                }`}>
-                  {fieldNoteCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('archives')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                activeTab === 'archives'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              Archives
-              {archiveCount > 0 && (
-                <span className={`px-2 py-0.5 text-xs rounded-full ${
-                  activeTab === 'archives'
-                    ? 'bg-black text-white'
-                    : 'bg-gray-600 text-gray-200'
-                }`}>
-                  {archiveCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('archive-radio')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'archive-radio'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              Archive radio
-            </button>
-            <button
-              onClick={() => setActiveTab('marketing')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'marketing'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              Marketing
-            </button>
-            <button
-              onClick={() => setActiveTab('scenes')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'scenes'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              Scenes
-            </button>
-            <button
-              onClick={() => setActiveTab('social-render')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'social-render'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              Social Render
-            </button>
-            <button
-              onClick={() => setActiveTab('tech-health')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'tech-health'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              Tech Health
-            </button>
-            <button
-              onClick={() => setActiveTab('recommendations')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'recommendations'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              Recommendations
-            </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'users'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              Users
-            </button>
+          <div className="flex flex-wrap items-stretch gap-px mb-6 font-mono text-[11px] uppercase tracking-wider">
+            {TABS.map(({ id, label, count }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`px-2.5 py-1.5 rounded-none border transition-colors flex items-center gap-1.5 ${
+                  activeTab === id
+                    ? 'bg-white text-black border-white'
+                    : 'bg-transparent text-zinc-500 border-[#333] hover:text-white hover:border-white/30'
+                }`}
+              >
+                {label}
+                {count > 0 && (
+                  <span className={activeTab === id ? 'text-black/50' : 'text-zinc-600'}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            ))}
             {/* Safety-net manual room recording — start a guaranteed room-composite
                 capture from now if a live show looks like it's recording wrong. */}
             <button
               onClick={toggleManualRecording}
               disabled={manualRecBusy}
               title="Start/stop a backup room recording (captures the whole room from now — insurance if the primary recording looks off)"
-              className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+              className={`px-2.5 py-1.5 rounded-none border transition-colors disabled:opacity-50 ${
                 manualRecEgressId
-                  ? 'bg-red-600 text-white hover:bg-red-700 animate-pulse'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  ? 'bg-red-600 text-white border-red-600 hover:bg-red-700 animate-pulse'
+                  : 'bg-transparent text-zinc-500 border-[#333] hover:text-white hover:border-white/30'
               }`}
             >
-              {manualRecBusy ? '…' : manualRecEgressId ? '● Stop backup rec' : '🎙️ Backup rec'}
+              {manualRecBusy ? '…' : manualRecEgressId ? '● Stop backup rec' : 'Backup rec'}
             </button>
-            <Link
-              href="/broadcast/admin/pending-djs"
-              className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-800 text-gray-300 hover:bg-gray-700"
-            >
-              Create DJ Profile
-            </Link>
-            <Link
-              href="/broadcast/admin/venues"
-              className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-800 text-gray-300 hover:bg-gray-700"
-            >
-              Venues
-            </Link>
-            <Link
-              href="/broadcast/admin/collectives"
-              className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-800 text-gray-300 hover:bg-gray-700"
-            >
-              Collectives
-            </Link>
-            <Link
-              href="/broadcast/admin/events"
-              className="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-800 text-gray-300 hover:bg-gray-700"
-            >
-              Events
-            </Link>
+            {ADMIN_LINKS.map(({ href, label }) => (
+              <Link
+                key={href}
+                href={href}
+                className="px-2.5 py-1.5 rounded-none border border-[#333] text-zinc-500 hover:text-white hover:border-white/30 transition-colors flex items-center"
+              >
+                {label}
+              </Link>
+            ))}
           </div>
 
           {/* Tab Content */}
