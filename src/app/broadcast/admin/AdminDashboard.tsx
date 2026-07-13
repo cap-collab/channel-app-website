@@ -19,8 +19,9 @@ import { ArchiveRadioTab } from '@/components/broadcast/admin/ArchiveRadioTab';
 import { TechHealthTab } from '@/components/broadcast/admin/TechHealthTab';
 import { RecommendationsTab } from '@/components/broadcast/admin/RecommendationsTab';
 import { FieldNotesTab } from '@/components/broadcast/admin/FieldNotesTab';
+import { UsersTab } from '@/components/broadcast/admin/UsersTab';
 
-type AdminTab = 'schedule' | 'applications' | 'archives' | 'archive-radio' | 'marketing' | 'scenes' | 'social-render' | 'tech-health' | 'recommendations' | 'field-notes';
+type AdminTab = 'schedule' | 'applications' | 'archives' | 'archive-radio' | 'marketing' | 'scenes' | 'social-render' | 'tech-health' | 'recommendations' | 'field-notes' | 'users';
 
 // Get start of current week (Sunday)
 function getWeekStart(date: Date = new Date()): Date {
@@ -501,6 +502,16 @@ export function AdminDashboard() {
             >
               Recommendations
             </button>
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                activeTab === 'users'
+                  ? 'bg-white text-black'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              Users
+            </button>
             {/* Safety-net manual room recording — start a guaranteed room-composite
                 capture from now if a live show looks like it's recording wrong. */}
             <button
@@ -585,6 +596,8 @@ export function AdminDashboard() {
             <SocialRenderTab />
           ) : activeTab === 'recommendations' ? (
             <RecommendationsTab />
+          ) : activeTab === 'users' ? (
+            <UsersTab />
           ) : activeTab === 'field-notes' ? (
             <FieldNotesTab
               userId={user?.uid || ''}

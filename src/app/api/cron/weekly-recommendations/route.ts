@@ -240,6 +240,20 @@ export async function GET(request: NextRequest) {
     type Trace = { email: string; s1: number; s2: number; comingUp: number; fallback: boolean };
     const trace: Trace[] = [];
 
+    // Per-user engagement stats for the admin Users tab, piggybacked on the
+    // subcollection reads generateForUser already does. Only populated for users
+    // we actually (re)generate this run — skipped-fresh users keep their prior
+    // entry via the merge-write into system/user-stats after the loop.
+    type UserStatEntry = {
+      lovesGiven: number;
+      archivesStreamed: number;
+      lastSeenAtMs: number | null;
+      role: string;
+      ownsCollective: boolean;
+      updatedAtMs: number;
+    };
+    const userStats: Record<string, UserStatEntry> = {};
+
     // Every email that has a `users` doc — so the broad "extra sources" pass below
     // (pending-dj-profiles / waitlist / EXTRA_LISTENERS) never double-emails anyone
     // already handled by the personalized/users loop.
@@ -302,6 +316,19 @@ export async function GET(request: NextRequest) {
           // reflects snapshots actually (re)written, not just users processed.
           if (outcome.skipped === "fresh") skippedFresh++;
           else generated++;
+          // Capture engagement stats when the subcollections were actually read
+          // (i.e. not skipped-fresh/no-user, where the sizes are undefined).
+          if (outcome.lovesGiven !== undefined && outcome.archivesStreamed !== undefined) {
+            const ownedSlugs = data.ownedCollectiveSlugs as string[] | undefined;
+            userStats[userDoc.id] = {
+              lovesGiven: outcome.lovesGiven,
+              archivesStreamed: outcome.archivesStreamed,
+              lastSeenAtMs: emailAtMs(data.lastSeenAt),
+              role: (data.role as string | undefined) || "user",
+              ownsCollective: Array.isArray(ownedSlugs) && ownedSlugs.length > 0,
+              updatedAtMs: nowMs,
+            };
+          }
         }
         // Backfill-only run: snapshot persisted, no email. Move on.
         if (!doSend) continue;
@@ -637,6 +664,22 @@ export async function GET(request: NextRequest) {
             console.error(`[weekly-recommendations] extra ${r.id} (${r.email}):`, e);
           }
         }
+      }
+    }
+
+    // Persist per-user engagement stats for the admin Users tab. One small doc
+    // per user under system/user-stats/entries — scales past a single-doc map,
+    // and the Users tab reads the whole subcollection in one .get(). Skipped-
+    // fresh users aren't in `userStats`, so their existing entry is left intact.
+    if (mode === "backfill" && !dryRun && !previewTo) {
+      const entriesCol = db.collection("system").doc("user-stats").collection("entries");
+      const entryUids = Object.keys(userStats);
+      for (let i = 0; i < entryUids.length; i += 400) {
+        const batch = db.batch();
+        for (const uid of entryUids.slice(i, i + 400)) {
+          batch.set(entriesCol.doc(uid), userStats[uid], { merge: true });
+        }
+        await batch.commit();
       }
     }
 

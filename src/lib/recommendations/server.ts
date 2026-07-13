@@ -383,7 +383,15 @@ async function buildUserResultAndComingUp(
   context: RecommendationContext,
   nowMs: number,
   upcomingSets: ReturnType<typeof buildUpcomingRelationshipSets>,
-): Promise<{ result: RecommendationResult; comingUp: ComingUpItem[]; tasteSummary: TasteSummary }> {
+): Promise<{
+  result: RecommendationResult;
+  comingUp: ComingUpItem[];
+  tasteSummary: TasteSummary;
+  // Engagement sizes surfaced for the admin Users tab (piggybacked on the reads
+  // we already do below). These are the user's OWN activity counts.
+  lovesGiven: number;
+  archivesStreamed: number;
+}> {
   const uid = user.id;
 
   // User's own engagement subcollections (forward reads).
@@ -494,7 +502,13 @@ async function buildUserResultAndComingUp(
   const searchTerms = searchFavorites.map((f) => f.term || "").filter(Boolean);
   const comingUp = buildComingUp(user, signals, shared, upcomingSets, searchTerms);
 
-  return { result, comingUp, tasteSummary: signals.tasteSummary };
+  return {
+    result,
+    comingUp,
+    tasteSummary: signals.tasteSummary,
+    lovesGiven: loveSnap.size,
+    archivesStreamed: streamSnap.size,
+  };
 }
 
 function buildComingUp(
@@ -604,6 +618,11 @@ export interface GenerateForUserOutcome {
   // surfaced for the admin preview's "Excluded (N)" panel. Absent on skip.
   dropped?: RecommendationResult["dropped"];
   skipped?: "fresh" | "no-user";
+  // User's own engagement sizes, present only when we actually read the
+  // subcollections (i.e. not on skipped:"fresh"/"no-user"). The weekly-recs
+  // backfill piggybacks these into system/user-stats for the admin Users tab.
+  lovesGiven?: number;
+  archivesStreamed?: number;
 }
 
 /**
@@ -636,15 +655,8 @@ export async function generateForUser(
   const user = await fetchUserDoc(db, uid);
   if (!user) return { snapshot: null, skipped: "no-user" };
 
-  const { result, comingUp, tasteSummary } = await buildUserResultAndComingUp(
-    db,
-    user,
-    sharedData,
-    cfg,
-    context,
-    nowMs,
-    upcomingSets,
-  );
+  const { result, comingUp, tasteSummary, lovesGiven, archivesStreamed } =
+    await buildUserResultAndComingUp(db, user, sharedData, cfg, context, nowMs, upcomingSets);
 
   const snapshot = buildSnapshot(result, {
     uid,
@@ -658,7 +670,7 @@ export async function generateForUser(
   if (opts.persist) {
     await db.collection(SNAPSHOT_COLLECTION).doc(snapshotDocId(uid, context)).set(stripUndefined(snapshot));
   }
-  return { snapshot, dropped: result.dropped };
+  return { snapshot, dropped: result.dropped, lovesGiven, archivesStreamed };
 }
 
 export async function readSnapshot(
