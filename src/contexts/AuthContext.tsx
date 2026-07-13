@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, ReactNode } from "react";
+import { createContext, useContext, ReactNode } from "react";
 import { User } from "firebase/auth";
 import { useAuth } from "@/hooks/useAuth";
 import { useLinkedIdentity } from "@/hooks/useLinkedIdentity";
@@ -44,24 +44,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // record activity under without each hook re-reading the user doc.
   const { effectiveUid } = useLinkedIdentity(auth.user);
 
-  // Memoized so a re-render of AuthProvider doesn't hand every consumer a new
-  // context object. useAuth's callbacks are already useCallback-stable, so the
-  // value only changes when auth state actually changes.
-  const value = useMemo(
-    () => ({ ...auth, activityUid: effectiveUid }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      auth.user,
-      auth.loading,
-      auth.error,
-      auth.emailSent,
-      auth.passwordResetSent,
-      auth.isAuthenticated,
-      effectiveUid,
-    ]
-  );
+  // CRITICAL: fall back to the login's own uid while the alias lookup is still
+  // in flight. Resolution costs a network round-trip, so `effectiveUid` is null
+  // for the first few hundred ms AFTER auth restores — and callers guard on
+  // `activityUid`. Without this fallback, a heart / follow / mute clicked in
+  // that window silently no-ops (the UI animates, nothing is written).
+  //
+  // For an UNLINKED user this is provably identical to the old `user.uid`
+  // behaviour. For an alias it means writes made in that sliver land on the
+  // alias — which link-time migration already sweeps onto the primary — and
+  // that is strictly better than dropping them.
+  const activityUid = effectiveUid ?? auth.user?.uid ?? null;
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ ...auth, activityUid }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuthContext() {

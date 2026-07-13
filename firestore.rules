@@ -111,18 +111,40 @@ service cloud.firestore {
     match /users/{userId} {
       // Users can read/write their own document
       allow read, write: if request.auth != null && request.auth.uid == userId;
-      // Linked accounts: an ALIAS may read/write its PRIMARY's doc — the DJ
-      // profile is shared, so editing bio/photo/links from the second account
-      // must land on the one canonical profile. (Only in this direction: a
-      // primary is NOT granted write access to its aliases' docs.)
-      allow read, write: if request.auth != null
-        && userId != request.auth.uid
-        && userId == callerPrimaryUid();
-      // Allow public read for DJ profiles (needed for /dj/[username] pages)
+      // Public read for DJ profiles (needed for /dj/[username] pages, DJ lists,
+      // search). Kept ABOVE the alias rule below: `allow` rules are OR'd and
+      // short-circuit on the first grant, and this one costs ZERO document
+      // accesses. If the alias rule came first, every foreign DJ doc returned by
+      // a list/search would fall through to its callerPrimaryUid() get() — one
+      // extra read PER DOC, since the rules cache is per-evaluation.
       allow read: if resource.data.role in ['dj', 'broadcaster', 'admin'];
       // Cron job access
       allow read: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
       allow update: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
+
+      // Linked accounts: an ALIAS may read/write its PRIMARY's doc — the profile
+      // is shared, so the alias login loads it (useLinkedIdentity/useUserProfile)
+      // and edits to bio/photo/links must land on the one canonical doc. (Only in
+      // this direction: a primary is NOT granted access to its aliases' docs.)
+      //
+      // COST: callerPrimaryUid() costs a get() on the caller's own user doc, so
+      // this must never be reachable on a hot path. The Firestore docs do NOT
+      // promise that OR'd `allow` rules short-circuit once one grants, so we
+      // cannot rely on rule ORDER to protect the DJ-list reads above — instead
+      // each branch's own `&&` chain (which CEL DOES short-circuit) is written so
+      // the get() is unreachable for ordinary traffic:
+      //   - READ is gated on the target NOT being a DJ doc. Every DJ-list /
+      //     search / profile read hits `role in [...]` and bails before the
+      //     get(). Only an alias reading its non-DJ primary pays.
+      //   - WRITE can't use that trick (a DJ primary must stay writable), but
+      //     writes to someone else's doc are rare and never in a list query.
+      allow read: if request.auth != null
+        && userId != request.auth.uid
+        && !(resource.data.role in ['dj', 'broadcaster', 'admin'])
+        && userId == callerPrimaryUid();
+      allow write: if request.auth != null
+        && userId != request.auth.uid
+        && userId == callerPrimaryUid();
 
       // Engagement subcollections. An ALIAS is only a login: all of a person's
       // activity is recorded on their PRIMARY, so an alias must be able to

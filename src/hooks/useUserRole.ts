@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 export type UserRole = 'broadcaster' | 'admin' | 'dj' | 'user' | null;
 
@@ -30,47 +30,56 @@ export function useUserRole(user: User | null): UserRoleData {
       return;
     }
 
-    let unsubscribe: (() => void) | undefined;
     let cancelled = false;
+    let unsubOwn: (() => void) | undefined;
+    let unsubPrimary: (() => void) | undefined;
 
-    // Subscribe to whichever doc owns the role: the primary for an alias login,
-    // otherwise the login's own doc.
-    const subscribe = (uid: string) => {
-      if (cancelled || !db) return;
-      unsubscribe = onSnapshot(
-        doc(db, 'users', uid),
-        (snapshot) => {
-          if (snapshot.exists()) {
-            const data = snapshot.data();
-            setRole(data.role || 'user');
-          } else {
-            setRole('user');
+    // Subscribe to the login's OWN doc straight away — no pre-resolve round-trip,
+    // so an ordinary user's role resolves exactly as fast as it always did.
+    // If that doc turns out to be an ALIAS, re-point to the primary using the
+    // primaryUid we just received (an alias's own `role` is meaningless: the
+    // link migration demotes it to 'user').
+    // eslint-disable-next-line prefer-const
+    unsubOwn = onSnapshot(
+      doc(db, 'users', user.uid),
+      (snapshot) => {
+        if (cancelled || !db) return;
+        const data = snapshot.data();
+        const primaryUid = data?.primaryUid as string | undefined;
+
+        if (primaryUid && primaryUid !== user.uid) {
+          // Alias → the role lives on the primary. Subscribe once.
+          if (!unsubPrimary) {
+            unsubPrimary = onSnapshot(
+              doc(db, 'users', primaryUid),
+              (primarySnap) => {
+                setRole((primarySnap.data()?.role as UserRole) || 'user');
+                setLoading(false);
+              },
+              (error) => {
+                console.error('Error fetching primary role:', error);
+                setRole('user');
+                setLoading(false);
+              },
+            );
           }
-          setLoading(false);
-        },
-        (error) => {
-          console.error('Error fetching user role:', error);
-          setRole('user');
-          setLoading(false);
+          return;
         }
-      );
-    };
 
-    // Resolve alias → primary once, then subscribe. On any read error, fall back
-    // to the login's own doc so a failure can never lock a DJ out.
-    getDoc(doc(db, 'users', user.uid))
-      .then((snap) => {
-        const primaryUid = snap.data()?.primaryUid as string | undefined;
-        subscribe(primaryUid && primaryUid !== user.uid ? primaryUid : user.uid);
-      })
-      .catch((error) => {
-        console.error('Error resolving linked account:', error);
-        subscribe(user.uid);
-      });
+        setRole(snapshot.exists() ? data?.role || 'user' : 'user');
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error fetching user role:', error);
+        setRole('user');
+        setLoading(false);
+      },
+    );
 
     return () => {
       cancelled = true;
-      unsubscribe?.();
+      unsubOwn?.();
+      unsubPrimary?.();
     };
   }, [user]);
 
