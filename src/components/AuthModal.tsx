@@ -26,6 +26,37 @@ interface AuthModalProps {
 
 type ModalView = "main" | "emailInput" | "methodChoice" | "password" | "forgotPassword";
 
+// Must stay at module scope: a component defined inside AuthModal would be a new
+// type on every render, so React would remount the whole tree — wiping the
+// password input's DOM node and state on each keystroke.
+function ModalWrapper({
+  inline,
+  onClose,
+  children,
+}: {
+  inline?: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  if (inline) {
+    return <div className="w-full">{children}</div>;
+  }
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9000] flex items-center justify-center p-4 bg-black/95 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-white/[0.1]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // Isolated password form component to prevent focus loss from parent re-renders
 function PasswordForm({
   email,
@@ -301,31 +332,10 @@ export function AuthModal({
 
   if (!isOpen) return null;
 
-  // Wrapper component for modal vs inline rendering
-  const Wrapper = ({ children }: { children: React.ReactNode }) => {
-    if (inline) {
-      return <div className="w-full">{children}</div>;
-    }
-    return createPortal(
-      <div
-        className="fixed inset-0 z-[9000] flex items-center justify-center p-4 bg-black/95 backdrop-blur-sm"
-        onClick={onClose}
-      >
-        <div
-          className="bg-zinc-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-white/[0.1]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {children}
-        </div>
-      </div>,
-      document.body
-    );
-  };
-
   // Password reset sent success view
   if (passwordResetSent) {
     return (
-      <Wrapper>
+      <ModalWrapper inline={inline} onClose={onClose}>
           <div className="flex justify-center mb-4">
             <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
               <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -355,14 +365,14 @@ export function AuthModal({
           >
             Try a different email
           </button>
-      </Wrapper>
+      </ModalWrapper>
     );
   }
 
   // Email sent success view
   if (emailSent) {
     return (
-      <Wrapper>
+      <ModalWrapper inline={inline} onClose={onClose}>
           <div className="flex justify-center mb-4">
             <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
               <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -389,12 +399,12 @@ export function AuthModal({
           >
             Use a different email
           </button>
-      </Wrapper>
+      </ModalWrapper>
     );
   }
 
   return (
-    <Wrapper>
+    <ModalWrapper inline={inline} onClose={onClose}>
         {/* Header - hide "Sign In" on main view when inline */}
         {!(inline && view === "main") && (
           <h2 className="text-xl font-bold text-white mb-2">
@@ -675,6 +685,6 @@ export function AuthModal({
             Cancel
           </button>
         )}
-    </Wrapper>
+    </ModalWrapper>
   );
 }
