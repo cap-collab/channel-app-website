@@ -327,12 +327,14 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     [selectedTempos, urlTempoOverride, clearUrlFilters]
   );
 
-  // ── Shareable filter "playlist" ──────────────────────────────────────────
-  // A link like /?scene=spiral&tempo=uptempo&play=1 pre-applies the filters
-  // (seeded above) and auto-plays the highest-priority match, then continues in
-  // priority order through the rest of the filtered set. We compute that ordered
-  // list once here so both the auto-play effect and the on-ended handler share
-  // exactly the same predicate + ordering.
+  // ── Filter "playlist" ────────────────────────────────────────────────────
+  // The archives matching the active scene/tempo filter, in priority order.
+  // Used by the on-ended handler: while a filter is active — whether set by the
+  // chips or by a shared link like
+  //   /?archive=<slug>&scene=spiral&tempo=uptempo,intense
+  // (which plays <slug> and leaves the filters applied) — playback continues in
+  // priority order through the rest of the matching set instead of the default
+  // random same-scene/tempo pick. That turns a shared link into a playlist.
   //
   // A filter is "active" only when it actually narrows the set — every scene (or
   // every tempo) selected is the same as no filter, so that doesn't count.
@@ -583,33 +585,6 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   useEffect(() => {
     if (autoPlayConsumedRef.current) return;
     if (searchParams?.get('play') !== '1') return;
-
-    // The URL filter (?scene=/?tempo=) is copied into state by a SEPARATE
-    // effect that lands a render later than this one. If the URL asks for a
-    // filter but it hasn't seeded yet, wait — otherwise we'd fall through and
-    // start radio (slide 0) before the filter playlist exists.
-    const urlHasFilter = !!urlSceneOverride || (!!urlTempoOverride && urlTempoOverride.length > 0);
-    if (urlHasFilter && !filterPlaylist.active) return;
-
-    // Shared filter playlist link (/?scene=&tempo=&play=1): play the
-    // highest-priority match rather than slide 0. The on-ended handler then
-    // continues through the rest of the filtered list in priority order.
-    if (filterPlaylist.active) {
-      const top = filterPlaylist.items[0];
-      if (top) {
-        autoPlayConsumedRef.current = true;
-        setUserSelectedMode('archive');
-        playArchive(top);
-        setHeroIndex(1);
-        const params = new URLSearchParams(Array.from(searchParams.entries()));
-        params.delete('play');
-        const qs = params.toString();
-        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-        return;
-      }
-      // Filter active but nothing matches → fall through to slide-0 behavior.
-    }
-
     if (isLive) {
       autoPlayConsumedRef.current = true;
       setUserSelectedMode('live');
@@ -624,7 +599,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     params.delete('play');
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, isLive, playLive, radioCtx, router, pathname, filterPlaylist, playArchive, urlSceneOverride, urlTempoOverride]);
+  }, [searchParams, isLive, playLive, radioCtx, router, pathname]);
 
 
   // When a scene filter is actively narrowing the set (shared `?scene=` link or
