@@ -342,16 +342,27 @@ export async function GET(request: NextRequest) {
       }
 
       try {
-        // BACKFILL: generate+persist this user's snapshot (refresh if >24h old,
-        // reusing the shared catalog). The same snapshot then serves the SEND run
-        // and their next /scene visit.
+        // BACKFILL: generate+persist this user's snapshot, reusing the shared
+        // catalog. The same snapshot then serves the SEND run and their next
+        // /scene visit.
+        //
+        // The FULL backfill (scope=all, Tue 1:45am — the one that gates the
+        // send) FORCES regeneration, bypassing the 24h freshness floor. Everyone
+        // who is about to be emailed gets a snapshot built from the current
+        // catalog — otherwise a user who visited the site last night keeps a
+        // <24h snapshot and their email silently misses anything published
+        // since.
+        //
+        // The DAILY scope=active run keeps the floor: it exists to lazily
+        // refresh the website for people who are already browsing, and forcing
+        // it would rebuild the same active users every single day for nothing.
         let prebuilt;
         if (doGenerate && sharedData && recConfig) {
           const outcome = await generateForUser(
             db,
             userDoc.id,
             "website",
-            { persist: true, generatedBy: "cron" },
+            { persist: true, generatedBy: "cron", force: scope === "all" },
             sharedData,
             recConfig,
           );
