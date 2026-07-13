@@ -67,7 +67,7 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
         `${proseDjLink("marienyx", "Marie")}, ${proseDjLink("gstyle", "Gabri")}, ` +
         `${proseDjLink("andyoro", "Andy Oro")}, and ${proseDjLink("apili", "A-Pili")} for ` +
         `helping shape the feature, and shoutout to ${proseDjLink("akumen", "Akumen")}, whose ` +
-        `tracks were played by three different Channel artists this week.`,
+        `tracks were played by three different Channel artists.`,
     ),
 
     heading("\u{1F3A7}", "Reach more listeners"),
@@ -106,7 +106,7 @@ function buildListenerIntro(): string {
       ) +
       li(`Keep an eye out for <strong>exclusive discount codes</strong> on selected events`) +
       `</ul>`,
-    `<p style="margin: 22px 0 0; font-size: 14px; line-height: 1.6; color: #1a1a1a;">I've also updated your recommendations. They're just below.</p>`,
+    `<p style="margin: 22px 0 0; font-size: 14px; line-height: 1.6; color: #1a1a1a;">I've also updated your recommendations:</p>`,
   ].join("");
 }
 
