@@ -32,16 +32,6 @@ interface IrlShow {
   djs?: EventDJRef[];
 }
 
-interface RadioShow {
-  name: string;
-  radioName: string;
-  url: string;
-  date: string;
-  time: string;
-  timezone: string;
-  duration: string;
-}
-
 interface EventDJRef {
   djName: string;
   djUserId?: string;
@@ -92,11 +82,10 @@ interface PendingProfile {
       customLinks?: CustomLink[];
     };
     irlShows?: IrlShow[];
-    radioShows?: RadioShow[];
-    myRecs?: {
-      bandcampLinks?: string[];
-      eventLinks?: string[];
-    };
+    // radioShows + myRecs are no longer editable here (removed from the admin
+    // form); kept as optional passthrough so legacy stored data still reads.
+    radioShows?: unknown[];
+    myRecs?: { bandcampLinks?: string[]; eventLinks?: string[] };
     sceneIds?: string[];
   };
   status: string;
@@ -126,20 +115,12 @@ export function PendingDJsAdmin() {
   const [bandcamp, setBandcamp] = useState('');
   const [youtube, setYoutube] = useState('');
   const [bookingEmail, setBookingEmail] = useState('');
-  const [mixcloud, setMixcloud] = useState('');
   const [residentAdvisor, setResidentAdvisor] = useState('');
   const [website, setWebsite] = useState('');
   const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
 
   // IRL Shows state
   const [irlShows, setIrlShows] = useState<IrlShow[]>([{ name: '', location: '', url: '', date: '' }, { name: '', location: '', url: '', date: '' }]);
-
-  // Radio Shows state
-  const [radioShows, setRadioShows] = useState<RadioShow[]>([{ name: '', radioName: '', url: '', date: '', time: '', timezone: '', duration: '1' }]);
-
-  // My Recs state
-  const [bandcampRecs, setBandcampRecs] = useState<string[]>(['']);
-  const [eventRecs, setEventRecs] = useState<string[]>(['']);
 
   // Photo upload state
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -366,14 +347,10 @@ export function PendingDJsAdmin() {
     setBandcamp('');
     setYoutube('');
     setBookingEmail('');
-    setMixcloud('');
     setResidentAdvisor('');
     setWebsite('');
     setCustomLinks([]);
     setIrlShows([{ name: '', location: '', url: '', date: '', imageUrl: undefined, venueId: undefined, venueName: undefined, linkedCollectives: [] }, { name: '', location: '', url: '', date: '', imageUrl: undefined, venueId: undefined, venueName: undefined, linkedCollectives: [] }]);
-    setRadioShows([{ name: '', radioName: '', url: '', date: '', time: '', timezone: '', duration: '1' }]);
-    setBandcampRecs(['']);
-    setEventRecs(['']);
     setPhotoUrl(null);
     setPhotoError(null);
     setLinkedVenueIds([]);
@@ -402,7 +379,6 @@ export function PendingDJsAdmin() {
     setBandcamp(profile.djProfile.socialLinks?.bandcamp || '');
     setYoutube(profile.djProfile.socialLinks?.youtube || '');
     setBookingEmail(profile.djProfile.socialLinks?.bookingEmail || '');
-    setMixcloud(profile.djProfile.socialLinks?.mixcloud || '');
     setResidentAdvisor(profile.djProfile.socialLinks?.residentAdvisor || '');
     setWebsite(profile.djProfile.socialLinks?.website || '');
     setCustomLinks(profile.djProfile.socialLinks?.customLinks || []);
@@ -422,22 +398,6 @@ export function PendingDJsAdmin() {
       existingIrlShows[0] || emptyIrlShow,
       existingIrlShows[1] || emptyIrlShow,
     ]);
-    // Radio Shows - ensure at least one empty field
-    const existingRadioShows = (profile.djProfile.radioShows || []).map((s: Partial<RadioShow>) => ({
-      name: s.name || '',
-      radioName: s.radioName || '',
-      url: s.url || '',
-      date: s.date || '',
-      time: s.time || '',
-      timezone: s.timezone || '',
-      duration: s.duration || '1',
-    }));
-    setRadioShows(existingRadioShows.length > 0 ? existingRadioShows : [{ name: '', radioName: '', url: '', date: '', time: '', timezone: '', duration: '1' }]);
-    // My Recs - ensure at least one empty field
-    const existingBandcampRecs = profile.djProfile.myRecs?.bandcampLinks || [];
-    setBandcampRecs(existingBandcampRecs.length > 0 ? existingBandcampRecs : ['']);
-    const existingEventRecs = profile.djProfile.myRecs?.eventLinks || [];
-    setEventRecs(existingEventRecs.length > 0 ? existingEventRecs : ['']);
     // Photo
     setPhotoUrl(profile.djProfile.photoUrl || null);
     setPhotoError(null);
@@ -610,7 +570,6 @@ export function PendingDJsAdmin() {
         bandcamp: bandcamp.trim() ? normalizeUrl(bandcamp.trim()) : undefined,
         youtube: youtube.trim() ? normalizeUrl(youtube.trim()) : undefined,
         bookingEmail: bookingEmail.trim() || undefined,
-        mixcloud: mixcloud.trim() ? normalizeUrl(mixcloud.trim()) : undefined,
         residentAdvisor: residentAdvisor.trim() ? normalizeUrl(residentAdvisor.trim()) : undefined,
         website: website.trim() ? normalizeUrl(website.trim()) : undefined,
         customLinks: validCustomLinks.length > 0 ? validCustomLinks : undefined,
@@ -631,23 +590,6 @@ export function PendingDJsAdmin() {
         djs: (show.djs || []).filter(d => d.djName.trim()).length > 0 ? show.djs : undefined,
       }));
 
-      // Build radio shows data
-      const validRadioShows = radioShows.filter(
-        (show) => (show.radioName || '').trim() || (show.date || '').trim() || (show.name || '').trim()
-      ).map((show) => ({
-        name: (show.name || '').trim(),
-        radioName: (show.radioName || '').trim(),
-        url: (show.url || '').trim() ? normalizeUrl((show.url || '').trim()) : '',
-        date: (show.date || '').trim(),
-        time: (show.time || '').trim(),
-        timezone: (show.timezone || '').trim(),
-        duration: (show.duration || '1').trim(),
-      }));
-
-      // Build my recs data
-      const validBandcampRecs = bandcampRecs.filter((url) => (url || '').trim()).map((url) => normalizeUrl((url || '').trim()));
-      const validEventRecs = eventRecs.filter((url) => (url || '').trim()).map((url) => normalizeUrl((url || '').trim()));
-
       if (editingProfile) {
         // Build request body
         const requestBody: Record<string, unknown> = {
@@ -659,11 +601,6 @@ export function PendingDJsAdmin() {
             genres: genres.trim() ? genres.split(',').map((g) => g.trim()).filter(Boolean) : [],
             photoUrl: photoUrl || null,
             socialLinks: socialLinksData,
-            radioShows: validRadioShows.length > 0 ? validRadioShows : undefined,
-            myRecs: (validBandcampRecs.length > 0 || validEventRecs.length > 0) ? {
-              bandcampLinks: validBandcampRecs.length > 0 ? validBandcampRecs : undefined,
-              eventLinks: validEventRecs.length > 0 ? validEventRecs : undefined,
-            } : undefined,
             sceneIds: pendingSceneIds,
           },
         };
@@ -827,10 +764,6 @@ export function PendingDJsAdmin() {
               genres: genres.trim() ? genres.split(',').map((g) => g.trim()).filter(Boolean) : [],
               photoUrl: photoUrl || null,
               socialLinks: socialLinksData,
-              myRecs: (validBandcampRecs.length > 0 || validEventRecs.length > 0) ? {
-                bandcampLinks: validBandcampRecs.length > 0 ? validBandcampRecs : undefined,
-                eventLinks: validEventRecs.length > 0 ? validEventRecs : undefined,
-              } : undefined,
               sceneIds: pendingSceneIds,
             },
           }),
@@ -1275,16 +1208,6 @@ Cap`;
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Mixcloud</label>
-                    <input
-                      type="url"
-                      value={mixcloud}
-                      onChange={(e) => setMixcloud(e.target.value)}
-                      placeholder="mixcloud.com/yourname"
-                      className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
-                    />
-                  </div>
-                  <div>
                     <label className="block text-xs text-gray-500 mb-1">Resident Advisor</label>
                     <input
                       type="url"
@@ -1647,227 +1570,6 @@ Cap`;
                       </div>
                     </div>
                   ))}
-                </div>
-              </div>
-
-              {/* Radio Shows */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Radio Shows
-                </label>
-                <p className="text-xs text-gray-500 mb-3">
-                  Shows on other online radios
-                </p>
-                <div className="space-y-3">
-                  {radioShows.map((show, index) => (
-                    <div key={index} className="space-y-2 p-3 bg-[#1a1a1a] rounded-lg border border-gray-800">
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={show.name}
-                          onChange={(e) => {
-                            const updated = [...radioShows];
-                            updated[index] = { ...updated[index], name: e.target.value };
-                            setRadioShows(updated);
-                          }}
-                          placeholder="Show name"
-                          className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
-                        />
-                        <input
-                          type="text"
-                          value={show.radioName}
-                          onChange={(e) => {
-                            const updated = [...radioShows];
-                            updated[index] = { ...updated[index], radioName: e.target.value };
-                            setRadioShows(updated);
-                          }}
-                          placeholder="Radio name"
-                          className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="date"
-                          value={show.date}
-                          onChange={(e) => {
-                            const updated = [...radioShows];
-                            updated[index] = { ...updated[index], date: e.target.value };
-                            setRadioShows(updated);
-                          }}
-                          className="w-40 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm [color-scheme:dark]"
-                        />
-                        <input
-                          type="time"
-                          value={show.time}
-                          onChange={(e) => {
-                            const updated = [...radioShows];
-                            updated[index] = { ...updated[index], time: e.target.value };
-                            setRadioShows(updated);
-                          }}
-                          className="w-32 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm [color-scheme:dark]"
-                        />
-                        <select
-                          value={show.timezone}
-                          onChange={(e) => {
-                            const updated = [...radioShows];
-                            updated[index] = { ...updated[index], timezone: e.target.value };
-                            setRadioShows(updated);
-                          }}
-                          className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-white transition-colors text-sm"
-                        >
-                          <option value="">Timezone</option>
-                          <option value="America/New_York">Eastern (ET)</option>
-                          <option value="America/Chicago">Central (CT)</option>
-                          <option value="America/Denver">Mountain (MT)</option>
-                          <option value="America/Los_Angeles">Pacific (PT)</option>
-                          <option value="Europe/London">London (GMT/BST)</option>
-                          <option value="Europe/Paris">Paris (CET/CEST)</option>
-                          <option value="Europe/Berlin">Berlin (CET/CEST)</option>
-                          <option value="Asia/Tokyo">Tokyo (JST)</option>
-                          <option value="Australia/Sydney">Sydney (AEST)</option>
-                        </select>
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="url"
-                          value={show.url}
-                          onChange={(e) => {
-                            const updated = [...radioShows];
-                            updated[index] = { ...updated[index], url: e.target.value };
-                            setRadioShows(updated);
-                          }}
-                          placeholder="Stream URL"
-                          className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
-                        />
-                        <select
-                          value={show.duration}
-                          onChange={(e) => {
-                            const updated = [...radioShows];
-                            updated[index] = { ...updated[index], duration: e.target.value };
-                            setRadioShows(updated);
-                          }}
-                          className="w-28 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-white transition-colors text-sm"
-                        >
-                          <option value="0.5">30 min</option>
-                          <option value="1">1 hour</option>
-                          <option value="1.5">1.5 hours</option>
-                          <option value="2">2 hours</option>
-                          <option value="3">3 hours</option>
-                          <option value="4">4 hours</option>
-                        </select>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setRadioShows([...radioShows, { name: '', radioName: '', url: '', date: '', time: '', timezone: '', duration: '1' }])}
-                  className="mt-2 text-xs text-gray-400 hover:text-white flex items-center gap-1"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                  Add Radio Show
-                </button>
-              </div>
-
-              {/* My Recs */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  My Recs
-                </label>
-                <p className="text-xs text-gray-500 mb-3">
-                  Share music and events recommendations
-                </p>
-
-                {/* Bandcamp Recs */}
-                <div className="mb-4">
-                  <label className="block text-xs text-gray-500 mb-2">Bandcamp</label>
-                  <div className="space-y-2">
-                    {bandcampRecs.map((url, index) => (
-                      <div key={index} className="flex gap-2">
-                        <input
-                          type="url"
-                          value={url}
-                          onChange={(e) => {
-                            const updated = [...bandcampRecs];
-                            updated[index] = e.target.value;
-                            setBandcampRecs(updated);
-                          }}
-                          placeholder="https://artist.bandcamp.com/album"
-                          className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
-                        />
-                        {bandcampRecs.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = bandcampRecs.filter((_, i) => i !== index);
-                              setBandcampRecs(updated);
-                            }}
-                            className="px-2 text-gray-500 hover:text-red-400 transition-colors"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => setBandcampRecs([...bandcampRecs, ''])}
-                      className="text-gray-400 hover:text-white text-sm transition-colors flex items-center gap-1"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      Add Bandcamp Link
-                    </button>
-                  </div>
-                </div>
-
-                {/* Event Recs */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-2">Events</label>
-                  <div className="space-y-2">
-                    {eventRecs.map((url, index) => (
-                      <div key={index} className="flex gap-2">
-                        <input
-                          type="url"
-                          value={url}
-                          onChange={(e) => {
-                            const updated = [...eventRecs];
-                            updated[index] = e.target.value;
-                            setEventRecs(updated);
-                          }}
-                          placeholder="https://ra.co/events/..."
-                          className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
-                        />
-                        {eventRecs.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = eventRecs.filter((_, i) => i !== index);
-                              setEventRecs(updated);
-                            }}
-                            className="px-2 text-gray-500 hover:text-red-400 transition-colors"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => setEventRecs([...eventRecs, ''])}
-                      className="text-gray-400 hover:text-white text-sm transition-colors flex items-center gap-1"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      Add Event Link
-                    </button>
-                  </div>
                 </div>
               </div>
 

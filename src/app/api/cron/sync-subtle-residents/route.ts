@@ -125,7 +125,6 @@ export async function GET(request: NextRequest) {
       if (resident.instagram) socialLinks.instagram = extractInstagramUsername(resident.instagram);
       if (resident.soundcloud) socialLinks.soundcloud = resident.soundcloud;
       if (resident.bandcamp) socialLinks.bandcamp = resident.bandcamp;
-      if (resident.mixcloud) socialLinks.mixcloud = resident.mixcloud;
       if (resident.youtube) socialLinks.youtube = resident.youtube;
       if (resident.website) socialLinks.website = resident.website;
       if (resident.tiktok) socialLinks.tiktok = resident.tiktok;

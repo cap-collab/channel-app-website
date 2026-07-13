@@ -179,7 +179,7 @@ function ComputerGuide() {
         <h3 className="text-white font-medium mb-2">4. Choose what to share</h3>
         <div className="space-y-4 mt-3">
           <div>
-            <p className="text-gray-300 text-sm font-medium">From a browser tab (SoundCloud, Mixcloud, Bandcamp)</p>
+            <p className="text-gray-300 text-sm font-medium">From a browser tab (SoundCloud, Bandcamp)</p>
             <ul className="text-gray-400 text-sm mt-1 list-disc list-inside">
               <li>Select the browser tab</li>
               <li>Toggle <span className="text-white">&quot;Also share tab audio&quot;</span></li>

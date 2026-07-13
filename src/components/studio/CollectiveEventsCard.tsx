@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import Image from "next/image";
 import type { User } from "firebase/auth";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { normalizeUrl } from "@/lib/url";
+import { uploadEventPhoto, validatePhoto } from "@/lib/photo-upload";
 import { useTagOptions } from "@/hooks/useTagOptions";
 
 // "TBA" venue = private / to-be-announced. Stored as an unlinked venue ref
@@ -39,6 +41,7 @@ interface EventRow {
   venue?: VenueRef | null;
   ticketLink?: string | null;
   discountCode?: string | null;
+  photo?: string | null;
 }
 
 interface FormState {
@@ -51,9 +54,10 @@ interface FormState {
   venueId: string; // set when an existing venue was picked (else free text)
   ticketLink: string;
   discountCode: string;
+  photo: string | null; // event flyer → event.photo
 }
 
-const EMPTY_FORM: FormState = { name: "", date: "", startTime: "20:00", city: "", venueName: "", venueId: "", ticketLink: "", discountCode: "" };
+const EMPTY_FORM: FormState = { name: "", date: "", startTime: "20:00", city: "", venueName: "", venueId: "", ticketLink: "", discountCode: "", photo: null };
 
 // Compose date + start time into a unix-ms timestamp in the browser's LOCAL
 // timezone (bare datetime string parses as local). Mirrors the DJ studio's
@@ -70,6 +74,7 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName, colle
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [venueFocused, setVenueFocused] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const { venues: venueOptions } = useTagOptions();
   // Venue typeahead: "TBA" always offered first, then matching venues.
@@ -121,6 +126,7 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName, colle
           venue: firstVenue ? { venueId: firstVenue.venueId || "", venueName: firstVenue.venueName || "" } : null,
           ticketLink: d.ticketLink || null,
           discountCode: d.discountCode || null,
+          photo: d.photo || null,
         });
       });
       rows.sort((a, b) => a.date - b.date);
@@ -139,6 +145,31 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName, colle
     return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   }, [user]);
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validation = validatePhoto(file);
+    if (!validation.valid) {
+      setError(validation.error || "Invalid file");
+      return;
+    }
+    setUploadingPhoto(true);
+    setError(null);
+    try {
+      const tempId = `temp-${user.uid}-${Date.now()}`;
+      const result = await uploadEventPhoto(tempId, file);
+      if (result.success && result.url) {
+        setForm((f) => ({ ...f, photo: result.url! }));
+      } else {
+        setError(result.error || "Upload failed");
+      }
+    } catch {
+      setError("Failed to upload flyer");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const startEdit = (ev: EventRow) => {
     // Read back in LOCAL time to match how composeDateMs stored it.
     const d = new Date(ev.date);
@@ -153,6 +184,7 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName, colle
       venueId: ev.venue?.venueId || "",
       ticketLink: ev.ticketLink || "",
       discountCode: ev.discountCode || "",
+      photo: ev.photo || null,
     });
     setShowForm(true);
   };
@@ -187,6 +219,7 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName, colle
         linkedVenues,
         ticketLink: form.ticketLink.trim() ? normalizeUrl(form.ticketLink.trim()) : undefined,
         discountCode: form.discountCode.trim() || undefined,
+        photo: form.photo,
         linkedCollectives,
       };
       const res = await fetch("/api/events", {
@@ -261,6 +294,38 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName, colle
 
       {showForm ? (
         <div className="space-y-3 border-t border-gray-700/50 pt-3">
+          {/* Flyer / Photo */}
+          <div>
+            <label className="block text-gray-400 text-xs mb-1">Flyer</label>
+            <div className="flex items-start gap-3">
+              <div className="relative w-14 h-14 bg-gray-900 rounded overflow-hidden flex-shrink-0">
+                {form.photo ? (
+                  <Image src={form.photo} alt="Event flyer" fill className="object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-600">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                )}
+                {uploadingPhoto && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="cursor-pointer bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded px-2.5 py-1 text-xs text-white transition-colors">
+                  {form.photo ? "Change" : "Upload flyer"}
+                  <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" onChange={handlePhotoUpload} disabled={uploadingPhoto} className="hidden" />
+                </label>
+                {form.photo && (
+                  <button type="button" onClick={() => setForm((f) => ({ ...f, photo: null }))} className="text-red-400 hover:text-red-300 text-xs text-left">Remove</button>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block text-gray-400 text-xs mb-1">Event name</label>
             <input

@@ -43,7 +43,6 @@ export function VenuesAdmin() {
   const [soundcloud, setSoundcloud] = useState('');
   const [bandcamp, setBandcamp] = useState('');
   const [youtube, setYoutube] = useState('');
-  const [mixcloud, setMixcloud] = useState('');
   const [email, setEmail] = useState('');
   const [website, setWebsite] = useState('');
   const [residentAdvisor, setResidentAdvisor] = useState('');
@@ -242,7 +241,6 @@ export function VenuesAdmin() {
     setSoundcloud('');
     setBandcamp('');
     setYoutube('');
-    setMixcloud('');
     setEmail('');
     setWebsite('');
     setResidentAdvisor('');
@@ -268,7 +266,6 @@ export function VenuesAdmin() {
     setSoundcloud(venue.socialLinks?.soundcloud || '');
     setBandcamp(venue.socialLinks?.bandcamp || '');
     setYoutube(venue.socialLinks?.youtube || '');
-    setMixcloud(venue.socialLinks?.mixcloud || '');
     setEmail(venue.socialLinks?.email || '');
     setWebsite(venue.socialLinks?.website || '');
     setResidentAdvisor(venue.socialLinks?.residentAdvisor || '');
@@ -373,7 +370,6 @@ export function VenuesAdmin() {
       if (soundcloud.trim()) socialLinksData.soundcloud = normalizeUrl(soundcloud.trim());
       if (bandcamp.trim()) socialLinksData.bandcamp = normalizeUrl(bandcamp.trim());
       if (youtube.trim()) socialLinksData.youtube = normalizeUrl(youtube.trim());
-      if (mixcloud.trim()) socialLinksData.mixcloud = normalizeUrl(mixcloud.trim());
       if (email.trim()) socialLinksData.email = email.trim();
       if (website.trim()) socialLinksData.website = normalizeUrl(website.trim());
       if (residentAdvisor.trim()) socialLinksData.residentAdvisor = normalizeUrl(residentAdvisor.trim());
@@ -655,13 +651,6 @@ export function VenuesAdmin() {
                   onChange={(e) => setYoutube(e.target.value)}
                   className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
                   placeholder="YouTube URL"
-                />
-                <input
-                  type="text"
-                  value={mixcloud}
-                  onChange={(e) => setMixcloud(e.target.value)}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
-                  placeholder="Mixcloud URL"
                 />
                 <input
                   type="text"

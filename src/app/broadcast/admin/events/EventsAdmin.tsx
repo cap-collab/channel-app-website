@@ -11,7 +11,7 @@ import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { Header } from '@/components/Header';
 import { normalizeUrl } from '@/lib/url';
 import { uploadEventPhoto, deleteEventPhoto, validatePhoto } from '@/lib/photo-upload';
-import { Event, EventDJRef, EventVenueRef, Venue, Collective, CollectiveRef, CustomLink } from '@/types/events';
+import { Event, EventDJRef, EventVenueRef, Venue, Collective, CollectiveRef } from '@/types/events';
 import { ScenePillEditor } from '@/components/broadcast/admin/ScenePillEditor';
 import { CreatableChipField } from '@/components/events/CreatableChipField';
 import { normalizeUsername } from '@/lib/dj-matching';
@@ -39,22 +39,11 @@ export function EventsAdmin() {
   const [name, setName] = useState('');
   const [date, setDate] = useState('');           // YYYY-MM-DD
   const [startTime, setStartTime] = useState('20:00'); // HH:MM, defaults to 8:00 PM
-  const [description, setDescription] = useState('');
   const [eventLinkedVenues, setEventLinkedVenues] = useState<EventVenueRef[]>([]);
   const [eventLinkedCollectives, setEventLinkedCollectives] = useState<CollectiveRef[]>([]);
   const [location, setLocation] = useState('');
-  const [genres, setGenres] = useState('');
   const [ticketLink, setTicketLink] = useState('');
   const [discountCode, setDiscountCode] = useState('');
-  const [instagram, setInstagram] = useState('');
-  const [soundcloud, setSoundcloud] = useState('');
-  const [bandcamp, setBandcamp] = useState('');
-  const [youtube, setYoutube] = useState('');
-  const [mixcloud, setMixcloud] = useState('');
-  const [emailLink, setEmailLink] = useState('');
-  const [website, setWebsite] = useState('');
-  const [residentAdvisor, setResidentAdvisor] = useState('');
-  const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
   const [djs, setDjs] = useState<EventDJRef[]>([]);
   // Scene override: null = inherit from DJs + collectives; [] = pinned to no scene; [ids] = pinned.
   const [sceneIdsOverride, setSceneIdsOverride] = useState<string[] | null>(null);
@@ -226,6 +215,7 @@ export function EventsAdmin() {
           genres: data.genres || [],
           location: data.location || null,
           ticketLink: data.ticketLink || null,
+          discountCode: data.discountCode || null,
           socialLinks: data.socialLinks || {},
           sceneIdsOverride: data.sceneIdsOverride === undefined ? undefined : data.sceneIdsOverride,
           createdAt: data.createdAt?.toMillis?.() || Date.now(),
@@ -287,22 +277,11 @@ export function EventsAdmin() {
     setName('');
     setDate('');
     setStartTime('20:00');
-    setDescription('');
     setEventLinkedVenues([]);
     setEventLinkedCollectives([]);
     setLocation('');
-    setGenres('');
     setTicketLink('');
     setDiscountCode('');
-    setInstagram('');
-    setSoundcloud('');
-    setBandcamp('');
-    setYoutube('');
-    setMixcloud('');
-    setEmailLink('');
-    setWebsite('');
-    setResidentAdvisor('');
-    setCustomLinks([]);
     setDjs([]);
     setSceneIdsOverride(null);
     setPhotoUrl(null);
@@ -319,7 +298,6 @@ export function EventsAdmin() {
     const [datePart, timePart] = msToDatetimeLocal(event.date).split('T');
     setDate(datePart || '');
     setStartTime(timePart || '20:00');
-    setDescription(event.description || '');
     // Populate venue chips from arrays, or fall back to legacy single fields
     // (venueId/venueName, or a legacy manual venueName with no id).
     const lv = event.linkedVenues || [];
@@ -337,18 +315,8 @@ export function EventsAdmin() {
       setEventLinkedCollectives(lc);
     }
     setLocation(event.location || '');
-    setGenres(event.genres?.join(', ') || '');
     setTicketLink(event.ticketLink || '');
     setDiscountCode(event.discountCode || '');
-    setInstagram(event.socialLinks?.instagram || '');
-    setSoundcloud(event.socialLinks?.soundcloud || '');
-    setBandcamp(event.socialLinks?.bandcamp || '');
-    setYoutube(event.socialLinks?.youtube || '');
-    setMixcloud(event.socialLinks?.mixcloud || '');
-    setEmailLink(event.socialLinks?.email || '');
-    setWebsite(event.socialLinks?.website || '');
-    setResidentAdvisor(event.socialLinks?.residentAdvisor || '');
-    setCustomLinks(event.socialLinks?.customLinks || []);
     setDjs(event.djs.length > 0 ? event.djs : [{ djName: '' }]);
     setSceneIdsOverride(
       event.sceneIdsOverride === undefined ? null : event.sceneIdsOverride
@@ -428,25 +396,12 @@ export function EventsAdmin() {
 
       const filteredDJs = djs.filter(dj => dj.djName.trim());
 
-      const socialLinksData: Record<string, unknown> = {};
-      if (instagram.trim()) socialLinksData.instagram = instagram.trim();
-      if (soundcloud.trim()) socialLinksData.soundcloud = normalizeUrl(soundcloud.trim());
-      if (bandcamp.trim()) socialLinksData.bandcamp = normalizeUrl(bandcamp.trim());
-      if (youtube.trim()) socialLinksData.youtube = normalizeUrl(youtube.trim());
-      if (mixcloud.trim()) socialLinksData.mixcloud = normalizeUrl(mixcloud.trim());
-      if (emailLink.trim()) socialLinksData.email = emailLink.trim();
-      if (website.trim()) socialLinksData.website = normalizeUrl(website.trim());
-      if (residentAdvisor.trim()) socialLinksData.residentAdvisor = normalizeUrl(residentAdvisor.trim());
-      const filteredCustomLinks = customLinks.filter(l => l.label.trim() && l.url.trim());
-      if (filteredCustomLinks.length > 0) socialLinksData.customLinks = filteredCustomLinks.map(l => ({ label: l.label.trim(), url: normalizeUrl(l.url.trim()) }));
-
       const payload = {
         ...(editingEvent ? { eventId: editingEvent.id } : {}),
         name: name.trim(),
         date: datetimeLocalToMs(`${date}T${startTime || '20:00'}`),
         endDate: null, // events no longer have an end time; clear any legacy value
         photo: photoUrl,
-        description: description.trim() || null,
         venueId: eventLinkedVenues.length > 0 ? (eventLinkedVenues[0].venueId || null) : null,
         venueName: eventLinkedVenues.length > 0 ? eventLinkedVenues[0].venueName : null,
         venueCollectiveId: null, // collective-as-venue removed; clear any legacy value
@@ -455,11 +410,9 @@ export function EventsAdmin() {
         linkedCollectives: eventLinkedCollectives,
         djs: filteredDJs,
         sceneIdsOverride: sceneIdsOverride,
-        genres: genres.trim() ? genres.split(',').map(g => g.trim()).filter(Boolean) : [],
         location: location.trim() || null,
         ticketLink: ticketLink.trim() ? normalizeUrl(ticketLink.trim()) : null,
         discountCode: discountCode.trim() || null,
-        socialLinks: socialLinksData,
       };
 
       const res = await fetch('/api/admin/events', {
@@ -739,30 +692,6 @@ export function EventsAdmin() {
               />
             </div>
 
-            {/* Description */}
-            <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-1">Description</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white resize-none"
-                placeholder="Event description..."
-              />
-            </div>
-
-            {/* Genres */}
-            <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-1">Genres / Vibes</label>
-              <input
-                type="text"
-                value={genres}
-                onChange={(e) => setGenres(e.target.value)}
-                className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
-                placeholder="Techno, House, Ambient"
-              />
-            </div>
-
             {/* Ticket Link */}
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-1">Ticket Link</label>
@@ -785,115 +714,6 @@ export function EventsAdmin() {
                 className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
                 placeholder="e.g. CHANNEL20"
               />
-            </div>
-
-            {/* Social Links */}
-            <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-3">Social Links</label>
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  value={instagram}
-                  onChange={(e) => setInstagram(e.target.value)}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
-                  placeholder="Instagram @username"
-                />
-                <input
-                  type="text"
-                  value={soundcloud}
-                  onChange={(e) => setSoundcloud(e.target.value)}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
-                  placeholder="SoundCloud URL"
-                />
-                <input
-                  type="text"
-                  value={bandcamp}
-                  onChange={(e) => setBandcamp(e.target.value)}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
-                  placeholder="Bandcamp URL"
-                />
-                <input
-                  type="text"
-                  value={youtube}
-                  onChange={(e) => setYoutube(e.target.value)}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
-                  placeholder="YouTube URL"
-                />
-                <input
-                  type="text"
-                  value={mixcloud}
-                  onChange={(e) => setMixcloud(e.target.value)}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
-                  placeholder="Mixcloud URL"
-                />
-                <input
-                  type="text"
-                  value={emailLink}
-                  onChange={(e) => setEmailLink(e.target.value)}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
-                  placeholder="Contact Email"
-                />
-                <input
-                  type="text"
-                  value={residentAdvisor}
-                  onChange={(e) => setResidentAdvisor(e.target.value)}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
-                  placeholder="Resident Advisor URL"
-                />
-                <input
-                  type="text"
-                  value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
-                  placeholder="Website URL"
-                />
-              </div>
-              {/* Custom Links */}
-              <div className="mt-4 pt-4 border-t border-gray-700">
-                <label className="block text-xs text-gray-500 mb-2">Other Links</label>
-                <div className="space-y-2">
-                  {customLinks.map((link, index) => (
-                    <div key={index} className="flex gap-2">
-                      <input
-                        type="text"
-                        value={link.label}
-                        onChange={(e) => {
-                          const updated = [...customLinks];
-                          updated[index] = { ...updated[index], label: e.target.value };
-                          setCustomLinks(updated);
-                        }}
-                        placeholder="Label"
-                        className="w-1/3 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white text-sm"
-                      />
-                      <input
-                        type="text"
-                        value={link.url}
-                        onChange={(e) => {
-                          const updated = [...customLinks];
-                          updated[index] = { ...updated[index], url: e.target.value };
-                          setCustomLinks(updated);
-                        }}
-                        placeholder="URL"
-                        className="flex-1 bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setCustomLinks(customLinks.filter((_, i) => i !== index))}
-                        className="text-red-400 hover:text-red-300 px-2"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setCustomLinks([...customLinks, { label: '', url: '' }])}
-                    className="text-sm text-gray-400 hover:text-white mt-1"
-                  >
-                    + Add Link
-                  </button>
-                </div>
-              </div>
             </div>
 
             {/* DJs — search available DJs or type a new name */}

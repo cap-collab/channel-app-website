@@ -63,12 +63,6 @@ const SoundCloudIcon = ({ size = 14 }: { size?: number }) => (
   </svg>
 );
 
-const MixcloudIcon = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
-    <path d="M2.462 8.596l1.986 6.097 1.986-6.097h2.668l1.986 6.097 1.986-6.097h2.668l-3.307 9.808H9.767l-1.986-5.912-1.986 5.912H3.107L0 8.596h2.462zm19.552 0c1.099 0 1.986.896 1.986 1.999v5.81c0 1.103-.887 1.999-1.986 1.999-1.099 0-1.986-.896-1.986-1.999v-5.81c0-1.103.887-1.999 1.986-1.999zm-4.634 0c1.099 0 1.986.896 1.986 1.999v5.81c0 1.103-.887 1.999-1.986 1.999-1.099 0-1.986-.896-1.986-1.999v-5.81c0-1.103.887-1.999 1.986-1.999z"/>
-  </svg>
-);
-
 const BandcampIcon = ({ size = 14 }: { size?: number }) => (
   <svg width={size} height={size} fill="currentColor" viewBox="0 0 24 24">
     <path d="M0 18.75l7.437-13.5H24l-7.438 13.5H0z"/>
@@ -1853,17 +1847,6 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                     title="SoundCloud"
                   >
                     <SoundCloudIcon size={20} />
-                  </a>
-                )}
-                {socialLinks.mixcloud && (
-                  <a
-                    href={socialLinks.mixcloud}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-zinc-400 hover:text-white transition-colors"
-                    title="Mixcloud"
-                  >
-                    <MixcloudIcon size={20} />
                   </a>
                 )}
                 {socialLinks.bandcamp && (

@@ -147,6 +147,7 @@ interface DJProfile {
     bookingEmail?: string;
     mixcloud?: string;
     residentAdvisor?: string;
+    website?: string;
     customLinks?: CustomLink[];
   };
   radioShows?: RadioShow[];
@@ -355,8 +356,8 @@ export function StudioProfileClient() {
   const [bandcampInput, setBandcampInput] = useState("");
   const [youtubeInput, setYoutubeInput] = useState("");
   const [bookingEmailInput, setBookingEmailInput] = useState("");
-  const [mixcloudInput, setMixcloudInput] = useState("");
   const [residentAdvisorInput, setResidentAdvisorInput] = useState("");
+  const [websiteInput, setWebsiteInput] = useState("");
   const [customLinksInput, setCustomLinksInput] = useState<CustomLink[]>([]);
   const [savingSocial, setSavingSocial] = useState(false);
   const [saveSocialSuccess, setSaveSocialSuccess] = useState(false);
@@ -777,8 +778,8 @@ export function StudioProfileClient() {
             setBandcampInput(data.djProfile.socialLinks?.bandcamp || "");
             setYoutubeInput(data.djProfile.socialLinks?.youtube || "");
             setBookingEmailInput(data.djProfile.socialLinks?.bookingEmail || "");
-            setMixcloudInput(data.djProfile.socialLinks?.mixcloud || "");
             setResidentAdvisorInput(data.djProfile.socialLinks?.residentAdvisor || "");
+            setWebsiteInput(data.djProfile.socialLinks?.website || "");
             setCustomLinksInput(data.djProfile.socialLinks?.customLinks || []);
             // Radio Shows - load all saved shows plus one empty slot
             const radioShows = (data.djProfile.radioShows || []).map((s: Partial<RadioShow>) => ({ name: "", radioName: "", url: "", date: "", time: "", duration: "1", ...s }));
@@ -1526,8 +1527,8 @@ export function StudioProfileClient() {
     bandcamp: string,
     youtube: string,
     bookingEmail: string,
-    mixcloud: string,
     residentAdvisor: string,
+    website: string,
     customLinks: CustomLink[]
   ) => {
     if (!user || !db) return;
@@ -1553,8 +1554,8 @@ export function StudioProfileClient() {
           bandcamp: normalizedBandcamp,
           youtube: youtube.trim() ? normalizeUrl(youtube.trim()) : null,
           bookingEmail: bookingEmail.trim() || null,
-          mixcloud: mixcloud.trim() ? normalizeUrl(mixcloud.trim()) : null,
           residentAdvisor: residentAdvisor.trim() ? normalizeUrl(residentAdvisor.trim()) : null,
+          website: website.trim() ? normalizeUrl(website.trim()) : null,
           customLinks: validCustomLinks.length > 0 ? validCustomLinks : null,
         },
       };
@@ -2023,10 +2024,10 @@ export function StudioProfileClient() {
     if (socialDebounceRef.current) clearTimeout(socialDebounceRef.current);
     socialDebounceRef.current = setTimeout(() => saveSocialLinks(
       instagramInput, soundcloudInput, bandcampInput, youtubeInput,
-      bookingEmailInput, mixcloudInput, residentAdvisorInput, customLinksInput
+      bookingEmailInput, residentAdvisorInput, websiteInput, customLinksInput
     ), 1000);
     return () => { if (socialDebounceRef.current) clearTimeout(socialDebounceRef.current); };
-  }, [instagramInput, soundcloudInput, bandcampInput, youtubeInput, bookingEmailInput, mixcloudInput, residentAdvisorInput, customLinksInput, saveSocialLinks]);
+  }, [instagramInput, soundcloudInput, bandcampInput, youtubeInput, bookingEmailInput, residentAdvisorInput, websiteInput, customLinksInput, saveSocialLinks]);
 
   // Auto-save radio shows with debounce
   useEffect(() => {
@@ -3669,18 +3670,6 @@ export function StudioProfileClient() {
               </div>
               <div>
                 <label className="block text-gray-400 text-sm mb-2">
-                  Mixcloud
-                </label>
-                <input
-                  type="text"
-                  value={mixcloudInput}
-                  onChange={(e) => setMixcloudInput(e.target.value)}
-                  placeholder="https://mixcloud.com/yourname"
-                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-400 text-sm mb-2">
                   Resident Advisor
                 </label>
                 <input
@@ -3688,6 +3677,18 @@ export function StudioProfileClient() {
                   value={residentAdvisorInput}
                   onChange={(e) => setResidentAdvisorInput(e.target.value)}
                   placeholder="https://ra.co/dj/yourname"
+                  className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Website
+                </label>
+                <input
+                  type="text"
+                  value={websiteInput}
+                  onChange={(e) => setWebsiteInput(e.target.value)}
+                  placeholder="https://yourname.com"
                   className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
                 />
               </div>

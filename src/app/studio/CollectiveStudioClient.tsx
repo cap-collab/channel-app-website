@@ -84,10 +84,10 @@ export default function CollectiveStudioClient({ slug, ownedSlugs = [], onSwitch
   const [soundcloudInput, setSoundcloudInput] = useState("");
   const [bandcampInput, setBandcampInput] = useState("");
   const [youtubeInput, setYoutubeInput] = useState("");
-  const [mixcloudInput, setMixcloudInput] = useState("");
   const [residentAdvisorInput, setResidentAdvisorInput] = useState("");
   const [websiteInput, setWebsiteInput] = useState("");
   const [emailInput, setEmailInput] = useState("");
+  const [tipButtonLinkInput, setTipButtonLinkInput] = useState("");
   const [savingSocial, setSavingSocial] = useState(false);
   const [saveSocialSuccess, setSaveSocialSuccess] = useState(false);
 
@@ -151,10 +151,10 @@ export default function CollectiveStudioClient({ slug, ownedSlugs = [], onSwitch
           setSoundcloudInput(s.soundcloud || "");
           setBandcampInput(s.bandcamp || "");
           setYoutubeInput(s.youtube || "");
-          setMixcloudInput(s.mixcloud || "");
           setResidentAdvisorInput(s.residentAdvisor || "");
           setWebsiteInput(s.website || "");
           setEmailInput(s.email || "");
+          setTipButtonLinkInput(d.tipButtonLink || "");
         }
       });
     })();
@@ -218,12 +218,13 @@ export default function CollectiveStudioClient({ slug, ownedSlugs = [], onSwitch
           soundcloud: soundcloudInput.trim() ? normalizeUrl(soundcloudInput.trim()) : null,
           bandcamp: bandcampInput.trim() ? normalizeUrl(bandcampInput.trim()) : null,
           youtube: youtubeInput.trim() ? normalizeUrl(youtubeInput.trim()) : null,
-          mixcloud: mixcloudInput.trim() ? normalizeUrl(mixcloudInput.trim()) : null,
           residentAdvisor: residentAdvisorInput.trim() ? normalizeUrl(residentAdvisorInput.trim()) : null,
           website: websiteInput.trim() ? normalizeUrl(websiteInput.trim()) : null,
           // NOTE: collective socialLinks uses `email`, NOT `bookingEmail` (the DJ key).
           email: emailInput.trim() || null,
         },
+        // Tip/support link is a top-level collective field (mirrors DJ tipButtonLink).
+        tipButtonLink: tipButtonLinkInput.trim() ? normalizeUrl(tipButtonLinkInput.trim()) : null,
       });
       setSaveSocialSuccess(true);
       setTimeout(() => setSaveSocialSuccess(false), 2000);
@@ -232,7 +233,7 @@ export default function CollectiveStudioClient({ slug, ownedSlugs = [], onSwitch
     } finally {
       setSavingSocial(false);
     }
-  }, [collectiveRef, instagramInput, soundcloudInput, bandcampInput, youtubeInput, mixcloudInput, residentAdvisorInput, websiteInput, emailInput]);
+  }, [collectiveRef, instagramInput, soundcloudInput, bandcampInput, youtubeInput, residentAdvisorInput, websiteInput, emailInput, tipButtonLinkInput]);
 
   // Debounced auto-save for bio + details (mirrors DJ studio: 1s delay).
   useEffect(() => {
@@ -504,7 +505,6 @@ export default function CollectiveStudioClient({ slug, ownedSlugs = [], onSwitch
               { label: "SoundCloud", value: soundcloudInput, set: setSoundcloudInput, ph: "https://soundcloud.com/name" },
               { label: "Bandcamp", value: bandcampInput, set: setBandcampInput, ph: "https://name.bandcamp.com" },
               { label: "YouTube", value: youtubeInput, set: setYoutubeInput, ph: "https://youtube.com/@name" },
-              { label: "Mixcloud", value: mixcloudInput, set: setMixcloudInput, ph: "https://mixcloud.com/name" },
               { label: "Resident Advisor", value: residentAdvisorInput, set: setResidentAdvisorInput, ph: "https://ra.co/..." },
               { label: "Website", value: websiteInput, set: setWebsiteInput, ph: "https://..." },
             ].map((f) => (
@@ -526,6 +526,17 @@ export default function CollectiveStudioClient({ slug, ownedSlugs = [], onSwitch
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
                 placeholder="hello@collective.com"
+                className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-gray-400 text-sm mb-2">Support Link</label>
+              <p className="text-gray-500 text-xs mb-2">Adds a Support button on the collective&apos;s public page. Leave blank to hide it.</p>
+              <input
+                type="text"
+                value={tipButtonLinkInput}
+                onChange={(e) => setTipButtonLinkInput(e.target.value)}
+                placeholder="https://ko-fi.com/yourcollective"
                 className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
               />
             </div>

@@ -87,7 +87,7 @@ export function SystemAudioCapture({ onStream, onError, onBack }: SystemAudioCap
             <div className="space-y-4">
               <div>
                 <p className="text-gray-300 text-sm mb-1">If you play audio from a browser tab</p>
-                <p className="text-gray-500 text-xs mb-2">(SoundCloud, Mixcloud, Bandcamp)</p>
+                <p className="text-gray-500 text-xs mb-2">(SoundCloud, Bandcamp)</p>
                 <ul className="text-gray-400 text-sm list-disc list-inside">
                   <li>Select the browser tab</li>
                   <li>Toggle <span className="text-white">&quot;Also share tab audio&quot;</span></li>
