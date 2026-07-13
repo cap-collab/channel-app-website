@@ -29,7 +29,9 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
 }
 
 export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props) {
-  const { djs: djOptions, venues: venueOptions, collectives: collectiveOptions, loading } = useTagOptions();
+  // Venues are not an entity — there is no venue option list. A typed place that
+  // doesn't match a collective is saved as a free-text venue tag.
+  const { djs: djOptions, collectives: collectiveOptions, loading } = useTagOptions();
 
   const [djQuery, setDjQuery] = useState('');
   const [placeQuery, setPlaceQuery] = useState('');   // one field for venues + collectives
@@ -50,18 +52,15 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
     return djOptions.filter((o) => o.label.toLowerCase().includes(q) && !selectedDjKeys.has(djKeyOf(o))).slice(0, 8);
   }, [djQuery, djOptions, selectedDjKeys]);
 
-  // Merged venue + collective matches for the single "place" field.
+  // Collective matches for the "place" field. Venues have no option list — a
+  // typed place with no collective match becomes a free-text venue tag.
   const filteredPlaces = useMemo(() => {
     const q = placeQuery.trim().toLowerCase();
-    if (!q) return [] as Array<{ kind: 'venue'; opt: typeof venueOptions[number] } | { kind: 'collective'; opt: typeof collectiveOptions[number] }>;
-    const v = venueOptions
-      .filter((o) => o.label.toLowerCase().includes(q) && !selectedVenueKeys.has(venueKeyOf(o)))
-      .map((opt) => ({ kind: 'venue' as const, opt }));
-    const c = collectiveOptions
+    if (!q) return [];
+    return collectiveOptions
       .filter((o) => o.label.toLowerCase().includes(q) && !selectedCollectiveKeys.has(collectiveKeyOf(o)))
-      .map((opt) => ({ kind: 'collective' as const, opt }));
-    return [...v, ...c].slice(0, 8);
-  }, [placeQuery, venueOptions, collectiveOptions, selectedVenueKeys, selectedCollectiveKeys]);
+      .slice(0, 8);
+  }, [placeQuery, collectiveOptions, selectedCollectiveKeys]);
 
   const addDj = (d: EventDJRef) => {
     if (selectedDjKeys.has(djKeyOf(d))) return;
@@ -78,11 +77,6 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
     onChange({ djs: djs.filter((d) => djKeyOf(d) !== key), venues, collectives });
   };
 
-  const addVenue = (v: EventVenueRef) => {
-    if (selectedVenueKeys.has(venueKeyOf(v))) return;
-    onChange({ djs, venues: [...venues, v], collectives });
-    setPlaceQuery('');
-  };
   const removeVenue = (key: string) => {
     onChange({ djs, venues: venues.filter((v) => venueKeyOf(v) !== key), collectives });
   };
@@ -100,7 +94,7 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
   const addFreeTextPlace = () => {
     const name = placeQuery.trim();
     if (!name || selectedVenueKeys.has(normalizeUsername(name))) return;
-    onChange({ djs, venues: [...venues, { venueId: '', venueName: name }], collectives });
+    onChange({ djs, venues: [...venues, { venueName: name }], collectives });
     setPlaceQuery('');
   };
 
@@ -170,29 +164,25 @@ export function FieldNoteTagPicker({ djs, venues, collectives, onChange }: Props
             if (e.key === 'Enter') {
               e.preventDefault();
               const first = filteredPlaces[0];
-              if (first) {
-                if (first.kind === 'venue') addVenue(first.opt);
-                else addCollective(first.opt);
-              } else {
-                addFreeTextPlace();
-              }
+              if (first) addCollective(first);
+              else addFreeTextPlace();
             }
           }}
-          placeholder={loading ? 'Loading…' : 'Search a venue or collective, or type a new name'}
+          placeholder={loading ? 'Loading…' : 'Search a collective, or type a venue name'}
           className="w-full rounded-lg bg-zinc-800 text-white px-3 py-2 text-base"
         />
         {filteredPlaces.length > 0 && (
           <div className="mt-1 rounded-lg bg-zinc-800 divide-y divide-white/10 overflow-hidden">
-            {filteredPlaces.map((p) => (
+            {filteredPlaces.map((opt) => (
               <button
-                key={`${p.kind}:${p.kind === 'venue' ? p.opt.venueId : p.opt.collectiveId}`}
+                key={`collective:${opt.collectiveId}`}
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => (p.kind === 'venue' ? addVenue(p.opt) : addCollective(p.opt))}
+                onClick={() => addCollective(opt)}
                 className="flex items-center justify-between w-full text-left px-3 py-2 text-sm text-white hover:bg-zinc-700"
               >
-                <span>{p.opt.label}</span>
-                <span className="text-[10px] uppercase tracking-wider text-zinc-500">{p.kind}</span>
+                <span>{opt.label}</span>
+                <span className="text-[10px] uppercase tracking-wider text-zinc-500">collective</span>
               </button>
             ))}
           </div>

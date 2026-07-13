@@ -421,7 +421,7 @@ export async function GET(request: NextRequest) {
             stationId: "broadcast",
             startTime: new Date(r.startMs).toISOString(),
             isIRL: r.isIRL,
-            linkUrl: r.isIRL ? (r.ticketUrl || r.linkUrl) : r.linkUrl,
+            linkUrl: r.isIRL ? r.ticketUrl : undefined,
             // IRL lineups: full artist list for the sub-line (capped in the row builder).
             allDjArtists: r.isIRL
               ? (r.allDjs || []).map((d) => d.djName).filter((n): n is string => !!n)
@@ -548,7 +548,7 @@ export async function GET(request: NextRequest) {
               stationId: "broadcast",
               startTime: new Date(r.startMs).toISOString(),
               isIRL: r.isIRL,
-              linkUrl: r.isIRL ? (r.ticketUrl || r.linkUrl) : r.linkUrl,
+              linkUrl: r.isIRL ? r.ticketUrl : undefined,
               allDjArtists: r.isIRL
                 ? (r.allDjs || []).map((d) => d.djName).filter((n): n is string => !!n)
                 : undefined,

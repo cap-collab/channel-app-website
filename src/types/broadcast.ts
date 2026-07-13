@@ -356,13 +356,6 @@ export interface Archive {
   sceneIdsOverride?: string[] | null; // null/undefined = inherit from DJs; [] = no scene; [ids] = pinned
   sceneSlugs?: string[];         // Denormalized effective scene slugs (e.g. ['spiral']) written at backfill time; fallback when there's no override
   tempo?: Tempo | null;          // Admin-set recording tempo; null/undefined = untagged
-  // Venue attribution (admin-set on /broadcast/admin → Archives). Surfaces
-  // recordings on /venue/[slug] alongside events, and links the
-  // "Recording from <venue>" header on DJ profile cards. Denormalized
-  // venueName + venueSlug let consumers render without a join.
-  venueId?: string | null;
-  venueName?: string | null;
-  venueSlug?: string | null;
   // Profile-page cross-listing ONLY. UIDs listed here cause this archive to
   // also appear on those DJs' /dj/[username] pages, WITHOUT adding them to
   // djs[] — so the public credit line, homepage, social render, scene tags,

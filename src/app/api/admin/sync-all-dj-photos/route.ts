@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
 
-// POST - One-time sync: update djPhotoUrl in all collectives and venues
+// POST - One-time sync: update djPhotoUrl in all collectives
 // by looking up each DJ's current photo from users or pending-dj-profiles
 export async function POST(request: NextRequest) {
   try {
@@ -47,8 +47,8 @@ export async function POST(request: NextRequest) {
     let updated = 0;
     const details: string[] = [];
 
-    // Process collectives and venues
-    const collections = ["collectives", "venues"];
+    // Process collectives (venues are not an entity anymore)
+    const collections = ["collectives"];
     for (const collName of collections) {
       const snapshot = await db.collection(collName).get();
       for (const doc of snapshot.docs) {

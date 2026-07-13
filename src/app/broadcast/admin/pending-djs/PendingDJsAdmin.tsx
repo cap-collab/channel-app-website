@@ -26,8 +26,7 @@ interface IrlShow {
   url: string;
   date: string;
   imageUrl?: string;
-  venueId?: string;
-  venueName?: string;
+  venueName?: string; // free text — venues are not an entity
   linkedCollectives?: { collectiveId: string; collectiveName: string }[];
   djs?: EventDJRef[];
 }
@@ -37,12 +36,6 @@ interface EventDJRef {
   djUserId?: string;
   djUsername?: string;
   djPhotoUrl?: string;
-}
-
-interface VenueOption {
-  id: string;
-  name: string;
-  residentDJs: EventDJRef[];
 }
 
 interface CollectiveOption {
@@ -128,14 +121,11 @@ export function PendingDJsAdmin() {
   const [photoError, setPhotoError] = useState<string | null>(null);
 
   // Entity linking state
-  const [venueOptions, setVenueOptions] = useState<VenueOption[]>([]);
   const [collectiveOptions, setCollectiveOptions] = useState<CollectiveOption[]>([]);
   const [eventOptions, setEventOptions] = useState<EventOption[]>([]);
   const [djTagOptions, setDjTagOptions] = useState<{ label: string; djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[]>([]);
-  const [linkedVenueIds, setLinkedVenueIds] = useState<string[]>([]);
   const [linkedCollectiveIds, setLinkedCollectiveIds] = useState<string[]>([]);
   const [linkedEventIds, setLinkedEventIds] = useState<string[]>([]);
-  const [originalLinkedVenueIds, setOriginalLinkedVenueIds] = useState<string[]>([]);
   const [originalLinkedCollectiveIds, setOriginalLinkedCollectiveIds] = useState<string[]>([]);
   const [originalLinkedEventIds, setOriginalLinkedEventIds] = useState<string[]>([]);
 
@@ -201,27 +191,6 @@ export function PendingDJsAdmin() {
       setError(`Failed to load pending profiles: ${errorMessage}`);
     } finally {
       setLoadingProfiles(false);
-    }
-  }, []);
-
-  // Fetch venue options for linking
-  const fetchVenueOptions = useCallback(async () => {
-    if (!db) return;
-    try {
-      const snapshot = await getDocs(collection(db, 'venues'));
-      const list: VenueOption[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        list.push({
-          id: docSnap.id,
-          name: data.name,
-          residentDJs: data.residentDJs || [],
-        });
-      });
-      list.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-      setVenueOptions(list);
-    } catch (err) {
-      console.error('Error fetching venue options:', err);
     }
   }, []);
 
@@ -317,7 +286,6 @@ export function PendingDJsAdmin() {
     if (isAuthenticated && hasBroadcasterAccess) {
       console.log('[pending-djs] Conditions met, calling fetchPendingProfiles');
       fetchPendingProfiles();
-      fetchVenueOptions();
       fetchCollectiveOptions();
       fetchEventOptions();
       fetchDjTagOptions();
@@ -325,7 +293,7 @@ export function PendingDJsAdmin() {
       console.log('[pending-djs] Conditions NOT met, not fetching');
       setLoadingProfiles(false);
     }
-  }, [isAuthenticated, hasBroadcasterAccess, fetchPendingProfiles, fetchVenueOptions, fetchCollectiveOptions, fetchEventOptions, fetchDjTagOptions]);
+  }, [isAuthenticated, hasBroadcasterAccess, fetchPendingProfiles, fetchCollectiveOptions, fetchEventOptions, fetchDjTagOptions]);
 
   // Redirect to radio portal if not authenticated
   useEffect(() => {
@@ -350,13 +318,11 @@ export function PendingDJsAdmin() {
     setResidentAdvisor('');
     setWebsite('');
     setCustomLinks([]);
-    setIrlShows([{ name: '', location: '', url: '', date: '', imageUrl: undefined, venueId: undefined, venueName: undefined, linkedCollectives: [] }, { name: '', location: '', url: '', date: '', imageUrl: undefined, venueId: undefined, venueName: undefined, linkedCollectives: [] }]);
+    setIrlShows([{ name: '', location: '', url: '', date: '', imageUrl: undefined, venueName: undefined, linkedCollectives: [] }, { name: '', location: '', url: '', date: '', imageUrl: undefined, venueName: undefined, linkedCollectives: [] }]);
     setPhotoUrl(null);
     setPhotoError(null);
-    setLinkedVenueIds([]);
     setLinkedCollectiveIds([]);
     setLinkedEventIds([]);
-    setOriginalLinkedVenueIds([]);
     setOriginalLinkedCollectiveIds([]);
     setOriginalLinkedEventIds([]);
     setPendingSceneIds([]);
@@ -383,14 +349,13 @@ export function PendingDJsAdmin() {
     setWebsite(profile.djProfile.socialLinks?.website || '');
     setCustomLinks(profile.djProfile.socialLinks?.customLinks || []);
     // IRL Shows - ensure we always have 2 fields
-    const emptyIrlShow: IrlShow = { name: '', location: '', url: '', date: '', imageUrl: undefined, venueId: undefined, venueName: undefined, linkedCollectives: [] };
+    const emptyIrlShow: IrlShow = { name: '', location: '', url: '', date: '', imageUrl: undefined, venueName: undefined, linkedCollectives: [] };
     const existingIrlShows = (profile.djProfile.irlShows || []).map((s: Partial<IrlShow>) => ({
       name: s.name || '',
       location: s.location || '',
       url: s.url || '',
       date: s.date || '',
       imageUrl: s.imageUrl || undefined,
-      venueId: s.venueId || undefined,
       venueName: s.venueName || undefined,
       linkedCollectives: s.linkedCollectives || [],
     }));
@@ -404,14 +369,10 @@ export function PendingDJsAdmin() {
     setError(null);
     setSuccess(null);
 
-    // Find existing entity links by checking which venues/collectives/events contain this DJ
+    // Find existing entity links by checking which collectives/events contain this DJ
     const djUsername = profile.chatUsernameNormalized;
     const matchesDJ = (djs: EventDJRef[]) =>
       djs.some(d => d.djUsername === djUsername || d.djName === profile.chatUsername);
-
-    const venueIds = venueOptions.filter(v => matchesDJ(v.residentDJs)).map(v => v.id);
-    setLinkedVenueIds(venueIds);
-    setOriginalLinkedVenueIds(venueIds);
 
     const collectiveIds = collectiveOptions.filter(c => matchesDJ(c.residentDJs) || matchesDJ(c.guestDJs)).map(c => c.id);
     setLinkedCollectiveIds(collectiveIds);
@@ -584,7 +545,6 @@ export function PendingDJsAdmin() {
         url: (show.url || '').trim() ? normalizeUrl((show.url || '').trim()) : '',
         date: (show.date || '').trim(),
         imageUrl: show.imageUrl || undefined,
-        venueId: show.venueId || undefined,
         venueName: show.venueName || undefined,
         linkedCollectives: (show.linkedCollectives || []).length > 0 ? show.linkedCollectives : undefined,
         djs: (show.djs || []).filter(d => d.djName.trim()).length > 0 ? show.djs : undefined,
@@ -628,41 +588,17 @@ export function PendingDJsAdmin() {
           return;
         }
 
-        // Sync entity links (add/remove DJ from venues, collectives, events)
+        // Sync entity links (add/remove DJ from collectives, events)
         const djRef: EventDJRef = {
           djName: editingProfile.chatUsername,
           djUsername: editingProfile.chatUsernameNormalized,
           djPhotoUrl: photoUrl || undefined,
         };
 
-        const addedVenues = linkedVenueIds.filter(id => !originalLinkedVenueIds.includes(id));
-        const removedVenues = originalLinkedVenueIds.filter(id => !linkedVenueIds.includes(id));
         const addedCollectives = linkedCollectiveIds.filter(id => !originalLinkedCollectiveIds.includes(id));
         const removedCollectives = originalLinkedCollectiveIds.filter(id => !linkedCollectiveIds.includes(id));
         const addedEvents = linkedEventIds.filter(id => !originalLinkedEventIds.includes(id));
         const removedEvents = originalLinkedEventIds.filter(id => !linkedEventIds.includes(id));
-
-        // Update venues
-        for (const venueId of addedVenues) {
-          const venue = venueOptions.find(v => v.id === venueId);
-          if (!venue) continue;
-          const updatedDJs = [...venue.residentDJs, djRef];
-          await fetch('/api/admin/venues', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ venueId, residentDJs: updatedDJs }),
-          });
-        }
-        for (const venueId of removedVenues) {
-          const venue = venueOptions.find(v => v.id === venueId);
-          if (!venue) continue;
-          const updatedDJs = venue.residentDJs.filter(d => d.djUsername !== editingProfile.chatUsernameNormalized && d.djName !== editingProfile.chatUsername);
-          await fetch('/api/admin/venues', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ venueId, residentDJs: updatedDJs }),
-          });
-        }
 
         // Update collectives. Linking a DJ adds them as a GUEST (guestDJs) —
         // promote to resident by hand in the collectives admin. Skip if they're
@@ -729,7 +665,7 @@ export function PendingDJsAdmin() {
               location: show.location || null,
               ticketLink: show.url || null,
               photo: show.imageUrl || null,
-              linkedVenues: show.venueId ? [{ venueId: show.venueId, venueName: show.venueName || '' }] : [],
+              linkedVenues: show.venueName ? [{ venueName: show.venueName }] : [],
               linkedCollectives: show.linkedCollectives || [],
               djs: [
                 { djName: editingProfile.chatUsername, djUsername: editingProfile.chatUsernameNormalized, djPhotoUrl: photoUrl || undefined },
@@ -743,7 +679,6 @@ export function PendingDJsAdmin() {
         setSuccess(`Updated DJ profile for ${djName}`);
         resetForm();
         fetchPendingProfiles();
-        fetchVenueOptions();
         fetchCollectiveOptions();
         fetchEventOptions();
       } else {
@@ -789,7 +724,7 @@ export function PendingDJsAdmin() {
               location: show.location || null,
               ticketLink: show.url || null,
               photo: show.imageUrl || null,
-              linkedVenues: show.venueId ? [{ venueId: show.venueId, venueName: show.venueName || '' }] : [],
+              linkedVenues: show.venueName ? [{ venueName: show.venueName }] : [],
               linkedCollectives: show.linkedCollectives || [],
               djs: [
                 { djName: djName.trim(), djUsername: normalizeUsername(djName.trim()), djPhotoUrl: photoUrl || undefined },
@@ -1400,44 +1335,18 @@ Cap`;
                         placeholder="Event URL (e.g., ra.co/events/...)"
                         className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
                       />
-                      {/* Venue selector */}
-                      <div>
-                        <select
-                          value={show.venueId || ''}
-                          onChange={(e) => {
-                            const updated = [...irlShows];
-                            const venueId = e.target.value;
-                            if (venueId) {
-                              const venue = venueOptions.find(v => v.id === venueId);
-                              updated[index] = { ...updated[index], venueId, venueName: venue?.name || '' };
-                            } else {
-                              updated[index] = { ...updated[index], venueId: undefined, venueName: undefined };
-                            }
-                            setIrlShows(updated);
-                          }}
-                          className="w-full bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-white transition-colors text-sm"
-                        >
-                          <option value="">Select a venue...</option>
-                          {venueOptions.map((venue) => (
-                            <option key={venue.id} value={venue.id}>
-                              {venue.name}
-                            </option>
-                          ))}
-                        </select>
-                        {!show.venueId && (
-                          <input
-                            type="text"
-                            value={show.venueName || ''}
-                            onChange={(e) => {
-                              const updated = [...irlShows];
-                              updated[index] = { ...updated[index], venueName: e.target.value || undefined };
-                              setIrlShows(updated);
-                            }}
-                            placeholder="Or type a venue name..."
-                            className="w-full bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm mt-1"
-                          />
-                        )}
-                      </div>
+                      {/* Venue — free text */}
+                      <input
+                        type="text"
+                        value={show.venueName || ''}
+                        onChange={(e) => {
+                          const updated = [...irlShows];
+                          updated[index] = { ...updated[index], venueName: e.target.value || undefined };
+                          setIrlShows(updated);
+                        }}
+                        placeholder="Venue name"
+                        className="w-full bg-[#252525] border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-white transition-colors text-sm"
+                      />
                       {/* Linked Collectives */}
                       <div>
                         {(show.linkedCollectives || []).length > 0 && (
@@ -1579,48 +1488,6 @@ Cap`;
                   <label className="block text-sm font-medium text-gray-300 mb-4">
                     Linked Entities
                   </label>
-
-                  {/* Linked Venues */}
-                  <div className="mb-4">
-                    <label className="block text-xs text-gray-500 mb-2">Venues</label>
-                    {linkedVenueIds.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {linkedVenueIds.map(id => {
-                          const venue = venueOptions.find(v => v.id === id);
-                          return (
-                            <span key={id} className="inline-flex items-center gap-1 bg-[#252525] border border-gray-700 rounded-full px-3 py-1 text-sm text-white">
-                              {venue?.name || id}
-                              <button
-                                type="button"
-                                onClick={() => setLinkedVenueIds(linkedVenueIds.filter(v => v !== id))}
-                                className="text-gray-500 hover:text-red-400 ml-1"
-                              >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value && !linkedVenueIds.includes(e.target.value)) {
-                          setLinkedVenueIds([...linkedVenueIds, e.target.value]);
-                        }
-                      }}
-                      className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-white transition-colors"
-                    >
-                      <option value="">Add venue...</option>
-                      {venueOptions
-                        .filter(v => !linkedVenueIds.includes(v.id))
-                        .map(v => (
-                          <option key={v.id} value={v.id}>{v.name}</option>
-                        ))}
-                    </select>
-                  </div>
 
                   {/* Linked Collectives */}
                   <div className="mb-4">

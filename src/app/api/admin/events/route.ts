@@ -4,7 +4,6 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { generateSlug } from '@/lib/slug';
 import { cleanupFavoritesForShowName, cleanupFavoritesForIRLEvent } from '@/lib/favorites-cleanup';
 import {
-  syncEventToVenues,
   syncEventToCollectives,
   cleanupDeletedEvent,
 } from '@/lib/bidirectional-sync';
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, date, endDate, photo, description, venueId, venueName: manualVenueName, venueCollectiveId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, discountCode, socialLinks, sceneIdsOverride } = body;
+    const { name, date, endDate, photo, description, venueName: manualVenueName, venueCollectiveId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, discountCode, socialLinks, sceneIdsOverride } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json({ error: 'Event name is required' }, { status: 400 });
@@ -76,16 +75,9 @@ export async function POST(request: NextRequest) {
       suffix++;
     }
 
-    // Denormalize venue name: use Firestore lookup if venueId provided, otherwise use manual name
-    let venueName: string | null = null;
-    if (venueId) {
-      const venueDoc = await db.collection('venues').doc(venueId).get();
-      if (venueDoc.exists) {
-        venueName = venueDoc.data()?.name || null;
-      }
-    } else if (manualVenueName) {
-      venueName = manualVenueName;
-    }
+    // Venue is free text — take the typed name (or the first linked venue's name).
+    const venueName: string | null =
+      manualVenueName || (linkedVenues?.[0]?.venueName ?? null) || null;
 
     // Denormalize collective name if collectiveId is provided (legacy single-collective)
     let collectiveName: string | null = null;
@@ -115,7 +107,6 @@ export async function POST(request: NextRequest) {
       endDate: endDate || null,
       photo: photo || null,
       description: description || null,
-      venueId: venueId || null,
       venueName,
       venueCollectiveId: venueCollectiveId || null,
       venueCollectiveName,
@@ -143,9 +134,8 @@ export async function POST(request: NextRequest) {
 
     const docRef = await db.collection('events').add(eventData);
 
-    // Bidirectional sync: add self to all linked venues and collectives
+    // Bidirectional sync: add self to all linked collectives (venues are free text)
     const batch = db.batch();
-    await syncEventToVenues(batch, db, docRef.id, name.trim(), slug, date, [], linkedVenues || []);
     await syncEventToCollectives(batch, db, docRef.id, name.trim(), slug, date, [], linkedCollectives || []);
     await batch.commit();
 
@@ -187,7 +177,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { eventId, name, date, endDate, photo, description, venueId, venueName: manualVenueName, venueCollectiveId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, discountCode, socialLinks, sceneIdsOverride } = body;
+    const { eventId, name, date, endDate, photo, description, venueName: manualVenueName, venueCollectiveId, collectiveId, linkedVenues, linkedCollectives, djs, genres, location, ticketLink, discountCode, socialLinks, sceneIdsOverride } = body;
 
     if (!eventId) {
       return NextResponse.json({ error: 'eventId is required' }, { status: 400 });
@@ -225,16 +215,8 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Re-denormalize venue name if venueId changed
-    if (venueId !== undefined) {
-      updateData.venueId = venueId || null;
-      if (venueId) {
-        const venueDoc = await db.collection('venues').doc(venueId).get();
-        updateData.venueName = venueDoc.exists ? venueDoc.data()?.name || null : null;
-      } else {
-        updateData.venueName = manualVenueName || null;
-      }
-    } else if (manualVenueName !== undefined) {
+    // Venue is free text — just store the typed name.
+    if (manualVenueName !== undefined) {
       updateData.venueName = manualVenueName || null;
     }
 
@@ -270,18 +252,10 @@ export async function PATCH(request: NextRequest) {
     const batch = db.batch();
     batch.update(eventRef, updateData);
 
-    // Bidirectional sync for linkedVenues changes
+    // Bidirectional sync (venues are free text — nothing to sync back to)
     const selfName = (name !== undefined ? name : currentData.name) as string;
     const selfSlug = currentData.slug as string;
     const selfDate = (date !== undefined ? date : currentData.date) as number;
-
-    if (linkedVenues !== undefined) {
-      await syncEventToVenues(
-        batch, db, eventId, selfName, selfSlug, selfDate,
-        currentData.linkedVenues || [],
-        linkedVenues
-      );
-    }
 
     // Bidirectional sync for linkedCollectives changes
     if (linkedCollectives !== undefined) {
@@ -362,7 +336,6 @@ export async function DELETE(request: NextRequest) {
     if (eventDoc.exists && eventData) {
       await cleanupDeletedEvent(
         batch, db, eventId,
-        eventData.linkedVenues || [],
         eventData.linkedCollectives || []
       );
     }

@@ -1124,7 +1124,7 @@ export async function GET(request: NextRequest) {
               city: r.location,
               venueName: r.venueName,
               dateMs: r.startMs,
-              ticketUrl: r.ticketUrl || r.linkUrl || undefined,
+              ticketUrl: r.ticketUrl || undefined,
               discountCode: r.discountCode || undefined,
             }));
         } catch (err) {

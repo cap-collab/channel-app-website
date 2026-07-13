@@ -3,24 +3,23 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { EventDJRef, EventVenueRef, CollectiveRef } from '@/types/events';
+import { EventDJRef, CollectiveRef } from '@/types/events';
 
 export interface DJOption extends EventDJRef {
-  label: string;
-}
-export interface VenueOption extends EventVenueRef {
   label: string;
 }
 export interface CollectiveOption extends CollectiveRef {
   label: string;
 }
 
-// Shared fetch of DJ / venue / collective tagging options. Mirrors the
-// EventsAdmin picker: pending-dj-profiles + dj-role users, and the venues +
-// collectives collections. All reads are public per firestore.rules.
+// Shared fetch of DJ / collective tagging options. Mirrors the EventsAdmin
+// picker: pending-dj-profiles + dj-role users, and the collectives collection.
+// All reads are public per firestore.rules.
+//
+// Venues are NOT an entity anymore — a venue is free text typed on the event,
+// so there is no venue option list to fetch.
 export function useTagOptions() {
   const [djs, setDjs] = useState<DJOption[]>([]);
-  const [venues, setVenues] = useState<VenueOption[]>([]);
   const [collectives, setCollectives] = useState<CollectiveOption[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,10 +32,9 @@ export function useTagOptions() {
         return;
       }
       try {
-        const [pendingSnap, usersSnap, venuesSnap, collectivesSnap] = await Promise.all([
+        const [pendingSnap, usersSnap, collectivesSnap] = await Promise.all([
           getDocs(collection(db, 'pending-dj-profiles')),
           getDocs(query(collection(db, 'users'), where('role', 'in', ['dj', 'broadcaster', 'admin']))),
-          getDocs(collection(db, 'venues')),
           getDocs(collection(db, 'collectives')),
         ]);
 
@@ -73,14 +71,6 @@ export function useTagOptions() {
 
         djOptions.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
 
-        const venueOptions: VenueOption[] = [];
-        venuesSnap.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (!data.name) return;
-          venueOptions.push({ label: data.name, venueId: docSnap.id, venueName: data.name });
-        });
-        venueOptions.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
-
         const collectiveOptions: CollectiveOption[] = [];
         collectivesSnap.forEach((docSnap) => {
           const data = docSnap.data();
@@ -97,7 +87,6 @@ export function useTagOptions() {
 
         if (!cancelled) {
           setDjs(djOptions);
-          setVenues(venueOptions);
           setCollectives(collectiveOptions);
           setLoading(false);
         }
@@ -113,5 +102,5 @@ export function useTagOptions() {
     };
   }, []);
 
-  return { djs, venues, collectives, loading };
+  return { djs, collectives, loading };
 }

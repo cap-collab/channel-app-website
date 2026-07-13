@@ -561,11 +561,9 @@ function ComingUpRow({
   const [imgError, setImgError] = useState(false);
   const hasPhoto = photoUrl && !imgError;
 
-  // Whole-row link: ticket page for IRL w/ tickets, else the click-through
-  // (collective/venue) or the DJ profile.
+  // Whole-row link: ticket page for IRL w/ tickets, else the DJ profile.
   const rowHref =
     row.ticketUrl ||
-    row.linkUrl ||
     (row.djUsername ? `/dj/${row.djUsername}` : undefined);
   const external = !!rowHref && /^https?:\/\//.test(rowHref);
 

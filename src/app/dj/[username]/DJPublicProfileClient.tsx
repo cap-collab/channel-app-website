@@ -28,7 +28,7 @@ import { tempoLabel } from "@/lib/tempo";
 import { shareArchive } from "@/lib/share-archive";
 import { wordBoundaryMatch, normalizeUsername } from "@/lib/dj-matching";
 import { generateSlug } from "@/lib/slug";
-import { Venue, Collective, Event as ChannelEvent, EventDJRef, CollectiveRef } from "@/types/events";
+import { Collective, Event as ChannelEvent, EventDJRef, CollectiveRef } from "@/types/events";
 import { ResidentsGrid } from "@/components/dj/ResidentsGrid";
 // Icon components (inline SVGs to avoid external dependencies)
 
@@ -244,7 +244,6 @@ interface IrlShow {
   venue?: string; // legacy field
   date: string;
   imageUrl?: string;
-  venueId?: string;
   venueName?: string;
   linkedCollectives?: { collectiveId: string; collectiveName: string }[];
   djs?: { djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[];
@@ -298,10 +297,6 @@ interface DJProfile {
   // Collectives that are also part of this collective's roster. Reused from the
   // existing admin "Linked Collectives" field and rendered alongside resident DJs.
   linkedCollectives?: { collectiveId: string; collectiveName: string; collectiveSlug?: string; collectivePhoto?: string | null }[];
-  // Collective-only: venues this collective is associated with (mirror of the
-  // admin "Linked Venues" field on the collective doc). Used to surface linked
-  // venues on the profile, since venues won't list a collective as a resident.
-  linkedVenues?: { venueId: string; venueName: string }[];
   // Collective-only: the slug used for archive matching (distinct from
   // chatUsername, which displays the collective's pretty name).
   collectiveSlug?: string;
@@ -481,13 +476,9 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   const [autoSources, setAutoSources] = useState<{ stationId: string; showName: string }[]>([]);
 
   // Linked entities state
-  const [djVenues, setDjVenues] = useState<Venue[]>([]);
   const [djCollectives, setDjCollectives] = useState<Collective[]>([]);
   const [djUpcomingEvents, setDjUpcomingEvents] = useState<ChannelEvent[]>([]);
   const [djPastEvents, setDjPastEvents] = useState<ChannelEvent[]>([]);
-  // Map venueId → slug, populated alongside djVenues so event cards can link
-  // to the actual /venue/[slug] page instead of a derived-from-name slug.
-  const [venueSlugById, setVenueSlugById] = useState<Record<string, string>>({});
 
   // Broadcast stream context for synced play/pause
   const { isPlaying, isLoading: streamLoading, toggle: toggleStream, isStreaming, isLive: broadcastIsLive, tipLink: liveTipLink } = useBroadcastStreamContext();
@@ -650,7 +641,6 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               residentDJs: Array.isArray(cData.residentDJs) ? cData.residentDJs : [],
               guestDJs: Array.isArray(cData.guestDJs) ? cData.guestDJs : [],
               linkedCollectives: Array.isArray(cData.linkedCollectives) ? cData.linkedCollectives : [],
-              linkedVenues: Array.isArray(cData.linkedVenues) ? cData.linkedVenues : [],
               collectiveSlug: cData.slug,
             });
             setLoading(false);
@@ -1196,7 +1186,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     fetchPastExternalShows();
   }, [djProfile]);
 
-  // Fetch linked venues, collectives, and upcoming events
+  // Fetch linked collectives and upcoming events
   useEffect(() => {
     async function fetchLinkedEntities() {
       if (!djProfile || !db) return;
@@ -1204,7 +1194,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       const normalizedUsername = normalizeUsername(djProfile.chatUsername);
       const djUserId = djProfile.uid.startsWith("pending-") ? undefined : djProfile.uid;
 
-      // When the profile being viewed is a collective, also match events/venues
+      // When the profile being viewed is a collective, also match events
       // that reference this collective by id or slug — they wouldn't list the
       // collective in their `djs` array. Doc id is `uid` minus the
       // `collective-` prefix the loader adds; slug comes from the collective doc.
@@ -1231,43 +1221,10 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
       };
 
       try {
-        const [venuesSnapshot, collectivesSnapshot, eventsSnapshot] = await Promise.all([
-          getDocs(collection(db, "venues")),
+        const [collectivesSnapshot, eventsSnapshot] = await Promise.all([
           getDocs(collection(db, "collectives")),
           getDocs(collection(db, "events")),
         ]);
-
-        // Build venue photo + slug lookups (all venues, for event link/photo fallback)
-        const venuePhotoMap: Record<string, string> = {};
-        const slugMap: Record<string, string> = {};
-        const matchedVenues: Venue[] = [];
-        // For a collective profile, venues are linked via the collective doc's
-        // own `linkedVenues` array rather than via venue.residentDJs.
-        const collectiveLinkedVenueIds = new Set(
-          isCollectiveProfile ? (djProfile.linkedVenues || []).map(v => v.venueId).filter(Boolean) : []
-        );
-        venuesSnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.photo) venuePhotoMap[doc.id] = data.photo;
-          if (data.slug) slugMap[doc.id] = data.slug;
-          if (matchesDJ(data.residentDJs) || collectiveLinkedVenueIds.has(doc.id)) {
-            matchedVenues.push({
-              id: doc.id,
-              name: data.name,
-              slug: data.slug,
-              photo: data.photo || null,
-              location: data.location || null,
-              description: data.description || null,
-              genres: data.genres || [],
-              socialLinks: data.socialLinks || {},
-              residentDJs: data.residentDJs || [],
-              createdAt: data.createdAt?.toMillis?.() || Date.now(),
-              createdBy: data.createdBy,
-            });
-          }
-        });
-        setDjVenues(matchedVenues);
-        setVenueSlugById(slugMap);
 
         const matchedCollectives: Collective[] = [];
         collectivesSnapshot.forEach((doc) => {
@@ -1289,7 +1246,6 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               socialLinks: data.socialLinks || {},
               residentDJs: data.residentDJs || [],
               guestDJs: data.guestDJs || [],
-              linkedVenues: data.linkedVenues || [],
               createdAt: data.createdAt?.toMillis?.() || Date.now(),
               createdBy: data.createdBy,
             });
@@ -1312,9 +1268,8 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               slug: data.slug,
               date: data.date,
               endDate: data.endDate || undefined,
-              photo: data.photo || (data.venueId && venuePhotoMap[data.venueId]) || null,
+              photo: data.photo || null,
               description: data.description || null,
-              venueId: data.venueId || null,
               venueName: data.venueName || null,
               venueCollectiveId: data.venueCollectiveId || null,
               venueCollectiveName: data.venueCollectiveName || null,
@@ -1355,12 +1310,10 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
             date: showDate,
             photo: show.imageUrl || null,
             description: null,
-            venueId: show.venueId || null,
             venueName: show.venueName || show.venue || null,
             collectiveId: null,
             collectiveName: null,
             djs: [],
-            linkedVenues: show.venueId ? [{ venueId: show.venueId, venueName: show.venueName || "" }] : [],
             linkedCollectives: [],
             genres: [],
             location: show.location || null,
@@ -1686,21 +1639,9 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     );
   };
 
-  const hasVenuesOrCollectives = djVenues.length > 0 || djCollectives.length > 0;
-  const venuesAndCollectivesRow = hasVenuesOrCollectives ? (
+  const hasCollectives = djCollectives.length > 0;
+  const collectivesRow = hasCollectives ? (
     <div className="flex flex-wrap items-center gap-2">
-      {djVenues.map((venue) => (
-        <Link
-          key={`venue-${venue.id}`}
-          href={`/venue/${venue.slug}`}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900/50 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:border-white/20 transition-colors text-xs"
-        >
-          <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-          </svg>
-          {venue.name}
-        </Link>
-      ))}
       {djCollectives.map((col) => (
         <Link
           key={`collective-${col.id}`}
@@ -1820,12 +1761,12 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               )}
             </div>
 
-            {/* Footer row: socials on the left, venues/collectives pinned to
+            {/* Footer row: socials on the left, collectives pinned to
                 the right. Pushed to the bottom of the right column so it aligns
                 with the bottom of the profile pic on desktop. When the DJ has
                 no bio, the pin row sits before the socials instead. */}
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 mt-6 md:mt-auto md:pt-6">
-              {!hasBio && hasVenuesOrCollectives && venuesAndCollectivesRow}
+              {!hasBio && hasCollectives && collectivesRow}
               <div className="flex flex-wrap items-center gap-5">
                 {socialLinks.instagram && (
                   <a
@@ -1904,8 +1845,8 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                 )}
               </div>
 
-              {hasBio && hasVenuesOrCollectives && (
-                <div className="ml-auto">{venuesAndCollectivesRow}</div>
+              {hasBio && hasCollectives && (
+                <div className="ml-auto">{collectivesRow}</div>
               )}
             </div>
           </div>
@@ -2210,7 +2151,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
               return (
                 <div key={archive.id} className="border border-[#333] rounded-none overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                  {/* Header: Live Recording / Recording + optional venue + date */}
+                  {/* Header: Live Recording / Recording + date */}
                   <div className="flex items-center justify-between px-3 py-1.5 bg-black border-b border-[#333] font-mono">
                     <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
                       {archive.sourceType === 'live' ? (
@@ -2224,21 +2165,6 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                             <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
                           </svg>
                           Recording
-                        </>
-                      )}
-                      {archive.venueName && (
-                        <>
-                          <span className="text-zinc-500">from</span>
-                          {archive.venueSlug ? (
-                            <Link
-                              href={`/venue/${archive.venueSlug}`}
-                              className="truncate hover:text-white transition-colors"
-                            >
-                              {archive.venueName}
-                            </Link>
-                          ) : (
-                            <span className="truncate">{archive.venueName}</span>
-                          )}
                         </>
                       )}
                     </span>
@@ -2466,13 +2392,11 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               {(upcomingExpanded ? upcomingShows : upcomingShows.slice(0, 3)).map((item) => {
                 if (item.feedType === "event") {
                   const event = item as ChannelEvent & { feedType: "event"; feedStatus: "upcoming" };
+                  // Venues are free-text names — never links. The only linkable
+                  // header entity is a collective acting as the venue.
                   const headerVenue = event.venueCollectiveName || event.linkedVenues?.[0]?.venueName || event.venueName || null;
-                  const headerVenueId = event.linkedVenues?.[0]?.venueId || event.venueId || null;
-                  const headerVenueSlug = headerVenueId ? venueSlugById[headerVenueId] : undefined;
                   const headerCollectiveSlug = event.venueCollectiveSlug || null;
-                  const headerHref = headerCollectiveSlug
-                    ? `/dj/${headerCollectiveSlug}`
-                    : (headerVenue && headerVenueSlug ? `/venue/${headerVenueSlug}` : null);
+                  const headerHref = headerCollectiveSlug ? `/dj/${headerCollectiveSlug}` : null;
                   const headerLabel = headerVenue || event.location || "";
                   return (
                     <div
@@ -2958,13 +2882,11 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               {pastActivities.map((item) => {
                 if (item.feedType === "event") {
                   const event = item as ChannelEvent & { feedType: "event"; feedStatus: "past" };
+                  // Venues are free-text names — never links. The only linkable
+                  // header entity is a collective acting as the venue.
                   const headerVenue = event.venueCollectiveName || event.linkedVenues?.[0]?.venueName || event.venueName || null;
-                  const headerVenueId = event.linkedVenues?.[0]?.venueId || event.venueId || null;
-                  const headerVenueSlug = headerVenueId ? venueSlugById[headerVenueId] : undefined;
                   const headerCollectiveSlug = event.venueCollectiveSlug || null;
-                  const headerHref = headerCollectiveSlug
-                    ? `/dj/${headerCollectiveSlug}`
-                    : (headerVenue && headerVenueSlug ? `/venue/${headerVenueSlug}` : null);
+                  const headerHref = headerCollectiveSlug ? `/dj/${headerCollectiveSlug}` : null;
                   const headerLabel = headerVenue || event.location || "";
                   return (
                     <div

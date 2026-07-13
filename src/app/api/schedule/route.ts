@@ -308,32 +308,6 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
     .where("date", "<=", cutoff)
     .get();
 
-  // Collect venue IDs that need slug lookups
-  const venueIdsToResolve = new Set<string>();
-  for (const doc of snapshot.docs) {
-    const data = doc.data();
-    if (data.venueId) venueIdsToResolve.add(data.venueId);
-    if (data.linkedVenues) {
-      for (const v of data.linkedVenues) {
-        if (v.venueId) venueIdsToResolve.add(v.venueId);
-      }
-    }
-  }
-
-  // Batch-resolve venue slugs
-  const venueSlugMap = new Map<string, string>();
-  const venueIds = Array.from(venueIdsToResolve);
-  for (let i = 0; i < venueIds.length; i += 10) {
-    const batch = venueIds.slice(i, i + 10);
-    const venueDocs = await Promise.all(batch.map((id) => db.collection("venues").doc(id).get()));
-    for (const vDoc of venueDocs) {
-      if (vDoc.exists) {
-        const slug = vDoc.data()?.slug;
-        if (slug) venueSlugMap.set(vDoc.id, slug);
-      }
-    }
-  }
-
   const irlShows: IRLShowData[] = [];
 
   for (const doc of snapshot.docs) {
@@ -347,25 +321,8 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
 
     const firstDJ = data.djs?.[0];
 
-    // Compute click-through URL: DJ > collective > venue
-    let linkUrl: string | undefined;
-    const firstCollective = data.linkedCollectives?.[0];
-    if (firstDJ?.djUsername) {
-      linkUrl = `/dj/${firstDJ.djUsername}`;
-    } else if (firstCollective?.collectiveSlug) {
-      linkUrl = `/collective/${firstCollective.collectiveSlug}`;
-    } else {
-      const venueId = data.linkedVenues?.[0]?.venueId || data.venueId;
-      const venueSlug = venueId ? venueSlugMap.get(venueId) : undefined;
-      if (venueSlug) {
-        linkUrl = `/venue/${venueSlug}`;
-      }
-    }
-
-    // Venue display name: first linked venue, or legacy venueName
+    // Venue display name (free text): first linked venue, or legacy venueName
     const venueName = data.linkedVenues?.[0]?.venueName || data.venueName || undefined;
-    const venueIdForSlug = data.linkedVenues?.[0]?.venueId || data.venueId;
-    const venueSlug = venueIdForSlug ? venueSlugMap.get(venueIdForSlug) : undefined;
 
     // Build allDjs array for watchlist matching across all DJs in the lineup
     const allDjs = (data.djs || [])
@@ -387,8 +344,6 @@ async function extractAdminEvents(): Promise<IRLShowData[]> {
       date: dateStr,
       eventPhotoUrl: data.photo || undefined,
       venueName,
-      venueSlug,
-      linkUrl,
       allDjs: allDjs.length > 1 ? allDjs : undefined,
     });
   }

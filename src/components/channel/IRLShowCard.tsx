@@ -78,8 +78,8 @@ export function IRLShowCard({
   const photoUrl = show.eventPhotoUrl || show.djPhotoUrl;
   const hasPhoto = photoUrl && !imageError;
 
-  // Click-through: collective/venue/DJ page
-  const href = show.linkUrl || (show.djUsername ? `/dj/${show.djUsername}` : undefined);
+  // Click-through: DJ page
+  const href = show.djUsername ? `/dj/${show.djUsername}` : undefined;
 
   const imageOverlays = (
     <>
@@ -215,19 +215,9 @@ export function IRLShowCard({
             {show.eventName}
           </h3>
           {show.venueName ? (
-            show.venueSlug ? (
-              <Link
-                href={`/venue/${show.venueSlug}`}
-                className="text-[10px] text-zinc-500 hover:text-white mt-0.5 uppercase block w-fit truncate"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {show.venueName}
-              </Link>
-            ) : (
-              <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
-                {show.venueName}
-              </p>
-            )
+            <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
+              {show.venueName}
+            </p>
           ) : (
             <p className="text-[10px] text-zinc-500 mt-0.5 uppercase truncate">
               in {show.location}

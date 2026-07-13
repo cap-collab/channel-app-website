@@ -204,9 +204,7 @@ export interface IRLShowData {
   date: string;       // ISO date string (YYYY-MM-DD)
   startMs?: number;   // Exact show start (ms). When set, the card shows the start time (device-local).
   eventPhotoUrl?: string; // Event-level photo (admin events)
-  venueName?: string;     // Venue name to display
-  venueSlug?: string;     // Venue page slug, when the venue has a /venue/[slug] page
-  linkUrl?: string;       // Pre-computed click-through URL (collective/venue/dj page)
+  venueName?: string;     // Venue name to display (free text — venues are not an entity)
   isChannelUser?: boolean; // true if DJ exists in `users` collection (has chat enabled)
   allDjs?: Array<{ djUsername: string; djName: string }>; // All DJs in the lineup (for watchlist matching)
 }

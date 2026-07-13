@@ -6,13 +6,7 @@ export interface EventDJRef {
   djPhotoUrl?: string;
 }
 
-// Reference to a venue from a collective (or vice versa)
-export interface CollectiveVenueRef {
-  venueId: string;
-  venueName: string;
-}
-
-// Reference to a collective from a venue or another collective
+// Reference to a collective from another collective
 export interface CollectiveRef {
   collectiveId: string;
   collectiveName: string;
@@ -28,44 +22,18 @@ export interface EventRef {
   eventDate?: number;
 }
 
-// Reference to a venue from an event (for multi-venue support)
+// Venue on an event. Venues are NOT an entity — this is just a free-text name.
+// `venueId` is legacy (older docs linked to a venues collection that no longer
+// exists); it is never written anymore and nothing resolves it.
 export interface EventVenueRef {
-  venueId: string;
   venueName: string;
+  venueId?: string;
 }
 
 // Custom link (label + URL pair) for admin-added links
 export interface CustomLink {
   label: string;
   url: string;
-}
-
-// Venue document in Firestore
-export interface Venue {
-  id: string;
-  name: string;
-  slug: string;
-  photo?: string | null;
-  location?: string | null;
-  description?: string | null;
-  genres?: string[];
-  socialLinks?: {
-    instagram?: string;
-    soundcloud?: string;
-    bandcamp?: string;
-    youtube?: string;
-    mixcloud?: string;
-    email?: string;
-    website?: string;
-    residentAdvisor?: string;
-    customLinks?: CustomLink[];
-  };
-  residentDJs?: EventDJRef[];
-  collectives?: CollectiveRef[];
-  linkedEvents?: EventRef[];
-  sceneIds?: string[];
-  createdAt: number;
-  createdBy: string;
 }
 
 // Collective document in Firestore
@@ -92,7 +60,6 @@ export interface Collective {
   // Guest DJs — a separate category from residents, shown in its own grid on
   // the collective page and surfaced on each guest's DJ page like residents.
   guestDJs?: EventDJRef[];
-  linkedVenues?: CollectiveVenueRef[];
   linkedCollectives?: CollectiveRef[];
   linkedEvents?: EventRef[];
   sceneIds?: string[];
@@ -114,12 +81,11 @@ export interface Event {
   endDate?: number;
   photo?: string | null;
   description?: string | null;
-  venueId?: string | null;
+  // Denormalized free-text venue name (from linkedVenues[0]). Venues are not an
+  // entity — there is no id to resolve and no venue page to link to.
   venueName?: string | null;
-  // When a collective is picked as the event's venue (in addition to plain
-  // venues from the `venues` collection), these point to the collective doc
-  // so the event card can link to /dj/<slug>. Set instead of venueId/venueName
-  // when a collective was selected from the unified venue picker.
+  // Legacy: older docs linked to a venues collection that no longer exists.
+  venueId?: string | null;
   venueCollectiveId?: string | null;
   venueCollectiveName?: string | null;
   venueCollectiveSlug?: string | null;

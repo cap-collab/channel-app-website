@@ -141,13 +141,9 @@ service cloud.firestore {
       allow write: if isBroadcaster();
     }
 
-    // Venues (admin-managed)
-    // - Anyone can read (needed for public venue pages)
-    // - Only broadcasters/admins can write
-    match /venues/{venueId} {
-      allow read: if true;
-      allow write: if isBroadcaster();
-    }
+    // Venues are no longer an entity — a venue is free text typed on an event.
+    // The legacy `venues` collection is orphaned (nothing reads or writes it),
+    // so it gets no rule: reads and writes are denied by default.
 
     // Collectives (admin-managed + owner self-service)
     // - Anyone can read (needed for public collective pages)

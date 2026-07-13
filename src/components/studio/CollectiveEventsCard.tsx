@@ -1,22 +1,20 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import type { User } from "firebase/auth";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { normalizeUrl } from "@/lib/url";
 import { uploadEventPhoto, validatePhoto } from "@/lib/photo-upload";
-import { useTagOptions } from "@/hooks/useTagOptions";
-
-// "TBA" venue = private / to-be-announced. Stored as an unlinked venue ref
-// (venueName "TBA", no venueId) so it shows "TBA" publicly and links nowhere.
-const TBA_VENUE = "TBA";
 
 // IRL events editor for the collective studio. Events are docs in the `events`
 // collection linked to this collective via linkedCollectives — created/edited
 // through /api/events (owner-authorized; a collective owner may edit any event
 // linked to a collective they own). Includes the discount-code field.
+//
+// Venue is free text (type "TBA" to keep it private) — there is no venues
+// entity to link to.
 
 interface Props {
   user: User;
@@ -28,17 +26,12 @@ interface Props {
   defaultCity?: string | null;
 }
 
-interface VenueRef {
-  venueId: string;
-  venueName: string;
-}
-
 interface EventRow {
   id: string;
   name: string;
   date: number;
   location?: string | null;
-  venue?: VenueRef | null;
+  venueName?: string | null;
   ticketLink?: string | null;
   discountCode?: string | null;
   photo?: string | null;
@@ -50,14 +43,13 @@ interface FormState {
   date: string; // YYYY-MM-DD
   startTime: string; // HH:MM, defaults to 20:00 (8 PM) like the DJ setup
   city: string; // free-text city → event.location
-  venueName: string; // venue name (or "TBA") → linkedVenues
-  venueId: string; // set when an existing venue was picked (else free text)
+  venueName: string; // free-text venue name (or "TBA") → linkedVenues
   ticketLink: string;
   discountCode: string;
   photo: string | null; // event flyer → event.photo
 }
 
-const EMPTY_FORM: FormState = { name: "", date: "", startTime: "20:00", city: "", venueName: "", venueId: "", ticketLink: "", discountCode: "", photo: null };
+const EMPTY_FORM: FormState = { name: "", date: "", startTime: "20:00", city: "", venueName: "", ticketLink: "", discountCode: "", photo: null };
 
 // Compose date + start time into a unix-ms timestamp in the browser's LOCAL
 // timezone (bare datetime string parses as local). Mirrors the DJ studio's
@@ -73,19 +65,7 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName, colle
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [venueFocused, setVenueFocused] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-
-  const { venues: venueOptions } = useTagOptions();
-  // Venue typeahead: "TBA" always offered first, then matching venues.
-  const venueMatches = useMemo(() => {
-    const q = form.venueName.trim().toLowerCase();
-    const matches = venueOptions
-      .filter((v) => v.label.toLowerCase().includes(q))
-      .slice(0, 6);
-    const tbaMatches = !q || TBA_VENUE.toLowerCase().includes(q);
-    return { matches, showTba: tbaMatches };
-  }, [form.venueName, venueOptions]);
 
   // A blank form pre-fills the city with the collective's city (editable).
   const freshForm = useCallback(
@@ -117,13 +97,15 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName, colle
               c.collectiveId === collectiveId || c.collectiveSlug === collectiveSlug
           );
         if (!isLinked) return;
+        // Venue name comes from linkedVenues[0], falling back to the legacy
+        // denormalized venueName field.
         const firstVenue = Array.isArray(d.linkedVenues) && d.linkedVenues[0] ? d.linkedVenues[0] : null;
         rows.push({
           id: docSnap.id,
           name: d.name,
           date: d.date,
           location: d.location || null,
-          venue: firstVenue ? { venueId: firstVenue.venueId || "", venueName: firstVenue.venueName || "" } : null,
+          venueName: firstVenue?.venueName || d.venueName || null,
           ticketLink: d.ticketLink || null,
           discountCode: d.discountCode || null,
           photo: d.photo || null,
@@ -180,8 +162,7 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName, colle
       date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
       startTime: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
       city: ev.location || "",
-      venueName: ev.venue?.venueName || "",
-      venueId: ev.venue?.venueId || "",
+      venueName: ev.venueName || "",
       ticketLink: ev.ticketLink || "",
       discountCode: ev.discountCode || "",
       photo: ev.photo || null,
@@ -206,10 +187,10 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName, colle
         collectiveSlug,
         collectivePhoto: collectivePhoto || null,
       }];
-      // Venue → linkedVenues. A picked existing venue keeps its id; a typed name
-      // (incl. "TBA") is stored unlinked (empty id) so it shows as text / TBA.
+      // Venue is free text (incl. "TBA" to keep it private) — stored as a plain
+      // name with no id, since venues are not an entity.
       const linkedVenues = form.venueName.trim()
-        ? [{ venueId: form.venueId || "", venueName: form.venueName.trim() }]
+        ? [{ venueName: form.venueName.trim() }]
         : [];
       const payload = {
         name: form.name.trim(),
@@ -277,7 +258,7 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName, colle
                   {new Date(ev.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                   {" · "}
                   {new Date(ev.date).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
-                  {ev.venue?.venueName ? ` · ${ev.venue.venueName}` : ev.location ? ` · ${ev.location}` : ""}
+                  {ev.venueName ? ` · ${ev.venueName}` : ev.location ? ` · ${ev.location}` : ""}
                   {ev.discountCode ? ` · code: ${ev.discountCode}` : ""}
                 </p>
               </div>
@@ -371,42 +352,13 @@ export function CollectiveEventsCard({ user, collectiveId, collectiveName, colle
 
           <div>
             <label className="block text-gray-400 text-xs mb-1">Venue</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={form.venueName}
-                onChange={(e) => setForm((f) => ({ ...f, venueName: e.target.value, venueId: "" }))}
-                onFocus={() => setVenueFocused(true)}
-                onBlur={() => setTimeout(() => setVenueFocused(false), 150)}
-                placeholder="Search a venue, type a name, or TBA"
-                className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
-              />
-              {venueFocused && (
-                <div className="absolute z-10 left-0 right-0 mt-1 rounded bg-[#1e1e1e] border border-gray-800 divide-y divide-white/10 overflow-hidden">
-                  {venueMatches.showTba && (
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { setForm((f) => ({ ...f, venueName: TBA_VENUE, venueId: "" })); setVenueFocused(false); }}
-                      className="block w-full text-left px-3 py-2 text-sm text-white hover:bg-zinc-700"
-                    >
-                      TBA <span className="text-gray-500 text-xs">· venue kept private</span>
-                    </button>
-                  )}
-                  {venueMatches.matches.map((v) => (
-                    <button
-                      key={v.venueId}
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { setForm((f) => ({ ...f, venueName: v.venueName, venueId: v.venueId })); setVenueFocused(false); }}
-                      className="block w-full text-left px-3 py-2 text-sm text-white hover:bg-zinc-700"
-                    >
-                      {v.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <input
+              type="text"
+              value={form.venueName}
+              onChange={(e) => setForm((f) => ({ ...f, venueName: e.target.value }))}
+              placeholder="Venue name, or TBA to keep it private"
+              className="w-full bg-black border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+            />
           </div>
 
           <div>

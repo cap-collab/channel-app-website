@@ -4,7 +4,6 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { generateSlug } from '@/lib/slug';
 import { cleanupFavoritesForShowName, cleanupFavoritesForIRLEvent } from '@/lib/favorites-cleanup';
 import {
-  syncEventToVenues,
   syncEventToCollectives,
   cleanupDeletedEvent,
 } from '@/lib/bidirectional-sync';
@@ -175,12 +174,11 @@ export async function POST(request: NextRequest) {
       eventDjs = [djSelf, ...eventDjs];
     }
 
-    // Denormalize venue name from first linked venue
-    let venueId: string | null = null;
+    // Denormalize the venue name from the first linked venue. Venues are free
+    // text (no venues entity), so there is no id to carry.
     let venueName: string | null = null;
     if (linkedVenues && linkedVenues.length > 0) {
-      venueId = linkedVenues[0].venueId;
-      venueName = linkedVenues[0].venueName;
+      venueName = linkedVenues[0].venueName || null;
     }
 
     const eventData: Record<string, unknown> = {
@@ -190,7 +188,6 @@ export async function POST(request: NextRequest) {
       endDate: endDate || null,
       photo: photo || null,
       description: description || null,
-      venueId,
       venueName,
       collectiveId: null,
       collectiveName: null,
@@ -209,9 +206,8 @@ export async function POST(request: NextRequest) {
 
     const docRef = await db.collection('events').add(eventData);
 
-    // Bidirectional sync
+    // Bidirectional sync (venues are free text — nothing to sync back to)
     const batch = db.batch();
-    await syncEventToVenues(batch, db, docRef.id, name.trim(), slug, dateMs, [], linkedVenues || []);
     await syncEventToCollectives(batch, db, docRef.id, name.trim(), slug, dateMs, [], linkedCollectives || []);
     await batch.commit();
 
@@ -303,14 +299,8 @@ export async function PATCH(request: NextRequest) {
     if (discountCode !== undefined) updateData.discountCode = discountCode || null;
     if (linkedVenues !== undefined) {
       updateData.linkedVenues = linkedVenues;
-      // Update denormalized venue fields
-      if (linkedVenues.length > 0) {
-        updateData.venueId = linkedVenues[0].venueId;
-        updateData.venueName = linkedVenues[0].venueName;
-      } else {
-        updateData.venueId = null;
-        updateData.venueName = null;
-      }
+      // Venue is free text — only the denormalized name is carried.
+      updateData.venueName = linkedVenues.length > 0 ? (linkedVenues[0].venueName || null) : null;
     }
     if (linkedCollectives !== undefined) updateData.linkedCollectives = linkedCollectives;
 
@@ -321,14 +311,6 @@ export async function PATCH(request: NextRequest) {
     const selfName = (name !== undefined ? name : currentData.name) as string;
     const selfSlug = currentData.slug as string;
     const selfDate = (dateMs !== undefined ? dateMs : currentData.date) as number;
-
-    if (linkedVenues !== undefined) {
-      await syncEventToVenues(
-        batch, db, eventId, selfName, selfSlug, selfDate,
-        currentData.linkedVenues || [],
-        linkedVenues
-      );
-    }
 
     if (linkedCollectives !== undefined) {
       await syncEventToCollectives(
@@ -414,7 +396,6 @@ export async function DELETE(request: NextRequest) {
 
     await cleanupDeletedEvent(
       batch, db, eventId,
-      eventData.linkedVenues || [],
       eventData.linkedCollectives || []
     );
 

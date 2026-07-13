@@ -11,7 +11,7 @@ import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { Header } from '@/components/Header';
 import { normalizeUrl } from '@/lib/url';
 import { uploadEventPhoto, deleteEventPhoto, validatePhoto } from '@/lib/photo-upload';
-import { Event, EventDJRef, EventVenueRef, Venue, Collective, CollectiveRef } from '@/types/events';
+import { Event, EventDJRef, Collective, CollectiveRef } from '@/types/events';
 import { ScenePillEditor } from '@/components/broadcast/admin/ScenePillEditor';
 import { CreatableChipField } from '@/components/events/CreatableChipField';
 import { normalizeUsername } from '@/lib/dj-matching';
@@ -39,7 +39,7 @@ export function EventsAdmin() {
   const [name, setName] = useState('');
   const [date, setDate] = useState('');           // YYYY-MM-DD
   const [startTime, setStartTime] = useState('20:00'); // HH:MM, defaults to 8:00 PM
-  const [eventLinkedVenues, setEventLinkedVenues] = useState<EventVenueRef[]>([]);
+  const [venueName, setVenueName] = useState('');
   const [eventLinkedCollectives, setEventLinkedCollectives] = useState<CollectiveRef[]>([]);
   const [location, setLocation] = useState('');
   const [ticketLink, setTicketLink] = useState('');
@@ -61,7 +61,6 @@ export function EventsAdmin() {
 
   // Data
   const [events, setEvents] = useState<Event[]>([]);
-  const [venues, setVenues] = useState<Venue[]>([]);
   const [collectives, setCollectives] = useState<Collective[]>([]);
   const [djOptions, setDjOptions] = useState<DJOption[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
@@ -86,31 +85,6 @@ export function EventsAdmin() {
   }, [djs, eventLinkedCollectives, djSceneMap, collectives]);
 
   const hasBroadcasterAccess = isBroadcaster(role);
-
-  // Fetch venues for the dropdown
-  const fetchVenues = useCallback(async () => {
-    if (!db) return;
-    try {
-      const venuesRef = collection(db, 'venues');
-      const snapshot = await getDocs(venuesRef);
-      const venuesList: Venue[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        venuesList.push({
-          id: docSnap.id,
-          name: data.name,
-          slug: data.slug,
-          location: data.location || null,
-          createdAt: data.createdAt?.toMillis?.() || Date.now(),
-          createdBy: data.createdBy,
-        });
-      });
-      venuesList.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-      setVenues(venuesList);
-    } catch (err) {
-      console.error('Error fetching venues:', err);
-    }
-  }, []);
 
   // Fetch collectives for the dropdown
   const fetchCollectives = useCallback(async () => {
@@ -234,14 +208,13 @@ export function EventsAdmin() {
 
   useEffect(() => {
     if (isAuthenticated && hasBroadcasterAccess) {
-      fetchVenues();
       fetchCollectives();
       fetchEvents();
       fetchDJOptions();
     } else {
       setLoadingEvents(false);
     }
-  }, [isAuthenticated, hasBroadcasterAccess, fetchVenues, fetchCollectives, fetchEvents, fetchDJOptions]);
+  }, [isAuthenticated, hasBroadcasterAccess, fetchCollectives, fetchEvents, fetchDJOptions]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -277,7 +250,7 @@ export function EventsAdmin() {
     setName('');
     setDate('');
     setStartTime('20:00');
-    setEventLinkedVenues([]);
+    setVenueName('');
     setEventLinkedCollectives([]);
     setLocation('');
     setTicketLink('');
@@ -298,16 +271,9 @@ export function EventsAdmin() {
     const [datePart, timePart] = msToDatetimeLocal(event.date).split('T');
     setDate(datePart || '');
     setStartTime(timePart || '20:00');
-    // Populate venue chips from arrays, or fall back to legacy single fields
-    // (venueId/venueName, or a legacy manual venueName with no id).
-    const lv = event.linkedVenues || [];
-    if (lv.length > 0) {
-      setEventLinkedVenues(lv);
-    } else if (event.venueName) {
-      setEventLinkedVenues([{ venueId: event.venueId || '', venueName: event.venueName }]);
-    } else {
-      setEventLinkedVenues([]);
-    }
+    // Venue is free text now — read the first linked venue name, or fall back
+    // to the legacy single venueName field.
+    setVenueName(event.linkedVenues?.[0]?.venueName || event.venueName || '');
     const lc = event.linkedCollectives || [];
     if (lc.length === 0 && event.collectiveId && event.collectiveName) {
       setEventLinkedCollectives([{ collectiveId: event.collectiveId, collectiveName: event.collectiveName }]);
@@ -395,6 +361,7 @@ export function EventsAdmin() {
       }
 
       const filteredDJs = djs.filter(dj => dj.djName.trim());
+      const trimmedVenueName = venueName.trim();
 
       const payload = {
         ...(editingEvent ? { eventId: editingEvent.id } : {}),
@@ -402,11 +369,11 @@ export function EventsAdmin() {
         date: datetimeLocalToMs(`${date}T${startTime || '20:00'}`),
         endDate: null, // events no longer have an end time; clear any legacy value
         photo: photoUrl,
-        venueId: eventLinkedVenues.length > 0 ? (eventLinkedVenues[0].venueId || null) : null,
-        venueName: eventLinkedVenues.length > 0 ? eventLinkedVenues[0].venueName : null,
+        venueId: null, // venues are no longer an entity; venue is free text
+        venueName: trimmedVenueName || null,
         venueCollectiveId: null, // collective-as-venue removed; clear any legacy value
         collectiveId: eventLinkedCollectives.length > 0 ? eventLinkedCollectives[0].collectiveId : null,
-        linkedVenues: eventLinkedVenues,
+        linkedVenues: trimmedVenueName ? [{ venueName: trimmedVenueName }] : [],
         linkedCollectives: eventLinkedCollectives,
         djs: filteredDJs,
         sceneIdsOverride: sceneIdsOverride,
@@ -643,23 +610,15 @@ export function EventsAdmin() {
               )}
             </div>
 
-            {/* Venue — search available venues or type a new name */}
+            {/* Venue — free text */}
             <div className="mb-4">
-              <CreatableChipField<Venue, EventVenueRef>
-                label="Venue"
-                options={venues}
-                selected={eventLinkedVenues}
-                optionLabel={(v) => v.location ? `${v.name} (${v.location})` : v.name}
-                selectedLabel={(s) => s.venueName}
-                optionKey={(v) => v.id}
-                selectedKey={(s) => s.venueId || normalizeUsername(s.venueName)}
-                toSelected={(v) => {
-                  if (!location && v.location) setLocation(v.location);
-                  return { venueId: v.id, venueName: v.name };
-                }}
-                freeTextToSelected={(text) => ({ venueId: '', venueName: text })}
-                onChange={setEventLinkedVenues}
-                placeholder="Search a venue, or type a new name"
+              <label className="block text-sm text-gray-400 mb-1">Venue</label>
+              <input
+                type="text"
+                value={venueName}
+                onChange={(e) => setVenueName(e.target.value)}
+                className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-white"
+                placeholder="Venue name"
               />
             </div>
 

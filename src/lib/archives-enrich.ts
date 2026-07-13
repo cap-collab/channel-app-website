@@ -250,9 +250,6 @@ export async function enrichArchives(db: Firestore, rawArchives: RawArchive[]): 
       sceneIdsOverride: data.sceneIdsOverride ?? null,
       sceneSlugs: Array.isArray(data.sceneSlugs) ? data.sceneSlugs : undefined,
       tempo: data.tempo ?? null,
-      venueId: data.venueId ?? null,
-      venueName: data.venueName ?? null,
-      venueSlug: data.venueSlug ?? null,
       crossListUserIds: Array.isArray(data.crossListUserIds) ? data.crossListUserIds : undefined,
       crossListUsernames: Array.isArray(data.crossListUsernames) ? data.crossListUsernames : undefined,
       // Mask private tracks BEFORE the payload leaves the server — the real

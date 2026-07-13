@@ -116,7 +116,8 @@ interface DJEvent {
   ticketLink: string;
   discountCode: string;
   photo: string | null;
-  linkedVenues: { venueId: string; venueName: string }[];
+  venueName: string; // free text — venues are no longer an entity
+  linkedVenues: { venueName: string }[];
   linkedCollectives: { collectiveId: string; collectiveName: string }[];
   djs: { djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[];
   saving?: boolean;
@@ -365,14 +366,13 @@ export function StudioProfileClient() {
   // Form state - IRL Events section
   const [djEvents, setDjEvents] = useState<DJEvent[]>([]);
   const [loadingDjEvents, setLoadingDjEvents] = useState(true);
-  const [newEvent, setNewEvent] = useState<DJEvent>({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", discountCode: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
+  const [newEvent, setNewEvent] = useState<DJEvent>({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", discountCode: "", photo: null, venueName: "", linkedVenues: [], linkedCollectives: [], djs: [] });
   const [showNewEventForm, setShowNewEventForm] = useState(false);
   const [savingNewEvent, setSavingNewEvent] = useState(false);
   const [eventError, setEventError] = useState<string | null>(null);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const [uploadingEventPhoto, setUploadingEventPhoto] = useState(false);
-  const [venueOptions, setVenueOptions] = useState<{ id: string; name: string }[]>([]);
   const [collectiveOptions, setCollectiveOptions] = useState<{ id: string; name: string }[]>([]);
   const [djOptions, setDjOptions] = useState<{ label: string; djName: string; djUserId?: string; djUsername?: string; djPhotoUrl?: string }[]>([]);
 
@@ -1569,16 +1569,10 @@ export function StudioProfileClient() {
     }
   }, [user]);
 
-  // Fetch venue, collective, and DJ options for event selectors
+  // Fetch collective and DJ options for event selectors
   const fetchEventOptions = useCallback(async () => {
     if (!db) return;
     try {
-      const venuesSnap = await getDocs(collection(db, "venues"));
-      const venues: { id: string; name: string }[] = [];
-      venuesSnap.forEach((d) => venues.push({ id: d.id, name: d.data().name }));
-      venues.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-      setVenueOptions(venues);
-
       const collectivesSnap = await getDocs(collection(db, "collectives"));
       const collectives: { id: string; name: string }[] = [];
       collectivesSnap.forEach((d) => collectives.push({ id: d.id, name: d.data().name }));
@@ -1650,6 +1644,7 @@ export function StudioProfileClient() {
             ticketLink: data.ticketLink || "",
             discountCode: data.discountCode || "",
             photo: data.photo || null,
+            venueName: data.linkedVenues?.[0]?.venueName || data.venueName || "",
             linkedVenues: data.linkedVenues || [],
             linkedCollectives: data.linkedCollectives || [],
             djs: data.djs || [],
@@ -1730,14 +1725,14 @@ export function StudioProfileClient() {
           ticketLink: newEvent.ticketLink.trim() ? normalizeUrl(newEvent.ticketLink.trim()) : undefined,
           discountCode: newEvent.discountCode.trim() || undefined,
           photo: newEvent.photo || undefined,
-          linkedVenues: newEvent.linkedVenues.length > 0 ? newEvent.linkedVenues : undefined,
+          linkedVenues: newEvent.venueName.trim() ? [{ venueName: newEvent.venueName.trim() }] : undefined,
           linkedCollectives: newEvent.linkedCollectives.length > 0 ? newEvent.linkedCollectives : undefined,
           djs: newEvent.djs.filter(d => d.djName.trim()).length > 0 ? newEvent.djs.filter(d => d.djName.trim()) : undefined,
         }),
       });
 
       if (response.ok) {
-        setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", discountCode: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
+        setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", discountCode: "", photo: null, venueName: "", linkedVenues: [], linkedCollectives: [], djs: [] });
         setShowNewEventForm(false);
         await fetchDjEvents();
       } else {
@@ -1782,14 +1777,14 @@ export function StudioProfileClient() {
           ticketLink: newEvent.ticketLink.trim() ? normalizeUrl(newEvent.ticketLink.trim()) : null,
           discountCode: newEvent.discountCode.trim() || null,
           photo: newEvent.photo || null,
-          linkedVenues: newEvent.linkedVenues,
+          linkedVenues: newEvent.venueName.trim() ? [{ venueName: newEvent.venueName.trim() }] : [],
           linkedCollectives: newEvent.linkedCollectives,
           djs: newEvent.djs.filter(d => d.djName.trim()),
         }),
       });
 
       if (response.ok) {
-        setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", discountCode: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] });
+        setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", discountCode: "", photo: null, venueName: "", linkedVenues: [], linkedCollectives: [], djs: [] });
         setShowNewEventForm(false);
         setEditingEventId(null);
         await fetchDjEvents();
@@ -3863,20 +3858,16 @@ export function StudioProfileClient() {
                   <div className="flex gap-2">
                     <input type="text" value={newEvent.discountCode} onChange={(e) => setNewEvent(prev => ({ ...prev, discountCode: e.target.value }))} placeholder="Discount code (optional)" className="flex-1 bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none" />
                   </div>
-                  {/* Venue — search available venues or type a new name */}
-                  <CreatableChipField<{ id: string; name: string }, { venueId: string; venueName: string }>
-                    label="Venue"
-                    options={venueOptions}
-                    selected={newEvent.linkedVenues}
-                    optionLabel={(v) => v.name}
-                    selectedLabel={(s) => s.venueName}
-                    optionKey={(v) => v.id}
-                    selectedKey={(s) => s.venueId || normalizeUsername(s.venueName)}
-                    toSelected={(v) => ({ venueId: v.id, venueName: v.name })}
-                    freeTextToSelected={(text) => ({ venueId: "", venueName: text })}
-                    onChange={(next) => setNewEvent(prev => ({ ...prev, linkedVenues: next }))}
-                    placeholder="Search a venue, or type a new name"
-                  />
+                  {/* Venue — free text */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newEvent.venueName}
+                      onChange={(e) => setNewEvent(prev => ({ ...prev, venueName: e.target.value }))}
+                      placeholder="Venue"
+                      className="flex-1 bg-[#1e1e1e] border border-gray-800 rounded px-3 py-2 text-white placeholder-gray-600 focus:border-gray-600 focus:outline-none"
+                    />
+                  </div>
                   {/* Linked Collectives — search available collectives or type a new name */}
                   <CreatableChipField<{ id: string; name: string }, { collectiveId: string; collectiveName: string }>
                     label="Collectives"
@@ -3914,7 +3905,7 @@ export function StudioProfileClient() {
                     <button type="button" onClick={editingEventId ? updateEvent : createEvent} disabled={savingNewEvent || !newEvent.name.trim()} className="px-4 py-2 bg-white text-black text-xs font-medium rounded hover:bg-gray-200 transition-colors disabled:opacity-50">
                       {savingNewEvent ? "Saving..." : editingEventId ? "Update Event" : "Create Event"}
                     </button>
-                    <button type="button" onClick={() => { setShowNewEventForm(false); setEditingEventId(null); setEventError(null); setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", discountCode: "", photo: null, linkedVenues: [], linkedCollectives: [], djs: [] }); }} className="px-4 py-2 text-gray-400 hover:text-white text-xs transition-colors">
+                    <button type="button" onClick={() => { setShowNewEventForm(false); setEditingEventId(null); setEventError(null); setNewEvent({ name: "", date: "", startTime: "20:00", location: "", ticketLink: "", discountCode: "", photo: null, venueName: "", linkedVenues: [], linkedCollectives: [], djs: [] }); }} className="px-4 py-2 text-gray-400 hover:text-white text-xs transition-colors">
                       Cancel
                     </button>
                   </div>

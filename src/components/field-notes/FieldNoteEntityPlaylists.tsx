@@ -30,7 +30,9 @@ function primaryEntity(note: FieldNoteSerialized): { key: string; label: string 
   }
   if (note.venues[0]) {
     const v = note.venues[0];
-    return { key: `venue:${v.venueId}`, label: v.venueName };
+    // Venues are free text — key off the normalized name (venueId is legacy and
+    // absent on new notes; keying on it would collapse every venue into one).
+    return { key: `venue:${v.venueId || normalizeUsername(v.venueName)}`, label: v.venueName };
   }
   return null;
 }

@@ -20,11 +20,9 @@ export async function POST(request: NextRequest) {
     const userData = userDoc.data();
     const username = userData?.chatUsernameNormalized || null;
 
-    // Query all collectives and venues — these collections are small
-    const [collectivesSnapshot, venuesSnapshot] = await Promise.all([
-      db.collection('collectives').get(),
-      db.collection('venues').get(),
-    ]);
+    // Query all collectives — this collection is small. (Venues are not an
+    // entity anymore, so there are no venue residentDJs to keep in sync.)
+    const collectivesSnapshot = await db.collection('collectives').get();
 
     let updated = 0;
     const updatePromises: Promise<FirebaseFirestore.WriteResult>[] = [];
@@ -52,11 +50,10 @@ export async function POST(request: NextRequest) {
     };
 
     processCollection(collectivesSnapshot);
-    processCollection(venuesSnapshot);
 
     await Promise.all(updatePromises);
 
-    console.log(`[sync-photo-refs] Updated ${updated} collectives/venues for user ${userId}`);
+    console.log(`[sync-photo-refs] Updated ${updated} collectives for user ${userId}`);
 
     return NextResponse.json({ success: true, updated });
   } catch (error) {

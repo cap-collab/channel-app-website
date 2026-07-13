@@ -14,12 +14,6 @@ import { parseTrackIds, matchTrackToDj, type TrackId, type DjCandidate } from '@
 import { normalizeUsername } from '@/lib/dj-matching';
 import type { SceneSerialized } from '@/types/scenes';
 
-interface VenueOption {
-  id: string;
-  name: string;
-  slug: string;
-}
-
 // A DJ that can be cross-list-tagged (contributor) on an archive. Real users
 // tag by uid (crossListUserIds); pending profiles have no uid so they tag by
 // normalized username (crossListUsernames). `value` is the stable token used
@@ -112,7 +106,6 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
     archiveName: string;
   } | null>(null);
   const [socialArchive, setSocialArchive] = useState<ArchiveSerialized | null>(null);
-  const [venues, setVenues] = useState<VenueOption[]>([]);
   // DJ users only — for the contributors (cross-list) picker.
   const [djOptions, setDjOptions] = useState<DjOption[]>([]);
   // DJ users + collectives — for the owner (djs[0]) dropdown.
@@ -187,30 +180,6 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
         }
       } catch (err) {
         console.error('[ArchivesTab] failed to load DJ/collective options:', err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Fetch venues once for the edit-form dropdown. Public read; no auth needed.
-  useEffect(() => {
-    if (!db) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const snapshot = await getDocs(collection(db, 'venues'));
-        const list: VenueOption[] = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          if (!data.name || !data.slug) return;
-          list.push({ id: doc.id, name: data.name, slug: data.slug });
-        });
-        list.sort((a, b) => a.name.localeCompare(b.name));
-        if (!cancelled) setVenues(list);
-      } catch (err) {
-        console.error('[ArchivesTab] failed to load venues:', err);
       }
     })();
     return () => {
@@ -526,7 +495,6 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
                 key={archive.id}
                 archive={archive}
                 scenes={scenes}
-                venues={venues}
                 djOptions={djOptions}
                 ownerOptions={ownerOptions}
                 inheritedSceneIds={inheritedScenes}
@@ -646,7 +614,6 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
 function ArchiveCard({
   archive,
   scenes,
-  venues,
   djOptions,
   ownerOptions,
   inheritedSceneIds,
@@ -660,7 +627,6 @@ function ArchiveCard({
 }: {
   archive: ArchiveSerialized;
   scenes: SceneSerialized[];
-  venues: VenueOption[];
   djOptions: DjOption[];
   ownerOptions: OwnerOption[];
   inheritedSceneIds: string[];
@@ -686,7 +652,6 @@ function ArchiveCard({
   const [djUsernameInput, setDjUsernameInput] = useState(primaryDj?.username || '');
   const [genreInput, setGenreInput] = useState(primaryDj?.genres?.join(', ') || '');
   const [locationInput, setLocationInput] = useState(primaryDj?.location || '');
-  const [venueIdInput, setVenueIdInput] = useState(archive.venueId || '');
   // Contributors (crossListUserIds) — DJ uids the archive is surfaced to on
   // their own /dj page, WITHOUT touching djs[]/credit/scenes.
   // Contributor tokens: a uid (real user) or `name:<username>` (pending DJ),
@@ -781,7 +746,6 @@ function ArchiveCard({
       djUsername: djUsernameInput,
       genres,
       location: locationInput.trim(),
-      venueId: venueIdInput,
       crossListUserIds,
       crossListUsernames,
       trackIds: trackIdsPreview,
@@ -823,7 +787,6 @@ function ArchiveCard({
     setDjUsernameInput(primaryDj?.username || '');
     setGenreInput(primaryDj?.genres?.join(', ') || '');
     setLocationInput(primaryDj?.location || '');
-    setVenueIdInput(archive.venueId || '');
     setCrossListInput([
       ...(archive.crossListUserIds || []),
       ...(archive.crossListUsernames || []).map((u) => `name:${u}`),
@@ -948,21 +911,6 @@ function ArchiveCard({
                     className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Venue attribution</label>
-                <select
-                  value={venueIdInput}
-                  onChange={(e) => setVenueIdInput(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-gray-500"
-                >
-                  <option value="">No venue attribution</option>
-                  {venues.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name}
-                    </option>
-                  ))}
-                </select>
               </div>
               {/* Contributors — surfaces this archive on these DJs' OWN /dj
                   pages only (real users via crossListUserIds, pending DJs via
@@ -1186,11 +1134,6 @@ function ArchiveCard({
                   {primaryDj?.genres?.join(', ')}
                   {primaryDj?.genres?.length && primaryDj?.location ? ' · ' : ''}
                   {primaryDj?.location}
-                </p>
-              )}
-              {archive.venueName && (
-                <p className="text-xs text-gray-500 mb-1">
-                  Venue: <span className="text-gray-400">{archive.venueName}</span>
                 </p>
               )}
               {/* Scene pills — admin-only assignment. Inherited from DJs unless overridden. */}

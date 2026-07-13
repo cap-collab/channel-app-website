@@ -12,7 +12,7 @@ import { normalizeUsername } from '@/lib/dj-matching';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSchedule } from '@/contexts/ScheduleContext';
 import { Show } from '@/types';
-import { Collective, Venue } from '@/types/events';
+import { Collective } from '@/types/events';
 import { getStationById, getStationByMetadataKey, STATIONS } from '@/lib/stations';
 import { ExpandedShowCard } from './channel/ExpandedShowCard';
 
@@ -58,12 +58,10 @@ let djCache: {
 } | null = null;
 const DJ_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Module-level cache for collectives and venues
+// Module-level cache for collectives
 type CollectiveEntry = { id: string; name: string; slug: string; photo?: string | null; location?: string | null };
-type VenueEntry = { id: string; name: string; slug: string; photo?: string | null; location?: string | null };
-let collectivesVenuesCache: {
+let collectivesCache: {
   collectives: CollectiveEntry[];
-  venues: VenueEntry[];
   timestamp: number;
 } | null = null;
 const CV_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -89,7 +87,6 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
   const [expandedShow, setExpandedShow] = useState<Show | null>(null);
   const [togglingExpandedFavorite, setTogglingExpandedFavorite] = useState(false);
   const [matchingCollectives, setMatchingCollectives] = useState<CollectiveEntry[]>([]);
-  const [matchingVenues, setMatchingVenues] = useState<VenueEntry[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -184,11 +181,10 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Search collectives and venues with module-level cache
+  // Search collectives with module-level cache
   useEffect(() => {
     if (!query.trim() || !db) {
       setMatchingCollectives([]);
-      setMatchingVenues([]);
       return;
     }
 
@@ -197,7 +193,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
       const queryLower = query.toLowerCase();
 
       // Populate cache if stale or missing
-      if (!collectivesVenuesCache || Date.now() - collectivesVenuesCache.timestamp > CV_CACHE_TTL) {
+      if (!collectivesCache || Date.now() - collectivesCache.timestamp > CV_CACHE_TTL) {
         try {
           const allCollectives: CollectiveEntry[] = [];
           const collectivesSnapshot = await getDocs(fbQuery(collection(db, 'collectives')));
@@ -212,32 +208,16 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
             });
           });
 
-          const allVenues: VenueEntry[] = [];
-          const venuesSnapshot = await getDocs(fbQuery(collection(db, 'venues')));
-          venuesSnapshot.forEach((docSnap) => {
-            const data = docSnap.data() as Venue;
-            allVenues.push({
-              id: docSnap.id,
-              name: data.name,
-              slug: data.slug,
-              photo: data.photo,
-              location: data.location,
-            });
-          });
-
-          collectivesVenuesCache = { collectives: allCollectives, venues: allVenues, timestamp: Date.now() };
+          collectivesCache = { collectives: allCollectives, timestamp: Date.now() };
         } catch (error) {
-          console.error('Error fetching collectives/venues:', error);
+          console.error('Error fetching collectives:', error);
           return;
         }
       }
 
       // Filter cached data
       setMatchingCollectives(
-        collectivesVenuesCache.collectives.filter((c) => c.name.toLowerCase().includes(queryLower)).slice(0, 5)
-      );
-      setMatchingVenues(
-        collectivesVenuesCache.venues.filter((v) => v.name.toLowerCase().includes(queryLower)).slice(0, 5)
+        collectivesCache.collectives.filter((c) => c.name.toLowerCase().includes(queryLower)).slice(0, 5)
       );
     }, 150);
 
@@ -608,48 +588,6 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                   </div>
                 )}
 
-                {/* Venues Section */}
-                {matchingVenues.length > 0 && (
-                  <div className="p-3 border-b border-gray-800">
-                    <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-2 px-1">
-                      Venues ({matchingVenues.length})
-                    </h3>
-                    <div className="space-y-1">
-                      {matchingVenues.map((venue) => (
-                        <Link
-                          key={venue.id}
-                          href={`/venue/${venue.slug}`}
-                          onClick={() => setIsOpen(false)}
-                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors"
-                        >
-                          <div className="w-8 h-8 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                            {venue.photo ? (
-                              <Image
-                                src={venue.photo}
-                                alt={venue.name}
-                                width={32}
-                                height={32}
-                                className="w-full h-full object-cover"
-                                unoptimized
-                              />
-                            ) : (
-                              <span className="text-white text-sm font-medium">
-                                {venue.name.charAt(0).toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-sm font-medium truncate">{venue.name}</p>
-                            {venue.location && (
-                              <p className="text-gray-500 text-xs truncate">{venue.location}</p>
-                            )}
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {/* Shows Section */}
                 {results.length > 0 && (
                   <div className="p-3">
@@ -733,7 +671,7 @@ export function HeaderSearch({ onAuthRequired }: HeaderSearchProps) {
                 )}
 
                 {/* No results message */}
-                {results.length === 0 && combinedDjs.length === 0 && matchingCollectives.length === 0 && matchingVenues.length === 0 && !isDjLoading && (
+                {results.length === 0 && combinedDjs.length === 0 && matchingCollectives.length === 0 && !isDjLoading && (
                   <div className="p-4 text-center text-gray-500 text-sm">
                     No upcoming shows found for &quot;{query}&quot;
                   </div>

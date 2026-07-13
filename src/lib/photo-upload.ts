@@ -279,68 +279,6 @@ export async function deletePendingDJPhoto(profileId: string, photoUrl: string):
 }
 
 /**
- * Upload a venue photo to Firebase Storage
- */
-export async function uploadVenuePhoto(venueId: string, file: File): Promise<UploadPhotoResult> {
-  if (!storage) {
-    return { success: false, error: 'Storage not configured' };
-  }
-
-  const validation = validatePhoto(file);
-  if (!validation.valid) {
-    return { success: false, error: validation.error };
-  }
-
-  try {
-    const processed = await processPhoto(file);
-    const ext = processed.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const filename = `photo.${ext}`;
-    const photoRef = ref(storage, `venue-photos/${venueId}/${filename}`);
-
-    await uploadBytes(photoRef, processed, {
-      contentType: processed.type,
-      customMetadata: {
-        uploadedAt: new Date().toISOString(),
-      },
-    });
-
-    const url = await getDownloadURL(photoRef);
-    return { success: true, url };
-  } catch (error) {
-    console.error('Venue photo upload failed:', error);
-    return { success: false, error: 'Failed to upload photo. Please try again.' };
-  }
-}
-
-/**
- * Delete a venue photo from Firebase Storage
- */
-export async function deleteVenuePhoto(venueId: string, photoUrl: string): Promise<boolean> {
-  if (!storage) return false;
-
-  try {
-    const match = photoUrl.match(/venue-photos%2F[^%]+%2F([^?]+)/);
-    let filename = 'photo.jpg';
-
-    if (match) {
-      filename = decodeURIComponent(match[1]);
-    } else {
-      const altMatch = photoUrl.match(/venue-photos\/[^/]+\/([^?]+)/);
-      if (altMatch) {
-        filename = altMatch[1];
-      }
-    }
-
-    const photoRef = ref(storage, `venue-photos/${venueId}/${filename}`);
-    await deleteObject(photoRef);
-    return true;
-  } catch (error) {
-    console.error('Venue photo delete failed:', error);
-    return false;
-  }
-}
-
-/**
  * Upload a collective photo to Firebase Storage
  */
 export async function uploadCollectivePhoto(collectiveId: string, file: File): Promise<UploadPhotoResult> {

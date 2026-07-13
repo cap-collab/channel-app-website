@@ -11,7 +11,7 @@ import { useUserRole, isBroadcaster } from '@/hooks/useUserRole';
 import { Header } from '@/components/Header';
 import { normalizeUrl } from '@/lib/url';
 import { uploadCollectivePhoto, deleteCollectivePhoto, validatePhoto } from '@/lib/photo-upload';
-import { Collective, CollectiveRef, CollectiveVenueRef, Event, EventRef, EventDJRef, Venue, CustomLink } from '@/types/events';
+import { Collective, CollectiveRef, Event, EventRef, EventDJRef, CustomLink } from '@/types/events';
 import { ScenePillEditor } from '@/components/broadcast/admin/ScenePillEditor';
 import { useScenesData } from '@/hooks/useScenesData';
 
@@ -48,7 +48,6 @@ export function CollectivesAdmin() {
   const [customLinks, setCustomLinks] = useState<CustomLink[]>([]);
   const [residentDJs, setResidentDJs] = useState<EventDJRef[]>([{ djName: '' }]);
   const [guestDJs, setGuestDJs] = useState<EventDJRef[]>([{ djName: '' }]);
-  const [linkedVenues, setLinkedVenues] = useState<CollectiveVenueRef[]>([]);
   const [linkedCollectives, setLinkedCollectives] = useState<CollectiveRef[]>([]);
   const [collectiveLinkedEvents, setCollectiveLinkedEvents] = useState<EventRef[]>([]);
   const [collectiveSceneIds, setCollectiveSceneIds] = useState<string[]>([]);
@@ -69,9 +68,6 @@ export function CollectivesAdmin() {
 
   // Available DJs (from pending profiles + DJ users)
   const [djOptions, setDjOptions] = useState<DJOption[]>([]);
-
-  // Available venues for linking
-  const [venueOptions, setVenueOptions] = useState<Venue[]>([]);
 
   // Available events for linking
   const [eventOptions, setEventOptions] = useState<Event[]>([]);
@@ -136,31 +132,6 @@ export function CollectivesAdmin() {
     }
   }, []);
 
-  // Fetch venues for linking
-  const fetchVenueOptions = useCallback(async () => {
-    if (!db) return;
-    try {
-      const venuesRef = collection(db, 'venues');
-      const snapshot = await getDocs(venuesRef);
-      const venuesList: Venue[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        venuesList.push({
-          id: docSnap.id,
-          name: data.name,
-          slug: data.slug,
-          location: data.location || null,
-          createdAt: data.createdAt?.toMillis?.() || Date.now(),
-          createdBy: data.createdBy,
-        });
-      });
-      venuesList.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-      setVenueOptions(venuesList);
-    } catch (err) {
-      console.error('Error fetching venues:', err);
-    }
-  }, []);
-
   // Fetch events for linking
   const fetchEventOptions = useCallback(async () => {
     if (!db) return;
@@ -210,7 +181,6 @@ export function CollectivesAdmin() {
           socialLinks: data.socialLinks || {},
           residentDJs: data.residentDJs || [],
           guestDJs: data.guestDJs || [],
-          linkedVenues: data.linkedVenues || [],
           linkedCollectives: data.linkedCollectives || [],
           linkedEvents: data.linkedEvents || [],
           sceneIds: Array.isArray(data.sceneIds) ? data.sceneIds : [],
@@ -233,12 +203,11 @@ export function CollectivesAdmin() {
     if (isAuthenticated && hasBroadcasterAccess) {
       fetchCollectives();
       fetchDJOptions();
-      fetchVenueOptions();
       fetchEventOptions();
     } else {
       setLoadingCollectives(false);
     }
-  }, [isAuthenticated, hasBroadcasterAccess, fetchCollectives, fetchDJOptions, fetchVenueOptions, fetchEventOptions]);
+  }, [isAuthenticated, hasBroadcasterAccess, fetchCollectives, fetchDJOptions, fetchEventOptions]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -261,7 +230,6 @@ export function CollectivesAdmin() {
     setCustomLinks([]);
     setResidentDJs([{ djName: '' }]);
     setGuestDJs([{ djName: '' }]);
-    setLinkedVenues([]);
     setLinkedCollectives([]);
     setCollectiveLinkedEvents([]);
     setCollectiveSceneIds([]);
@@ -298,7 +266,6 @@ export function CollectivesAdmin() {
         ? collective.guestDJs
         : [{ djName: '' }]
     );
-    setLinkedVenues(collective.linkedVenues || []);
     setLinkedCollectives(collective.linkedCollectives || []);
     setCollectiveLinkedEvents(collective.linkedEvents || []);
     setCollectiveSceneIds(collective.sceneIds || []);
@@ -381,20 +348,6 @@ export function CollectivesAdmin() {
   const handleGuestDJSelect = (index: number, value: string) =>
     handleDJSelectFor(guestDJs, setGuestDJs, index, value);
 
-  // Handle adding/removing linked venues
-  const handleAddVenue = (venueId: string) => {
-    if (!venueId) return;
-    const venue = venueOptions.find(v => v.id === venueId);
-    if (!venue) return;
-    // Don't add duplicates
-    if (linkedVenues.some(v => v.venueId === venueId)) return;
-    setLinkedVenues([...linkedVenues, { venueId: venue.id, venueName: venue.name }]);
-  };
-
-  const handleRemoveVenue = (venueId: string) => {
-    setLinkedVenues(linkedVenues.filter(v => v.venueId !== venueId));
-  };
-
   // Handle adding/removing linked collectives
   const handleAddCollective = (collectiveId: string) => {
     if (!collectiveId) return;
@@ -452,7 +405,6 @@ export function CollectivesAdmin() {
         socialLinks: socialLinksData,
         residentDJs: filteredDJs,
         guestDJs: filteredGuestDJs,
-        linkedVenues,
         linkedCollectives,
         linkedEvents: collectiveLinkedEvents,
         sceneIds: collectiveSceneIds,
@@ -550,9 +502,6 @@ export function CollectivesAdmin() {
       </div>
     );
   }
-
-  // Filter out already-linked venues from the dropdown
-  const availableVenues = venueOptions.filter(v => !linkedVenues.some(lv => lv.venueId === v.id));
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -969,41 +918,6 @@ export function CollectivesAdmin() {
               </p>
             </div>
 
-            {/* Linked Venues */}
-            <div className="mb-6">
-              <label className="block text-sm text-gray-400 mb-3">Linked Venues</label>
-              {linkedVenues.length > 0 && (
-                <div className="space-y-2 mb-3">
-                  {linkedVenues.map((lv) => (
-                    <div key={lv.venueId} className="flex items-center gap-2 bg-[#252525] rounded-lg px-4 py-2">
-                      <span className="flex-1 text-white text-sm">{lv.venueName}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveVenue(lv.venueId)}
-                        className="text-red-400 hover:text-red-300 text-sm"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {availableVenues.length > 0 && (
-                <select
-                  value=""
-                  onChange={(e) => handleAddVenue(e.target.value)}
-                  className="w-full bg-[#252525] border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-white"
-                >
-                  <option value="">Add a venue...</option>
-                  {availableVenues.map((venue) => (
-                    <option key={venue.id} value={venue.id}>
-                      {venue.name}{venue.location ? ` (${venue.location})` : ''}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
             {/* Linked Collectives */}
             <div className="mb-6">
               <label className="block text-sm text-gray-400 mb-3">Linked Collectives</label>
@@ -1163,9 +1077,6 @@ export function CollectivesAdmin() {
                       {collective.location || 'No location'}
                       {collective.residentDJs && collective.residentDJs.length > 0 && (
                         <> &middot; {collective.residentDJs.length} DJ{collective.residentDJs.length !== 1 ? 's' : ''}</>
-                      )}
-                      {collective.linkedVenues && collective.linkedVenues.length > 0 && (
-                        <> &middot; {collective.linkedVenues.length} venue{collective.linkedVenues.length !== 1 ? 's' : ''}</>
                       )}
                     </p>
                   </div>
