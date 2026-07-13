@@ -1,4 +1,4 @@
-import { proseP, proseLink, proseDjLink, proseCollectiveLink } from "@/lib/email";
+import { proseLink, proseDjLink, proseCollectiveLink } from "@/lib/email";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ⚠️  REWRITTEN EVERY WEEK.
@@ -16,13 +16,16 @@ import { proseP, proseLink, proseDjLink, proseCollectiveLink } from "@/lib/email
 
 export type IntroCohort = "dj" | "listener";
 
-// Section heading inside the DJ prose (the only bold text in the email).
+// Section heading. The gap belongs ABOVE the heading (separating it from the
+// previous section), not below it — a heading should sit close to the text it
+// introduces. Hence the 22px top / 2px bottom.
 const heading = (emoji: string, text: string) =>
-  `<p style="margin: 0 0 6px; font-size: 15px; line-height: 1.6; color: #1a1a1a;"><strong>${emoji} ${text}</strong></p>`;
+  `<p style="margin: 22px 0 2px; font-size: 14px; line-height: 1.6; color: #1a1a1a;"><strong>${emoji} ${text}</strong></p>`;
 
-// Tight paragraph — sits directly under a heading (no top gap).
+// Body line inside a section — tight against its neighbours, so a section reads
+// as one block rather than a list of loose paragraphs.
 const tight = (html: string) =>
-  `<p style="margin: 0 0 6px; font-size: 15px; line-height: 1.6; color: #1a1a1a;">${html}</p>`;
+  `<p style="margin: 0 0 2px; font-size: 14px; line-height: 1.6; color: #1a1a1a;">${html}</p>`;
 
 function buildDjIntro(firstName: string, latestShowSlug?: string): string {
   const greeting = firstName === "there" ? "Hi," : `Hi ${firstName},`;
@@ -37,8 +40,8 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
     : `Every show now has its own shareable link.`;
 
   return [
-    proseP(greeting),
-    proseP(`A few things we've shipped over the past week.`),
+    tight(greeting),
+    tight(`A few things we've shipped over the past week.`),
 
     heading("🎵", "Automatic Track IDs"),
     tight(`Every show now gets automatic Track IDs.`),
@@ -47,7 +50,7 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
       `Thanks to ${proseDjLink("marienyx", "Marie")}, ${proseDjLink("gstyle", "Gabri")}, ` +
         `${proseDjLink("andyoro", "Andy")}, and ${proseDjLink("apili", "Alex")} for helping shape the feature.`,
     ),
-    proseP(
+    tight(
       `Special shoutout to ${proseDjLink("akumen", "Akumen")}, whose tracks were played by three ` +
         `different Channel artists this week. Every identified track now links listeners back to ` +
         `the artist's profile.`,
@@ -59,7 +62,7 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
         `the ones you've introduced to Channel.`,
     ),
     tight(`The idea is simple: help your music reach more people who are likely to enjoy it.`),
-    proseP(
+    tight(
       `See your recommendations: ${proseLink("https://channel-app.com/foryou", "channel-app.com/foryou")}`,
     ),
 
@@ -68,14 +71,14 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
     tight(
       `Every event can also include a discount code, making it easier to reward your community and stand out.`,
     ),
-    proseP(
+    tight(
       `Thanks to ${proseCollectiveLink("hiddenvillage", "Hidden Village")} for helping shape this feature.`,
     ),
 
     heading("📚", "Archives"),
     tight(`Archives that disappeared from the homepage are now back.`),
     tight(shareLine),
-    proseP(
+    tight(
       `Thanks to ${proseDjLink("tsgo", "TS Go")}, ${proseDjLink("dizi", "Dizi")}, and ` +
         `${proseDjLink("andyoro", "Andy")} for catching the issue.`,
     ),
@@ -85,25 +88,29 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
       `I've made another round of improvements to make recordings more resilient to unstable ` +
         `Wi-Fi during live broadcasts.`,
     ),
-    proseP(
+    tight(
       `A special thank you to ${proseDjLink("davidl", "David L")}, ${proseDjLink("brod", "B. Rod")}, ` +
         `${proseDjLink("m0lly", "M0lly")}, and ${proseDjLink("znc", "Znc")}, whose shows experienced ` +
         `the recording issues. I really appreciate their patience while I continue improving the ` +
         `recording experience.`,
     ),
 
-    proseP(`Thanks again for helping me build Channel.`),
+    // Sign-off closes the letter — give it the same gap a new section gets, so
+    // it doesn't hug the last thank-you line.
+    `<p style="margin: 22px 0 0; font-size: 14px; line-height: 1.6; color: #1a1a1a;">Thanks again for helping me build Channel.</p>`,
   ].join("");
 }
 
 function buildListenerIntro(): string {
+  // Same tight rhythm as the DJ intro — two loose 16px paragraphs read as an
+  // airy fragment rather than a short note.
   return [
-    proseP(
+    tight(
       `A couple of new things this week. Type "track id" in the chat while listening to any show ` +
         `to instantly get the full tracklist, and keep an eye out for exclusive discount codes on ` +
         `selected events.`,
     ),
-    proseP(`I've also updated your recommendations. They're just below.`),
+    tight(`I've also updated your recommendations. They're just below.`),
   ].join("");
 }
 

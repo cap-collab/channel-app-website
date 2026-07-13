@@ -258,7 +258,10 @@ const BUTTON_STYLE = "display: inline-block; background-color: #0a0a0a; color: #
 // Plain-prose email style — the "text email" look used by the track-IDs email.
 // Links are underlined and NEVER bold: bolding a link makes it read as a
 // heading. Callers that want emphasis wrap the non-link words in <strong>.
-const PROSE_P = "margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #1a1a1a;";
+//
+// 14px matches the rec cards' show-title size, so prose sitting above the cards
+// reads as one email rather than two pasted together.
+const PROSE_P = "margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #1a1a1a;";
 const PROSE_LINK = "color: #1a1a1a; text-decoration: underline;";
 
 export function proseP(html: string): string {
