@@ -213,6 +213,13 @@ export function AuthModal({
 
   const handleEmailContinue = async () => {
     if (!email.trim()) return;
+    // Catch domain typos (e.g. @gmal.com) at submit time. Show the suggestion
+    // and hold this first attempt; a second Continue proceeds as typed.
+    const typo = suggestEmail(email);
+    if (typo && typo !== emailSuggestion) {
+      setEmailSuggestion(typo);
+      return;
+    }
     captureEvent('email_submitted', { source: 'auth_modal', method: 'email' });
     // Note: fetchSignInMethodsForEmail returns [] when email enumeration protection
     // is enabled (Firebase default), so we can't reliably detect existing users.

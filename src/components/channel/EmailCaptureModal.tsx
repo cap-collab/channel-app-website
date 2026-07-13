@@ -57,6 +57,14 @@ export function EmailCaptureModal({
       return;
     }
 
+    // Catch domain typos (e.g. @gmal.com). Show the suggestion and hold this
+    // first attempt; a second submit proceeds as typed.
+    const typo = suggestEmail(email);
+    if (typo && typo !== suggestion) {
+      setSuggestion(typo);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await onSubmit(email, show);

@@ -5,6 +5,7 @@ import { isSignInWithEmailLink, signInWithEmailLink } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { getDefaultCity } from "@/lib/city-detection";
+import { suggestEmail } from "@/lib/suggest-email";
 
 const EMAIL_FOR_SIGN_IN_KEY = "emailForSignIn";
 
@@ -17,6 +18,7 @@ function isIOS(): boolean {
 export default function EmailSignInPage() {
   const [status, setStatus] = useState<"loading" | "email-needed" | "success" | "error">("loading");
   const [email, setEmail] = useState("");
+  const [suggestion, setSuggestion] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [showOpenAppButton, setShowOpenAppButton] = useState(false);
 
@@ -138,9 +140,15 @@ export default function EmailSignInPage() {
   const handleSubmitEmail = (e: React.FormEvent) => {
     e.preventDefault();
     const normalized = email.trim().toLowerCase();
-    if (normalized) {
-      completeSignIn(normalized);
+    if (!normalized) return;
+    // Catch domain typos (e.g. @gmal.com). Show the suggestion and hold this
+    // first attempt; a second submit proceeds as typed.
+    const typo = suggestEmail(normalized);
+    if (typo && typo !== suggestion) {
+      setSuggestion(typo);
+      return;
     }
+    completeSignIn(normalized);
   };
 
   return (
@@ -174,11 +182,31 @@ export default function EmailSignInPage() {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setSuggestion(null);
+                }}
+                onBlur={() => setSuggestion(suggestEmail(email))}
                 placeholder="your@email.com"
                 className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:bg-white/[0.08] transition-all"
                 autoFocus
               />
+              {suggestion && (
+                <p className="text-white/60 text-sm text-left">
+                  Did you mean{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail(suggestion);
+                      setSuggestion(null);
+                    }}
+                    className="text-white underline font-medium"
+                  >
+                    {suggestion}
+                  </button>
+                  ?
+                </p>
+              )}
               <button
                 type="submit"
                 disabled={!email.trim()}

@@ -13,6 +13,13 @@ export function AboutEmailSignup() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
+    // Catch domain typos (e.g. @gmal.com). Show the suggestion and hold this
+    // first attempt; a second submit proceeds as typed.
+    const typo = suggestEmail(email);
+    if (typo && typo !== suggestion) {
+      setSuggestion(typo);
+      return;
+    }
     setStatus('submitting');
     try {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
