@@ -255,6 +255,31 @@ function _wrapEmailContent(
 // Standard button style (dark on white)
 const BUTTON_STYLE = "display: inline-block; background-color: #0a0a0a; color: #fff !important; padding: 14px 28px; border-radius: 0; text-decoration: none; font-weight: 600; font-size: 14px;";
 
+// Plain-prose email style — the "text email" look used by the track-IDs email.
+// Links are underlined and NEVER bold: bolding a link makes it read as a
+// heading. Callers that want emphasis wrap the non-link words in <strong>.
+const PROSE_P = "margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #1a1a1a;";
+const PROSE_LINK = "color: #1a1a1a; text-decoration: underline;";
+
+export function proseP(html: string): string {
+  return `<p style="${PROSE_P}">${html}</p>`;
+}
+
+export function proseLink(href: string, label: string): string {
+  return `<a href="${href}" style="${PROSE_LINK}">${label}</a>`;
+}
+
+// Prose link to a DJ profile. Normalizes the handle to the stored slug.
+export function proseDjLink(djUsername: string, label: string): string {
+  return proseLink(`https://channel-app.com/dj/${normalizeDjUsername(djUsername)}`, label);
+}
+
+// Prose link to a COLLECTIVE. Collective slugs are generateSlug output and are
+// used verbatim — do NOT run them through normalizeDjUsername.
+export function proseCollectiveLink(slug: string, label: string): string {
+  return proseLink(`https://channel-app.com/dj/${slug}`, label);
+}
+
 // Normalize a DJ username for use in URLs (e.g. "COPYPASTE w/ KLS.RDR" →
 // "copypastewklsrdr"). Delegates to the canonical normalizeUsername so email
 // /dj/<slug> links + the dj-photo proxy match the stored chatUsernameNormalized
@@ -1241,12 +1266,17 @@ export interface WeeklyRecComingUpRow {
 
 interface WeeklyRecommendationsEmailParams {
   to: string;
+  subject: string; // per-cohort — see src/lib/weekly-intro.ts
   userTimezone?: string;
   section1: WeeklyRecArchiveRow[]; // new from favorites (max 2)
   section2: WeeklyRecArchiveRow[]; // in your scene (max 2)
   comingUp: WeeklyRecComingUpRow[]; // everything this week
   isFallback?: boolean; // section1/2 came from the featured matrix
   recipientUid?: string; // known recipient → CTA deep-links their own /scene
+  // Hand-written prose rendered ABOVE the rec sections (src/lib/weekly-intro.ts).
+  // When present it replaces the eyebrow title entirely — the intro IS the top of
+  // the email, so a title above it would be redundant.
+  introHtml?: string;
   // Personalization state used to vary the top eyebrow title:
   //  - opened last week      → title becomes "Worth your time"
   //  - was fallback last week + opened + NOT fallback now → DROP the title
@@ -1434,12 +1464,14 @@ function buildWeeklyBlock(label: string, rowsHtml: string[], first = false): str
 
 export async function sendWeeklyRecommendationsEmail({
   to,
+  subject,
   userTimezone,
   section1,
   section2,
   comingUp,
   isFallback,
   recipientUid,
+  introHtml,
   openedLastWeek,
   wasFallbackLastWeek,
 }: WeeklyRecommendationsEmailParams): Promise<boolean> {
@@ -1450,12 +1482,14 @@ export async function sendWeeklyRecommendationsEmail({
   const tz = userTimezone || "America/Los_Angeles";
 
   // Top eyebrow title:
+  //  - DROP entirely when an intro is present — the hand-written prose is the
+  //    top of the email; a title above it would be redundant.
   //  - DROP entirely when they were fallback last week, opened it, and are NOT
   //    fallback now (their recs are genuinely different — let the content speak).
   //  - else "Worth your time" for anyone who opened last week.
   //  - else the default: "Your Weekly Listening" on fallback, nothing on
   //    personalized (unchanged from before).
-  const dropTitle = !!wasFallbackLastWeek && !!openedLastWeek && !isFallback;
+  const dropTitle = !!introHtml || (!!wasFallbackLastWeek && !!openedLastWeek && !isFallback);
   let eyebrowHtml = "";
   if (dropTitle) {
     eyebrowHtml = ""; // no title — recs are genuinely different
@@ -1563,6 +1597,7 @@ export async function sendWeeklyRecommendationsEmail({
   `;
 
   const content = `
+    ${introHtml || ""}
     ${eyebrowHtml}
     ${topBlocks}
     ${block3}
@@ -1570,15 +1605,14 @@ export async function sendWeeklyRecommendationsEmail({
   `;
 
   try {
-    // Subject is shared across variants; the in-body eyebrow varies (dropped /
-    // "Worth your time" / "Your Weekly Listening") per personalization.
-    const subject = "Your Weekly Listening";
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to,
       subject,
-      // Tighter side margins (matches the Monday newsletter) for more card width.
-      html: wrapEmailContent(content, "", undefined, undefined, 6),
+      // Default side padding (20px) — the intro is a plain TEXT email and needs
+      // room to breathe, matching the track-IDs send. This is one value for the
+      // whole body, so the rec cards below sit at the same width.
+      html: wrapEmailContent(content, ""),
       headers: getUnsubscribeHeaders("marketing"),
     });
     if (error) {

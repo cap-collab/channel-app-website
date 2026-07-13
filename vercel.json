@@ -45,18 +45,6 @@
       "schedule": "0 */2 * * *"
     },
     {
-      "path": "/api/cron/channel-newsletter-audit",
-      "schedule": "0 18 8 6 *"
-    },
-    {
-      "path": "/api/cron/channel-newsletter-send",
-      "schedule": "0 21 8 6 *"
-    },
-    {
-      "path": "/api/cron/newsletter-recap",
-      "schedule": "0 15 * * 2"
-    },
-    {
       "path": "/api/cron/generate-archive-schedule",
       "schedule": "0 8 * * *"
     },

@@ -3,6 +3,7 @@ import { getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import type { ArchiveSerialized } from "@/types/broadcast";
 import { buildScenePayload } from "@/lib/recommendations/scene-payload";
+import { isListenerVisibleArchive } from "@/lib/archive-priority";
 import { generateForUser, loadSharedData, loadConfig } from "@/lib/recommendations/server";
 import { buildFeaturedMatrix } from "@/lib/recommendations/featured-matrix";
 import { DEFAULT_FEATURED_CITY } from "@/lib/recommendations/featured-payload";
@@ -11,7 +12,13 @@ import {
   type WeeklyRecArchiveRow,
   type WeeklyRecComingUpRow,
 } from "@/lib/email";
-import { getDjRecipients, getListenerRecipients } from "@/lib/channel-newsletter";
+import { getDjRecipients, getListenerRecipients, resolveFirstName } from "@/lib/channel-newsletter";
+import {
+  WEEKLY_SUBJECTS,
+  introSubjectFor,
+  buildIntroHtml,
+  type IntroCohort,
+} from "@/lib/weekly-intro";
 import { fetchComingUp } from "@/lib/recommendations/coming-up";
 import {
   listResendEmails,
@@ -40,10 +47,15 @@ import { Resend } from "resend";
 //     good ones, so burning them would be wrong).
 // The report run also emails Cap a recap (opens / unsubscribes / bounces).
 //
-// Subject is shared ("Your Weekly Listening") — the report run matches on it.
-const WEEKLY_REC_SUBJECT = "Your Weekly Listening";
+// COHORT SPLIT: DJs and listeners get different subjects and different
+// hand-written intros (src/lib/weekly-intro.ts) above the same rec sections.
+// The report run polls Resend for EVERY subject in WEEKLY_SUBJECTS — a subject
+// missing from that list means its cohort's opens are never stamped.
 const REPORT_TO = "cap@channel-app.com";
 const REPORT_FROM = "Channel <djshows@channel-app.com>";
+// Where a ?previewTo= preview is delivered when no ?deliverTo= is given.
+// Previews must never land in a real user's inbox — see the deliverTo parsing.
+const PREVIEW_FALLBACK_TO = "cap@channel-app.com";
 //
 // Params: ?mode=report|backfill|send, ?dryRun=1 (compute, send nothing),
 // ?previewTo=<email> (send ONE real email to that address, stamp nothing),
@@ -148,7 +160,15 @@ export async function GET(request: NextRequest) {
   // delivery to this address instead of the user's own. Lets an admin receive
   // "what user X will get" in their own inbox without emailing X. Only honored
   // alongside previewTo; still stamps nothing.
-  const deliverTo = params.get("deliverTo")?.toLowerCase() || undefined;
+  //
+  // SAFETY: a preview NEVER reaches the real user. deliverTo defaults to the
+  // admin inbox, so `?previewTo=someDj@x.com` mails Cap, not the DJ. Previously
+  // an omitted deliverTo silently delivered to the previewed user's own inbox —
+  // one forgotten param away from mailing a real DJ a test. Sending to the real
+  // recipient now requires the explicit, deliberate `&deliverTo=self`.
+  const deliverToParam = params.get("deliverTo")?.toLowerCase() || undefined;
+  const deliverTo =
+    deliverToParam === "self" ? undefined : (deliverToParam ?? PREVIEW_FALLBACK_TO);
   const shard = params.get("shard") != null ? Number(params.get("shard")) : null;
   const shardCount = Number(params.get("shardCount")) || 1;
   const traceLimit = Number(params.get("traceLimit")) || 50;
@@ -190,6 +210,31 @@ export async function GET(request: NextRequest) {
     );
     const featured = buildFeaturedMatrix(allArchives, { excludeTempos: ["very_fast"] });
     const featuredRows = featured.map((a) => archiveToRow(a));
+
+    // uid → slug of that DJ's most recent LISTENER-VISIBLE archive, for the
+    // "here's your latest show" link in the DJ intro. Built once from the
+    // archives already in memory (no extra reads).
+    //
+    // Gated on isListenerVisibleArchive: the link is a public URL we're putting
+    // in an email, so a hidden/private archive must never be surfaced — even to
+    // its own DJ. A DJ whose newest show is hidden simply gets no link (the
+    // intro drops the sentence) rather than a leaked one.
+    //
+    // Credit (djs[].userId), not uploadedBy: a show uploaded on someone's behalf
+    // still belongs to the DJ it credits.
+    const latestShowByUid = new Map<string, { slug: string; createdAt: number }>();
+    for (const a of allArchives) {
+      if (!a.slug || !isListenerVisibleArchive(a)) continue;
+      const createdAt = typeof a.createdAt === "number" ? a.createdAt : 0;
+      for (const dj of a.djs || []) {
+        const uid = dj.userId;
+        if (!uid) continue;
+        const cur = latestShowByUid.get(uid);
+        if (!cur || createdAt > cur.createdAt) {
+          latestShowByUid.set(uid, { slug: a.slug, createdAt });
+        }
+      }
+    }
 
     // Load the shared catalog ONCE for the whole run, so per-user snapshot
     // generation reuses it instead of re-scanning archives/DJs/collectives/slots
@@ -439,10 +484,24 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
+        // Cohort → subject + hand-written intro. Same test the report run uses
+        // to bucket opens, so send and report always agree.
+        const cohort: IntroCohort = data.role === "dj" ? "dj" : "listener";
+        const firstName = resolveFirstName(
+          email,
+          data.name as string | undefined,
+          data.chatUsername as string | undefined,
+          data.displayName as string | undefined,
+        );
+        const latestShowSlug =
+          cohort === "dj" ? latestShowByUid.get(userDoc.id)?.slug : undefined;
+
         const ok = await sendWeeklyRecommendationsEmail({
           // In preview mode, redirect delivery to deliverTo if given (render
           // THIS user's content, send it to the admin's inbox).
           to: previewTo && deliverTo ? deliverTo : email,
+          subject: introSubjectFor(cohort),
+          introHtml: buildIntroHtml(cohort, firstName, latestShowSlug),
           userTimezone: data.timezone as string | undefined,
           section1,
           section2: isFallback ? [] : section2,
@@ -620,6 +679,11 @@ export async function GET(request: NextRequest) {
               // In preview mode, redirect delivery to deliverTo (send the
               // rendered non-user email to the admin, never the real person).
               to: previewTo && deliverTo ? deliverTo : r.email,
+              // This pass reaches pending-dj-profiles / waitlist / EXTRA_LISTENERS
+              // only — everyone with a users doc was handled in pass 1. No users
+              // doc means no role, so these are listeners by construction.
+              subject: introSubjectFor("listener"),
+              introHtml: buildIntroHtml("listener", r.name),
               userTimezone: undefined, // no users doc → default PT
               section1: extraSection1,
               section2: [],
@@ -759,13 +823,24 @@ async function runReport(
   }
 
   try {
-    // Poll Resend for last week's "Your Weekly Listening" sends (read-only).
-    const { rows, truncated, pagesFetched } = await listResendEmails({
-      apiKey,
-      sinceMs: nowMs - LAST_SEND_WINDOW_START_MS,
-      untilMs: nowMs - LAST_SEND_WINDOW_END_MS,
-      subject: WEEKLY_REC_SUBJECT,
-    });
+    // Poll Resend for last week's sends (read-only) — one query per cohort
+    // subject. A subject missing from WEEKLY_SUBJECTS means that cohort's opens
+    // are never seen, so `lastWeeklyRecOpenedLast` silently stops stamping for
+    // them and the open-gated rotation degrades. Cohort BUCKETING below keys off
+    // `role`, not the subject; the subject is only how we find the sends.
+    const polls = await Promise.all(
+      WEEKLY_SUBJECTS.map((subject) =>
+        listResendEmails({
+          apiKey,
+          sinceMs: nowMs - LAST_SEND_WINDOW_START_MS,
+          untilMs: nowMs - LAST_SEND_WINDOW_END_MS,
+          subject,
+        }),
+      ),
+    );
+    const rows = polls.flatMap((p) => p.rows);
+    const truncated = polls.some((p) => p.truncated);
+    const pagesFetched = polls.reduce((n, p) => n + p.pagesFetched, 0);
     const byEmail = buildRecipientEventMap(rows);
 
     // Load users ONCE to (a) classify each recipient DJ vs non-DJ (role==="dj")
