@@ -144,6 +144,7 @@ function wrapEmailContent(
   aboveContentHtml?: string,
   sidePaddingPx?: number,
   maxWidthPx?: number,
+  vertPaddingPx?: number,
 ): string {
   const unsubUrl = unsubscribeOverride?.url ?? SETTINGS_DEEP_LINK;
   const unsubLabel = unsubscribeOverride?.label ?? "Unsubscribe";
@@ -155,6 +156,7 @@ function wrapEmailContent(
     aboveContentHtml,
     sidePaddingPx,
     maxWidthPx,
+    vertPaddingPx,
   );
 }
 
@@ -198,10 +200,15 @@ function _wrapEmailContent(
   // Horizontal padding around the content (px). Default 20; the weekly rec email
   // passes a smaller value (matching the Monday newsletter) for more width.
   sidePaddingPx: number = 20,
-  // Content column width (px). 600 is the classic email card. The weekly send
-  // passes a wider value: it opens with a long prose intro, and at 600px that
-  // reads as a narrow column floating in whitespace rather than a letter.
+  // Content column width (px). 600 is the classic email card. NOTE this is only
+  // a CEILING — the table is width=100%, and most mail panes are narrower than
+  // 600px anyway, so raising it does nothing unless the reader's pane is wider.
   maxWidthPx: number = 600,
+  // Vertical padding above/below the content (px). The 40px default is what makes
+  // an email read as a "card" floating in the client. The weekly send drops it:
+  // the track-IDs email it mimics has NO wrapper at all, so it starts at the top
+  // of the pane.
+  vertPaddingPx: number = 40,
 ): string {
   const aboveBlock = aboveContentHtml
     ? `<tr>
@@ -232,7 +239,7 @@ function _wrapEmailContent(
     <body class="body-bg" bgcolor="#ffffff" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #ffffff; color: #1a1a1a; margin: 0; padding: 0;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background-color: #ffffff;">
         <tr>
-          <td align="center" style="padding: 40px ${sidePaddingPx}px;" bgcolor="#ffffff">
+          <td align="center" style="padding: ${vertPaddingPx}px ${sidePaddingPx}px;" bgcolor="#ffffff">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: ${maxWidthPx}px;">
               ${aboveBlock}
               <tr>
@@ -1630,7 +1637,7 @@ export async function sendWeeklyRecommendationsEmail({
       // (The track-IDs email felt right precisely because it had NO wrapper at
       // all — bare <br/> text, full client width.) 800px + 12px side padding
       // gets close to that while keeping the logo, footer, and unsubscribe.
-      html: wrapEmailContent(content, "", undefined, undefined, 12, 800),
+      html: wrapEmailContent(content, "", undefined, undefined, 12, 800, 8),
       headers: getUnsubscribeHeaders("marketing"),
     });
     if (error) {
