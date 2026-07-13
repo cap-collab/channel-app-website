@@ -34,6 +34,13 @@ function isNighttimePT(timestamp: number): boolean {
   return ptHour >= 21 || ptHour < 10;
 }
 
+// How far the auto-advance keeps looking for the first bookable week, measured
+// from the resident's cadence floor. NOT a cap on how far ahead anyone can book —
+// it only bounds the walk. Must exceed the longest cadence (quarterly = 120 days)
+// so a booked-up stretch after a quarterly resident's floor still surfaces the
+// next opening instead of reading as "nothing available".
+const SEARCH_HORIZON_DAYS = 121;
+
 // Hard cutoff: everything up to and including April 22nd is blocked (midnight PT = 7am UTC)
 const BLOCKED_UNTIL = new Date('2026-04-23T07:00:00Z').getTime();
 
@@ -215,16 +222,18 @@ export function TimeSlotPicker({ selectedSlots, onChange, setDuration, earliestS
     }
 
     if (firstAvailableDay === -1) {
-      // Search up to 4 weeks forward from wherever the view legitimately starts —
-      // for a resident that's their cadence floor, which can be months out.
+      // Keep walking forward from wherever the view legitimately starts — for a
+      // resident that's their cadence floor. The horizon must clear a quarterly
+      // resident's whole cadence, so a fully-booked stretch after their floor
+      // never makes it look like there's no opening at all.
       const maxWeeksAhead = getSunday(new Date(Math.max(Date.now(), earliestStart ?? 0)));
-      maxWeeksAhead.setDate(maxWeeksAhead.getDate() + 28);
+      maxWeeksAhead.setDate(maxWeeksAhead.getDate() + SEARCH_HORIZON_DAYS);
       if (currentWeekStart < maxWeeksAhead) {
         goToNextWeek();
         return;
       }
-      // Four weeks of nothing — every slot is booked or blocked. Don't leave the
-      // DJ staring at a wall of red with no way forward.
+      // Nothing open in the whole horizon — the calendar is genuinely full, not
+      // just busy for a few weeks. Say so rather than leaving them paging.
       hasAutoScrolled.current = true;
       setExhausted(true);
       return;
