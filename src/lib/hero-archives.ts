@@ -3,6 +3,7 @@ import { findCurrentItemInLoop, LOOP_COLLECTION } from '@/lib/archive-schedule';
 import { ArchiveSerialized, ArchiveRadioLoop, ScheduleItem } from '@/types/broadcast';
 import { normalizeUsername } from '@/lib/dj-matching';
 import { toPublicDj } from '@/lib/archives-enrich';
+import { normalizeTrackIds, publicTrackIds } from '@/lib/track-ids';
 
 const MIN_DURATION_SECONDS = 2700; // 45 minutes
 const PER_SCENE_LIMIT = 5; // last 5 high-priority archives per scene
@@ -182,6 +183,11 @@ export async function getHeroArchives(): Promise<HeroSeed> {
           priority: data.priority || 'medium',
           sceneIdsOverride: data.sceneIdsOverride ?? null,
           sceneSlugs: Array.isArray(data.sceneSlugs) ? data.sceneSlugs : undefined,
+          // The hero seed feeds ArchiveRadioContext (ArchiveHero → setArchives),
+          // which is where the chat "track id" reply resolves the playing show.
+          // Omitting this made every reply fall back to "no tracklist yet".
+          // Masked exactly as /api/archives does — private text never ships.
+          trackIds: publicTrackIds(normalizeTrackIds(data.trackIds)),
           uploadStatus: data.uploadStatus,
         } as ArchiveSerialized & { uploadStatus?: string };
       })
@@ -245,6 +251,9 @@ export async function getHeroArchives(): Promise<HeroSeed> {
             publishedAt: data.publishedAt,
             priority: data.priority || 'medium',
             sceneIdsOverride: data.sceneIdsOverride ?? null,
+            // This IS the archive on the radio right now — the one a listener
+            // asks "track id?" about. It must carry its (masked) tracklist.
+            trackIds: publicTrackIds(normalizeTrackIds(data.trackIds)),
           } as ArchiveSerialized;
           seedList.push(archive);
         } else {
