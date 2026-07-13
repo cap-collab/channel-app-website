@@ -112,11 +112,11 @@ function buildListenerIntro(): string {
 
 export const WEEKLY_INTRO = {
   dj: {
-    subject: "Collectives, reach & Track IDs",
+    subject: "Collectives, Reach & Track IDs",
     build: buildDjIntro,
   },
   listener: {
-    subject: "Track IDs, discounts & your weekly picks",
+    subject: "Track IDs, Discounts & Your Weekly Picks",
     // No greeting and no links on the listener variant — by design.
     build: buildListenerIntro,
   },
