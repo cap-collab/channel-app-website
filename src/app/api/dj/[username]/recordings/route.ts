@@ -3,6 +3,7 @@ import type { Firestore, Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { normalizeUsername } from '@/lib/dj-matching';
 import { enrichArchives, DJInfo, RawArchive } from '@/lib/archives-enrich';
+import { MAX_LINKED_UIDS } from '@/lib/account-links';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,11 @@ interface ResolvedProfile {
   memberUids: string[];
   memberUsernames: string[]; // normalized (strip \s and -)
   memberNames: string[]; // lowercased
+  // Linked accounts (src/lib/account-links.ts): a DJ may have alias accounts.
+  // These are the primary's uid + every alias uid / email, so archives owned and
+  // slots booked under EITHER account credit the same public profile.
+  linkedUids: string[];
+  linkedEmails: string[]; // lowercased
 }
 
 const toMillis = (t: unknown): number =>
@@ -53,9 +59,29 @@ async function resolveProfile(db: Firestore, normalized: string): Promise<Resolv
   if (!usersSnap.empty) {
     const doc = usersSnap.docs[0];
     const data = doc.data();
+    const email = (data.email || '').toLowerCase();
+
+    // Linked accounts: fold in this DJ's alias uids/emails so archives owned and
+    // slots booked under their other account still credit this one profile.
+    const aliasUids = (Array.isArray(data.aliasUids) ? data.aliasUids : []).filter(
+      (u: unknown): u is string => typeof u === 'string' && u.length > 0,
+    );
+    const linkedUids = [doc.id, ...aliasUids];
+    const linkedEmails = new Set<string>();
+    if (email) linkedEmails.add(email);
+    if (aliasUids.length > 0) {
+      const aliasDocs = await Promise.all(
+        aliasUids.map((u: string) => db.collection('users').doc(u).get()),
+      );
+      for (const a of aliasDocs) {
+        const ae = (a.data()?.email as string | undefined)?.toLowerCase();
+        if (ae) linkedEmails.add(ae);
+      }
+    }
+
     return {
       chatUsername: data.chatUsername || '',
-      email: (data.email || '').toLowerCase(),
+      email,
       uid: doc.id,
       profileType: 'user',
       // Denormalized on the user doc + kept in sync by /api/admin/collectives.
@@ -67,6 +93,8 @@ async function resolveProfile(db: Firestore, normalized: string): Promise<Resolv
       memberUids: [],
       memberUsernames: [],
       memberNames: [],
+      linkedUids,
+      linkedEmails: Array.from(linkedEmails),
     };
   }
 
@@ -77,15 +105,19 @@ async function resolveProfile(db: Firestore, normalized: string): Promise<Resolv
     .get();
   if (!pendingSnap.empty) {
     const data = pendingSnap.docs[0].data();
+    const email = (data.email || '').toLowerCase();
     return {
       chatUsername: data.chatUsername || data.djName || data.chatUsernameNormalized || '',
-      email: (data.email || '').toLowerCase(),
+      email,
       uid: `pending-${pendingSnap.docs[0].id}`,
       profileType: 'pending',
       ownedCollectiveSlugs: [],
       memberUids: [],
       memberUsernames: [],
       memberNames: [],
+      // Unclaimed profile — no auth accounts to link yet.
+      linkedUids: [],
+      linkedEmails: email ? [email] : [],
     };
   }
 
@@ -105,9 +137,10 @@ async function resolveProfile(db: Firestore, normalized: string): Promise<Resolv
       if (r.djUsername) memberUsernames.add(normalizeUsername(r.djUsername));
       if (r.djName) memberNames.push(r.djName.toLowerCase());
     }
+    const email = (data.socialLinks?.email || '').toLowerCase();
     return {
       chatUsername: data.name || data.slug || '',
-      email: (data.socialLinks?.email || '').toLowerCase(),
+      email,
       uid: `collective-${doc.id}`,
       profileType: 'collective',
       ownedCollectiveSlugs: [],
@@ -115,25 +148,35 @@ async function resolveProfile(db: Firestore, normalized: string): Promise<Resolv
       memberUids: Array.from(memberUids),
       memberUsernames: Array.from(memberUsernames),
       memberNames,
+      // A collective isn't an auth account — member uids already carry any
+      // aliases via owners[]/residentDJs.
+      linkedUids: [],
+      linkedEmails: email ? [email] : [],
     };
   }
 
   return null;
 }
 
-/** Build the map of this DJ's past broadcast slots (for live-broadcast matching). */
+/**
+ * Build the map of this DJ's past broadcast slots (for live-broadcast matching).
+ * `djEmails` is the DJ's full linked-email set (primary + any alias accounts), so
+ * a slot booked under either of their emails is still credited to this profile.
+ */
 async function loadPastSlots(
   db: Firestore,
-  djEmail: string,
+  djEmails: string[],
 ): Promise<Map<string, { showName: string; startTime: number; endTime: number; showImageUrl?: string }>> {
   const pastSlotsMap = new Map<string, { showName: string; startTime: number; endTime: number; showImageUrl?: string }>();
-  if (!djEmail) return pastSlotsMap;
+  const emails = djEmails.filter(Boolean).slice(0, MAX_LINKED_UIDS);
+  if (emails.length === 0) return pastSlotsMap;
+  const emailSet = new Set(emails);
 
   const slotsRef = db.collection('broadcast-slots');
   const nowTs = new Date();
   const [remoteSnap, venueSnap] = await Promise.all([
-    // Remote broadcasts: root-level djEmail.
-    slotsRef.where('endTime', '<', nowTs).where('djEmail', '==', djEmail).get(),
+    // Remote broadcasts: root-level djEmail (any of the DJ's linked emails).
+    slotsRef.where('endTime', '<', nowTs).where('djEmail', 'in', emails).get(),
     // Venue broadcasts: djSlots[] — filtered below.
     slotsRef.where('endTime', '<', nowTs).where('broadcastType', '==', 'venue').get(),
   ]);
@@ -154,9 +197,10 @@ async function loadPastSlots(
   venueSnap.forEach((doc) => {
     const data = doc.data();
     if (Array.isArray(data.djSlots)) {
-      const hasMatch = data.djSlots.some(
-        (slot: { djEmail?: string }) => slot.djEmail?.toLowerCase() === djEmail,
-      );
+      const hasMatch = data.djSlots.some((slot: { djEmail?: string }) => {
+        const e = slot.djEmail?.toLowerCase();
+        return !!e && emailSet.has(e);
+      });
       if (hasMatch) {
         pastSlotsMap.set(doc.id, {
           showName: data.showName || 'Broadcast',
@@ -187,7 +231,6 @@ export async function GET(
       return NextResponse.json({ recordings: [], pastBroadcastShows: [] });
     }
 
-    const djEmail = profile.email;
     const djUserId = profile.uid;
     const isRealUserUid =
       profile.profileType === 'user' && !!djUserId &&
@@ -204,7 +247,11 @@ export async function GET(
       myCollectiveSlugs.add(normalizeUsername(profile.collectiveSlug));
     }
 
-    const memberUids = new Set(profile.memberUids);
+    // Linked accounts: treat the DJ's alias uids as the DJ themselves, so content
+    // owned/cross-listed under their other account still shows on this profile.
+    const memberUids = new Set([...profile.memberUids, ...profile.linkedUids]);
+    const linkedUids = new Set(profile.linkedUids);
+    const linkedEmailSet = new Set(profile.linkedEmails);
     const memberUsernames = new Set(profile.memberUsernames);
     const memberNames = profile.memberNames;
     // Canonical username form used for ALL username/slug comparisons below (see
@@ -214,7 +261,7 @@ export async function GET(
     // Read archives + this DJ's past slots in parallel.
     const [archivesSnap, pastSlotsMap] = await Promise.all([
       db.collection('archives').get(),
-      loadPastSlots(db, djEmail),
+      loadPastSlots(db, profile.linkedEmails),
     ]);
 
     // Filter archives to this DJ BEFORE enrichment — enrichment then runs only
@@ -236,13 +283,18 @@ export async function GET(
         if (dj.username && canonUsername && normalizeUsername(dj.username) === canonUsername) return true;
         // Collective slug match (slug stored as archive.djs[].username).
         if (dj.username && myCollectiveSlugs.size > 0 && myCollectiveSlugs.has(normalizeUsername(dj.username))) return true;
-        if (dj.email && djEmail) return dj.email.toLowerCase() === djEmail;
+        // Email credit: match any of the DJ's linked emails, not just the primary's.
+        if (dj.email && linkedEmailSet.size > 0) return linkedEmailSet.has(dj.email.toLowerCase());
         return false;
       });
 
-      // Per-archive cross-listing by UID.
+      // Per-archive cross-listing by UID (any of the DJ's linked accounts).
       const crossById =
-        !!djUserId && Array.isArray(data.crossListUserIds) && data.crossListUserIds.includes(djUserId);
+        Array.isArray(data.crossListUserIds) &&
+        data.crossListUserIds.some(
+          (u: unknown) =>
+            typeof u === 'string' && (u === djUserId || linkedUids.has(u)),
+        );
       // Per-archive cross-listing by normalized username (reaches pending DJs,
       // survives account claim).
       const crossByName =

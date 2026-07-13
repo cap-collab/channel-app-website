@@ -368,7 +368,7 @@ function formatShowTime(date: Date): string {
 }
 
 export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }: Props) {
-  const { user, isAuthenticated } = useAuthContext();
+  const { user, isAuthenticated, activityUid } = useAuthContext();
   const { chatUsername, setChatUsername, loading: profileLoading } = useUserProfile(user?.uid);
   const { isInWatchlist, isExactlyInWatchlist, followDJ, removeFromWatchlist, addToWatchlist, loading: favoritesLoading } = useFavorites();
   const { stationBPM } = useBPM();
@@ -2372,7 +2372,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
               djEmail={profile.email}
               isAuthenticated={isAuthenticated}
               username={chatUsername || undefined}
-              userId={user?.uid}
+              userId={activityUid ?? undefined}
               profileLoading={profileLoading}
               onSetUsername={setChatUsername}
               isOwner={user?.uid === profile.uid}

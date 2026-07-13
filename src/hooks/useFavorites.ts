@@ -77,7 +77,10 @@ function containsMatch(text: string, term: string): boolean {
 }
 
 export function useFavorites() {
-  const { user } = useAuthContext();
+  // activityUid: an alias account is only a LOGIN — all of a person's favorites
+  // and watchlist live on their PRIMARY, so taste never splits across their two
+  // accounts. Equals user.uid for a normal (unlinked) user.
+  const { user, activityUid } = useAuthContext();
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(true);
   const [dismissedShows, setDismissedShows] = useState<Record<string, string>>({});
@@ -87,11 +90,11 @@ export function useFavorites() {
   // (even when the DJ is still on watchlist and would otherwise auto-surface
   // the show).
   useEffect(() => {
-    if (!user || !db) {
+    if (!user || !db || !activityUid) {
       setDismissedShows({});
       return;
     }
-    const userRef = doc(db, 'users', user.uid);
+    const userRef = doc(db, 'users', activityUid);
     const unsub = onSnapshot(userRef, (snap) => {
       const data = snap.data();
       setDismissedShows(
@@ -99,11 +102,11 @@ export function useFavorites() {
       );
     });
     return () => unsub();
-  }, [user]);
+  }, [user, activityUid]);
 
   // Subscribe to favorites when user is logged in
   useEffect(() => {
-    if (!user || !db) {
+    if (!user || !db || !activityUid) {
       setFavorites([]);
       setLoading(false);
       return;
@@ -111,7 +114,7 @@ export function useFavorites() {
 
     // Store non-null reference for use in callback
     const firestore = db;
-    const userId = user.uid;
+    const userId = activityUid;
 
     const favoritesRef = collection(firestore, "users", userId, "favorites");
     const unsubscribe = onSnapshot(
@@ -163,7 +166,7 @@ export function useFavorites() {
     );
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, activityUid]);
 
   // Check if a show is favorited (exact match on show name + same station)
   const isShowFavorited = useCallback(
@@ -187,13 +190,13 @@ export function useFavorites() {
   const addFavorite = useCallback(
     async (show: Show): Promise<boolean> => {
       console.log(`[addFavorite] Called with show:`, { name: show.name, dj: show.dj, stationId: show.stationId });
-      if (!user || !db) {
+      if (!user || !db || !activityUid) {
         console.log(`[addFavorite] No user or db, returning false`);
         return false;
       }
 
       try {
-        const favoritesRef = collection(db, "users", user.uid, "favorites");
+        const favoritesRef = collection(db, "users", activityUid, "favorites");
 
         // Check if already exists - query by term and showName, filter by stationId in memory
         const q = query(
@@ -281,16 +284,16 @@ export function useFavorites() {
         return false;
       }
     },
-    [user]
+    [user, activityUid]
   );
 
   // Remove a show from favorites
   const removeFavorite = useCallback(
     async (show: Show): Promise<boolean> => {
-      if (!user || !db) return false;
+      if (!user || !db || !activityUid) return false;
 
       try {
-        const favoritesRef = collection(db, "users", user.uid, "favorites");
+        const favoritesRef = collection(db, "users", activityUid, "favorites");
         // Query by term, then filter by stationId in memory
         const q = query(
           favoritesRef,
@@ -320,7 +323,7 @@ export function useFavorites() {
             if (d.data().matchedFromWatchlist || d.data().createdBy === "system") {
               wasAutoFavorited = true;
             }
-            await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
+            await deleteDoc(doc(db, "users", activityUid, "favorites", d.id));
           }
         }
 
@@ -330,7 +333,7 @@ export function useFavorites() {
         // also stick when the DJ is still in the watchlist and would
         // otherwise re-surface the show via the followed-DJ branch.)
         const dismissKey = `${show.stationId || "broadcast"}-${show.name.toLowerCase()}`;
-        const userDocRef = doc(db, "users", user.uid);
+        const userDocRef = doc(db, "users", activityUid);
         const userSnap = await getDoc(userDocRef);
         const existing = (userSnap.data()?.dismissedAutoFavorites as Record<string, string>) || {};
         existing[dismissKey] = new Date().toISOString();
@@ -345,7 +348,7 @@ export function useFavorites() {
         return false;
       }
     },
-    [user]
+    [user, activityUid]
   );
 
   // Remove a single IRL favorite by event coordinates. Does NOT touch the
@@ -356,9 +359,9 @@ export function useFavorites() {
   // adds where the term might not match.
   const removeIrlFavorite = useCallback(
     async (data: { djUsername?: string; djName?: string; date: string; location?: string }): Promise<boolean> => {
-      if (!user || !db) return false;
+      if (!user || !db || !activityUid) return false;
       try {
-        const favoritesRef = collection(db, "users", user.uid, "favorites");
+        const favoritesRef = collection(db, "users", activityUid, "favorites");
         const irlQuery = query(favoritesRef, where("type", "==", "irl"));
         const snapshot = await getDocs(irlQuery);
         const normalizedTarget = {
@@ -377,7 +380,7 @@ export function useFavorites() {
             (normalizedTarget.djUsername && docDjUsername === normalizedTarget.djUsername) ||
             (normalizedTarget.djName && docDjName === normalizedTarget.djName);
           if (djMatch && docDate === normalizedTarget.date && (!normalizedTarget.location || docLocation === normalizedTarget.location)) {
-            await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
+            await deleteDoc(doc(db, "users", activityUid, "favorites", d.id));
           }
         }
         return true;
@@ -386,7 +389,7 @@ export function useFavorites() {
         return false;
       }
     },
-    [user]
+    [user, activityUid]
   );
 
   // Toggle favorite status
@@ -410,13 +413,13 @@ export function useFavorites() {
   const addToWatchlist = useCallback(
     async (term: string, djUserId?: string, djEmail?: string): Promise<boolean> => {
       console.log(`[addToWatchlist] Called with term="${term}", djUserId=${djUserId}, djEmail=${djEmail}`);
-      if (!user || !db) {
+      if (!user || !db || !activityUid) {
         console.log(`[addToWatchlist] No user or db, returning false`);
         return false;
       }
 
       try {
-        const favoritesRef = collection(db, "users", user.uid, "favorites");
+        const favoritesRef = collection(db, "users", activityUid, "favorites");
 
         // Check if already exists - query by term, filter by type in memory
         // (Firestore requires composite index for multiple where clauses on different fields)
@@ -840,17 +843,17 @@ export function useFavorites() {
         return false;
       }
     },
-    [user]
+    [user, activityUid]
   );
 
   // Remove a term from watchlist (only removes type="search", preserves show favorites)
   // Also removes associated IRL events for the DJ
   const removeFromWatchlist = useCallback(
     async (term: string): Promise<boolean> => {
-      if (!user || !db) return false;
+      if (!user || !db || !activityUid) return false;
 
       try {
-        const favoritesRef = collection(db, "users", user.uid, "favorites");
+        const favoritesRef = collection(db, "users", activityUid, "favorites");
         const q = query(
           favoritesRef,
           where("term", "==", term.toLowerCase())
@@ -860,7 +863,7 @@ export function useFavorites() {
         for (const d of snapshot.docs) {
           // Only delete watchlist entries (type="search"), not show favorites
           if (d.data().type === "search") {
-            await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
+            await deleteDoc(doc(db, "users", activityUid, "favorites", d.id));
           }
         }
 
@@ -879,7 +882,7 @@ export function useFavorites() {
             (data.djUsername && wordBoundaryMatch(data.djUsername, term));
 
           if (matches) {
-            await deleteDoc(doc(db, "users", user.uid, "favorites", d.id));
+            await deleteDoc(doc(db, "users", activityUid, "favorites", d.id));
             console.log(`[removeFromWatchlist] Removed IRL event: ${data.irlEventName}`);
           }
         }
@@ -890,7 +893,7 @@ export function useFavorites() {
         return false;
       }
     },
-    [user]
+    [user, activityUid]
   );
 
   // Check if a term is in watchlist (must be type="search", not show favorites)
@@ -946,7 +949,7 @@ export function useFavorites() {
   // Matches by: DJ name in metadata, djUserId/djEmail in broadcast-slots
   const addDJShowsToFavorites = useCallback(
     async (djName: string, djUserId?: string, djEmail?: string): Promise<number> => {
-      if (!user || !db) {
+      if (!user || !db || !activityUid) {
         console.log("[addDJShowsToFavorites] No user or db");
         return 0;
       }
@@ -954,7 +957,7 @@ export function useFavorites() {
       console.log(`[addDJShowsToFavorites] Starting for DJ: ${djName}, userId: ${djUserId}, email: ${djEmail}`);
 
       let addedCount = 0;
-      const favoritesRef = collection(db, "users", user.uid, "favorites");
+      const favoritesRef = collection(db, "users", activityUid, "favorites");
 
       // 1. Get all shows from API (includes enriched DJ profile data)
       let allShows: Show[] = [];
@@ -1129,7 +1132,7 @@ export function useFavorites() {
       console.log(`[addDJShowsToFavorites] Done! Added ${addedCount} shows to favorites`);
       return addedCount;
     },
-    [user, favorites]
+    [user, activityUid, favorites]
   );
 
   return {

@@ -51,7 +51,7 @@ function formatDate(timestamp: number): string {
 }
 
 export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername, isVenue = false, onChangeUsername }: LiveIndicatorProps) {
-  const { user } = useAuthContext();
+  const { user, activityUid } = useAuthContext();
   const [copied, setCopied] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
   const [loveCount, setLoveCount] = useState(0);
@@ -331,7 +331,7 @@ export function LiveIndicator({ slot, onEndBroadcast, broadcastToken, djUsername
             djEmail=""
             isAuthenticated={!!user?.uid || !!broadcastToken}
             username={djUsername}
-            userId={user?.uid}
+            userId={activityUid ?? undefined}
             isOwner={true}
             broadcastToken={broadcastToken}
             broadcastSlotId={slot.id}

@@ -143,7 +143,10 @@ export function useFilterContext() {
 }
 
 export function FilterProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuthContext();
+  // activityUid: an alias is only a login — taste prefs (genres, scenes, city)
+  // belong to the PRIMARY so recommendations don't split across two accounts.
+  // Equals user.uid for a normal (unlinked) user.
+  const { activityUid } = useAuthContext();
   // `?scene=spiral` (or star/grid) activates a session-only scene filter.
   // URLSceneSync (below, Suspense-wrapped) writes the validated override here
   // so FilterProvider itself stays free of useSearchParams() — otherwise every
@@ -189,8 +192,8 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   // When a URL scene override is active, we skip loading persisted scene prefs
   // so the shared link wins for this session.
   useEffect(() => {
-    if (user?.uid && db) {
-      const userRef = doc(db, 'users', user.uid);
+    if (activityUid && db) {
+      const userRef = doc(db, 'users', activityUid);
       getDoc(userRef).then((snapshot) => {
         const data = snapshot.data();
         setSelectedCity(data?.irlCity || getDefaultCity());
@@ -244,12 +247,12 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {}
     }
-  }, [user?.uid]);
+  }, [activityUid]);
 
   // Migrate localStorage preferences to Firestore when user signs up/in
   const prevUserRef = useRef<string | null>(null);
   useEffect(() => {
-    if (user?.uid && prevUserRef.current === null && db) {
+    if (activityUid && prevUserRef.current === null && db) {
       try {
         const storedGenres = localStorage.getItem('channel-selected-genres');
         const storedCity = localStorage.getItem('channel-selected-city');
@@ -257,7 +260,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         const storedScenes = localStorage.getItem('channel-selected-scenes');
 
         if (storedGenres || storedCity || storedGenreLegacy || storedScenes) {
-          const userDocRef = doc(db, 'users', user.uid);
+          const userDocRef = doc(db, 'users', activityUid);
           getDoc(userDocRef).then((snap) => {
             const data = snap.data();
             const update: Record<string, unknown> = {};
@@ -298,14 +301,14 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         console.error('Preference migration error:', e);
       }
     }
-    prevUserRef.current = user?.uid ?? null;
-  }, [user?.uid]);
+    prevUserRef.current = activityUid ?? null;
+  }, [activityUid]);
 
   const handleCityChange = useCallback(async (city: string) => {
     setSelectedCity(city);
-    if (user?.uid && db) {
+    if (activityUid && db) {
       try {
-        const userRef = doc(db, 'users', user.uid);
+        const userRef = doc(db, 'users', activityUid);
         await updateDoc(userRef, { irlCity: city });
       } catch (error) {
         console.error('Error saving city preference:', error);
@@ -313,13 +316,13 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
     } else {
       try { localStorage.setItem('channel-selected-city', city); } catch {}
     }
-  }, [user?.uid]);
+  }, [activityUid]);
 
   const handleGenresChange = useCallback(async (genres: string[]) => {
     setSelectedGenres(genres);
-    if (user?.uid && db) {
+    if (activityUid && db) {
       try {
-        const userRef = doc(db, 'users', user.uid);
+        const userRef = doc(db, 'users', activityUid);
         await updateDoc(userRef, { preferredGenres: genres });
       } catch (error) {
         console.error('Error saving genre preferences:', error);
@@ -327,7 +330,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
     } else {
       try { localStorage.setItem('channel-selected-genres', JSON.stringify(genres)); } catch {}
     }
-  }, [user?.uid]);
+  }, [activityUid]);
 
   const handleSceneIdsChange = useCallback(async (sceneIds: string[]) => {
     setSelectedSceneIds(sceneIds);
@@ -337,9 +340,9 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       clearUrlSceneRef.current();
       setUrlSceneOverride(null);
     }
-    if (user?.uid && db) {
+    if (activityUid && db) {
       try {
-        const userRef = doc(db, 'users', user.uid);
+        const userRef = doc(db, 'users', activityUid);
         await updateDoc(userRef, { preferredSceneIds: sceneIds });
       } catch (error) {
         console.error('Error saving scene preferences:', error);
@@ -347,7 +350,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
     } else {
       try { localStorage.setItem('channel-selected-scenes', JSON.stringify(sceneIds)); } catch {}
     }
-  }, [user?.uid, hasUrlSceneOverride]);
+  }, [activityUid, hasUrlSceneOverride]);
 
   return (
     <FilterContext.Provider value={{

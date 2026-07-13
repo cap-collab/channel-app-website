@@ -101,12 +101,17 @@ export async function GET(request: NextRequest) {
       return best;
     };
 
-    let captured = 0, skippedStamped = 0, skippedNothing = 0, skippedOwn = 0, skippedDj = 0;
+    let captured = 0, skippedStamped = 0, skippedNothing = 0, skippedOwn = 0, skippedDj = 0, skippedAlias = 0;
     const sample: string[] = [];
 
     for (const userDoc of usersSnap.docs) {
       const data = userDoc.data();
       if (data.signedUpDuring) { skippedStamped++; continue; }
+      // Alias accounts are only a LOGIN for an existing person, not a new
+      // listener discovering the station — so their "signup" attributes nothing.
+      // Skip rather than redirect: crediting the primary would fabricate a love
+      // the person never gave. See src/lib/account-links.ts.
+      if (data.primaryUid) { skippedAlias++; continue; }
       // Listeners only — never auto-love on behalf of a DJ account (they didn't
       // "fan" anyone by signing up, and a DJ creating an account mid-show
       // shouldn't accrue engagement toward whoever's live).
@@ -163,6 +168,7 @@ export async function GET(request: NextRequest) {
       captured,
       skippedStamped,
       skippedDj,
+      skippedAlias,
       skippedNothingAiring: skippedNothing,
       skippedOwnShow: skippedOwn,
       sample,

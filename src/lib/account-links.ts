@@ -48,6 +48,35 @@ export async function resolvePrimaryUid(
 }
 
 /**
+ * Admin-SDK convenience: resolve a uid to the account its ACTIVITY belongs to.
+ *
+ * A person may listen, love, and click track IDs while signed in with either of
+ * their linked accounts. All of it must accrue to the ONE primary, or their
+ * taste/engagement (and everything downstream — recommendations, go-live reach,
+ * the admin Users tab) silently splits in two.
+ *
+ * Call this at the top of any server route that records per-user activity, right
+ * after reading the uid. Never throws: on a read error it returns the uid
+ * unchanged, so engagement is recorded against the login rather than dropped.
+ *
+ * `db` is a firebase-admin Firestore (typed loosely to keep this module free of
+ * a hard firebase-admin import, so client code can import the model above).
+ */
+export async function resolveActivityUid(
+  db: { collection: (p: string) => { doc: (id: string) => { get: () => Promise<{ data: () => Record<string, unknown> | undefined }> } } },
+  uid: string,
+): Promise<string> {
+  if (!uid) return uid;
+  try {
+    const snap = await db.collection('users').doc(uid).get();
+    const primaryUid = snap.data()?.primaryUid;
+    return typeof primaryUid === 'string' && primaryUid && primaryUid !== uid ? primaryUid : uid;
+  } catch {
+    return uid;
+  }
+}
+
+/**
  * The effective uid + email set for a login: the primary plus all its aliases.
  * Pass any linked uid (primary or alias) — it resolves to the primary first.
  * Use the returned `uids` in read-time `where(field, 'in', uids)` expansions and

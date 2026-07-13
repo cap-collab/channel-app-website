@@ -9,6 +9,7 @@ import { db } from "@/lib/firebase";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useSchedule } from "@/contexts/ScheduleContext";
 import { useUserRole, isDJ } from "@/hooks/useUserRole";
+import { useLinkedIdentity } from "@/hooks/useLinkedIdentity";
 import { AuthModal } from "@/components/AuthModal";
 import { Header } from "@/components/Header";
 import { normalizeUrl } from "@/lib/url";
@@ -174,6 +175,19 @@ interface RecItem {
 export function StudioProfileClient() {
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
   const { role, loading: roleLoading } = useUserRole(user);
+
+  // Linked accounts: a DJ may sign in with a second (personal-email) account
+  // that's an ALIAS of their primary DJ account. Everything below operates as
+  // the PRIMARY — profile reads/writes go to effectiveUid, and uid-keyed content
+  // reads expand over linkedUids (primary + aliases) so a DJ sees the same
+  // studio from either login. For an unlinked account these collapse to just
+  // that user. See src/lib/account-links.ts.
+  const {
+    effectiveUid,
+    linkedUids,
+    linkedEmails,
+    loading: linkLoading,
+  } = useLinkedIdentity(user);
   const searchParams = useSearchParams();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -722,11 +736,12 @@ export function StudioProfileClient() {
   const nameDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(true);
 
-  // Load user profile and DJ profile data
+  // Load user profile and DJ profile data. Reads the PRIMARY's doc, so an alias
+  // login sees (and edits) the shared DJ profile rather than its own empty one.
   useEffect(() => {
-    if (!user || !db) return;
+    if (!user || !db || !effectiveUid) return;
 
-    const userRef = doc(db, "users", user.uid);
+    const userRef = doc(db, "users", effectiveUid);
     const unsubscribe = onSnapshot(userRef, (snapshot) => {
       const data = snapshot.data();
       if (data) {
@@ -808,7 +823,7 @@ export function StudioProfileClient() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, effectiveUid]);
 
 
   // Set of collective slugs where this user is an owner. Refreshed alongside
@@ -816,12 +831,24 @@ export function StudioProfileClient() {
   // shows up in their upcoming list.
   const myCollectiveSlugsRef = useRef<Set<string>>(new Set());
 
+  // Linked uids/emails (primary + aliases) as refs, so the slot matcher inside
+  // the snapshot callback sees the current set without re-subscribing.
+  const linkedUidsRef = useRef<Set<string>>(new Set());
+  const linkedEmailsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    linkedUidsRef.current = new Set(linkedUids);
+    linkedEmailsRef.current = new Set(linkedEmails);
+  }, [linkedUids, linkedEmails]);
+
   // Load upcoming shows for this DJ (broadcast slots + external radio shows)
   useEffect(() => {
     if (!user || !db || !user.email) {
       setLoadingBroadcasts(false);
       return;
     }
+    // Wait for the linked-identity resolve, else the matcher below would run
+    // against an empty uid/email set and briefly show no upcoming shows.
+    if (linkLoading) return;
 
     const now = new Date();
     const slotsRef = collection(db, "broadcast-slots");
@@ -849,10 +876,13 @@ export function StudioProfileClient() {
           // Skip recording slots - they are not live broadcasts
           if (data.broadcastType === "recording") return;
 
+          // Match on ANY linked uid/email (primary + aliases), so a slot booked
+          // under either of a DJ's accounts shows up from either login.
+          const slotEmail = data.djEmail?.toLowerCase();
           const isMySlot =
-            data.liveDjUserId === user.uid ||
-            data.djUserId === user.uid ||
-            data.djEmail?.toLowerCase() === user.email?.toLowerCase() ||
+            (data.liveDjUserId && linkedUidsRef.current.has(data.liveDjUserId)) ||
+            (data.djUserId && linkedUidsRef.current.has(data.djUserId)) ||
+            (!!slotEmail && linkedEmailsRef.current.has(slotEmail)) ||
             // Collective ownership: slot assigned to a collective this user owns
             (typeof data.djUsername === "string" && myCollectiveSlugsRef.current.has(data.djUsername));
 
@@ -934,7 +964,7 @@ export function StudioProfileClient() {
     );
 
     return () => unsubscribe();
-  }, [user, chatUsername, allShows]);
+  }, [user, chatUsername, allShows, linkLoading, linkedUids, linkedEmails]);
 
   // Load my recordings from archives collection + fallback to studio-sessions
   // Studio-sessions may have recordings that never got an archive doc (e.g. webhook failed)
@@ -943,6 +973,9 @@ export function StudioProfileClient() {
       setLoadingRecordings(false);
       return;
     }
+    // Wait for the linked-identity resolve: the queries below use `in linkedUids`,
+    // which throws on an empty array.
+    if (linkLoading || linkedUids.length === 0) return;
 
     let archiveRecs: Recording[] = [];
     let liveRecs: Recording[] = [];
@@ -991,11 +1024,12 @@ export function StudioProfileClient() {
 
     // Query 1: UPLOADED recordings (sourceType 'recording'). These reliably
     // carry `uploadedBy` (set at upload time), so a direct query works and stays
-    // realtime (the Publish toggle / name edits update live).
+    // realtime (the Publish toggle / name edits update live). Expanded over the
+    // linked uid set so uploads made under a DJ's other (alias) account show up.
     const archivesQ = query(
       collection(db, "archives"),
       where("sourceType", "==", "recording"),
-      where("uploadedBy", "==", user.uid)
+      where("uploadedBy", "in", linkedUids)
     );
 
     const unsubArchives = onSnapshot(
@@ -1052,7 +1086,9 @@ export function StudioProfileClient() {
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
           const djs = (data.djs || []) as { userId?: string; username?: string }[];
-          const isOwnLive = data.sourceType === "live" && djs.some((dj) => dj.userId === user.uid);
+          const isOwnLive =
+            data.sourceType === "live" &&
+            djs.some((dj) => !!dj.userId && linkedUidsRef.current.has(dj.userId));
           const isOwnedCollective = ownedSlugs.size > 0 && djs.some(
             (dj) => typeof dj.username === "string" && ownedSlugs.has(normalizeUsername(dj.username))
           );
@@ -1073,7 +1109,7 @@ export function StudioProfileClient() {
     const sessionsQ = query(
       collection(db, "studio-sessions"),
       where("broadcastType", "==", "recording"),
-      where("djUserId", "==", user.uid)
+      where("djUserId", "in", linkedUids)
     );
 
     const unsubSessions = onSnapshot(
@@ -1115,7 +1151,7 @@ export function StudioProfileClient() {
       unsubArchives();
       unsubSessions();
     };
-  }, [user]);
+  }, [user, linkLoading, linkedUids]);
 
   // Track which archives are already booked into an upcoming anchor or restream
   // slot. A scheduled slot points at its archive via `archiveId` (set only for
@@ -1186,8 +1222,9 @@ export function StudioProfileClient() {
         // not be able to delete it. djs[0].userId is the owner; if it's set and
         // isn't this user, refuse. (No userId on djs[0] — e.g. a collective
         // owner — also means this individual isn't the owner.)
+        // Any of the DJ's linked accounts (primary + aliases) counts as the owner.
         const ownerUserId = archiveSnap.data()?.djs?.[0]?.userId;
-        if (ownerUserId !== user.uid) {
+        if (!ownerUserId || !linkedUids.includes(ownerUserId)) {
           alert('Only the current owner of this recording can delete it.');
           setDeletingRecording(null);
           return;
@@ -1209,7 +1246,9 @@ export function StudioProfileClient() {
       const refundSeconds = rec?.duration || 0;
       if (refundSeconds > 0) {
         try {
-          const userRef = firestoreDoc(db, 'users', user.uid);
+          // Quota lives on the shared profile — a DJ's linked accounts share one
+          // allowance rather than each account getting its own.
+          const userRef = firestoreDoc(db, 'users', effectiveUid ?? user.uid);
           const userSnap = await getDoc(userRef);
           const quota = userSnap.data()?.recordingQuota;
           if (quota?.monthKey) {
@@ -1231,7 +1270,7 @@ export function StudioProfileClient() {
     } finally {
       setDeletingRecording(null);
     }
-  }, [user, db, recordings]);
+  }, [user, db, recordings, linkedUids, effectiveUid]);
 
   const handleStartEditRecordingName = useCallback((recordingId: string, currentName: string) => {
     setEditingRecordingId(recordingId);
@@ -1483,7 +1522,7 @@ export function StudioProfileClient() {
     setSaveAboutSuccess(false);
 
     try {
-      const userRef = doc(db, "users", user.uid);
+      const userRef = doc(db, "users", effectiveUid ?? user.uid);
       const newBio = bio.trim() || null;
       await updateDoc(userRef, {
         "djProfile.bio": newBio,
@@ -1496,7 +1535,7 @@ export function StudioProfileClient() {
     } finally {
       setSavingAbout(false);
     }
-  }, [user, syncProfileToSlots]);
+  }, [user, effectiveUid, syncProfileToSlots]);
 
   const saveDetails = useCallback(async (location: string, genres: string) => {
     if (!user || !db) return;
@@ -1505,7 +1544,7 @@ export function StudioProfileClient() {
     setSaveDetailsSuccess(false);
 
     try {
-      const userRef = doc(db, "users", user.uid);
+      const userRef = doc(db, "users", effectiveUid ?? user.uid);
       const genresArray = parseGenresInput(genres);
 
       await updateDoc(userRef, {
@@ -1519,7 +1558,7 @@ export function StudioProfileClient() {
     } finally {
       setSavingDetails(false);
     }
-  }, [user]);
+  }, [user, effectiveUid]);
 
   const saveSocialLinks = useCallback(async (
     instagram: string,
@@ -1537,7 +1576,7 @@ export function StudioProfileClient() {
     setSaveSocialSuccess(false);
 
     try {
-      const userRef = doc(db, "users", user.uid);
+      const userRef = doc(db, "users", effectiveUid ?? user.uid);
       // Filter out empty custom links
       const validCustomLinks = customLinks.filter(
         (link) => link.label.trim() && link.url.trim()
@@ -1567,7 +1606,7 @@ export function StudioProfileClient() {
     } finally {
       setSavingSocial(false);
     }
-  }, [user]);
+  }, [user, effectiveUid]);
 
   // Fetch collective and DJ options for event selectors
   const fetchEventOptions = useCallback(async () => {
@@ -1832,7 +1871,7 @@ export function StudioProfileClient() {
     const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     try {
-      const userRef = doc(db, "users", user.uid);
+      const userRef = doc(db, "users", effectiveUid ?? user.uid);
       // Filter out empty shows but always save the array structure
       const previousShows = (djProfile.radioShows || []) as RadioShow[];
       const validShows = shows.filter(
@@ -1887,7 +1926,7 @@ export function StudioProfileClient() {
     } finally {
       setSavingRadioShows(false);
     }
-  }, [user, chatUsername, djProfile.photoUrl, djProfile.radioShows]);
+  }, [user, effectiveUid, chatUsername, djProfile.photoUrl, djProfile.radioShows]);
 
   const saveMyRecs = useCallback(async (recs: RecItem[]) => {
     if (!user || !db) return;
@@ -1896,7 +1935,7 @@ export function StudioProfileClient() {
     setSaveMyRecsSuccess(false);
 
     try {
-      const userRef = doc(db, "users", user.uid);
+      const userRef = doc(db, "users", effectiveUid ?? user.uid);
       // Filter out recs with no title and no URL, normalize URLs
       const previousRecs = (djProfile.myRecs || []) as RecItem[];
       const validRecs = recs
@@ -1926,7 +1965,7 @@ export function StudioProfileClient() {
     } finally {
       setSavingMyRecs(false);
     }
-  }, [user, djProfile.myRecs]);
+  }, [user, effectiveUid, djProfile.myRecs]);
 
   // Auto-save bio with debounce
   useEffect(() => {
@@ -1942,7 +1981,7 @@ export function StudioProfileClient() {
     setSavingTipButtonLink(true);
     setSaveTipButtonLinkSuccess(false);
     try {
-      const userRef = doc(db, "users", user.uid);
+      const userRef = doc(db, "users", effectiveUid ?? user.uid);
       const newLink = link.trim() ? normalizeUrl(link.trim()) : null;
       await updateDoc(userRef, { "djProfile.tipButtonLink": newLink });
       setSaveTipButtonLinkSuccess(true);
@@ -1952,7 +1991,7 @@ export function StudioProfileClient() {
     } finally {
       setSavingTipButtonLink(false);
     }
-  }, [user]);
+  }, [user, effectiveUid]);
 
   // Auto-save tip button link with debounce
   useEffect(() => {
@@ -1971,13 +2010,13 @@ export function StudioProfileClient() {
       if (!user || !db) return;
       setDjProfile((prev) => ({ ...prev, [field]: optedIn }));
       try {
-        const userRef = doc(db, "users", user.uid);
+        const userRef = doc(db, "users", effectiveUid ?? user.uid);
         await updateDoc(userRef, { [`djProfile.${field}`]: optedIn });
       } catch (error) {
         console.error(`Error saving ${field}:`, error);
       }
     },
-    [user]
+    [user, effectiveUid]
   );
 
   // Save name (internal)
@@ -1986,7 +2025,7 @@ export function StudioProfileClient() {
     setSavingName(true);
     setSaveNameSuccess(false);
     try {
-      const userRef = doc(db, "users", user.uid);
+      const userRef = doc(db, "users", effectiveUid ?? user.uid);
       await updateDoc(userRef, { "djProfile.name": name.trim() || null });
       setSaveNameSuccess(true);
       setTimeout(() => setSaveNameSuccess(false), 2000);
@@ -1995,7 +2034,7 @@ export function StudioProfileClient() {
     } finally {
       setSavingName(false);
     }
-  }, [user]);
+  }, [user, effectiveUid]);
 
   // Auto-save name with debounce
   useEffect(() => {
@@ -2055,7 +2094,11 @@ export function StudioProfileClient() {
     setDjNameError(null);
 
     try {
-      const res = await fetch(`/api/chat/check-username?username=${encodeURIComponent(trimmed)}&userId=${user.uid}`);
+      // Check against the PRIMARY: the username belongs to the shared profile, so
+      // an alias must not see its own primary's handle reported as "taken".
+      const res = await fetch(
+        `/api/chat/check-username?username=${encodeURIComponent(trimmed)}&userId=${effectiveUid ?? user.uid}`,
+      );
       const data = await res.json();
 
       if (data.available) {
@@ -2123,14 +2166,17 @@ export function StudioProfileClient() {
     setUploadingPhoto(true);
 
     try {
-      const result = await uploadDJPhoto(user.uid, file);
+      // Photo belongs to the shared profile — store and sync it under the
+      // primary's uid so an alias login updates the same DJ photo.
+      const profileUid = effectiveUid ?? user.uid;
+      const result = await uploadDJPhoto(profileUid, file);
 
       if (!result.success) {
         setPhotoError(result.error || 'Upload failed');
         return;
       }
 
-      const userRef = doc(db, "users", user.uid);
+      const userRef = doc(db, "users", profileUid);
       await updateDoc(userRef, {
         "djProfile.photoUrl": result.url,
       });
@@ -2141,7 +2187,7 @@ export function StudioProfileClient() {
       fetch('/api/dj-profile/sync-photo-refs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid, photoUrl: result.url }),
+        body: JSON.stringify({ userId: profileUid, photoUrl: result.url }),
       }).catch(e => console.error("Error syncing photo refs:", e));
     } catch (error) {
       console.error("Error uploading photo:", error);
@@ -2158,9 +2204,11 @@ export function StudioProfileClient() {
     setPhotoError(null);
 
     try {
-      await deleteDJPhoto(user.uid, djProfile.photoUrl);
+      // Shared profile — remove under the primary's uid (see upload above).
+      const profileUid = effectiveUid ?? user.uid;
+      await deleteDJPhoto(profileUid, djProfile.photoUrl);
 
-      const userRef = doc(db, "users", user.uid);
+      const userRef = doc(db, "users", profileUid);
       await updateDoc(userRef, {
         "djProfile.photoUrl": null,
       });
@@ -2171,7 +2219,7 @@ export function StudioProfileClient() {
       fetch('/api/dj-profile/sync-photo-refs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid, photoUrl: null }),
+        body: JSON.stringify({ userId: profileUid, photoUrl: null }),
       }).catch(e => console.error("Error syncing photo refs:", e));
     } catch (error) {
       console.error("Error removing photo:", error);

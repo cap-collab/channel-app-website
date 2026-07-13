@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { MAX_LINKED_UIDS } from "@/lib/account-links";
+import { migrateAliasToPrimary } from "@/lib/account-link-migrate";
 
 // Admin-only account linking (alias-uid model). Operated from the Users tab's
 // per-row "Add alias" dropdown: attach `aliasUid` as an alias of `primaryUid`.
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
   const db = getAdminDb();
   if (!db) return NextResponse.json({ error: "Database not configured" }, { status: 500 });
 
-  const { primaryUid, aliasUid } = await request.json();
+  const { primaryUid, aliasUid, dryRun } = await request.json();
   if (!primaryUid || !aliasUid) {
     return NextResponse.json({ error: "primaryUid and aliasUid are required" }, { status: 400 });
   }
@@ -78,6 +79,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Preview mode: report what WOULD move, write nothing. The UI calls this first
+  // so the admin sees the alias's history before committing to the link.
+  if (dryRun) {
+    const preview = await migrateAliasToPrimary(db, aliasUid, primaryUid, { dryRun: true });
+    return NextResponse.json({ ok: true, dryRun: true, primaryUid, aliasUid, migration: preview });
+  }
+
   const batch = db.batch();
   batch.update(aliasRef, {
     primaryUid,
@@ -86,8 +94,8 @@ export async function POST(request: NextRequest) {
   });
   batch.update(primaryRef, { aliasUids: FieldValue.arrayUnion(aliasUid) });
 
-  // Fan the alias's owned-collective rights onto the primary so collective
-  // studio access follows the shared profile.
+  // Fan the alias's owned-collective rights onto the primary BEFORE migration
+  // strips them off the alias, so collective access follows the person.
   const aliasSlugs = (aliasData.ownedCollectiveSlugs as string[] | undefined) ?? [];
   if (aliasSlugs.length > 0) {
     batch.update(primaryRef, { ownedCollectiveSlugs: FieldValue.arrayUnion(...aliasSlugs) });
@@ -102,7 +110,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, primaryUid, aliasUid });
+  // The alias is only a LOGIN — move everything it accumulated onto the primary
+  // and strip its identity, so signing in with it simply makes you the primary.
+  const migration = await migrateAliasToPrimary(db, aliasUid, primaryUid);
+
+  return NextResponse.json({ ok: true, primaryUid, aliasUid, migration });
 }
 
 // DELETE — unlink aliasUid from its primary. Backfilled content stays on the

@@ -24,6 +24,13 @@ interface SetUsernameResult {
 /**
  * Hook to fetch user's profile from Firestore
  * Used to get saved chatUsername for DJ profile setup and chat
+ *
+ * Linked accounts: an ALIAS account is only a login — a doorway into a primary.
+ * It carries no identity of its own (the link-time migration strips its
+ * chatUsername/djProfile), so we transparently resolve to the PRIMARY's doc
+ * here. That means an alias login chats, hearts, and "locks in" under the one
+ * shared identity instead of appearing as a nameless second person. Resolving in
+ * this hook covers every consumer at once. See src/lib/account-links.ts.
  */
 export function useUserProfile(userId: string | undefined) {
   const [profile, setProfile] = useState<UserProfile>({ chatUsername: null, displayName: null, djProfile: null, showLockedInMessages: true });
@@ -36,7 +43,12 @@ export function useUserProfile(userId: string | undefined) {
     }
 
     try {
-      const userDoc = await getDoc(doc(db, 'users', userId));
+      let userDoc = await getDoc(doc(db, 'users', userId));
+      // Alias → read the primary's profile instead.
+      const primaryUid = userDoc.data()?.primaryUid as string | undefined;
+      if (primaryUid && primaryUid !== userId) {
+        userDoc = await getDoc(doc(db, 'users', primaryUid));
+      }
       if (userDoc.exists()) {
         const data = userDoc.data();
         setProfile({

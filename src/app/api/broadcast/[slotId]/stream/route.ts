@@ -3,6 +3,7 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { normalizeUsername } from '@/lib/dj-matching';
 import { recordLivePlay } from '@/lib/played-archives';
+import { resolveActivityUid } from '@/lib/account-links';
 
 export async function POST(
   request: Request,
@@ -24,6 +25,12 @@ export async function POST(
       played = body.played === true;
     } catch {
       // No body or invalid JSON — skip user tracking
+    }
+
+    // Linked accounts: an alias is only a login — credit its listening to the
+    // primary so a person's engagement never splits across their two accounts.
+    if (userId) {
+      userId = await resolveActivityUid(db, userId);
     }
 
     // "Played" marker for a live/restream listen (fired on play-start, any

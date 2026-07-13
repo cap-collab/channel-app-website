@@ -357,7 +357,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
 }
 
 export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: { jumpToEarliestShow?: boolean; initialScheduleDate?: Date } = {}) {
-  const { user, isAuthenticated } = useAuthContext();
+  const { user, activityUid, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
 
   const {
@@ -412,7 +412,7 @@ export function LiveBroadcastHero({ jumpToEarliestShow, initialScheduleDate }: {
     username: chatUsername || undefined,
     enabled: !!currentDJChatRoom,
     currentShowStartTime: currentShow?.startTime,
-    userId: user?.uid,
+    userId: activityUid ?? undefined,
     isArchivePlayback: false,
   });
 

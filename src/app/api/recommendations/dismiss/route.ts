@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { resolveActivityUid } from "@/lib/account-links";
 
 // Remove a recommended archive from /scene: permanently hide that archive id from
 // the user's future recommendations (dismissedArchiveIds on the user doc) and
@@ -26,11 +27,15 @@ async function verifyUser(request: NextRequest): Promise<{ userId?: string }> {
 const normUser = (u: string) => u.replace(/[\s-]+/g, "").toLowerCase();
 
 export async function POST(request: NextRequest) {
-  const { userId } = await verifyUser(request);
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { userId: authUid } = await verifyUser(request);
+  if (!authUid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = getAdminDb();
   if (!db) return NextResponse.json({ error: "Database not configured" }, { status: 500 });
+
+  // Linked accounts: an alias is only a login — record the dismissal on the
+  // primary so recs stay consistent whichever account they signed in with.
+  const userId = await resolveActivityUid(db, authUid);
 
   const { archiveId, djUsername, djName } = (await request.json().catch(() => ({}))) as {
     archiveId?: string;

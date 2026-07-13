@@ -322,14 +322,15 @@ export function useDJProfileChat({
     try {
       const shouldCrossPost = chatUsernameNormalized !== 'channelbroadcast';
 
-      // Helper: record love in user's loveHistory (fire-and-forget)
+      // Helper: record love in user's loveHistory (fire-and-forget).
+      //
+      // `userId` is the caller's ACTIVITY uid, which for an alias login is their
+      // PRIMARY — not auth.currentUser.uid. That's deliberate: an alias is only a
+      // login, so its hearts must land on the primary (firestore.rules grants an
+      // alias write access to its primary's loveHistory). So a uid != authUid is
+      // EXPECTED for an alias and must not be treated as a mismatch.
       const recordLoveHistory = () => {
-        const authUid = auth.currentUser?.uid;
-        console.log('[recordLoveHistory] called', { userId, authUid, uidMatch: userId === authUid, djUsername, isArchivePlayback });
         if (!userId || !djUsername) return;
-        if (authUid !== userId) {
-          console.error('[recordLoveHistory] AUTH MISMATCH: userId from props =', userId, 'but auth.currentUser.uid =', authUid);
-        }
         const loveHistoryRef = doc(db, 'users', userId, 'loveHistory', djUsername);
         (async () => {
           console.log('[recordLoveHistory] Reading existing doc...');
