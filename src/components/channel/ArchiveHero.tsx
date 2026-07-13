@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode, type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
 import { normalizeUsername } from '@/lib/dj-matching';
@@ -25,6 +25,7 @@ import type { FieldNoteCaption } from '@/types/field-notes';
 import { AuthModal } from '@/components/AuthModal';
 import { ArchiveSerialized, type Tempo } from '@/types/broadcast';
 import { TEMPOS, tempoLabel } from '@/lib/tempo';
+import { shareArchive } from '@/lib/share-archive';
 import { priorityIsHigh, priorityIsFeatured, compareArchivesForGrid } from '@/lib/archive-priority';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 import { TempoFilterDropdown, FeaturedBand } from './SceneTempoChips';
@@ -70,7 +71,7 @@ export function ArchiveSeekBar({ currentTime, duration, onSeek }: { currentTime:
   }, [getFraction, commitSeek]);
 
   // Touch events
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
+  const onTouchStart = useCallback((e: ReactTouchEvent) => {
     const touch = e.touches[0];
     const f = getFraction(touch.clientX);
     setDragFraction(f);
@@ -941,6 +942,12 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   };
 
   const [showAuthModal, setShowAuthModal] = useState(false);
+  // Transient "link copied" toast for the grid's right-click / long-press share.
+  const [shareToast, setShareToast] = useState(false);
+  const showShareToast = useCallback(() => {
+    setShareToast(true);
+    setTimeout(() => setShareToast(false), 2200);
+  }, []);
 
 
   // DJ-specific chat hook for sending loves to the DJ currently shown in the
@@ -975,6 +982,15 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
 
   return (
     <>
+    {/* Transient "link copied" toast for the grid's share gesture. */}
+    {shareToast && (
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 flex items-center gap-2 text-[12px] font-mono uppercase tracking-[0.15em] text-white bg-white/10 backdrop-blur-md border border-white/30 shadow-lg">
+        <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+        </svg>
+        Link copied
+      </div>
+    )}
     <section className="relative z-10 px-4 pt-6 pb-2">
       <div className="max-w-7xl mx-auto mb-4">
         <h2 className={`text-2xl md:text-3xl font-semibold flex items-center gap-2 ${homepage ? 'lowercase' : ''}`}>
@@ -1952,6 +1968,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                     .map((id) => scenesById.get(id))
                     .filter((s): s is NonNullable<typeof s> => Boolean(s))
                     .map((s) => ({ slug: s.id, name: s.name, emoji: s.emoji }))}
+                  onShared={showShareToast}
                   onPlay={() => {
                     if (archivePlayer.currentArchive?.id === archive.id && archivePlayer.isPlaying) {
                       archivePlayer.pause();
@@ -2164,6 +2181,7 @@ export function ArchiveGridCard({
   isLive: isLiveCard,
   liveBPM: cardLiveBPM,
   onPlay,
+  onShared,
   sceneChips,
 }: {
   archive: ArchiveSerialized;
@@ -2173,8 +2191,60 @@ export function ArchiveGridCard({
   isRestream?: boolean;
   liveBPM?: number | null;
   onPlay: () => void;
+  // Fired after a right-click / long-press share COPIES the link without the
+  // native share sheet, so the parent can surface a "link copied" toast.
+  onShared?: () => void;
   sceneChips?: Array<{ slug: string; name: string; emoji: string }>;
 }) {
+  // Right-click (desktop) / long-press (mobile) shares this recording's
+  // `?archive=` deep-link. No visible button — a hidden gesture, per design.
+  // The whole point here is that this must NEVER interfere with a normal tap
+  // (which plays) or a scroll: the share only fires after the finger is held
+  // still for 500ms, and a share swallows exactly the one click that follows it.
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+
+  const doShare = async () => {
+    const res = await shareArchive(archive.slug, archive.showName);
+    if (res.ok && !res.usedNativeShare) onShared?.();
+  };
+
+  const handleContextMenu = (e: ReactMouseEvent) => {
+    e.preventDefault();
+    void doShare();
+  };
+
+  const startLongPress = (e: ReactTouchEvent) => {
+    // Only a single-finger press is a long-press; a pinch/multi-touch isn't.
+    if (e.touches.length !== 1) { cancelLongPress(); return; }
+    longPressFired.current = false;
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      void doShare();
+    }, 500);
+  };
+  const moveLongPress = (e: ReactTouchEvent) => {
+    // A scroll (or any real finger movement >10px) cancels the pending share so
+    // scrolling the grid never triggers it. Small jitter is tolerated so a
+    // dead-still press still counts.
+    if (!touchStart.current || !longPressTimer.current) return;
+    const t = e.touches[0];
+    if (!t) return;
+    const dx = Math.abs(t.clientX - touchStart.current.x);
+    const dy = Math.abs(t.clientY - touchStart.current.y);
+    if (dx > 10 || dy > 10) cancelLongPress();
+  };
+  const cancelLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    touchStart.current = null;
+  };
   const djNames = archive.djs.map((d) => d.name).join(', ');
   const primaryDj = archive.djs[0];
   const primaryUsername = primaryDj?.username;
@@ -2200,11 +2270,31 @@ export function ArchiveGridCard({
     : null;
 
   return (
-    <div className="w-full group flex flex-col h-full">
+    <div
+      className="w-full group flex flex-col h-full [&_img]:select-none"
+      style={{ WebkitTouchCallout: 'none' }}
+      onContextMenu={handleContextMenu}
+      onTouchStart={startLongPress}
+      onTouchEnd={cancelLongPress}
+      onTouchMove={moveLongPress}
+      onTouchCancel={cancelLongPress}
+    >
       {/* Image with hero-style overlays. The profile button is a sibling overlay
           (not nested in the play <button>) so the anchor stays valid HTML. */}
       <div className="relative">
-      <button onClick={onPlay} className="w-full text-left relative aspect-[16/9] overflow-hidden border border-white/10">
+      <button
+        onClick={(e) => {
+          // Swallow the click that fires on long-press release so a share
+          // gesture doesn't also start playback.
+          if (longPressFired.current) {
+            e.preventDefault();
+            longPressFired.current = false;
+            return;
+          }
+          onPlay();
+        }}
+        className="w-full text-left relative aspect-[16/9] overflow-hidden border border-white/10"
+      >
         {displayImage ? (
           <>
             <Image

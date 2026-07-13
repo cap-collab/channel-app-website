@@ -25,6 +25,7 @@ import { useBPM } from "@/contexts/BPMContext";
 import { SceneGlyph } from "@/components/SceneGlyph";
 import { useScenesData, resolveArchiveScenes } from "@/hooks/useScenesData";
 import { tempoLabel } from "@/lib/tempo";
+import { shareArchive } from "@/lib/share-archive";
 import { wordBoundaryMatch, normalizeUsername } from "@/lib/dj-matching";
 import { generateSlug } from "@/lib/slug";
 import { Venue, Collective, Event as ChannelEvent, EventDJRef, CollectiveRef } from "@/types/events";
@@ -473,6 +474,12 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
 
   // Show popup state
   const [togglingFavoriteId, setTogglingFavoriteId] = useState<string | null>(null);
+  // Transient "link copied" toast for the per-recording share button.
+  const [shareToast, setShareToast] = useState(false);
+  const showShareToast = useCallback(() => {
+    setShareToast(true);
+    setTimeout(() => setShareToast(false), 2200);
+  }, []);
 
 
   // Auto-profile state
@@ -1730,6 +1737,16 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
   return (
     <div className="min-h-screen text-white relative overflow-x-clip">
       <AnimatedBackground />
+      {/* Transient "link copied" toast for the recording share buttons. Same
+          frosted-glass + mono-uppercase vocabulary as the scene toasts. */}
+      {shareToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 flex items-center gap-2 text-[12px] font-mono uppercase tracking-[0.15em] text-white bg-white/10 backdrop-blur-md border border-white/30 shadow-lg">
+          <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+          </svg>
+          Link copied
+        </div>
+      )}
       {/* Site-wide Header */}
       <Header position="sticky" />
 
@@ -2271,6 +2288,24 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                         {tempoText && <span className="pt-px">{tempoText}</span>}
                       </div>
                     )}
+
+                    {/* Share button — sits directly below the glyph/tempo pill on
+                        the right edge (drops to the top-right when there's no pill).
+                        Copies the `?archive=` deep-link + opens the native sheet. */}
+                    <button
+                      type="button"
+                      aria-label="Share recording"
+                      title="Share recording"
+                      onClick={async () => {
+                        const res = await shareArchive(archive.slug, archive.showName);
+                        if (res.ok && !res.usedNativeShare) showShareToast();
+                      }}
+                      className={`absolute right-2.5 ${glyphSlug ? 'top-11' : 'top-2.5'} w-7 h-7 flex items-center justify-center text-white bg-black/15 backdrop-blur-xl border border-white/10 hover:bg-black/30 transition-colors`}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" />
+                      </svg>
+                    </button>
                   </div>
 
                   {/* Player: full-width row on solid black, below image + title */}
