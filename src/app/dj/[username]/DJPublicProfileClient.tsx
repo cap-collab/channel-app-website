@@ -2272,8 +2272,8 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                       </div>
                     )}
 
-                    {/* Share button — sits directly below the glyph/tempo pill on
-                        the right edge (drops to the top-right when there's no pill).
+                    {/* Share button — vertically centered on the card's right
+                        edge (clears the glyph/tempo pill overlaid top-right).
                         Copies the `?archive=` deep-link + opens the native sheet. */}
                     <button
                       type="button"
@@ -2283,7 +2283,7 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                         const res = await shareArchive(archive.slug, archive.showName);
                         if (res.ok && !res.usedNativeShare) showShareToast();
                       }}
-                      className={`absolute right-2.5 ${glyphSlug ? 'top-11' : 'top-2.5'} w-7 h-7 flex items-center justify-center text-white bg-black/15 backdrop-blur-xl border border-white/10 hover:bg-black/30 transition-colors`}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center text-white bg-black/15 backdrop-blur-xl border border-white/10 hover:bg-black/30 transition-colors"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" />

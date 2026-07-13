@@ -26,7 +26,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { ArchiveSerialized, type Tempo } from '@/types/broadcast';
 import { TEMPOS, tempoLabel } from '@/lib/tempo';
 import { shareArchive } from '@/lib/share-archive';
-import { priorityIsHigh, priorityIsFeatured, compareArchivesForGrid } from '@/lib/archive-priority';
+import { priorityIsHigh, priorityIsFeatured, compareArchivesForGrid, isListenerVisibleArchive } from '@/lib/archive-priority';
 import { useArchiveRadioContext } from '@/contexts/ArchiveRadioContext';
 import { TempoFilterDropdown, FeaturedBand } from './SceneTempoChips';
 import { STATIC_SCENE_CHIPS } from './useSceneTempoFilter';
@@ -327,6 +327,49 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     [selectedTempos, urlTempoOverride, clearUrlFilters]
   );
 
+  // ── Shareable filter "playlist" ──────────────────────────────────────────
+  // A link like /?scene=spiral&tempo=uptempo&play=1 pre-applies the filters
+  // (seeded above) and auto-plays the highest-priority match, then continues in
+  // priority order through the rest of the filtered set. We compute that ordered
+  // list once here so both the auto-play effect and the on-ended handler share
+  // exactly the same predicate + ordering.
+  //
+  // A filter is "active" only when it actually narrows the set — every scene (or
+  // every tempo) selected is the same as no filter, so that doesn't count.
+  const filterPlaylist = useMemo(() => {
+    const visibleSceneIds = scenes.filter((s) => s.id !== 'grid').map((s) => s.id);
+    const sceneAll = visibleSceneIds.length > 0 && visibleSceneIds.every((id) => sceneFilter.has(id));
+    const sceneNone = visibleSceneIds.length > 0 && visibleSceneIds.every((id) => !sceneFilter.has(id));
+    const sceneActive = !sceneAll && !sceneNone;
+
+    const tempoAll = TEMPOS.every((t) => tempoFilter.has(t.id));
+    const tempoNone = TEMPOS.every((t) => !tempoFilter.has(t.id));
+    const tempoActive = !tempoAll && !tempoNone;
+
+    const active = sceneActive || tempoActive;
+    if (!active) return { active: false, items: [] as ArchiveSerialized[] };
+
+    const items = archives
+      .filter((a) => {
+        // Hidden/private archives are NEVER surfaced to listeners — same gate the
+        // grid applies. A shared filter link must not auto-play one.
+        if (!isListenerVisibleArchive(a)) return false;
+        if (sceneActive) {
+          const s = resolveArchiveScenes(a, djSceneMap);
+          if (!s.some((id) => sceneFilter.has(id))) return false;
+        }
+        // Tempo filtering drops untagged archives, matching the grid.
+        if (tempoActive && !(a.tempo && tempoFilter.has(a.tempo))) return false;
+        return true;
+      })
+      .sort(compareArchivesForGrid);
+    return { active: true, items };
+  }, [archives, scenes, sceneFilter, tempoFilter, djSceneMap]);
+  // Ref mirror so the (stable) on-ended handler reads the latest playlist without
+  // re-subscribing on every filter change.
+  const filterPlaylistRef = useRef(filterPlaylist);
+  useEffect(() => { filterPlaylistRef.current = filterPlaylist; }, [filterPlaylist]);
+
   // Track player bar visibility — GlobalBroadcastBar shows when this scrolls out of view
   useEffect(() => {
     const el = stickyBarRef.current;
@@ -484,6 +527,21 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     onArchiveEndedRef.current = (ended: ArchiveSerialized) => {
       const all = archivesRef.current;
       if (!all || all.length === 0) return;
+
+      // Shared filter link active → play the NEXT match in priority order,
+      // wrapping to the top so the "playlist" loops within the filter.
+      const playlist = filterPlaylistRef.current;
+      if (playlist.active && playlist.items.length > 0) {
+        const idx = playlist.items.findIndex((a) => a.id === ended.id);
+        // If the ended archive isn't in the list (edge case), start from the top.
+        const next = playlist.items[(idx + 1) % playlist.items.length];
+        if (next && next.id !== ended.id) {
+          playArchive(next);
+          return;
+        }
+        if (next && playlist.items.length === 1) return; // single match → stop
+      }
+
       const endedScenes = new Set(
         resolveArchiveScenes(ended, djSceneMapRef.current).filter((s) => s !== 'grid')
       );
@@ -525,6 +583,33 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   useEffect(() => {
     if (autoPlayConsumedRef.current) return;
     if (searchParams?.get('play') !== '1') return;
+
+    // The URL filter (?scene=/?tempo=) is copied into state by a SEPARATE
+    // effect that lands a render later than this one. If the URL asks for a
+    // filter but it hasn't seeded yet, wait — otherwise we'd fall through and
+    // start radio (slide 0) before the filter playlist exists.
+    const urlHasFilter = !!urlSceneOverride || (!!urlTempoOverride && urlTempoOverride.length > 0);
+    if (urlHasFilter && !filterPlaylist.active) return;
+
+    // Shared filter playlist link (/?scene=&tempo=&play=1): play the
+    // highest-priority match rather than slide 0. The on-ended handler then
+    // continues through the rest of the filtered list in priority order.
+    if (filterPlaylist.active) {
+      const top = filterPlaylist.items[0];
+      if (top) {
+        autoPlayConsumedRef.current = true;
+        setUserSelectedMode('archive');
+        playArchive(top);
+        setHeroIndex(1);
+        const params = new URLSearchParams(Array.from(searchParams.entries()));
+        params.delete('play');
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+        return;
+      }
+      // Filter active but nothing matches → fall through to slide-0 behavior.
+    }
+
     if (isLive) {
       autoPlayConsumedRef.current = true;
       setUserSelectedMode('live');
@@ -539,7 +624,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     params.delete('play');
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, isLive, playLive, radioCtx, router, pathname]);
+  }, [searchParams, isLive, playLive, radioCtx, router, pathname, filterPlaylist, playArchive, urlSceneOverride, urlTempoOverride]);
 
 
   // When a scene filter is actively narrowing the set (shared `?scene=` link or
