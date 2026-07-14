@@ -2110,7 +2110,8 @@ export async function sendPostBroadcastEmail({
 interface ArchiveTrackIdsEmailParams {
   to: string;
   djName: string;            // resolved first name, or "there" for a plain "Hi,"
-  profileSlug: string | null; // chatUsernameNormalized → /dj/<slug> ("View your show")
+  profileSlug: string | null; // chatUsernameNormalized → /dj/<slug> (footer/fallback)
+  archiveSlug: string | null; // this show's slug → /?archive=<slug> ("Share your show")
   // The bold relationship paragraph HTML (already assembled by the caller): the
   // "you played X by <DJ> … 🤍" line, or the fallback invite. URLs, if any, are
   // left outside <strong> by the caller so links aren't bold.
@@ -2127,6 +2128,7 @@ export async function sendArchiveTrackIdsEmail({
   to,
   djName,
   profileSlug,
+  archiveSlug,
   relationshipHtml,
   signInMethod,
   signInEmail,
@@ -2137,15 +2139,28 @@ export async function sendArchiveTrackIdsEmail({
   }
 
   const greeting = djName === "there" ? "Hi," : `Hi ${djName},`;
-  const profileUrl = profileSlug ? `https://channel-app.com/dj/${profileSlug}` : "https://channel-app.com";
-  const profileShort = profileSlug ? `channel-app.com/dj/${profileSlug}` : "channel-app.com";
   const p = "margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #1a1a1a;";
+  const link = "color: #1a1a1a; text-decoration: underline;";
+
+  // Deep-link that plays this show on the homepage — the same URL the on-site
+  // Share button copies. When the slug is somehow missing, fall back to the DJ's
+  // profile so the line still points somewhere real.
+  const shareUrl = archiveSlug
+    ? `https://channel-app.com/?archive=${encodeURIComponent(archiveSlug)}`
+    : profileSlug
+      ? `https://channel-app.com/dj/${profileSlug}`
+      : "https://channel-app.com";
+  const shareShort = archiveSlug
+    ? `channel-app.com/?archive=${archiveSlug}`
+    : profileSlug
+      ? `channel-app.com/dj/${profileSlug}`
+      : "channel-app.com";
 
   const content = `
     <p style="${p}">${greeting}</p>
     <p style="${p}">I've generated track IDs for your latest show. You can review them, edit any track, add missing ones, or make individual tracks private from your Studio.</p>
-    <p style="${p}">View your show: <a href="${profileUrl}" style="color: #1a1a1a; text-decoration: underline;">${profileShort}</a></p>
-    <p style="${p}">Manage track IDs: <a href="https://channel-app.com/studio" style="color: #1a1a1a; text-decoration: underline;">channel-app.com/studio</a></p>
+    <p style="${p}">Share your show: <a href="${shareUrl}" style="${link}">${shareShort}</a></p>
+    <p style="${p}">Manage track IDs: <a href="https://channel-app.com/studio" style="${link}">channel-app.com/studio</a></p>
     <p style="${p}">${relationshipHtml}</p>
     <p style="${p}">Thanks,<br />Cap</p>
   `;

@@ -151,6 +151,7 @@ export async function sendTrackIdsEmailForArchive(
       to: email,
       djName: firstName,
       profileSlug,
+      archiveSlug: typeof a.slug === "string" && a.slug ? a.slug : null,
       relationshipHtml: relHtml,
       signInMethod,
       signInEmail: email,
