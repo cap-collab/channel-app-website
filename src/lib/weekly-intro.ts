@@ -27,7 +27,28 @@ const heading = (emoji: string, text: string) =>
 const tight = (html: string) =>
   `<p style="margin: 0 0 2px; font-size: 14px; line-height: 1.6; color: #1a1a1a;">${html}</p>`;
 
-function buildDjIntro(firstName: string, latestShowSlug?: string): string {
+// "include a discount code" links to a collective actually running discounted
+// events in the reader's city — Hidden Village in NY, Information in LA. Anywhere
+// else there's no local collective to point at, so it stays bold but unlinked
+// rather than sending a Berlin DJ to an LA event.
+//
+// City resolution mirrors scene-payload.ts (irlCity → timezone), so this link and
+// the "Coming up" section always agree about where the reader is.
+function discountPhrase(text: string, city?: string | null): string {
+  const bold = `<strong>${text}</strong>`;
+  const c = (city || "").trim().toLowerCase();
+  // Exact-ish matching only. A bare `includes("la")` would also fire on Atlanta,
+  // Dallas, Oakland…
+  if (c === "new york" || c === "nyc" || c === "brooklyn") {
+    return proseCollectiveLink("hiddenvillage", bold);
+  }
+  if (c === "los angeles" || c === "la") {
+    return proseCollectiveLink("information", bold);
+  }
+  return bold;
+}
+
+function buildDjIntro(firstName: string, latestShowSlug?: string, city?: string | null): string {
   const greeting = firstName === "there" ? "Hi," : `Hi ${firstName},`;
 
   // "its own shareable link" IS the link — pointing at their most recent show —
@@ -56,7 +77,7 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
     heading("\u{1F465}", "Collectives &amp; Events"),
     tight(
       `Collectives can now manage their own profile, artists, and events directly on Channel. ` +
-        `Every event can also include a discount code to reward your community and help it ` +
+        `Every event can also ${discountPhrase("include a discount code", city)} to reward your community and help it ` +
         `stand out. Thanks to ${proseCollectiveLink("hiddenvillage", "Hidden Village")} for ` +
         `helping shape this feature.`,
     ),
@@ -90,7 +111,7 @@ function buildDjIntro(firstName: string, latestShowSlug?: string): string {
   ].join("");
 }
 
-function buildListenerIntro(): string {
+function buildListenerIntro(city?: string | null): string {
   // Bulleted, so the two new things read as a list rather than one dense
   // sentence. <ul>/<li> render reliably across mail clients when the margins are
   // set inline (Outlook ignores most list CSS otherwise).
@@ -104,7 +125,7 @@ function buildListenerIntro(): string {
         `Type <strong>"track id"</strong> in the chat while listening to any show to instantly ` +
           `get the full tracklist`,
       ) +
-      li(`Keep an eye out for <strong>exclusive discount codes</strong> on selected events`) +
+      li(`Keep an eye out for ${discountPhrase("exclusive discount codes", city)} on selected events`) +
       `</ul>`,
     `<p style="margin: 22px 0 0; font-size: 14px; line-height: 1.6; color: #1a1a1a;">I've also updated your recommendations:</p>`,
   ].join("");
@@ -135,8 +156,9 @@ export function buildIntroHtml(
   cohort: IntroCohort,
   firstName: string,
   latestShowSlug?: string,
+  city?: string | null,
 ): string {
   return cohort === "dj"
-    ? WEEKLY_INTRO.dj.build(firstName, latestShowSlug)
-    : WEEKLY_INTRO.listener.build();
+    ? WEEKLY_INTRO.dj.build(firstName, latestShowSlug, city)
+    : WEEKLY_INTRO.listener.build(city);
 }

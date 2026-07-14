@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import type { ArchiveSerialized } from "@/types/broadcast";
 import { buildScenePayload } from "@/lib/recommendations/scene-payload";
 import { isListenerVisibleArchive } from "@/lib/archive-priority";
+import { getCityFromTimezone } from "@/lib/city-detection";
 import { generateForUser, loadSharedData, loadConfig } from "@/lib/recommendations/server";
 import { buildFeaturedMatrix } from "@/lib/recommendations/featured-matrix";
 import { DEFAULT_FEATURED_CITY } from "@/lib/recommendations/featured-payload";
@@ -477,13 +478,20 @@ export async function GET(request: NextRequest) {
         );
         const latestShowSlug =
           cohort === "dj" ? latestShowByUid.get(userDoc.id)?.slug : undefined;
+        // Same precedence buildScenePayload uses (scene-payload.ts), so the
+        // intro's city-gated discount link and the "Coming up" section below it
+        // always agree about where this reader is.
+        const recipientCity =
+          (data.irlCity as string | undefined) ||
+          getCityFromTimezone((data.timezone as string) || "") ||
+          null;
 
         const ok = await sendWeeklyRecommendationsEmail({
           // In preview mode, redirect delivery to deliverTo if given (render
           // THIS user's content, send it to the admin's inbox).
           to: previewTo && deliverTo ? deliverTo : email,
           subject: introSubjectFor(cohort),
-          introHtml: buildIntroHtml(cohort, firstName, latestShowSlug),
+          introHtml: buildIntroHtml(cohort, firstName, latestShowSlug, recipientCity),
           userTimezone: data.timezone as string | undefined,
           section1,
           section2: isFallback ? [] : section2,
@@ -658,7 +666,9 @@ export async function GET(request: NextRequest) {
               // only — everyone with a users doc was handled in pass 1. No users
               // doc means no role, so these are listeners by construction.
               subject: introSubjectFor("listener"),
-              introHtml: buildIntroHtml("listener", r.name),
+              // Same city that gated their Coming Up above, so the discount link
+              // and the events below it point at the same place.
+              introHtml: buildIntroHtml("listener", r.name, undefined, recipientCity),
               userTimezone: undefined, // no users doc → default PT
               section1: extraSection1,
               section2: [],
