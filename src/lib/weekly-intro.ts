@@ -68,8 +68,8 @@ function buildDjIntro(firstName: string, latestShowSlug?: string, city?: string 
     heading("\u{1F4BE}", "More reliable recordings"),
     tight(
       `I've made another round of improvements to make recordings more resilient to unstable ` +
-        `Wi-Fi during live broadcasts. Thanks to ${proseDjLink("davidl", "David L")}, ` +
-        `${proseDjLink("brod", "B. Rod")}, ${proseDjLink("m0lly", "M0LLY")}, and ` +
+        `Wi-Fi during live broadcasts. Thanks to ${proseDjLink("brod", "B. Rod")}, ` +
+        `${proseDjLink("davidl", "David L")}, ${proseDjLink("m0lly", "M0LLY")}, and ` +
         `${proseDjLink("znc", "Znc")} for their patience while I continue improving the ` +
         `recording experience.`,
     ),
@@ -77,26 +77,24 @@ function buildDjIntro(firstName: string, latestShowSlug?: string, city?: string 
     heading("\u{1F465}", "Collectives &amp; Events"),
     tight(
       `Collectives can now manage their own profile, artists, and events directly on Channel. ` +
-        `Every event can also ${discountPhrase("include a discount code", city)} to reward your community and help it ` +
-        `stand out. Thanks to ${proseCollectiveLink("hiddenvillage", "Hidden Village")} for ` +
+        `All your events can also ${discountPhrase("include discount codes", city)} to reward ` +
+        `your community. Thanks to ${proseCollectiveLink("hiddenvillage", "Hidden Village")} for ` +
         `helping shape this feature.`,
     ),
 
     heading("\u{1F3B5}", "Automatic Track IDs"),
     tight(
-      `Every show now gets automatic Track IDs, editable from your Studio. Thanks to ` +
-        `${proseDjLink("marienyx", "Marie Nyx")}, ${proseDjLink("gstyle", "G-Style")}, ` +
-        `${proseDjLink("andyoro", "Andy Oro")}, and ${proseDjLink("apili", "A-Pili")} for ` +
+      `Every show now includes Track IDs. Browse tracklists from other DJs, and edit your own. ` +
+        `Thanks to ${proseDjLink("andyoro", "Andy Oro")}, ${proseDjLink("apili", "A-Pili")}, ` +
+        `${proseDjLink("gstyle", "G-Style")}, and ${proseDjLink("marienyx", "Marie Nyx")} for ` +
         `helping shape the feature, and shoutout to ${proseDjLink("akumen", "Akumen")}, whose ` +
         `tracks were played by three different Channel artists.`,
     ),
 
-    heading("\u{1F3A7}", "Reach more listeners"),
+    heading("\u{1F4C8}", "Reach more listeners"),
     tight(
-      `Your shows are now recommended to listeners already following your collective and the ` +
-        `artists you've introduced to Channel, helping your music reach more people who are ` +
-        `likely to enjoy it. See your recommendations: ` +
-        `${proseLink("https://channel-app.com/foryou", "channel-app.com/foryou")}`,
+      `Your shows are now recommended to fans of your collective, and the DJs you've introduced ` +
+        `to Channel: helping your music reach more people who are likely to enjoy it.`,
     ),
 
     heading("\u{1F4DA}", "Archives"),
@@ -106,8 +104,10 @@ function buildDjIntro(firstName: string, latestShowSlug?: string, city?: string 
         `${proseDjLink("andyoro", "Andy Oro")} for catching the issue.`,
     ),
 
-    // Sign-off closes the letter — give it the same gap a new section gets.
+    // Sign-off closes the letter — give it the same gap a new section gets. The
+    // second line points at the rec sections rendered directly below.
     `<p style="margin: 22px 0 0; font-size: 14px; line-height: 1.6; color: #1a1a1a;">Thanks again for helping me build Channel.</p>`,
+    `<p style="margin: 0; font-size: 14px; line-height: 1.6; color: #1a1a1a;">You'll find your personalized recommendations below.</p>`,
   ].join("");
 }
 
@@ -133,7 +133,7 @@ function buildListenerIntro(city?: string | null): string {
 
 export const WEEKLY_INTRO = {
   dj: {
-    subject: "Collectives, Reach & Track IDs",
+    subject: "Collectives, Track IDs & Reach",
     build: buildDjIntro,
   },
   listener: {
