@@ -1300,6 +1300,11 @@ interface WeeklyRecommendationsEmailParams {
   // When present it replaces the eyebrow title entirely — the intro IS the top of
   // the email, so a title above it would be redundant.
   introHtml?: string;
+  // How this recipient signs in → a reminder below the CTA, so they don't create
+  // a duplicate account. Only known for people with a users doc; everyone else
+  // (waitlist / pending) has no method and the line renders empty.
+  signInMethod?: string;
+  signInEmail?: string;
   // Personalization state used to vary the top eyebrow title:
   //  - opened last week      → title becomes "Worth your time"
   //  - was fallback last week + opened + NOT fallback now → DROP the title
@@ -1496,6 +1501,8 @@ export async function sendWeeklyRecommendationsEmail({
   isFallback,
   recipientUid,
   introHtml,
+  signInMethod,
+  signInEmail,
   openedLastWeek,
   wasFallbackLastWeek,
 }: WeeklyRecommendationsEmailParams): Promise<boolean> {
@@ -1645,7 +1652,19 @@ export async function sendWeeklyRecommendationsEmail({
       // (The track-IDs email felt right precisely because it had NO wrapper at
       // all — bare <br/> text, full client width.) 800px + 12px side padding
       // gets close to that while keeping the logo, footer, and unsubscribe.
-      html: wrapEmailContent(content, "", undefined, undefined, 12, 800, 8),
+      // Sign-in reminder as the footer (below the CTA). signInReminderHtml
+      // prepends <br><br> for callers that append it to existing footer copy —
+      // here it IS the whole footer, so strip the leading breaks. Returns "" for
+      // an unknown/absent method, which is exactly the "non-user → blank" case.
+      html: wrapEmailContent(
+        content,
+        signInReminderHtml(signInMethod, signInEmail).replace(/^<br><br>/, ""),
+        undefined,
+        undefined,
+        12,
+        800,
+        8,
+      ),
       headers: getUnsubscribeHeaders("marketing"),
     });
     if (error) {

@@ -492,6 +492,11 @@ export async function GET(request: NextRequest) {
           to: previewTo && deliverTo ? deliverTo : email,
           subject: introSubjectFor(cohort),
           introHtml: buildIntroHtml(cohort, firstName, latestShowSlug, recipientCity),
+          // How they sign in → reminder under the CTA, so they don't create a
+          // duplicate account. Pass-2 recipients have no users doc, hence no
+          // method, and the line renders blank for them.
+          signInMethod: typeof data.signInMethod === "string" ? data.signInMethod : undefined,
+          signInEmail: email,
           userTimezone: data.timezone as string | undefined,
           section1,
           section2: isFallback ? [] : section2,
