@@ -1469,20 +1469,21 @@ function buildWeeklyComingUpRowHtml(row: WeeklyRecComingUpRow, timezone: string)
 // the email (there's no title/subtitle above it).
 function buildWeeklyBlock(label: string, rowsHtml: string[], first = false): string {
   if (rowsHtml.length === 0) return "";
-  // Spacing only — no rule. The section's own uppercase label already marks the
-  // boundary; a border on top of it reads as a box drawn around the content.
-  const wrapStyle = first ? "" : "margin-top: 24px;";
+  // NO wrapper element. A <div> here is a block container, so mail clients (Outlook
+  // especially) render it as its own box with a hard break above it — the section
+  // ends up looking like a card pasted below the rec grid. Emitting the label +
+  // rows bare lets them flow as one continuous document.
+  //
+  // The gap now lives on the LABEL's top margin, so it collapses naturally against
+  // whatever precedes it instead of stacking with a wrapper's margin.
   // Empty label → no heading paragraph (e.g. the fallback featured rows, where
   // the scene is conveyed by each row's glyph).
-  const labelHtml = label
-    ? `<p style="margin: 0 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">${label}</p>`
-    : "";
-  return `
-    <div style="${wrapStyle}">
-      ${labelHtml}
-      ${rowsHtml.join("")}
-    </div>
-  `;
+  if (!label) return rowsHtml.join("");
+  const topMargin = first ? 0 : 24;
+  return (
+    `<p style="margin: ${topMargin}px 0 12px; font-size: 11px; font-family: monospace; color: #999; text-transform: uppercase; letter-spacing: 1px;">${label}</p>` +
+    rowsHtml.join("")
+  );
 }
 
 export async function sendWeeklyRecommendationsEmail({
