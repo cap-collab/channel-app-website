@@ -4,6 +4,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { sendResidentRescheduleEmail } from '@/lib/email';
 import { resolveFirstName, EXCLUDE_EMAILS } from '@/lib/channel-newsletter';
 import { normalizeUsername } from '@/lib/dj-matching';
+import { isListenerVisibleArchive } from '@/lib/archive-priority';
 
 // One full sweep of broadcast-slots per run, in memory. Roster is ~tens of
 // residents — runs comfortably under the default budget, but give it headroom.
@@ -58,8 +59,10 @@ export async function GET(request: NextRequest) {
     // Optional footer-reminder preview: ?method=google|apple|password|emailLink&email=...
     const signInMethod = url.searchParams.get('method') || undefined;
     const signInEmail = url.searchParams.get('email') || to;
-    const ok = await sendResidentRescheduleEmail({ to, djName, signInMethod, signInEmail });
-    return NextResponse.json({ preview: true, sent: ok, to, djName, signInMethod });
+    // Optional ?slug=<archive> to preview the "previous show" Channel deep-link.
+    const lastShowSlug = url.searchParams.get('slug') || null;
+    const ok = await sendResidentRescheduleEmail({ to, djName, lastShowSlug, signInMethod, signInEmail });
+    return NextResponse.json({ preview: true, sent: ok, to, djName, signInMethod, lastShowSlug });
   }
 
   // Dry-run mode: run the full eligibility logic and return who WOULD be
@@ -211,12 +214,30 @@ export async function GET(request: NextRequest) {
   // Firestore Timestamp from live-recorded/published shows), so we can't use a
   // server-side `where` (it wouldn't compare a number filter against Timestamp
   // docs). Sweep the collection and normalize each createdAt in memory instead.
+  // userId → { slug, createdAt } of that resident's most recent LISTENER-VISIBLE
+  // show, for the "your previous show is still available" block. Gated on
+  // isListenerVisibleArchive so we never link a hidden/private show. Note this
+  // tracks the newest show over the WHOLE catalogue, not just the recent window —
+  // a nudged resident is inactive by definition, so their last show predates the
+  // 45-day cutoff.
+  const lastShowByUid = new Map<string, { slug: string; createdAt: number }>();
   const archivesSnap = await db.collection('archives').get();
   for (const doc of archivesSnap.docs) {
     const arch = doc.data();
     const createdAt = toMillis(arch.createdAt);
-    if (createdAt === null || createdAt < recentCutoff) continue;
     const djs = Array.isArray(arch.djs) ? arch.djs : [];
+
+    if (typeof arch.slug === 'string' && arch.slug && isListenerVisibleArchive(arch)) {
+      const at = createdAt ?? 0;
+      for (const dj of djs) {
+        const uid = dj.userId;
+        if (!uid) continue;
+        const cur = lastShowByUid.get(uid);
+        if (!cur || at > cur.createdAt) lastShowByUid.set(uid, { slug: arch.slug, createdAt: at });
+      }
+    }
+
+    if (createdAt === null || createdAt < recentCutoff) continue;
     for (const dj of djs) {
       for (const r of resolveResidents(dj.userId, dj.username)) {
         r.uploadedRecently = true;
@@ -254,6 +275,7 @@ export async function GET(request: NextRequest) {
     const ok = await sendResidentRescheduleEmail({
       to: r.email,
       djName: r.firstName,
+      lastShowSlug: lastShowByUid.get(r.userId)?.slug ?? null,
       signInMethod: r.signInMethod,
       signInEmail: r.email,
     });

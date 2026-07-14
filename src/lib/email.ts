@@ -1862,11 +1862,13 @@ export async function sendBroadcast1WeekReminderEmail({
 export async function sendResidentRescheduleEmail({
   to,
   djName,
+  lastShowSlug,
   signInMethod,
   signInEmail,
 }: {
   to: string;
   djName: string;
+  lastShowSlug?: string | null; // most recent listener-visible show → back-catalogue block
   signInMethod?: string;
   signInEmail?: string;
 }) {
@@ -1876,6 +1878,25 @@ export async function sendResidentRescheduleEmail({
   }
 
   const studioUrl = "https://channel-app.com/studio";
+  const link = "color: #1a1a1a; text-decoration: underline;";
+  const meta = "margin: 0 0 4px; font-size: 14px; color: #666;";
+
+  // "Your previous show is still available…" — only when they actually have a
+  // listener-visible show to point at. The SoundCloud/YouTube links are Channel's
+  // own channel pages (static), so they show regardless; the per-show Channel
+  // deep-link is the only conditional part.
+  const backCatalogue = `
+          <p style="margin: 24px 0 12px; font-size: 14px; color: #666;">
+            Your previous show is still available to listen and share:
+          </p>
+          ${
+            lastShowSlug
+              ? `<p style="${meta}">Channel: <a href="https://channel-app.com/?archive=${encodeURIComponent(lastShowSlug)}" style="${link}">channel-app.com/?archive=${lastShowSlug}</a></p>`
+              : ""
+          }
+          <p style="${meta}">SoundCloud: <a href="https://soundcloud.com/channel-254533657" style="${link}">soundcloud.com/channel-254533657</a></p>
+          <p style="margin: 0 0 4px; font-size: 14px; color: #666;">YouTube: <a href="https://www.youtube.com/@CHANNELrad-io" style="${link}">youtube.com/@CHANNELrad-io</a></p>
+  `;
 
   const content = `
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
@@ -1885,17 +1906,18 @@ export async function sendResidentRescheduleEmail({
             Hi ${djName},
           </p>
           <p style="margin: 0 0 20px; font-size: 14px; color: #666;">
-            It's been a few weeks since your last show.
+            It's been a little while since your last show.
           </p>
           <p style="margin: 0 0 4px; font-size: 14px; color: #666;">
-            Whenever you're ready, you can schedule your next broadcast or upload a pre-recorded show here:
+            Whenever you're ready, you can schedule your next live show or upload a pre-recorded set from your Studio:
           </p>
-          <p style="margin: 0 0 24px; font-size: 14px;">
-            <a href="${studioUrl}" style="color: #1a1a1a; text-decoration: underline;">channel-app.com/studio</a>
+          <p style="margin: 0 0 4px; font-size: 14px;">
+            <a href="${studioUrl}" style="${link}">channel-app.com/studio</a>
           </p>
           <p style="margin: 0; font-size: 14px; color: #666;">
             Looking forward to hearing what you've been working on.
           </p>
+          ${backCatalogue}
           <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
             Cap
           </p>
@@ -1908,7 +1930,7 @@ export async function sendResidentRescheduleEmail({
     const { error } = await resend.emails.send({
       from: FROM_EMAIL_DJ,
       to,
-      subject: `Ready for your next show?`,
+      subject: `We'd love to have you back on the radio`,
       html: wrapEmailContent(content, "You're receiving this as a resident on Channel." + signInReminderHtml(signInMethod, signInEmail)),
       headers: getUnsubscribeHeaders("dj"),
     });
