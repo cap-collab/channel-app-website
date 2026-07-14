@@ -37,15 +37,19 @@ import { Resend } from "resend";
 //
 // Gating: emailNotifications.weeklyRecommendations !== false (default on).
 //
-// No-repeat is OPEN-GATED. A separate `mode=report` run (Mon 10am PT) polls
-// Resend for LAST week's send and stamps `lastWeeklyRecOpenedLast` per user:
-//   - opened last week  → rotate: suppress the archives they already saw
-//     (`lastWeeklyRecShows`), surface fresh next-best, and if a section runs
-//     thin fill from `lastWeeklyRecShownIds` (what they saw, in order) rather
-//     than the featured grid.
-//   - didn't open / unknown → show the BEST picks, no dedup (they never saw the
-//     good ones, so burning them would be wrong).
-// The report run also emails Cap a recap (opens / unsubscribes / bounces).
+// NO week-over-week dedup: every recipient gets the engine's BEST matches — the
+// same archives /foryou would show them. A repeat is fine: if an archive is still
+// someone's strongest match, that IS the right thing to send. (The old rotation
+// suppressed anything already in `lastWeeklyRecShows`, which drained regular
+// openers — 7 users would have received zero favorites, 43 only one.)
+//
+// We still STAMP `lastWeeklyRecShows` / `lastWeeklyRecShownIds` / open state:
+// the history feeds open-attribution and stays available if rotation ever comes
+// back. It just doesn't gate the picks.
+//
+// A separate `mode=report` run (Mon 10am PT) polls Resend for last week's send,
+// stamps `lastWeeklyRecOpenedLast` (now only varies the eyebrow copy), and emails
+// Cap a recap (opens / unsubscribes / bounces).
 //
 // COHORT SPLIT: DJs and listeners get different subjects and different
 // hand-written intros (src/lib/weekly-intro.ts) above the same rec sections.
@@ -394,54 +398,22 @@ export async function GET(request: NextRequest) {
         const payload = await buildScenePayload(db, userDoc.id, prebuilt);
 
         const seen = (data.lastWeeklyRecShows as Record<string, string> | undefined) || {};
-        const prevShownIds = (data.lastWeeklyRecShownIds as string[] | undefined) || [];
-        // Open-gated rotation. The Mon report run stamps `lastWeeklyRecOpenedLast`
-        // for whoever opened last week's send. Only THEY get deduped/rotated;
-        // everyone else keeps seeing the strongest picks (they never saw them).
+        // Opens still gate the EYEBROW copy ("Worth your time"), but no longer
+        // gate which archives are picked — see below.
         const openedLastWeek = data.lastWeeklyRecOpenedLast === true;
+
+        // NO week-over-week dedup: everyone gets the engine's BEST matches, the
+        // same ones /foryou would show them. A repeat is fine — if an archive is
+        // still their strongest match, that's the right thing to send, and the
+        // old rotation actively hurt: filtering out everything already `seen`
+        // drained regular openers to a near-empty favorites section (measured: 7
+        // users would have received ZERO favorites, 43 only one).
         const pickSection = (id: string): WeeklyRecArchiveRow[] => {
           const sec = payload.sections.find((s) => s.id === id);
           if (!sec) return [];
-          const toRow = (a: ArchiveSerialized) =>
-            archiveToRow(a, sec.bandByArchiveId[a.id]?.glyphSlug || undefined);
-
-          // Didn't open (or unknown) → best top-3, NO dedup.
-          if (!openedLastWeek) {
-            return sec.archives.slice(0, SECTION_CAP).map(toRow);
-          }
-
-          // Opened → rotate: fresh next-best first (suppress carryovers they
-          // already saw). Because the snapshot regenerated overnight, `fresh`
-          // naturally surfaces this week's new/risen picks.
-          const picks = sec.archives.filter((a) => !seen[a.id]).slice(0, SECTION_CAP);
-
-          // If a section runs thin, TOP IT UP to the cap rather than shipping a
-          // near-empty block. Two passes, in order of preference:
-          //
-          //   1. Archives they were previously shown (prevShownIds, original
-          //      order) — the least-surprising re-show.
-          //   2. Anything else still ranked in this section.
-          //
-          // Pass 2 matters: a regular opener eventually has `seen` covering the
-          // whole section, so pass 1 alone leaves favorites starved — measured at
-          // 13 openers fully drained, 7 users seeing ZERO favorites. That's the
-          // same "favorites went near-empty" failure 06637a0b fixed on /foryou;
-          // the email just had its own dedup layer that reintroduced it. The
-          // engine deliberately KEEPS already-streamed archives in
-          // favorite-artists, so re-showing from its ranked list is intended, not
-          // a leak.
-          if (picks.length < SECTION_CAP) {
-            const pickedIds = new Set(picks.map((a) => a.id));
-            const byId = new Map(sec.archives.map((a) => [a.id, a]));
-            const topUp = (a: ArchiveSerialized | undefined) => {
-              if (!a || pickedIds.has(a.id) || picks.length >= SECTION_CAP) return;
-              picks.push(a);
-              pickedIds.add(a.id);
-            };
-            for (const prevId of prevShownIds) topUp(byId.get(prevId));
-            for (const a of sec.archives) topUp(a);
-          }
-          return picks.map(toRow);
+          return sec.archives
+            .slice(0, SECTION_CAP)
+            .map((a) => archiveToRow(a, sec.bandByArchiveId[a.id]?.glyphSlug || undefined));
         };
 
         let section1 = pickSection("favorite-artists");
@@ -450,26 +422,15 @@ export async function GET(request: NextRequest) {
         // Fallback: if BOTH personalized archive sections are empty, show the
         // featured matrix in section 1 (isFallback hides section 2 so we don't
         // double-render the same grid).
+        //
+        // No rotation here either — everyone gets the SHARED strongest grid. The
+        // old rotation excluded `seen` per scene×tempo cell, but the thin cells
+        // (star/very_slow has only 3 archives catalogue-wide) wrapped around and
+        // re-served a repeat anyway, while reporting a "full" grid. Simpler and
+        // honest: always send the best 6.
         const isFallback = section1.length === 0 && section2.length === 0;
         if (isFallback) {
-          // Openers who got the fallback last week already saw the top pick in
-          // each scene×tempo cell — rotate them to the NEXT-best archive per
-          // cell by excluding what they were shown (`seen` = lastWeeklyRecShows).
-          // Non-openers (or anyone with no history) keep the shared strongest
-          // grid — they never saw it, so burning it would be wrong (mirrors the
-          // personalized non-opener rule).
-          if (openedLastWeek && Object.keys(seen).length > 0) {
-            const rotated = buildFeaturedMatrix(allArchives, {
-              excludeTempos: ["very_fast"],
-              excludeArchiveIds: new Set(Object.keys(seen)),
-            });
-            // If exclusion empties a cell entirely (tiny catalog for that
-            // scene×tempo), fall back to the shared grid so we never send an
-            // empty email.
-            section1 = rotated.length > 0 ? rotated.map((a) => archiveToRow(a)) : featuredRows;
-          } else {
-            section1 = featuredRows;
-          }
+          section1 = featuredRows;
         }
 
         // Cap IRL events at the 5 nearest (mirrors the go-live email). Online
@@ -662,9 +623,6 @@ export async function GET(request: NextRequest) {
           const recipientCity = r.city || DEFAULT_FEATURED_CITY;
           const comingUp = await comingUpForCity(recipientCity);
 
-          // Read their fallback history off their own source doc. Openers with a
-          // seeded seen-map rotate to a fresh grid (exclude what they saw); non-
-          // openers / no-history keep the shared strongest grid.
           const extraDoc = await findExtraDoc(r.id);
           const extraData = extraDoc?.data() || {};
 
@@ -676,16 +634,12 @@ export async function GET(request: NextRequest) {
             if (lastMs != null && nowMs - lastMs < RECENT_SEND_DEDUP_MS) { skippedRecentSend++; continue; }
           }
 
+          // No rotation — the shared strongest grid, same as the users loop.
+          // `extraSeen` is still read (and re-stamped below) so the history keeps
+          // accumulating; it just no longer filters what we send.
           const extraSeen = (extraData.lastWeeklyRecShows as Record<string, string> | undefined) || {};
-          const extraOpened = extraData.lastWeeklyRecOpenedLast === true;
-          let extraSection1 = featuredRows;
-          if (extraOpened && Object.keys(extraSeen).length > 0) {
-            const rotated = buildFeaturedMatrix(allArchives, {
-              excludeTempos: ["very_fast"],
-              excludeArchiveIds: new Set(Object.keys(extraSeen)),
-            });
-            extraSection1 = rotated.length > 0 ? rotated.map((a) => archiveToRow(a)) : featuredRows;
-          }
+          const extraOpened = extraData.lastWeeklyRecOpenedLast === true; // eyebrow copy only
+          const extraSection1 = featuredRows;
 
           if (dryRun && !previewTo) {
             if (trace.length < traceLimit) {
@@ -717,10 +671,10 @@ export async function GET(request: NextRequest) {
             fallbackExtraSent++;
 
             // previewTo sends but never stamps. Stamp the shown grid onto their
-            // source doc so next week rotates (mirrors the users loop). Prune to
-            // the 3-week window. Non-openers who were never seeded still get
-            // stamped here once they've been sent to — that's fine, it just
-            // starts their history; it does NOT retroactively mark them opened.
+            // source doc (mirrors the users loop), pruned to the 3-week window.
+            // The history no longer gates what we send — picks are always the
+            // engine's best — but we keep writing it: it's what open-attribution
+            // and any future rotation would read.
             if (!previewTo && extraDoc) {
               const updated: Record<string, string> = {};
               const cutoff = nowMs - RECENT_RETENTION_MS;
