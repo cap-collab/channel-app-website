@@ -1588,6 +1588,30 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     return selects;
   }, [djProfile]);
 
+  // Upcoming IRL events carrying a discount code, on a collective page, are
+  // pulled out of the Coming-up list and rendered above the recordings — the
+  // code is the whole point of the visit, so it can't sit below the fold.
+  // Keyed off djProfile (not the derived `profile`) so these hooks stay above
+  // the loading/notFound early returns — below them, the hook count varies
+  // between renders and React throws.
+  const promotedDiscountEvents = useMemo(() => {
+    if (djProfile?.profileType !== 'collective') return [];
+    return djUpcomingEvents.filter((e) => !!e.discountCode);
+  }, [djProfile?.profileType, djUpcomingEvents]);
+  const promotedEventIds = useMemo(
+    () => new Set(promotedDiscountEvents.map((e) => e.id)),
+    [promotedDiscountEvents],
+  );
+  // Promoted events render above the recordings — drop them here so they don't
+  // appear twice on the same page. Other surfaces (/scene, /foryou) are
+  // untouched: they build their own lists.
+  const visibleUpcomingShows = useMemo(
+    () => upcomingShows.filter(
+      (item) => !(item.feedType === "event" && promotedEventIds.has(item.id)),
+    ),
+    [upcomingShows, promotedEventIds],
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -1636,6 +1660,151 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
     return cols.filter(c =>
       !(viewingCollectiveId && c.collectiveId === viewingCollectiveId) &&
       !(c.collectiveSlug && c.collectiveSlug.toLowerCase() === viewingCollectiveSlug.toLowerCase())
+    );
+  };
+
+  const renderEventCard = (event: ChannelEvent) => {
+    // Venues are free-text names — never links. The only linkable
+    // header entity is a collective acting as the venue.
+    const headerVenue = event.venueCollectiveName || event.linkedVenues?.[0]?.venueName || event.venueName || null;
+    const headerCollectiveSlug = event.venueCollectiveSlug || null;
+    const headerHref = headerCollectiveSlug ? `/dj/${headerCollectiveSlug}` : null;
+    const headerLabel = headerVenue || event.location || "";
+    return (
+      <div
+        key={event.id}
+        className="bg-zinc-900/50 border border-[#333] rounded-none overflow-hidden hover:bg-zinc-800/50 transition-colors"
+      >
+        {/* Header bar */}
+        <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-[#333] font-mono">
+          <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
+            <svg className="w-3 h-3 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
+            </svg>
+            IRL
+            {headerLabel && (
+              <>
+                <span className="text-zinc-500">·</span>
+                <svg className="inline-block w-2.5 h-2.5 flex-shrink-0" viewBox="0 0 24 36" fill="none">
+                  <circle cx="12" cy="12" r="10" fill="#ef4444" />
+                  <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
+                </svg>
+                {headerHref ? (
+                  <Link
+                    href={headerHref}
+                    className="truncate hover:text-white transition-colors"
+                  >
+                    {headerLabel}
+                  </Link>
+                ) : (
+                  <span className="truncate">{headerLabel}</span>
+                )}
+              </>
+            )}
+          </span>
+          <span className="text-zinc-400 text-xs flex-shrink-0 ml-2">
+            {new Date(event.date).toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+        </div>
+        {/* Body */}
+        <div className="p-4 space-y-4">
+          <div className="flex items-start gap-4">
+            {event.photo ? (
+              <Image
+                src={event.photo}
+                alt={event.name}
+                width={64}
+                height={64}
+                className="w-16 h-16 object-cover flex-shrink-0"
+                unoptimized
+              />
+            ) : (
+              <div className="w-16 h-16 bg-zinc-800 flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-medium mb-1">{event.name}</p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  {(() => {
+                    const visibleDjs = filterEventDjs(event.djs);
+                    const visibleColls = filterLinkedCollectives(event.linkedCollectives);
+                    if (visibleDjs.length === 0 && visibleColls.length === 0) return null;
+                    return (
+                      <div className="flex flex-wrap gap-1.5">
+                        {visibleDjs.map((dj: EventDJRef, i: number) => (
+                          dj.djUsername ? (
+                            <Link
+                              key={`dj-${i}`}
+                              href={`/dj/${dj.djUsername}`}
+                              className="text-xs text-zinc-400 hover:text-white transition-colors"
+                            >
+                              {dj.djName}
+                              {(i < visibleDjs.length - 1 || visibleColls.length > 0) ? "," : ""}
+                            </Link>
+                          ) : (
+                            <span key={`dj-${i}`} className="text-xs text-zinc-400">
+                              {dj.djName}
+                              {(i < visibleDjs.length - 1 || visibleColls.length > 0) ? "," : ""}
+                            </span>
+                          )
+                        ))}
+                        {visibleColls.map((coll: CollectiveRef, i: number) => (
+                          coll.collectiveSlug ? (
+                            <Link
+                              key={`coll-${coll.collectiveId}`}
+                              href={`/collective/${coll.collectiveSlug}`}
+                              className="text-xs text-zinc-400 hover:text-white transition-colors"
+                            >
+                              {coll.collectiveName}
+                              {i < visibleColls.length - 1 ? "," : ""}
+                            </Link>
+                          ) : (
+                            <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
+                              {coll.collectiveName}
+                              {i < visibleColls.length - 1 ? "," : ""}
+                            </span>
+                          )
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+                {event.discountCode && (
+                  <div className="flex-shrink-0">
+                    <DiscountCodeButton
+                      code={event.discountCode}
+                      isAuthenticated={isAuthenticated}
+                      onRequireAuth={() => {
+                        setAuthModalMessage("Log in to access discount code");
+                        setShowAuthModal(true);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          {event.ticketLink && (
+            <a
+              href={event.ticketLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3 px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5"
+            >
+              Tickets
+              <ExternalLinkIcon size={12} />
+            </a>
+          )}
+        </div>
+      </div>
     );
   };
 
@@ -2128,6 +2297,15 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           </section>
         )}
 
+        {/* PROMOTED IRL EVENTS (collective pages, discount-code events only —
+            surfaced above the recordings, and omitted from the upcoming list
+            below so they show exactly once). */}
+        {promotedDiscountEvents.length > 0 && (
+          <section className="space-y-3 mb-4">
+            {promotedDiscountEvents.map((event) => renderEventCard(event))}
+          </section>
+        )}
+
         {/* RECORDINGS (above tabs, always visible, >20min only) */}
         {pastRecordings.filter(a => a.duration > 1200).length > 0 && (
           <div className="space-y-3 mb-4">
@@ -2386,154 +2564,13 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
           <>
 
         {/* SECTION: UPCOMING SHOWS (unified: online + IRL events) */}
-        {(upcomingShows.length > 0) && (
+        {(visibleUpcomingShows.length > 0) && (
           <section className="mb-6">
             <div className="space-y-3">
-              {(upcomingExpanded ? upcomingShows : upcomingShows.slice(0, 3)).map((item) => {
+              {(upcomingExpanded ? visibleUpcomingShows : visibleUpcomingShows.slice(0, 3)).map((item) => {
                 if (item.feedType === "event") {
                   const event = item as ChannelEvent & { feedType: "event"; feedStatus: "upcoming" };
-                  // Venues are free-text names — never links. The only linkable
-                  // header entity is a collective acting as the venue.
-                  const headerVenue = event.venueCollectiveName || event.linkedVenues?.[0]?.venueName || event.venueName || null;
-                  const headerCollectiveSlug = event.venueCollectiveSlug || null;
-                  const headerHref = headerCollectiveSlug ? `/dj/${headerCollectiveSlug}` : null;
-                  const headerLabel = headerVenue || event.location || "";
-                  return (
-                    <div
-                      key={event.id}
-                      className="bg-zinc-900/50 border border-[#333] rounded-none overflow-hidden hover:bg-zinc-800/50 transition-colors"
-                    >
-                      {/* Header bar */}
-                      <div className="flex items-center justify-between px-4 py-2 bg-black/40 border-b border-[#333] font-mono">
-                        <span className="text-zinc-400 text-[11px] uppercase tracking-wider flex items-center gap-1.5 min-w-0">
-                          <svg className="w-3 h-3 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2L8 8h2v3H8l-4 6h5v5h2v-5h5l-4-6h-2V8h2L12 2z" />
-                          </svg>
-                          IRL
-                          {headerLabel && (
-                            <>
-                              <span className="text-zinc-500">·</span>
-                              <svg className="inline-block w-2.5 h-2.5 flex-shrink-0" viewBox="0 0 24 36" fill="none">
-                                <circle cx="12" cy="12" r="10" fill="#ef4444" />
-                                <line x1="12" y1="22" x2="12" y2="35" stroke="#6b7280" strokeWidth="3" strokeLinecap="round" />
-                              </svg>
-                              {headerHref ? (
-                                <Link
-                                  href={headerHref}
-                                  className="truncate hover:text-white transition-colors"
-                                >
-                                  {headerLabel}
-                                </Link>
-                              ) : (
-                                <span className="truncate">{headerLabel}</span>
-                              )}
-                            </>
-                          )}
-                        </span>
-                        <span className="text-zinc-400 text-xs flex-shrink-0 ml-2">
-                          {new Date(event.date).toLocaleDateString("en-US", {
-                            weekday: "short",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
-                      </div>
-                      {/* Body */}
-                      <div className="p-4 space-y-4">
-                        <div className="flex items-start gap-4">
-                          {event.photo ? (
-                            <Image
-                              src={event.photo}
-                              alt={event.name}
-                              width={64}
-                              height={64}
-                              className="w-16 h-16 object-cover flex-shrink-0"
-                              unoptimized
-                            />
-                          ) : (
-                            <div className="w-16 h-16 bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                              <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                              </svg>
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white font-medium mb-1">{event.name}</p>
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                {(() => {
-                                  const visibleDjs = filterEventDjs(event.djs);
-                                  const visibleColls = filterLinkedCollectives(event.linkedCollectives);
-                                  if (visibleDjs.length === 0 && visibleColls.length === 0) return null;
-                                  return (
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {visibleDjs.map((dj: EventDJRef, i: number) => (
-                                        dj.djUsername ? (
-                                          <Link
-                                            key={`dj-${i}`}
-                                            href={`/dj/${dj.djUsername}`}
-                                            className="text-xs text-zinc-400 hover:text-white transition-colors"
-                                          >
-                                            {dj.djName}
-                                            {(i < visibleDjs.length - 1 || visibleColls.length > 0) ? "," : ""}
-                                          </Link>
-                                        ) : (
-                                          <span key={`dj-${i}`} className="text-xs text-zinc-400">
-                                            {dj.djName}
-                                            {(i < visibleDjs.length - 1 || visibleColls.length > 0) ? "," : ""}
-                                          </span>
-                                        )
-                                      ))}
-                                      {visibleColls.map((coll: CollectiveRef, i: number) => (
-                                        coll.collectiveSlug ? (
-                                          <Link
-                                            key={`coll-${coll.collectiveId}`}
-                                            href={`/collective/${coll.collectiveSlug}`}
-                                            className="text-xs text-zinc-400 hover:text-white transition-colors"
-                                          >
-                                            {coll.collectiveName}
-                                            {i < visibleColls.length - 1 ? "," : ""}
-                                          </Link>
-                                        ) : (
-                                          <span key={`coll-${coll.collectiveId}`} className="text-xs text-zinc-400">
-                                            {coll.collectiveName}
-                                            {i < visibleColls.length - 1 ? "," : ""}
-                                          </span>
-                                        )
-                                      ))}
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                              {event.discountCode && (
-                                <div className="flex-shrink-0">
-                                  <DiscountCodeButton
-                                    code={event.discountCode}
-                                    isAuthenticated={isAuthenticated}
-                                    onRequireAuth={() => {
-                                      setAuthModalMessage("Log in to access discount code");
-                                      setShowAuthModal(true);
-                                    }}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        {event.ticketLink && (
-                          <a
-                            href={event.ticketLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full py-3 px-4 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center gap-1.5"
-                          >
-                            Tickets
-                            <ExternalLinkIcon size={12} />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  );
+                  return renderEventCard(event);
                 }
                 if (item.feedType === "radio") {
                   const broadcast = item as UpcomingShow & { feedType: "radio"; feedStatus: "upcoming" };
@@ -2833,14 +2870,14 @@ export function DJPublicProfileClient({ username, initialName, initialPhotoUrl }
                 return null;
               })}
             </div>
-            {upcomingShows.length > 3 && (
+            {visibleUpcomingShows.length > 3 && (
               <button
                 type="button"
                 onClick={() => setUpcomingExpanded((v) => !v)}
                 aria-expanded={upcomingExpanded}
                 className="mt-3 text-zinc-400 hover:text-white transition-colors text-xs uppercase tracking-wider flex items-center gap-1"
               >
-                {upcomingExpanded ? "see less" : `see ${upcomingShows.length - 3} more`}
+                {upcomingExpanded ? "see less" : `see ${visibleUpcomingShows.length - 3} more`}
                 <svg
                   width={12}
                   height={12}
