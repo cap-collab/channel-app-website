@@ -1119,10 +1119,18 @@ function groupWordsIntoCaptions(words) {
 
 // Sample a loudness waveform (N bars, 0..1) from a decoded wav. Loops N windows,
 // reads each window's mean_volume (dB) via volumedetect, then self-normalizes to
-// the tape's own min→max scaled into 0.15..1.0 (quietest bar keeps a visible
-// stub). Absolute dB mapping looks flat; self-normalization gives real dynamics.
-// Matches the recipe validated in the local backfill. Returns [] on failure.
+// the tape's own dynamic range scaled into 0.15..1.0 (quietest bar keeps a
+// visible stub). Absolute dB mapping looks flat; self-normalization gives real
+// dynamics. Returns [] on failure.
+//
+// The range is taken from the 5th/95th PERCENTILE, not min/max. With min/max a
+// single outlier window sets an endpoint: one brief quiet gap drags the floor
+// down and pins every other bar near the ceiling, which is how a loud, evenly-
+// recorded tape ends up looking like a flat hedge. Percentiles ignore the tails
+// so the mapping tracks the body of the audio; values outside are clamped.
 const WAVEFORM_BARS = 160;
+const WAVEFORM_PCT_LO = 0.05;
+const WAVEFORM_PCT_HI = 0.95;
 function sampleWaveform(wavPath, durationSec, N = WAVEFORM_BARS) {
   if (!durationSec || durationSec <= 0) return [];
   const win = durationSec / N;
@@ -1136,10 +1144,16 @@ function sampleWaveform(wavPath, durationSec, N = WAVEFORM_BARS) {
     const m = out.match(/mean_volume:\s*(-?\d+\.?\d*)\s*dB/);
     raw.push(m ? parseFloat(m[1]) : -60);
   }
-  const lo = Math.min(...raw);
-  const hi = Math.max(...raw);
+  const sorted = [...raw].sort((a, b) => a - b);
+  const quantile = (p) =>
+    sorted[Math.max(0, Math.min(sorted.length - 1, Math.round(p * (sorted.length - 1))))];
+  const lo = quantile(WAVEFORM_PCT_LO);
+  const hi = quantile(WAVEFORM_PCT_HI);
   if (hi - lo < 1e-6) return raw.map(() => 0.6);
-  return raw.map((x) => Math.round((0.15 + 0.85 * (x - lo) / (hi - lo)) * 1000) / 1000);
+  return raw.map((x) => {
+    const t = Math.max(0, Math.min(1, (x - lo) / (hi - lo)));
+    return Math.round((0.15 + 0.85 * t) * 1000) / 1000;
+  });
 }
 
 app.post('/transcribe', authenticate, async (req, res) => {
