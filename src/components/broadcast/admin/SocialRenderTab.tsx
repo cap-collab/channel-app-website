@@ -585,43 +585,43 @@ function DoneJobActions({
   // and Cap wants the same treatment carried over to YouTube.
   const youtubeTitle = `${djNameDisplay} – ${showNameDisplay} (Live DJ Set) | ${monthYear}`;
 
-  // Genre is sentence-cased ("Ambient set recorded live for Channel.")
-  // since it leads a sentence — DJ name and show name keep their original
-  // casing (per Cap), but the genre word here is grammatical, not a name.
-  const capitalizeFirst = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+  // ─── Shared description body ───────────────────────────────────────────
+  // Per Cap: YouTube and SoundCloud descriptions are identical, except
+  // YouTube appends genre hashtags at the end.
   const genres = (job.renderData.djGenres || []).filter((g) => typeof g === 'string' && g.length > 0);
-  const primaryGenre = genres[0] || '';
-  const genreSentence = primaryGenre
-    ? `${capitalizeFirst(primaryGenre)} set recorded live for Channel.`
-    : `Live set recorded for Channel.`;
-  const ytBioParagraph =
-    job.renderData.djDescription?.trim() ||
-    `${showNameDisplay} is a recurring show by ${djNameDisplay}${
-      genres.length > 0 ? `, focused on ${genres.join(' and ')} music` : ''
-    }.\nBroadcast via Channel.`;
-  // Hashtags: lowercased + spaces stripped per genre, plus baseline tags.
+  const djProfileUrl = djUsername ? `https://channel-app.com/dj/${djUsername}` : null;
+
+  // Bio block per Cap: hardcoded "DJ and producer based in <location>" —
+  // not the DJ's own bio. Drop the "based in ..." clause if the DJ has
+  // no location set (rare; reads naturally either way).
+  const bioLine = djLocation
+    ? `${djNameDisplay} is a DJ and producer based in ${djLocation}.`
+    : `${djNameDisplay} is a DJ and producer.`;
+
+  const descriptionBody = [
+    `${showNameDisplay} — recorded live for Channel.`,
+    '',
+    `Tracklist and track IDs available on our website.`,
+    ...(djProfileUrl ? [`→ ${djProfileUrl}`] : []),
+    '',
+    bioLine,
+    '',
+    `→ More sets & live radio: https://channel-app.com`,
+    `→ Follow: https://www.instagram.com/channelrad.io/`,
+  ];
+
+  // Tip line stays YouTube-only (per Cap) — SoundCloud has never carried one.
+  const ytTipLine = tipButtonLink ? `→ To support ${djNameDisplay}: ${tipButtonLink}` : null;
+  // Hashtags: lowercased + non-alphanumerics stripped per genre, plus baseline tags.
   const hashtagify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
   const hashtags = [
     ...genres.map(hashtagify).filter(Boolean).map((t) => `#${t}`),
     '#djset',
     '#liveradio',
   ].join(' ');
-  // Tip line if DJ has set one; learn-more line if we have a username.
-  const ytExtraLinks = [
-    tipButtonLink ? `→ To support ${djNameDisplay}: ${tipButtonLink}` : null,
-    djUsername ? `→ Learn more about ${djNameDisplay}: https://channel-app.com/dj/${djUsername}` : null,
-  ].filter(Boolean);
   const youtubeDescription = [
-    youtubeTitle,
-    genreSentence,
-    '',
-    `→ Listen to more sets & live radio: https://channel-app.com`,
-    `→ Follow Channel: https://www.instagram.com/channelrad.io/`,
-    '',
-    '—',
-    '',
-    ytBioParagraph,
-    ...(ytExtraLinks.length > 0 ? ['', ...ytExtraLinks] : []),
+    ...descriptionBody,
+    ...(ytTipLine ? [ytTipLine] : []),
     '',
     hashtags,
   ].join('\n');
@@ -631,24 +631,7 @@ function DoneJobActions({
   // Em-dash (—) between DJ and show, pipes around "channel".
   const soundcloudTitle = `${djNameDisplay} — ${showNameDisplay} | channel | ${monthYear}`;
 
-  // Bio block per Cap: hardcoded "DJ and producer based in <location>" —
-  // not the DJ's own bio. Drop the "based in ..." clause if the DJ has
-  // no location set (rare; reads naturally either way).
-  const scBioLine = djLocation
-    ? `${djNameDisplay} is a DJ and producer based in ${djLocation}.`
-    : `${djNameDisplay} is a DJ and producer.`;
-  const scProfileLink = djUsername ? `https://channel-app.com/dj/${djUsername}` : null;
-  const soundcloudDescription = [
-    `${showNameDisplay} — recorded live for Channel.`,
-    '',
-    `→ More sets & live radio: https://channel-app.com`,
-    `→ Follow: https://www.instagram.com/channelrad.io/`,
-    '',
-    '—',
-    '',
-    scBioLine,
-    ...(scProfileLink ? ['', `→ ${scProfileLink}`] : []),
-  ].join('\n');
+  const soundcloudDescription = descriptionBody.join('\n');
 
   const copy = async (kind: string, text: string) => {
     try {

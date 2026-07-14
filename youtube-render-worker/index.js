@@ -313,13 +313,19 @@ app.post('/backfill-soundcloud', authenticate, async (req, res) => {
       const audioKey = `${R2_OUTPUT_PREFIX}/${audioFilename}`;
       const audioContentType =
         audioResult.format === 'mp3' ? 'audio/mpeg' : 'audio/mp4';
+      const audioDownloadName = buildSoundcloudDownloadName({
+        renderData: job.renderData,
+        createdAt: job.createdAt,
+        recordedAt: job.recordedAt,
+        ext: audioResult.format,
+      });
       await s3.send(
         new PutObjectCommand({
           Bucket: R2_BUCKET,
           Key: audioKey,
           Body: readFileSync(audioResult.path),
           ContentType: audioContentType,
-          ContentDisposition: `attachment; filename="${audioFilename}"`,
+          ContentDisposition: contentDispositionFor(audioDownloadName, audioFilename),
         })
       );
       updates.soundcloudAudioUrl = `${R2_PUBLIC}/${audioKey}`;
@@ -522,13 +528,23 @@ async function runJob(job) {
       const audioFilename = `${baseNoExt}.${audioExt}`;
       const audioKey = `${R2_OUTPUT_PREFIX}/${audioFilename}`;
       const audioContentType = audioExt === 'mp3' ? 'audio/mpeg' : 'audio/mp4';
+      // The R2 key stays slug-safe (URLs, logs, R2 console), but the file the
+      // admin saves is named as the SoundCloud title so it can be pasted
+      // straight into SoundCloud's title field. RFC 5987 filename* carries the
+      // em-dash; the ASCII filename= stays as a fallback for old clients.
+      const audioDownloadName = buildSoundcloudDownloadName({
+        renderData,
+        createdAt: job.createdAt,
+        recordedAt: job.recordedAt,
+        ext: audioExt,
+      });
       await s3.send(
         new PutObjectCommand({
           Bucket: R2_BUCKET,
           Key: audioKey,
           Body: readFileSync(audioResult.path),
           ContentType: audioContentType,
-          ContentDisposition: `attachment; filename="${audioFilename}"`,
+          ContentDisposition: contentDispositionFor(audioDownloadName, audioFilename),
         })
       );
       updates.soundcloudAudioUrl = `${R2_PUBLIC}/${audioKey}`;
@@ -1024,6 +1040,40 @@ function buildOutputFilename({ archiveSlug, renderData, recordedAt }) {
   const djPart = safe(renderData?.djName);
   const parts = [showPart, djPart, dateStr].filter(Boolean);
   return `${parts.join('-')}.mp4`;
+}
+
+// Content-Disposition with a non-ASCII filename (em-dash, accents) needs the
+// RFC 5987 `filename*=UTF-8''...` form — a raw em-dash in the plain filename=
+// token is not legal in an HTTP header and browsers will mangle or drop it.
+// We emit both: filename= carries an ASCII-safe fallback for old clients,
+// filename* carries the real name and wins in every current browser.
+function contentDispositionFor(downloadName, asciiFallback) {
+  const encoded = encodeURIComponent(downloadName);
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
+}
+
+// The name the admin sees when they save the SoundCloud audio, so the file
+// lands ready to drop into SoundCloud's title field with no retyping. Must
+// stay byte-identical to the "Copy title" string in SocialRenderTab.tsx —
+// same em-dash, same pipes, same month source (createdAt, with recordedAt
+// as a fallback for jobs predating it). If you change one, change both.
+function buildSoundcloudDownloadName({ renderData, createdAt, recordedAt, ext }) {
+  const monthYear = new Date(createdAt || recordedAt || Date.now()).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+  const title = `${renderData?.djName || ''} — ${renderData?.showName || ''} | channel | ${monthYear}`;
+  // Only strip what a filesystem or a Content-Disposition header can't carry:
+  // path separators, control chars, and the double-quote that would close the
+  // filename="..." token. Em-dash, pipes and spaces all survive — they're the
+  // whole point.
+  const safe = title
+    // eslint-disable-next-line no-control-regex
+    .replace(/[/\\:*?"<> -]/g, '')
+    .trim()
+    .slice(0, 150);
+  return `${safe}.${ext}`;
 }
 
 // ─── Boot-time zombie cleanup ───────────────────────────────────────────
