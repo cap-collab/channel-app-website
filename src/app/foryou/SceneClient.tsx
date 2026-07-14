@@ -7,8 +7,13 @@ import { HeaderSearch } from '@/components/HeaderSearch';
 import { AuthModal } from '@/components/AuthModal';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { SceneRecommendations } from '@/components/scene/SceneRecommendations';
+import { useAuth } from '@/hooks/useAuth';
+
+// Fire the signed-out sign-in prompt at most ONCE per browsing session.
+const SIGNIN_PROMPT_FIRED = 'foryou-signin-prompt-fired';
 
 export function SceneClient() {
+  const { user, loading } = useAuth();
   // Weekly-email deep-link: ?u=<base64url uid> renders THAT recipient's own
   // scene read-only (no login). The token is forwarded verbatim to the by-uid
   // endpoint, which decodes + validates it server-side.
@@ -59,6 +64,44 @@ export function SceneClient() {
       document.removeEventListener('touchstart', handler);
     };
   }, [editMode]);
+
+  // Signed-out visitors see the generic featured picks. After 5s on the page,
+  // prompt them once to sign in for their own.
+  //
+  // `!user` is NOT the signed-out test: ArchivePlayerContext calls
+  // signInAnonymously() for anyone without a session (so the RTDB presence write
+  // is authorized), meaning `user` is basically never null. A real, named account
+  // is `user && !user.isAnonymous`.
+  //
+  // Deliberately NOT shown when:
+  //  - auth is still loading — firing before it resolves would flash the modal at
+  //    people who ARE signed in.
+  //  - there's a ?u= token — that's a weekly-email recipient already looking at
+  //    their OWN recs, read-only. Asking them to sign in to see what's on screen
+  //    would be nonsense.
+  //  - it already fired this session.
+  //
+  // The "fired" flag is set when the TIMER fires, not on close: `showAuthModal`
+  // is also raised by HeaderSearch / SceneRecommendations (onAuthRequired), so
+  // keying off onClose would both mis-record those dismissals and let the timer
+  // fire again afterwards.
+  const signedIn = !!user && !user.isAnonymous;
+  useEffect(() => {
+    if (loading || signedIn || targetToken) return;
+    let fired = false;
+    try {
+      fired = sessionStorage.getItem(SIGNIN_PROMPT_FIRED) === '1';
+    } catch {
+      // Private mode / storage blocked — fall through and just show it once per
+      // mount rather than crashing.
+    }
+    if (fired) return;
+    const t = setTimeout(() => {
+      try { sessionStorage.setItem(SIGNIN_PROMPT_FIRED, '1'); } catch {}
+      setShowAuthModal(true);
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [loading, signedIn, targetToken]);
 
   return (
     <div className="min-h-[100dvh] text-white relative flex flex-col">
@@ -117,7 +160,11 @@ export function SceneClient() {
         />
       </main>
 
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        message="Sign in to access personalized recommendations"
+      />
     </div>
   );
 }
