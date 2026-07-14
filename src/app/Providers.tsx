@@ -20,6 +20,14 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 // Ties the anonymous PostHog session to the logged-in user (email + chat
 // username) so listener analytics can be attributed to real accounts. Lives
 // inside AuthProvider so it can read auth context.
+//
+// ⚠️ AUDIO-CRITICAL: keep the useUserProfile() call INSIDE this null-returning
+// leaf. Do NOT hoist it into the Providers() body below. useUserProfile is a live
+// onSnapshot on users/{uid}, and that doc is written on every play-start
+// (playedArchiveIds), i.e. on every archive-radio crossfade. Re-rendering this
+// leaf is free; re-rendering Providers would recreate BroadcastStreamProvider /
+// ArchivePlayerProvider / ArchiveRadioProvider, tearing down the audio elements
+// they hold in refs (new Audio() / hls.js) and cutting live + archive playback.
 function PostHogIdentify() {
   const { user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
