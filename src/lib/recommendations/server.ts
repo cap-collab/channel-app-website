@@ -387,8 +387,8 @@ async function buildUserResultAndComingUp(
   result: RecommendationResult;
   comingUp: ComingUpItem[];
   tasteSummary: TasteSummary;
-  // Engagement sizes surfaced for the admin Users tab (piggybacked on the reads
-  // we already do below). These are the user's OWN activity counts.
+  // Engagement sizes surfaced for the admin Users tab, piggybacked on the
+  // loveHistory/streamHistory reads we already do below — so they cost nothing.
   lovesGiven: number;
   archivesStreamed: number;
 }> {
@@ -618,8 +618,8 @@ export interface GenerateForUserOutcome {
   // surfaced for the admin preview's "Excluded (N)" panel. Absent on skip.
   dropped?: RecommendationResult["dropped"];
   skipped?: "fresh" | "no-user";
-  // User's own engagement sizes, present only when we actually read the
-  // subcollections (i.e. not on skipped:"fresh"/"no-user"). The weekly-recs
+  // User's own engagement sizes, present only when the subcollections were
+  // actually read (i.e. not on skipped:"fresh"/"no-user"). The weekly-recs
   // backfill piggybacks these into system/user-stats for the admin Users tab.
   lovesGiven?: number;
   archivesStreamed?: number;

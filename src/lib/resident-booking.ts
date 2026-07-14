@@ -1,5 +1,4 @@
 import { Timestamp } from 'firebase-admin/firestore';
-import { getLinkedIdentity } from '@/lib/account-links';
 import { normalizeUsername } from '@/lib/dj-matching';
 
 /**
@@ -58,13 +57,7 @@ function toMillis(t: unknown): number | null {
 // a concrete firebase-admin instance.
 type Db = FirebaseFirestore.Firestore;
 
-/**
- * Compute the booking window for a signed-in DJ.
- *
- * `uid` may be an alias login — the residency + history are read against the
- * primary and all linked accounts, so a DJ can't reset their own cooldown by
- * booking from their second account.
- */
+/** Compute the booking window for a signed-in DJ. */
 export async function getResidentBookingWindow(db: Db, uid: string): Promise<BookingWindow> {
   const notResident: BookingWindow = {
     cadence: null,
@@ -74,39 +67,26 @@ export async function getResidentBookingWindow(db: Db, uid: string): Promise<Boo
     upcomingShowAt: null,
   };
 
-  const getUser = async (id: string) => {
-    const snap = await db.collection('users').doc(id).get();
-    const data = snap.data();
-    return data ? { primaryUid: data.primaryUid, aliasUids: data.aliasUids, email: data.email } : null;
-  };
+  const userSnap = await db.collection('users').doc(uid).get();
+  const user = userSnap.data();
+  if (!user) return notResident;
 
-  const { primaryUid, uids } = await getLinkedIdentity(getUser, uid);
-
-  const primarySnap = await db.collection('users').doc(primaryUid).get();
-  const primary = primarySnap.data();
-  if (!primary) return notResident;
-
-  const raw = primary.djProfile?.residency?.cadence;
+  const raw = user.djProfile?.residency?.cadence;
   if (raw !== 'monthly' && raw !== 'quarterly') return notResident;
   const cadence: ResidencyCadence = raw;
 
-  // ── Identity: the uids, usernames and owned-collective slugs a show may be
+  // ── Identity: the uid, usernames and owned-collective slugs a show may be
   // credited to. Same resolution as the resident-reschedule cron.
-  const uidSet = new Set(uids);
+  const uidSet = new Set([uid]);
   const usernames = new Set<string>();
-  for (const id of uids) {
-    const snap = id === primaryUid ? primarySnap : await db.collection('users').doc(id).get();
-    const data = snap.data();
-    if (!data) continue;
-    for (const u of [data.chatUsernameNormalized, data.chatUsername]) {
-      if (typeof u === 'string' && u.trim()) usernames.add(normalizeUsername(u));
-    }
-    // Collectives this DJ owns: their shows/uploads are credited to the slug,
-    // not to a uid (a collective isn't a user).
-    const ownedSlugs = Array.isArray(data.ownedCollectiveSlugs) ? data.ownedCollectiveSlugs : [];
-    for (const s of ownedSlugs) {
-      if (typeof s === 'string' && s.trim()) usernames.add(normalizeUsername(s));
-    }
+  for (const u of [user.chatUsernameNormalized, user.chatUsername]) {
+    if (typeof u === 'string' && u.trim()) usernames.add(normalizeUsername(u));
+  }
+  // Collectives this DJ owns: their shows/uploads are credited to the slug,
+  // not to a uid (a collective isn't a user).
+  const ownedSlugs = Array.isArray(user.ownedCollectiveSlugs) ? user.ownedCollectiveSlugs : [];
+  for (const s of ownedSlugs) {
+    if (typeof s === 'string' && s.trim()) usernames.add(normalizeUsername(s));
   }
 
   const isMine = (djUserId?: unknown, djUsername?: unknown): boolean => {

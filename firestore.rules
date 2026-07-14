@@ -21,55 +21,6 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['broadcaster', 'admin'];
     }
 
-    // ── Linked accounts (see src/lib/account-links.ts) ────────────────────────
-    // A person may sign in with a SECOND account (e.g. their personal email)
-    // that is an ALIAS of their canonical account. An alias is ONLY A LOGIN — a
-    // doorway. It holds no identity and no history of its own: signing in with
-    // it simply makes you the primary. Its user doc carries `primaryUid`; the
-    // primary carries `aliasUids[]`.
-    //
-    // So an alias must be able to act on the primary's docs — edit the shared
-    // profile, manage its recordings, and record its OWN engagement (loves,
-    // favorites) onto the primary. Every gate below therefore accepts either the
-    // caller's own uid or the primary it resolves to.
-    //
-    // Cost note: every branch is written so the CHEAP identity check runs first
-    // and short-circuits. An unlinked user (the overwhelming majority) and any
-    // caller acting on their own content never trigger a get() here at all —
-    // only a genuine alias acting on its primary's docs pays for one document
-    // read (repeat get()s of the same path are cached within one evaluation).
-    function callerDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-    // The caller's primaryUid, or '' when they aren't an alias. Only call this
-    // AFTER the cheap `uid == request.auth.uid` check has already failed.
-    function callerPrimaryUid() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && 'primaryUid' in callerDoc()
-        && callerDoc().primaryUid is string
-        ? callerDoc().primaryUid
-        : '';
-    }
-    // The uid this caller effectively acts as: their primary if they're an alias,
-    // else themselves.
-    function actingUid() {
-      return callerPrimaryUid() == '' ? request.auth.uid : callerPrimaryUid();
-    }
-    // True when `uid` is one of the caller's linked accounts (self, or — for an
-    // alias login — the primary it points at). Cheap check first.
-    function isLinkedUid(uid) {
-      return request.auth != null
-        && uid is string
-        && (uid == request.auth.uid || uid == callerPrimaryUid());
-    }
-    // True when the caller is an ALIAS of `uid` (i.e. `uid` is their primary).
-    // Used to let an alias read/write the primary's engagement subcollections.
-    function isAliasOf(uid) {
-      return request.auth != null
-        && uid != request.auth.uid
-        && uid == callerPrimaryUid();
-    }
-
     // Chat messages — public read/write for broadcast rooms, auth required for DJ rooms
     match /chats/{stationId}/messages/{messageId} {
       allow read, write: if stationId == 'broadcast' || stationId == 'channelbroadcast';
@@ -111,57 +62,20 @@ service cloud.firestore {
     match /users/{userId} {
       // Users can read/write their own document
       allow read, write: if request.auth != null && request.auth.uid == userId;
-      // Public read for DJ profiles (needed for /dj/[username] pages, DJ lists,
-      // search). Kept ABOVE the alias rule below: `allow` rules are OR'd and
-      // short-circuit on the first grant, and this one costs ZERO document
-      // accesses. If the alias rule came first, every foreign DJ doc returned by
-      // a list/search would fall through to its callerPrimaryUid() get() — one
-      // extra read PER DOC, since the rules cache is per-evaluation.
+      // Allow public read for DJ profiles (needed for /dj/[username] pages)
       allow read: if resource.data.role in ['dj', 'broadcaster', 'admin'];
       // Cron job access
       allow read: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
       allow update: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
 
-      // Linked accounts: an ALIAS may read/write its PRIMARY's doc — the profile
-      // is shared, so the alias login loads it (useLinkedIdentity/useUserProfile)
-      // and edits to bio/photo/links must land on the one canonical doc. (Only in
-      // this direction: a primary is NOT granted access to its aliases' docs.)
-      //
-      // COST: callerPrimaryUid() costs a get() on the caller's own user doc, so
-      // this must never be reachable on a hot path. The Firestore docs do NOT
-      // promise that OR'd `allow` rules short-circuit once one grants, so we
-      // cannot rely on rule ORDER to protect the DJ-list reads above — instead
-      // each branch's own `&&` chain (which CEL DOES short-circuit) is written so
-      // the get() is unreachable for ordinary traffic:
-      //   - READ is gated on the target NOT being a DJ doc. Every DJ-list /
-      //     search / profile read hits `role in [...]` and bails before the
-      //     get(). Only an alias reading its non-DJ primary pays.
-      //   - WRITE can't use that trick (a DJ primary must stay writable), but
-      //     writes to someone else's doc are rare and never in a list query.
-      allow read: if request.auth != null
-        && userId != request.auth.uid
-        && !(resource.data.role in ['dj', 'broadcaster', 'admin'])
-        && userId == callerPrimaryUid();
-      allow write: if request.auth != null
-        && userId != request.auth.uid
-        && userId == callerPrimaryUid();
-
-      // Engagement subcollections. An ALIAS is only a login: all of a person's
-      // activity is recorded on their PRIMARY, so an alias must be able to
-      // read/write the primary's engagement docs. Without the alias branch here
-      // the client-side favorite/heart writes would be DENIED and the signal
-      // silently lost. (isAliasOf() puts the cheap self-check first, so an
-      // ordinary user never triggers a document read.)
       match /favorites/{favoriteId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
-        allow read, write: if isAliasOf(userId);
         allow read, write: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
       }
 
       // Stream history (written by admin SDK, read-only for owner)
       match /streamHistory/{archiveId} {
         allow read: if request.auth != null && request.auth.uid == userId;
-        allow read: if isAliasOf(userId);
         // Cron job: go-live emails match recipients by engagement (streamed
         // the live/related DJ). Without this, collection-group queries 403 and
         // every engagement-based recipient is silently dropped.
@@ -171,14 +85,10 @@ service cloud.firestore {
       // Love history (written and read by owner)
       match /loveHistory/{djId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
-        allow read, write: if isAliasOf(userId);
         // Cron job: go-live emails match recipients by engagement (hearted the
         // live/related DJ). Same 403 problem as streamHistory above.
         allow read: if request.auth != null && request.auth.token.email == 'cron@channel-app.com';
       }
-
-      // Tracklist views + played slots are admin-SDK writes only (the server
-      // already resolves alias→primary), so they need no client rule here.
     }
 
     // Broadcast slots
@@ -193,11 +103,8 @@ service cloud.firestore {
         || (
           request.auth != null
           && (
-            // Any of the DJ's linked accounts (self or primary) counts as the
-            // assigned DJ, so a slot booked under either account is editable
-            // from either login.
-            isLinkedUid(resource.data.djUserId)
-            || isLinkedUid(resource.data.liveDjUserId)
+            resource.data.djUserId == request.auth.uid
+            || resource.data.liveDjUserId == request.auth.uid
             || (
               resource.data.djEmail is string
               && request.auth.token.email is string
@@ -281,35 +188,32 @@ service cloud.firestore {
       allow read: if true;
       allow update: if request.auth != null
         && (
-          // Uploaded-recording owner: full update. Accepts any of the DJ's
-          // linked accounts, so an alias login can manage the primary's uploads.
-          isLinkedUid(resource.data.uploadedBy)
+          // Uploaded-recording owner: full update.
+          resource.data.uploadedBy == request.auth.uid
           // Credited primary DJ: tracklist-only update (covers live recordings).
           || (
             resource.data.djs is list
             && resource.data.djs.size() > 0
-            && isLinkedUid(resource.data.djs[0].userId)
+            && resource.data.djs[0].userId == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['trackIds'])
           )
           // Collective owner: tracklist-only update on the collective's archives.
-          // Reads ownedCollectiveSlugs off the ACTING user (the primary for an
-          // alias login), since linking fans collective rights onto the primary.
           || (
             resource.data.djs is list
             && resource.data.djs.size() > 0
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['trackIds'])
-            && exists(/databases/$(database)/documents/users/$(actingUid()))
-            && get(/databases/$(database)/documents/users/$(actingUid()))
+            && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid))
                  .data.ownedCollectiveSlugs is list
             && (resource.data.djs[0].username in
-                get(/databases/$(database)/documents/users/$(actingUid()))
+                get(/databases/$(database)/documents/users/$(request.auth.uid))
                   .data.ownedCollectiveSlugs)
           )
         );
       allow delete: if request.auth != null
-        && isLinkedUid(resource.data.uploadedBy)
+        && resource.data.uploadedBy == request.auth.uid
         && resource.data.sourceType != 'live';
     }
 

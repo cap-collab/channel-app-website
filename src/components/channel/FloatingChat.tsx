@@ -18,7 +18,7 @@ import { AuthModal } from '@/components/AuthModal';
 
 export function FloatingChat() {
   const pathname = usePathname();
-  const { user, activityUid, isAuthenticated } = useAuthContext();
+  const { user, isAuthenticated } = useAuthContext();
   const { chatUsername, loading: profileLoading, setChatUsername } = useUserProfile(user?.uid);
   const { isLive, isStreaming, isPlaying, currentShow, currentDJ } = useBroadcastStreamContext();
   const archivePlayer = useArchivePlayer();
@@ -122,7 +122,7 @@ export function FloatingChat() {
     username: chatUsername || undefined,
     enabled: false,
     currentShowStartTime: writeChatRoom === liveDJChatRoom ? currentShow?.startTime : undefined,
-    userId: activityUid ?? undefined,
+    userId: user?.uid,
     djPhotoUrl: writeDjPhotoUrl,
     isArchivePlayback: writeIsArchive,
   });

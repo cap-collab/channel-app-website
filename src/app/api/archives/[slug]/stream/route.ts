@@ -3,7 +3,6 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { normalizeUsername } from '@/lib/dj-matching';
 import { recordPlay } from '@/lib/played-archives';
-import { resolveActivityUid } from '@/lib/account-links';
 
 export async function POST(
   request: Request,
@@ -32,13 +31,6 @@ export async function POST(
       console.log('[archive/stream] userId from body:', userId, 'gateTriggered:', gateTriggered, 'played:', played, 'gateCredit:', gateCredit, 'tracklistView:', tracklistView);
     } catch {
       console.log('[archive/stream] No body or invalid JSON, skipping user tracking');
-    }
-
-    // Linked accounts: a person may listen while signed in with either of their
-    // accounts. Credit ALL activity below (play, streamHistory, tracklistViews,
-    // the 16-min gate love) to the PRIMARY, so their taste never splits in two.
-    if (userId) {
-      userId = await resolveActivityUid(db, userId);
     }
 
     // Find archive by slug

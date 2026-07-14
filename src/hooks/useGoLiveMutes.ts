@@ -17,17 +17,15 @@ import { useAuthContext } from '@/contexts/AuthContext';
 //   - the /explore card "x" overlay (when removing an engagement-added card).
 // Re-engagement (a heart or lock-in) clears the entry — see unmute().
 export function useGoLiveMutes() {
-  // activityUid: an alias login records its mutes on the PRIMARY, which is the
-  // account the go-live cron actually emails. Equals user.uid for normal users.
-  const { user, activityUid } = useAuthContext();
+  const { user } = useAuthContext();
   const [mutes, setMutes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!user || !db || !activityUid) {
+    if (!user || !db) {
       setMutes(new Set());
       return;
     }
-    const ref = doc(db, 'users', activityUid);
+    const ref = doc(db, 'users', user.uid);
     return onSnapshot(
       ref,
       (snap) => {
@@ -43,13 +41,13 @@ export function useGoLiveMutes() {
         setMutes(new Set());
       },
     );
-  }, [user, activityUid]);
+  }, [user]);
 
   const mute = useCallback(
     async (djUsername: string) => {
-      if (!user || !db || !activityUid || !djUsername) return false;
+      if (!user || !db || !djUsername) return false;
       try {
-        await updateDoc(doc(db, 'users', activityUid), {
+        await updateDoc(doc(db, 'users', user.uid), {
           goLiveMutes: arrayUnion(djUsername),
         });
         return true;
@@ -58,14 +56,14 @@ export function useGoLiveMutes() {
         return false;
       }
     },
-    [user, activityUid],
+    [user],
   );
 
   const unmute = useCallback(
     async (djUsername: string) => {
-      if (!user || !db || !activityUid || !djUsername) return false;
+      if (!user || !db || !djUsername) return false;
       try {
-        await updateDoc(doc(db, 'users', activityUid), {
+        await updateDoc(doc(db, 'users', user.uid), {
           goLiveMutes: arrayRemove(djUsername),
         });
         return true;
@@ -74,7 +72,7 @@ export function useGoLiveMutes() {
         return false;
       }
     },
-    [user, activityUid],
+    [user],
   );
 
   const isMuted = useCallback(

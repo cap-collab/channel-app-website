@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/firebase-admin";
 import { normalizeForLookup } from "@/lib/go-live-matching";
-import { resolveActivityUid } from "@/lib/account-links";
 
 // Per-DJ go-live mute, linked from every show-starting email footer.
 // GET /api/go-live-mute?token=BASE64("uid:djUsername")
@@ -44,12 +43,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Linked accounts: an alias is only a login — mute on the primary, which is
-    // the account the go-live cron actually emails.
-    const activityUid = await resolveActivityUid(db, userId);
     // Store the canonical form so the show-starting cron's mute check (which
     // compares normalizeForLookup(show.djUsername)) matches for any name shape.
-    await db.collection("users").doc(activityUid).set(
+    await db.collection("users").doc(userId).set(
       { goLiveMutes: FieldValue.arrayUnion(normalizeForLookup(djUsername)) },
       { merge: true },
     );

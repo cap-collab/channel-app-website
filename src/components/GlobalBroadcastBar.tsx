@@ -42,7 +42,7 @@ export function GlobalBroadcastBar() {
   const { stationBPM } = useBPM();
   const broadcastBPM = stationBPM['broadcast']?.bpm ?? null;
   const pathname = usePathname();
-  const { user, activityUid } = useAuthContext();
+  const { user } = useAuthContext();
   const { chatUsername, showLockedInMessages } = useUserProfile(user?.uid);
   const [heartTrigger, setHeartTrigger] = useState(0);
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
@@ -86,7 +86,7 @@ export function GlobalBroadcastBar() {
     username: chatUsername || undefined,
     enabled: false, // Don't subscribe to messages, just need sendLove
     lockedInMessagesEnabled: showLockedInMessages,
-    userId: activityUid ?? undefined,
+    userId: user?.uid,
     isArchivePlayback: false,
   });
 
@@ -118,7 +118,7 @@ export function GlobalBroadcastBar() {
     username: chatUsername || undefined,
     enabled: false,
     lockedInMessagesEnabled: showLockedInMessages,
-    userId: activityUid ?? undefined,
+    userId: user?.uid,
     djPhotoUrl: archivePrimaryDj?.photoUrl,
     isArchivePlayback: true,
   });
@@ -156,7 +156,7 @@ export function GlobalBroadcastBar() {
     username: chatUsername || undefined,
     enabled: false,
     lockedInMessagesEnabled: showLockedInMessages,
-    userId: activityUid ?? undefined,
+    userId: user?.uid,
     djPhotoUrl: radioPrimaryDj?.photoUrl,
     isArchivePlayback: true,
   });

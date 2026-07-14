@@ -215,7 +215,7 @@ function ShowProgressBar({ startTime, endTime }: { startTime: number; endTime: n
 }
 
 export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liveBPM, liveDJChatRoom, maxHeroSlides = 3, titleOverride, hideSubtitle, preferredHeroSeed, initialRadioArchiveId, homepage, sceneSection }: ArchiveHeroProps) {
-  const { user, activityUid } = useAuthContext();
+  const { user } = useAuthContext();
   const { chatUsername } = useUserProfile(user?.uid);
   const {
     isPlaying: isLivePlaying, isLoading: isLiveLoading, currentShow, currentDJ,
@@ -486,7 +486,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
       || '',
     username: chatUsername || undefined,
     enabled: false,
-    userId: activityUid ?? undefined,
+    userId: user?.uid,
     djPhotoUrl: radioPrimaryDj?.photoUrl,
     isArchivePlayback: true,
   });
@@ -1032,7 +1032,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
     djUsername: loveDJLabel,
     username: chatUsername || undefined,
     enabled: !!loveChatRoom,
-    userId: activityUid ?? undefined,
+    userId: user?.uid,
     djPhotoUrl: isArchiveLove ? archivePrimaryDj?.photoUrl : undefined,
     isArchivePlayback: isArchiveLove,
   });

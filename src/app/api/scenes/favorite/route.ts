@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
-import { resolveActivityUid } from '@/lib/account-links';
 
 async function verifyUser(request: NextRequest): Promise<{ userId?: string }> {
   try {
@@ -30,16 +29,12 @@ export async function POST(request: NextRequest) {
     const db = getAdminDb();
     if (!db) return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
 
-    // Linked accounts: an alias is only a login — favourite the scene on the
-    // primary so taste never splits across a person's two accounts.
-    const activityUid = await resolveActivityUid(db, userId);
-
     const sceneDoc = await db.collection('scenes').doc(sceneId).get();
     if (!sceneDoc.exists) {
       return NextResponse.json({ error: 'Scene not found' }, { status: 404 });
     }
 
-    await db.collection('users').doc(activityUid).update({
+    await db.collection('users').doc(userId).update({
       favoriteSceneIds: FieldValue.arrayUnion(sceneId),
     });
 
@@ -63,11 +58,7 @@ export async function DELETE(request: NextRequest) {
     const db = getAdminDb();
     if (!db) return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
 
-    // Linked accounts: an alias is only a login — favourite the scene on the
-    // primary so taste never splits across a person's two accounts.
-    const activityUid = await resolveActivityUid(db, userId);
-
-    await db.collection('users').doc(activityUid).update({
+    await db.collection('users').doc(userId).update({
       favoriteSceneIds: FieldValue.arrayRemove(sceneId),
     });
 
