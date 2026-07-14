@@ -1878,52 +1878,33 @@ export async function sendResidentRescheduleEmail({
   }
 
   const studioUrl = "https://channel-app.com/studio";
+  // Plain-prose layout, matching the track-IDs email (no grey card, dark
+  // underlined links). 14px to match the weekly-NL intro body.
+  const p = "margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #1a1a1a;";
   const link = "color: #1a1a1a; text-decoration: underline;";
-  const meta = "margin: 0 0 4px; font-size: 14px; color: #666;";
+  const greeting = djName === "there" ? "Hi," : `Hi ${djName},`;
 
-  // "Your previous show is still available…" — only when they actually have a
-  // listener-visible show to point at. The SoundCloud/YouTube links are Channel's
-  // own channel pages (static), so they show regardless; the per-show Channel
-  // deep-link is the only conditional part.
+  // "Your previous show is still available…" — the Channel deep-link only appears
+  // when they have a listener-visible show to point at; SoundCloud/YouTube are
+  // Channel's own channel pages (static), so they always show. Tight <br/>-joined
+  // lines so the three links read as one block, not three loose paragraphs.
+  const channelLine = lastShowSlug
+    ? `Channel: <a href="https://channel-app.com/?archive=${encodeURIComponent(lastShowSlug)}" style="${link}">channel-app.com/?archive=${lastShowSlug}</a><br />`
+    : "";
   const backCatalogue = `
-          <p style="margin: 24px 0 12px; font-size: 14px; color: #666;">
-            Your previous show is still available to listen and share:
-          </p>
-          ${
-            lastShowSlug
-              ? `<p style="${meta}">Channel: <a href="https://channel-app.com/?archive=${encodeURIComponent(lastShowSlug)}" style="${link}">channel-app.com/?archive=${lastShowSlug}</a></p>`
-              : ""
-          }
-          <p style="${meta}">SoundCloud: <a href="https://soundcloud.com/channel-254533657" style="${link}">soundcloud.com/channel-254533657</a></p>
-          <p style="margin: 0 0 4px; font-size: 14px; color: #666;">YouTube: <a href="https://www.youtube.com/@CHANNELrad-io" style="${link}">youtube.com/@CHANNELrad-io</a></p>
+    <p style="${p}">Your previous show is still available to listen and share:<br />
+      ${channelLine}SoundCloud: <a href="https://soundcloud.com/channel-254533657" style="${link}">soundcloud.com/channel-254533657</a><br />
+      YouTube: <a href="https://www.youtube.com/@CHANNELrad-io" style="${link}">youtube.com/@CHANNELrad-io</a>
+    </p>
   `;
 
   const content = `
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f5f5f5; border-radius: 0; border: 1px solid #e5e5e5;">
-      <tr>
-        <td style="padding: 32px;">
-          <p style="margin: 0 0 16px; font-size: 14px; color: #666;">
-            Hi ${djName},
-          </p>
-          <p style="margin: 0 0 20px; font-size: 14px; color: #666;">
-            It's been a little while since your last show.
-          </p>
-          <p style="margin: 0 0 4px; font-size: 14px; color: #666;">
-            Whenever you're ready, you can schedule your next live show or upload a pre-recorded set from your Studio:
-          </p>
-          <p style="margin: 0 0 4px; font-size: 14px;">
-            <a href="${studioUrl}" style="${link}">channel-app.com/studio</a>
-          </p>
-          <p style="margin: 0; font-size: 14px; color: #666;">
-            Looking forward to hearing what you've been working on.
-          </p>
-          ${backCatalogue}
-          <p style="margin: 24px 0 0; font-size: 14px; color: #1a1a1a;">
-            Cap
-          </p>
-        </td>
-      </tr>
-    </table>
+    <p style="${p}">${greeting}</p>
+    <p style="${p}">It's been a little while since your last show.</p>
+    <p style="${p}">Whenever you're ready, you can schedule your next live show or upload a pre-recorded set from your Studio: <a href="${studioUrl}" style="${link}">channel-app.com/studio</a></p>
+    <p style="${p}">Looking forward to hearing what you've been working on.</p>
+    ${backCatalogue}
+    <p style="${p}">Cap</p>
   `;
 
   try {
@@ -2161,7 +2142,7 @@ export async function sendArchiveTrackIdsEmail({
   }
 
   const greeting = djName === "there" ? "Hi," : `Hi ${djName},`;
-  const p = "margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #1a1a1a;";
+  const p = "margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #1a1a1a;";
   const link = "color: #1a1a1a; text-decoration: underline;";
 
   // Deep-link that plays this show on the homepage — the same URL the on-site
