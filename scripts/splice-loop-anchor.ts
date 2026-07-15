@@ -29,20 +29,21 @@ import { reflowOffsets } from '../src/lib/archive-schedule';
 import { Timestamp } from 'firebase-admin/firestore';
 
 // ─────────────────────────── CONFIG ───────────────────────────
-const LOOP_DOC = 'loop-0041';
+const LOOP_DOC = 'loop-0046';
 const PREV_LOOP_DOC = null;             // to compute the gap; null to skip gap-fill
 const DO_PREPEND_GAPFILL = false;       // close the loop's start gap by prepending
 const TT_ID = 'mGUjchuXuFAtTa4dmAls';   // toilet-therapist hand-back interlude
 
 // Anchors to splice in (anchored archive must become audible at startZ).
-// drenchrome "drenchrome show" live ends 19:00 PT (2026-07-10T02:00:00Z). Post-live
-// handoff: hand-back interlude audible at endTime+3s (02:00:03Z), then drenchrome.
-// The script makes the interlude audible at startZ - (ttDur - CROSSFADE), so set
-// startZ = 02:00:03 + (23 - 5)s = 02:00:21Z so the interlude lands at 02:00:03Z.
-// NOTE: tonight's OTHER anchor (ceviche "Channel Radio", scheduled anchor @ 00:00:00Z)
-// was already placed correctly by the generator — do NOT add it here.
+// DJ Carhartt live ends 19:00 PT (2026-07-16T02:00:00Z). Post-live handoff:
+// hand-back interlude audible at endTime+3s (02:00:03Z), then the picked post-live
+// archive "Think Abt Radio" (43CUTX8Q24EhBSPpurJZ, Ava Blank, ~2h).
+// The script makes the interlude audible at startZ - (ttDur - CROSSFADE), ttDur=23s,
+// so startZ = 02:00:03 + (23 - 5)s = 02:00:21Z → interlude lands at 02:00:03Z.
+// The first anchor of the day (after Pretty Gay Friendly, ~14:00:02 PT) is already
+// placed in this loop — do NOT touch it.
 const ANCHORS = [
-  { label: 'drenchrome post-live', startZ: '2026-07-10T02:00:21Z', archiveId: '6TEo5B2pHhugvs4kP8rQ' },
+  { label: 'DJ Carhartt post-live', startZ: '2026-07-16T02:00:21Z', archiveId: '43CUTX8Q24EhBSPpurJZ' },
 ];
 
 // Prepend filler: a real archive to put in front (reuse is fine for radio).

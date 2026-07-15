@@ -10,6 +10,7 @@ import {
   LOOP_COLLECTION,
   loopDocId,
   offsetUtcId,
+  reflowOffsets,
   SCHEDULE_COLLECTION,
   shuffle,
   tallyRecentPlays,
@@ -396,6 +397,10 @@ export interface GenerateLoopArgs {
   // Synthetic "now" for dry-runs (e.g., simulate the 1am PT cron from
   // yesterday). Falls back to Date.now() when omitted.
   nowMsOverride?: number;
+  // When true, build the loop fully but DO NOT write it to Firestore — return
+  // the computed items/startTimeMs/counts so callers can inspect what WOULD be
+  // generated without mutating any doc. Used by test harnesses.
+  dryRun?: boolean;
 }
 
 export interface GenerateLoopResult {
@@ -415,6 +420,12 @@ export interface GenerateLoopResult {
 interface LoopPlan {
   startTimeMs: number;
   anchor: LiveBlockBoundary | null;
+  // Additional anchors (beyond the first) that fall inside this loop's span.
+  // The first anchor drives the loop START (back-shift alignment); these are
+  // spliced MID-LOOP in generateLoop by cutting short the pool archive playing
+  // into each one, then inserting a hand-back interlude + curated archive that
+  // lands audible exactly on the anchor's target. Sorted by target ascending.
+  laterAnchors: LiveBlockBoundary[];
   preAnchorArchiveIds: string[] | null;
   // Explicit ordered list of archives that play AFTER the anchor archive (or
   // make up the whole loop when there's no anchor). Sized so the loop ends near
@@ -445,6 +456,12 @@ const ANCHOR_WARMUP_MS = 3000;
 // in the other. Expressed as UTC hours-of-day (PDT = UTC-7; ±1h in PST months).
 const START_WINDOW_UTC_H = [8, 9] as const;  // 1am, 2am PT
 const END_WINDOW_UTC_H = [10, 11] as const;  // 3am, 4am PT
+// Hard cap on how far ahead a single loop schedules anchors. A scheduled anchor
+// hours past the pool's natural end (e.g. a next-day 8pm slot) would otherwise
+// force the loop to stretch to ~70h and end at an odd hour just to reach it.
+// Anchors beyond this horizon are DEFERRED to the next loop (the cron's
+// look-back catches them). 50h comfortably covers a ~48h loop's own playtime.
+const MAX_ANCHOR_HORIZON_MS = 50 * 3600 * 1000;
 // Medium pool fraction: include the least-recently-played HALF of mediums so
 // every medium airs over ~2 loops. The one tuning knob. With high ≈ medium
 // total catalog duration, half the mediums ≈ half the high duration → the loop
@@ -457,10 +474,14 @@ const MEDIUM_POOL_FRACTION = 0.5;
 // slot. Mediums rotate — the stale half plays this loop, the rest next loop.
 function selectPool(
   archives: EligibleArchive[],
-  curatedId: string | null,
+  curatedIds: Set<string>,
   rng: () => number,
 ): EligibleArchive[] {
-  const pool = archives.filter((a) => a.id !== curatedId);
+  // Every anchor's curated archive is excluded from the random pool: an anchored
+  // show plays ONLY at its anchor point(s) in this loop, never additionally in
+  // the rotation (no echo). It returns to normal rotation in loops where it
+  // isn't anchored.
+  const pool = archives.filter((a) => !curatedIds.has(a.id));
   const highs = pool.filter((a) => a.priority === 'high');
   // Least-recently-played first; undefined lastPlayedMs = never played = stalest.
   const mediumsByStaleness = pool
@@ -547,11 +568,11 @@ async function resolveLoopPlan(
   interstitials: Interstitial[],
 ): Promise<LoopPlan> {
   if (typeof args.startTimeMsOverride === 'number') {
-    return { startTimeMs: args.startTimeMsOverride, anchor: null, preAnchorArchiveIds: null, postAnchorArchiveIds: null, mode: 'short', maxDurationSec: null, earliestStartMs: args.startTimeMsOverride, reason: 'override' };
+    return { startTimeMs: args.startTimeMsOverride, anchor: null, laterAnchors: [], preAnchorArchiveIds: null, postAnchorArchiveIds: null, mode: 'short', maxDurationSec: null, earliestStartMs: args.startTimeMsOverride, reason: 'override' };
   }
   const nowMs = args.nowMsOverride ?? Date.now();
   if (args.loopNumber <= 1) {
-    return { startTimeMs: nowMs, anchor: null, preAnchorArchiveIds: null, postAnchorArchiveIds: null, mode: 'short', maxDurationSec: null, earliestStartMs: nowMs, reason: 'first-loop' };
+    return { startTimeMs: nowMs, anchor: null, laterAnchors: [], preAnchorArchiveIds: null, postAnchorArchiveIds: null, mode: 'short', maxDurationSec: null, earliestStartMs: nowMs, reason: 'first-loop' };
   }
   const db = getAdminDb();
   if (!db) throw new Error('database not configured');
@@ -598,10 +619,24 @@ async function resolveLoopPlan(
   // horizon the selector below uses — same window for loader and selector, else
   // an in-window anchor gets dropped (loadAnchors' old 48h default did exactly that).
   const anchors = await loadAnchors(db, selBase, anchorHorizonMs - selBase);
-  const firstAnchor = anchors.find(
+  const inHorizon = anchors.filter(
     (a) => a.endTimeMs > nowMs && a.endTimeMs > selBase && a.endTimeMs <= anchorHorizonMs,
-  ) ?? null;
+  );
+  const firstAnchor = inHorizon[0] ?? null;
   const curatedId = firstAnchor?.curatedArchiveId ?? null;
+
+  // Audible target (wall-clock) of an anchor's hand-in: scheduled anchors play
+  // the recording IN the loop at their slot start (no warmup); post-live anchors
+  // play the curated archive after the block, behind an interlude that starts
+  // endTime + warmup.
+  const anchorTarget = (a: LiveBlockBoundary) =>
+    a.isScheduledAnchor ? a.startTimeMs : a.endTimeMs + ANCHOR_WARMUP_MS;
+
+  // Every anchor's curated archive is kept out of the random pool (anchor-only
+  // in this loop). Includes the first anchor's curated id.
+  const anchorCuratedIds = new Set<string>(
+    inHorizon.map((a) => a.curatedArchiveId).filter((id): id is string => !!id),
+  );
 
   // The single alignment TARGET: the wall-clock moment the anchor archive (well,
   // the TT interlude → anchor archive hand-in) becomes audible. The ONLY thing
@@ -639,7 +674,7 @@ async function resolveLoopPlan(
   }
 
   // Build the pool: all highs + stale half of mediums, curated removed, shuffled.
-  const pool = selectPool(archives, curatedId, rng);
+  const pool = selectPool(archives, anchorCuratedIds, rng);
 
   // Apply time-of-day diversity reorder to a segment (keeps repeats from landing
   // at the same wall-clock time-of-day two loops running).
@@ -656,6 +691,7 @@ async function resolveLoopPlan(
     return {
       startTimeMs: noAnchorStart,
       anchor: null,
+      laterAnchors: [],
       preAnchorArchiveIds: null,
       postAnchorArchiveIds: diversify(kept, noAnchorStart),
       mode: 'short',
@@ -726,9 +762,26 @@ async function resolveLoopPlan(
   // Truncate the post-anchor tail at the first 3-4am PT boundary it crosses.
   const postItems = truncateAtEndWindow(postPool, postBlockStartMs, avgInterludeSec);
 
+  // Later anchors (beyond the first) get spliced mid-loop by generateLoop. They
+  // must land AFTER the first anchor's audible target (a strictly-later target)
+  // and be deduped so the same slot isn't spliced twice. Same-archive anchors at
+  // different times ARE kept (a show legitimately scheduled at 2+ points over the
+  // 2-day loop plays at each). Sorted by target ascending so the splice pass
+  // walks them left-to-right.
+  // 50h cap: a later anchor whose target is more than MAX_ANCHOR_HORIZON_MS past
+  // the loop's start is DEFERRED to the next loop rather than stretching this one
+  // to reach it. Without this, a next-day scheduled anchor (e.g. 8pm ~40h out)
+  // forced the loop to ~70h ending at an odd hour instead of the 3-4am window.
+  const maxTargetMs = startTimeMs + MAX_ANCHOR_HORIZON_MS;
+  const firstTarget = anchorTarget(firstAnchor);
+  const laterAnchors = inHorizon
+    .filter((a) => anchorTarget(a) > firstTarget && anchorTarget(a) <= maxTargetMs)
+    .sort((a, b) => anchorTarget(a) - anchorTarget(b));
+
   return {
     startTimeMs,
     anchor: firstAnchor,
+    laterAnchors,
     preAnchorArchiveIds: preItems.length > 0 ? diversify(preItems, startTimeMs) : null,
     postAnchorArchiveIds: postItems.length > 0 ? diversify(postItems, postBlockStartMs) : null,
     mode: 'short',
@@ -992,10 +1045,17 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
   // selected anchor only — a non-anchored hidden/private archive never enters
   // the radio. Without this, buildLoop substitutes a random archive at the
   // anchor's time and the player can't resolve the anchor's metadata.
-  const curatedId = plan.anchor?.curatedArchiveId ?? null;
-  if (curatedId && !archives.some((a) => a.id === curatedId)) {
-    await forceIncludeAnchorArchives(archives, [curatedId]);
-    if (archives.some((a) => a.id === curatedId)) {
+  // Anchor archives that the general pool filtered out (private / hidden / short)
+  // must be force-included so the anchor lands the real recording — for the FIRST
+  // anchor AND every later anchor. Scoped to selected anchors only.
+  const anchorCuratedIds = [
+    plan.anchor?.curatedArchiveId ?? null,
+    ...plan.laterAnchors.map((a) => a.curatedArchiveId),
+  ].filter((id): id is string => !!id);
+  const missingCurated = anchorCuratedIds.filter((id) => !archives.some((a) => a.id === id));
+  if (missingCurated.length > 0) {
+    await forceIncludeAnchorArchives(archives, missingCurated);
+    if (missingCurated.some((id) => archives.some((a) => a.id === id))) {
       plan = await resolveLoopPlan(args, archives, interstitials);
     }
   }
@@ -1057,6 +1117,143 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
       }
     }
   }
+
+  // ── MULTI-ANCHOR splice pass (anchors #2…N) ──────────────────────────────
+  // Anchor #1 is aligned by the loop-start back-shift above (works because the
+  // loop hasn't started). Every LATER anchor is MID-LOOP — audio is already
+  // playing — so we can't move the loop start again without breaking anchor #1.
+  // Instead, for each later anchor we CUT SHORT the pool archive playing into it
+  // (give that item a shorter durationSec so the player's crossfade fires early),
+  // insert a hand-back interlude, then start the curated archive so its hand-in
+  // lands audible EXACTLY at the anchor's target. Same offset-safe mechanism as
+  // scripts/splice-loop-anchor.ts (verified 0.0s drift). startTimeMs is now fixed,
+  // so all math is by absolute wall-clock time.
+  let alignedLaterCount = 0;
+  let missedLaterCount = 0;
+  if (plan.laterAnchors.length > 0 && result.items.length > 0) {
+    // Hand-back interlude: prefer toilet-therapist (the established hand-back),
+    // else any available interlude. Reuse one already in the built loop so its
+    // real duration/url are correct, else fall back to the loaded pool.
+    const TT_ID = 'mGUjchuXuFAtTa4dmAls';
+    const ttInBuilt = result.items.find((it) => it.interstitialId === TT_ID);
+    const ttFromPool = interstitials.find((ix) => ix.id === TT_ID) ?? interstitials[0];
+    const handbackDurSec = ttInBuilt?.durationSec ?? ttFromPool?.durationSec ?? 0;
+    const handbackUrl = ttInBuilt?.recordingUrl ?? ttFromPool?.url ?? '';
+    const handbackId = ttInBuilt?.interstitialId ?? ttFromPool?.id;
+    const handbackTitle = ttInBuilt?.title ?? ttFromPool?.label;
+    const makeHandback = (): ScheduleItem => ({
+      kind: 'interstitial',
+      recordingUrl: handbackUrl,
+      durationSec: handbackDurSec,
+      startOffsetSec: 0,
+      ...(handbackId ? { interstitialId: handbackId } : {}),
+      ...(handbackTitle ? { title: handbackTitle } : {}),
+    });
+    // Anchor archive ids already placed in the loop (anchor #1 + any spliced) —
+    // never cut one short to feed the next anchor (no anchor back-to-back).
+    const placedAnchorIds = new Set<string>(
+      plan.anchor?.curatedArchiveId ? [plan.anchor.curatedArchiveId] : [],
+    );
+
+    for (const anc of plan.laterAnchors) {
+      const targetMs = anc.isScheduledAnchor
+        ? anc.startTimeMs
+        : anc.endTimeMs + ANCHOR_WARMUP_MS;
+      const absOf = (it: ScheduleItem) => startTimeMs + it.startOffsetSec * 1000;
+      const endOf = (it: ScheduleItem) => absOf(it) + it.durationSec * 1000;
+      // Archive whose audible window spans the target; else the last archive
+      // starting at/before it (target landed in an interlude gap).
+      let idx = result.items.findIndex(
+        (it) => it.kind === 'archive' && absOf(it) <= targetMs && targetMs < endOf(it),
+      );
+      if (idx < 0) {
+        for (let i = result.items.length - 1; i >= 0; i--) {
+          if (result.items[i].kind === 'archive' && absOf(result.items[i]) <= targetMs) { idx = i; break; }
+        }
+      }
+      // No archive at/before the target = anchor falls beyond the built loop's
+      // reach (tail didn't extend that far). Skip + count as missed.
+      if (idx < 0) { missedLaterCount++; continue; }
+      // Resolve the curated archive item (force-included earlier). If missing,
+      // skip — better a plain crossfade than a broken/silent anchor.
+      const curated = archives.find((a) => a.id === anc.curatedArchiveId);
+      if (!curated) { missedLaterCount++; continue; }
+      // Cut math (mirrors splice-loop-anchor.ts): make the hand-back interlude
+      // audible at target − (ttDur − CROSSFADE); the cut archive's audible end =
+      // that + CROSSFADE.
+      const interludeAudibleMs = targetMs - (handbackDurSec - CROSSFADE_SEC) * 1000;
+      const cutAudibleEndMs = interludeAudibleMs + CROSSFADE_SEC * 1000;
+      // Pick the archive to cut short. The one spanning the target is preferred,
+      // but it's invalid if it's an anchor archive (can't chop another anchor) or
+      // the cut would leave <30s. In that case walk BACK to the nearest earlier
+      // ordinary archive that IS cuttable, so the anchor always places (no more
+      // shuffle-dependent skips). The anchor lands on target either way — earlier
+      // items just play a little shorter.
+      const cutTruncSecFor = (i: number) =>
+        Math.round((cutAudibleEndMs - absOf(result.items[i])) * 0.001);
+      const cuttable = (i: number) => {
+        const it = result.items[i];
+        if (it.kind !== 'archive') return false;
+        if (it.archiveId && placedAnchorIds.has(it.archiveId)) return false;
+        return cutTruncSecFor(i) >= 30;
+      };
+      const spanIdx = idx;
+      while (idx >= 0 && !cuttable(idx)) idx--;
+      // Nothing cuttable before the target at all (only anchors / too-short). Skip.
+      if (idx < 0) { missedLaterCount++; continue; }
+      const cut = result.items[idx];
+      const cutTruncSec = cutTruncSecFor(idx);
+      const anchorArchiveItem: ScheduleItem = {
+        kind: 'archive',
+        archiveId: curated.id,
+        recordingUrl: curated.recordingUrl,
+        durationSec: curated.durationSec,
+        startOffsetSec: 0,
+        title: curated.title,
+        djs: curated.djs,
+        artworkUrl: curated.artworkUrl,
+        sceneSlugs: curated.sceneSlugs,
+      };
+      // Cut the chosen archive short, then drop everything between it and the
+      // spanning position (those items would push the anchor late), and insert
+      // the hand-back + anchor right after the cut. When idx === spanIdx (the
+      // common case) nothing between is dropped.
+      result.items[idx] = { ...cut, durationSec: cutTruncSec };
+      const dropCount = spanIdx - idx;
+      result.items.splice(idx + 1, dropCount, makeHandback(), anchorArchiveItem);
+      reflowOffsets(result.items);
+      placedAnchorIds.add(curated.id);
+      alignedLaterCount++;
+    }
+
+    // Tail trim: adding long anchor archives lengthens the loop; drop whole
+    // trailing items until the natural end lands in the [3am,4am] PT window.
+    // Never drop past the last anchored archive (anchors are fixed points).
+    if (alignedLaterCount > 0) {
+      const END_HOUR_LO = 10; // 3am PT
+      let lastAnchorIdx = 0;
+      for (let i = 0; i < result.items.length; i++) {
+        const aid = result.items[i].archiveId;
+        if (aid && placedAnchorIds.has(aid)) lastAnchorIdx = Math.max(lastAnchorIdx, i);
+      }
+      const last0 = result.items[result.items.length - 1];
+      const naturalEnd0 = startTimeMs + (last0.startOffsetSec + last0.durationSec) * 1000;
+      // 4am PT edge of the window at/before the natural end (see splice script's
+      // off-by-one note: anchor to the 3am floor then +1h, don't snap a day early).
+      const endTarget = prevWindowMidMs(naturalEnd0, END_HOUR_LO) - 1800 * 1000 + 3600 * 1000;
+      while (result.items.length - 1 > lastAnchorIdx) {
+        const last = result.items[result.items.length - 1];
+        const lastEnd = startTimeMs + (last.startOffsetSec + last.durationSec) * 1000;
+        if (lastEnd <= endTarget) break;
+        result.items.pop();
+      }
+    }
+
+    // Recompute offsets + totals + placed-priority tallies after splicing/trim.
+    result.totalDurationSec = reflowOffsets(result.items);
+    result.alignedAnchorCount += alignedLaterCount;
+    result.missedAnchorCount += missedLaterCount;
+  }
   // Overlap with the previous loop is intentional and unbounded: useArchiveRadio picks
   // the highest-loopNumber loop whose startTimeMs has passed, so when loop N's start
   // arrives, listeners cross over from N-1. We deliberately do NOT cap overlap — for an
@@ -1086,29 +1283,32 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
     return obj;
   });
 
-  await docRef.set({
-    loopNumber,
-    startTime: Timestamp.fromMillis(startTimeMs),
-    startTimeMs,
-    totalDurationSec: result.totalDurationSec,
-    generatedAt: Timestamp.fromMillis(generatedAtMs),
-    generatedAtMs,
-    generatedBy: args.generatedBy ?? 'cron',
-    locked: false,
-    mode: plan.mode,
-    planReason: plan.reason,
-    catalogStats: {
-      highCount: result.highCount,
-      mediumCount: result.mediumCount,
-      placedHighDurationSec: result.placedHighDurationSec,
-      placedMediumDurationSec: result.placedMediumDurationSec,
-      interstitialCount: result.interstitialCount,
-      alignedAnchorCount: result.alignedAnchorCount,
-      missedAnchorCount: result.missedAnchorCount,
-      totalItems: result.items.length,
-    },
-    items: cleanItems,
-  });
+  // Dry-run: everything is computed; return WITHOUT writing to Firestore.
+  if (!args.dryRun) {
+    await docRef.set({
+      loopNumber,
+      startTime: Timestamp.fromMillis(startTimeMs),
+      startTimeMs,
+      totalDurationSec: result.totalDurationSec,
+      generatedAt: Timestamp.fromMillis(generatedAtMs),
+      generatedAtMs,
+      generatedBy: args.generatedBy ?? 'cron',
+      locked: false,
+      mode: plan.mode,
+      planReason: plan.reason,
+      catalogStats: {
+        highCount: result.highCount,
+        mediumCount: result.mediumCount,
+        placedHighDurationSec: result.placedHighDurationSec,
+        placedMediumDurationSec: result.placedMediumDurationSec,
+        interstitialCount: result.interstitialCount,
+        alignedAnchorCount: result.alignedAnchorCount,
+        missedAnchorCount: result.missedAnchorCount,
+        totalItems: result.items.length,
+      },
+      items: cleanItems,
+    });
+  }
 
   return {
     loopNumber,
@@ -1121,6 +1321,8 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
     alignedAnchorCount: result.alignedAnchorCount,
     missedAnchorCount: result.missedAnchorCount,
     warnings: result.warnings,
+    // Only populated on dry-runs (for inspection harnesses); undefined otherwise.
+    ...(args.dryRun ? { dryRunItems: result.items } : {}),
   };
 }
 
@@ -1129,12 +1331,14 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
 // stored loop's end is in the future, do nothing. Otherwise generate the next
 // loop. Used by the cron + the listener-side "ending soon" trigger.
 //
-// STEP 1 (runs first): if the CURRENTLY-PLAYING loop has an anchor in its span
-// it didn't account for (a show added after the loop was built), regenerate that
-// loop in place — pretending "now" is the loop's own start so the anchor's
-// backwards-from-end start calc isn't clamped forward (which would shove the
-// playing loop hours late). The loop keeps its number + ~start, so listeners stay
-// on it and re-sync; loadAnchors then lands the hand-back at the block end.
+// NEVER regenerates the currently-playing loop. Two paths only:
+//   • latest stored loop is a FUTURE loop → optionally regenerate IT (count-based
+//     self-heal) if new anchors now fall in its span; the playing loop is untouched.
+//   • latest stored loop IS the currently-playing one → generate a brand-new
+//     next loop (maxLoopNumber + 1). An anchor inside the playing loop's span is
+//     picked up by the next loop starting BEFORE it (resolveLoopPlan's look-back),
+//     so it hands off via loop-number precedence without ever rewriting the
+//     playing loop.
 export async function ensureNextLoop(args: { generatedBy?: 'cron' | 'admin' } = {}): Promise<GenerateLoopResult | { skipped: 'already-future'; loopNumber: number }> {
   const db = getAdminDb();
   if (!db) throw new Error('database not configured');
@@ -1177,15 +1381,24 @@ export async function ensureNextLoop(args: { generatedBy?: 'cron' | 'admin' } = 
         // stored loop is the only future loop to check.)
         const loopNumber = Number(data.loopNumber ?? 0);
         const locked = data.locked === true;
-        const storedReason = String(data.planReason ?? '');
+        // Count-based self-heal: regenerate the future loop when MORE anchors fall
+        // inside THIS loop's own span than it was built with. Catches a 2nd (or
+        // Nth) anchor scheduled AFTER the loop was generated — not just the first,
+        // and not gated on planReason. (The old gate skipped any already-anchored
+        // loop, so a newly-added later anchor was silently dropped.)
+        //
+        // CRITICAL: bound the visible-anchor count to the loop's ACTUAL end
+        // (endMs), NOT a fixed 72h horizon. An anchor beyond this loop's end
+        // belongs to the NEXT loop, not this one — counting it would make the
+        // check fire every cron tick forever (visible > aligned can never
+        // converge because that anchor can never fit in this loop).
         const storedAligned = Number(data.catalogStats?.alignedAnchorCount ?? 0);
-        if (!locked && storedReason !== 'anchor' && storedAligned === 0) {
-          const anchorHorizonMs = startTimeMs + 72 * 3600 * 1000;
-          const anchors = await loadAnchors(db, startTimeMs, anchorHorizonMs - startTimeMs);
-          const newAnchor = anchors.find(
-            (a) => a.endTimeMs > startTimeMs && a.endTimeMs <= anchorHorizonMs,
-          );
-          if (newAnchor) {
+        if (!locked) {
+          const anchors = await loadAnchors(db, startTimeMs, endMs - startTimeMs);
+          const visibleAnchorCount = anchors.filter(
+            (a) => a.endTimeMs > startTimeMs && a.endTimeMs <= endMs,
+          ).length;
+          if (visibleAnchorCount > storedAligned) {
             return generateLoop({ loopNumber, force: true, generatedBy: args.generatedBy });
           }
         }
