@@ -198,10 +198,48 @@ export function normalizeUser(args: NormalizeUserArgs): UserSignals {
   const sceneCount = new Map<string, number>();
   const tempoCount = new Map<Tempo, number>();
 
-  // Loved DJs.
+  // Catalog index: normalized DJ username → the DISTINCT scenes/tempos that DJ
+  // appears in across all archives. Built once from archiveById so a love can
+  // pull in the loved DJ's scene(s)/tempo(s) as taste (see the loves loop).
+  // Distinct-per-DJ (not per-archive) so a prolific DJ credits their scene once,
+  // not dozens of times.
+  const scenesByDj = new Map<string, Set<string>>();
+  const temposByDj = new Map<string, Set<Tempo>>();
+  for (const item of Array.from(args.archiveById.values())) {
+    for (const u of item.djUsernames) {
+      if (item.sceneSlugs.length) {
+        let set = scenesByDj.get(u);
+        if (!set) scenesByDj.set(u, (set = new Set()));
+        for (const s of item.sceneSlugs) set.add(s);
+      }
+      if (item.tempo) {
+        let set = temposByDj.get(u);
+        if (!set) temposByDj.set(u, (set = new Set()));
+        set.add(item.tempo);
+      }
+    }
+  }
+
+  // Loved DJs. A love credits the DJ (engagedDjs) AND — weighted LOWER than a
+  // 15-min stream (LOVE_WEIGHT < the streamed archive's +1) — folds that DJ's
+  // scene(s)/tempo(s) into the taste profile. Loving a DJ therefore generalizes
+  // to their scene (e.g. loving a spiral DJ surfaces other spiral shows) without
+  // an explicit listen ever having to happen, but an actual stream still
+  // dominates. Distinct scenes/tempos per loved DJ, each credited once.
+  const LOVE_WEIGHT = 0.5;
   for (const d of args.loveHistory) {
     const norm = d.djUsernameNormalized || (d.djUsername ? normalizeForLookup(d.djUsername) : undefined);
-    if (norm) engagedDjs.add(norm);
+    if (norm) {
+      engagedDjs.add(norm);
+      for (const s of Array.from(scenesByDj.get(norm) ?? [])) {
+        engagedScenes.add(s);
+        sceneCount.set(s, (sceneCount.get(s) ?? 0) + LOVE_WEIGHT);
+      }
+      for (const t of Array.from(temposByDj.get(norm) ?? [])) {
+        engagedTempos.add(t);
+        tempoCount.set(t, (tempoCount.get(t) ?? 0) + LOVE_WEIGHT);
+      }
+    }
     const display = d.djDisplayName || d.djUsername;
     if (display) lovedDjNames.add(display);
   }
