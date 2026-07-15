@@ -1,11 +1,17 @@
 import { proseLink, proseDjLink, proseCollectiveLink } from "@/lib/email";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ⚠️  REWRITTEN EVERY WEEK.
+// WEEKLY INTRO — the hand-written prose above the automated rec sections.
 //
-// This is the ONLY file to touch for a new weekly send. Update the subject AND
-// the body together — the subject is also what the Monday report run matches
-// against in Resend to attribute opens (see WEEKLY_SUBJECTS below).
+// OPT-IN PER WEEK. Each cohort (dj / listener) has an `active` flag in
+// WEEKLY_INTRO below:
+//   • active: true  → uses this cohort's custom subject + intro.
+//   • active: false → falls back to "Your Weekly Listening", no intro.
+//
+// So if a week goes by with no new copy, set both cohorts to active: false (or
+// just leave them there) and the send goes out plain — it never re-sends last
+// week's news. To ship a new intro: write the copy in build*Intro, set the
+// subject, and flip active: true.
 //
 // Style: a plain TEXT email, like the track-IDs send. Prose paragraphs, inline
 // underlined links, no cards or tables. Links are never bold.
@@ -131,25 +137,43 @@ function buildListenerIntro(city?: string | null): string {
   ].join("");
 }
 
+// The default when a cohort has NO hand-written intro this week: the plain
+// "Your Weekly Listening" send (this subject, no intro prose). The report run
+// always polls for it, so open-tracking keeps working on a bare week.
+const DEFAULT_SUBJECT = "Your Weekly Listening";
+
+// ⚠️ PER-WEEK OPT-IN. Set `active: true` on a cohort ONLY when you've written
+// this week's intro + subject for it. Leave it false (the default going forward)
+// and that cohort falls back to DEFAULT_SUBJECT with no intro — so a week with no
+// update never re-sends last week's news.
 export const WEEKLY_INTRO = {
   dj: {
+    active: true,
     subject: "Collectives, Track IDs & Reach",
     build: buildDjIntro,
   },
   listener: {
+    active: true,
     subject: "Track IDs, Discounts & Your Weekly Picks",
     // No greeting and no links on the listener variant — by design.
     build: buildListenerIntro,
   },
 } as const;
 
-// Every subject this week's send can produce. The Monday report run polls Resend
-// for EACH of these to attribute opens; a subject missing here means that
-// cohort's opens are silently never stamped. Derived, so it cannot drift.
-export const WEEKLY_SUBJECTS: string[] = [WEEKLY_INTRO.dj.subject, WEEKLY_INTRO.listener.subject];
+// Every subject this week's send can produce, so the Monday report run can poll
+// Resend for each. DEFAULT_SUBJECT is always included — an inactive cohort uses
+// it — and de-duped so we don't query the same string twice.
+export const WEEKLY_SUBJECTS: string[] = Array.from(
+  new Set([
+    DEFAULT_SUBJECT,
+    ...(WEEKLY_INTRO.dj.active ? [WEEKLY_INTRO.dj.subject] : []),
+    ...(WEEKLY_INTRO.listener.active ? [WEEKLY_INTRO.listener.subject] : []),
+  ]),
+);
 
 export function introSubjectFor(cohort: IntroCohort): string {
-  return WEEKLY_INTRO[cohort].subject;
+  const c = WEEKLY_INTRO[cohort];
+  return c.active ? c.subject : DEFAULT_SUBJECT;
 }
 
 export function buildIntroHtml(
@@ -158,6 +182,9 @@ export function buildIntroHtml(
   latestShowSlug?: string,
   city?: string | null,
 ): string {
+  // No active intro this week → empty. The email then restores its default
+  // "Your Weekly Listening" eyebrow and drops the intro gap (see email.ts).
+  if (!WEEKLY_INTRO[cohort].active) return "";
   return cohort === "dj"
     ? WEEKLY_INTRO.dj.build(firstName, latestShowSlug, city)
     : WEEKLY_INTRO.listener.build(city);
