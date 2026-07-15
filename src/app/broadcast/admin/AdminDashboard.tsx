@@ -374,6 +374,37 @@ export function AdminDashboard() {
     );
   }
 
+  // Compact stroke icons (16x16, currentColor) so each tab reads at a glance.
+  const I = (path: React.ReactNode) => (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="shrink-0"
+      aria-hidden="true"
+    >
+      {path}
+    </svg>
+  );
+  const TAB_ICONS: Record<AdminTab, React.ReactNode> = {
+    schedule: I(<><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>),
+    applications: I(<><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M22 11h-6" /></>),
+    'field-notes': I(<><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="8" cy="12" r="2" /><circle cx="16" cy="12" r="2" /></>),
+    archives: I(<><rect x="3" y="3" width="18" height="5" rx="1" /><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4" /></>),
+    'archive-radio': I(<><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2" /></>),
+    marketing: I(<><path d="m3 11 18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6" /></>),
+    scenes: I(<><path d="M12 3v18M5 8l7-5 7 5M5 8v8l7 5M19 8v8" /></>),
+    'social-render': I(<><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></>),
+    'tech-health': I(<><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></>),
+    recommendations: I(<><path d="M12 2 15 9l7 .5-5.3 4.6L18.5 21 12 17l-6.5 4 1.8-6.9L2 9.5 9 9z" /></>),
+    users: I(<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" /></>),
+  };
+
   const TABS: { id: AdminTab; label: string; count: number }[] = [
     { id: 'schedule', label: 'Schedule', count: 0 },
     { id: 'applications', label: 'DJ Apps', count: applicationCount },
@@ -405,6 +436,7 @@ export function AdminDashboard() {
                     : 'bg-transparent text-zinc-500 border-[#333] hover:text-white hover:border-white/30'
                 }`}
               >
+                {TAB_ICONS[id]}
                 {label}
                 {count > 0 && (
                   <span className={activeTab === id ? 'text-black/50' : 'text-zinc-600'}>

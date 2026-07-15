@@ -49,6 +49,10 @@ interface UpcomingShow {
   broadcastToken?: string;
   showImageUrl?: string;
   djPhotoUrl?: string;
+  // The slot's djUsername — a collective slug for a collective slot, else the
+  // DJ handle. The card render resolves the image fallback from it (collective
+  // photo vs DJ profile photo) at render time.
+  slotDjUsername?: string;
   djGenres?: string[];
   djDescription?: string;
   broadcastType?: string;
@@ -748,6 +752,27 @@ export function StudioProfileClient() {
           : [];
         myCollectiveSlugsRef.current = new Set(ownedSlugs);
         setOwnedCollectiveSlugs(ownedSlugs);
+        // Fetch each owned collective's photo (by slug) for the card image
+        // fallback on collective shows. Fire-and-forget; the slot loop reads
+        // whatever's landed and re-runs on its own snapshot updates.
+        if (db && ownedSlugs.length > 0) {
+          void (async () => {
+            for (const slug of ownedSlugs) {
+              if (collectivePhotosRef.current.has(slug)) continue;
+              try {
+                const cs = await getDocs(
+                  query(collection(db, "collectives"), where("slug", "==", slug))
+                );
+                const photo = cs.docs[0]?.data()?.photo;
+                if (typeof photo === "string" && photo) {
+                  collectivePhotosRef.current.set(slug, photo);
+                }
+              } catch (err) {
+                console.error("Failed to load collective photo for", slug, err);
+              }
+            }
+          })();
+        }
         // Brand-new DJs may not have a djProfile map yet — release the
         // initial-load gate so auto-save effects can fire. Without this,
         // every save is silently no-op'd at the `if (initialLoadRef.current) return`
@@ -850,6 +875,11 @@ export function StudioProfileClient() {
   // the snapshot listener so a slot assigned to a collective the user owns
   // shows up in their upcoming list.
   const myCollectiveSlugsRef = useRef<Set<string>>(new Set());
+  // raw collective slug → collective photo, for the user's owned collectives.
+  // Only these can produce a collective slot on this DJ's card, so we only need
+  // their photos. Populated by the user-doc subscription (below), read in the
+  // slot loop to set each collective show's fallback image.
+  const collectivePhotosRef = useRef<Map<string, string>>(new Map());
 
 
   // Load upcoming shows for this DJ (broadcast slots + external radio shows)
@@ -908,6 +938,10 @@ export function StudioProfileClient() {
               broadcastToken: data.broadcastToken,
               showImageUrl: data.showImageUrl || undefined,
               djPhotoUrl: data.liveDjPhotoUrl || undefined,
+              // The slot's collective slug (if any) — the render resolves the
+              // actual fallback photo from it, so a late-loading collective/DJ
+              // photo is picked up on the next render rather than frozen here.
+              slotDjUsername: typeof data.djUsername === "string" ? data.djUsername : undefined,
               djGenres: data.liveDjGenres || undefined,
               djDescription: data.liveDjDescription || data.liveDjBio || undefined,
               broadcastType: data.broadcastType,
@@ -2975,20 +3009,34 @@ export function StudioProfileClient() {
                           <p className="text-gray-400 text-xs uppercase tracking-wide mb-2">Show Image</p>
                           <div className="flex items-center gap-4">
                             <div className="relative w-20 h-20 flex-shrink-0">
-                              {show.showImageUrl ? (
-                                <Image
-                                  src={show.showImageUrl}
-                                  alt="Show image"
-                                  fill
-                                  className="rounded object-cover"
-                                />
-                              ) : (
-                                <div className="w-20 h-20 rounded bg-gray-800 flex items-center justify-center">
-                                  <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                  </svg>
-                                </div>
-                              )}
+                              {(() => {
+                                // Uploaded show image wins. Else the fallback,
+                                // decided by what the slot IS: a collective slot
+                                // (djUsername is a collective slug the viewer
+                                // owns) → that collective's photo; a DJ slot → the
+                                // DJ's own profile photo. Resolved here at render
+                                // so a late-loading photo is picked up.
+                                const collectivePhoto = show.slotDjUsername
+                                  ? collectivePhotosRef.current.get(show.slotDjUsername)
+                                  : undefined;
+                                const img =
+                                  show.showImageUrl || collectivePhoto || djProfile.photoUrl || undefined;
+                                return img ? (
+                                  <Image
+                                    src={img}
+                                    alt="Show image"
+                                    fill
+                                    className="rounded object-cover"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <div className="w-20 h-20 rounded bg-gray-800 flex items-center justify-center">
+                                    <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  </div>
+                                );
+                              })()}
                               {isUploadingImage && (
                                 <div className="absolute inset-0 bg-black/50 rounded flex items-center justify-center">
                                   <div className="w-6 h-6 border-2 border-gray-700 border-t-white rounded-full animate-spin" />
