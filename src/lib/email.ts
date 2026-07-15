@@ -1892,7 +1892,7 @@ export async function sendResidentRescheduleEmail({
   const content = [
     proseP(greeting),
     proseP("It's been a little while since your last show."),
-    proseP(`Whenever you're ready, you can schedule your next live show or upload a pre-recorded set from your Studio: ${proseLink("https://channel-app.com/studio", "channel-app.com/studio")}`),
+    proseP(`Whenever you're ready, you can <strong>schedule your next live show or upload a pre-recorded set</strong> from your Studio: ${proseLink("https://channel-app.com/studio", "channel-app.com/studio")}`),
     proseP("Looking forward to hearing what you've been working on."),
     proseP(
       `Your previous show is still available to listen and share:<br />` +
