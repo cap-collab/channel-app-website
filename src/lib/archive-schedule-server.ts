@@ -462,16 +462,12 @@ const END_WINDOW_UTC_H = [10, 11] as const;  // 3am, 4am PT
 // Anchors beyond this horizon are DEFERRED to the next loop (the cron's
 // look-back catches them). 50h comfortably covers a ~48h loop's own playtime.
 const MAX_ANCHOR_HORIZON_MS = 50 * 3600 * 1000;
-// Medium pool fraction: include the least-recently-played HALF of mediums so
-// every medium airs over ~2 loops. The one tuning knob. With high ≈ medium
-// total catalog duration, half the mediums ≈ half the high duration → the loop
-// lands ~2/3 high / ~1/3 medium by time.
-const MEDIUM_POOL_FRACTION = 0.5;
 
-// Build the loop's pool: ALL highs + the least-recently-played half of mediums,
-// fully shuffled together (priority order is intentionally random). The curated
-// anchor archive (if any) is removed so it plays only in its pinned post-anchor
-// slot. Mediums rotate — the stale half plays this loop, the rest next loop.
+// Build the loop's pool: ALL highs + ALL mediums, fully shuffled together
+// (priority order is intentionally random). The curated anchor archive (if any)
+// is removed so it plays only in its pinned post-anchor slot. Every eligible show
+// plays once; the end-window truncation trims the tail to end in the 3-4am PT
+// window (~3 days out with the full catalog).
 function selectPool(
   archives: EligibleArchive[],
   curatedIds: Set<string>,
@@ -483,13 +479,7 @@ function selectPool(
   // isn't anchored.
   const pool = archives.filter((a) => !curatedIds.has(a.id));
   const highs = pool.filter((a) => a.priority === 'high');
-  // Least-recently-played first; undefined lastPlayedMs = never played = stalest.
-  const mediumsByStaleness = pool
-    .filter((a) => a.priority === 'medium')
-    .sort((a, b) => (a.lastPlayedMs ?? 0) - (b.lastPlayedMs ?? 0));
-  const half = Math.ceil(mediumsByStaleness.length * MEDIUM_POOL_FRACTION);
-  const mediums = mediumsByStaleness.slice(0, half);
-  // Shuffle highs and chosen mediums together — no priority spacing.
+  const mediums = pool.filter((a) => a.priority === 'medium');
   return shuffle([...highs, ...mediums], rng);
 }
 
@@ -546,6 +536,19 @@ function prevWindowMidMs(beforeMs: number, hourLo: number): number {
     if (mid <= beforeMs) return mid;
   }
   return Number.NEGATIVE_INFINITY;
+}
+
+// The FIRST [hourLo, hourLo+1) UTC window midpoint at-or-after `afterMs`. Used to
+// find the NEXT quiet start window (1-2am PT) a loop may begin at — so a next
+// loop never starts in a past window, and covers anchors from that window on.
+function nextWindowMidMs(afterMs: number, hourLo: number): number {
+  const day = new Date(afterMs);
+  day.setUTCHours(0, 0, 0, 0);
+  for (let d = -1; d <= 6; d++) {
+    const mid = day.getTime() + d * 86_400_000 + (hourLo + 0.5) * 3600 * 1000;
+    if (mid >= afterMs) return mid;
+  }
+  return afterMs;
 }
 
 // Decide loop N's startTimeMs + the ordered archive lists ("pour it in").
@@ -619,11 +622,6 @@ async function resolveLoopPlan(
   // horizon the selector below uses — same window for loader and selector, else
   // an in-window anchor gets dropped (loadAnchors' old 48h default did exactly that).
   const anchors = await loadAnchors(db, selBase, anchorHorizonMs - selBase);
-  const inHorizon = anchors.filter(
-    (a) => a.endTimeMs > nowMs && a.endTimeMs > selBase && a.endTimeMs <= anchorHorizonMs,
-  );
-  const firstAnchor = inHorizon[0] ?? null;
-  const curatedId = firstAnchor?.curatedArchiveId ?? null;
 
   // Audible target (wall-clock) of an anchor's hand-in: scheduled anchors play
   // the recording IN the loop at their slot start (no warmup); post-live anchors
@@ -631,6 +629,20 @@ async function resolveLoopPlan(
   // endTime + warmup.
   const anchorTarget = (a: LiveBlockBoundary) =>
     a.isScheduledAnchor ? a.startTimeMs : a.endTimeMs + ANCHOR_WARMUP_MS;
+
+  // The loop starts at the NEXT quiet window (1-2am PT) at/after now, and covers
+  // anchors from that window forward. It MAY start before the previous loop ends
+  // (intentional overlap) so it takes over and covers anchors the still-playing
+  // previous loop MISSED — e.g. loop-0046 (built before multi-anchor) has
+  // tomorrow's Apok + agraybé in its span but never placed them; loop-0047 starts
+  // 1am tomorrow and hands them off. An anchor BEFORE the next quiet window
+  // (e.g. Carhartt tonight, before tomorrow 1am) stays with the current loop.
+  const nextQuietWindowMs = nextWindowMidMs(nowMs, START_WINDOW_UTC_H[0]);
+  const inHorizon = anchors.filter(
+    (a) => anchorTarget(a) >= nextQuietWindowMs && a.endTimeMs <= anchorHorizonMs,
+  );
+  const firstAnchor = inHorizon[0] ?? null;
+  const curatedId = firstAnchor?.curatedArchiveId ?? null;
 
   // Every anchor's curated archive is kept out of the random pool (anchor-only
   // in this loop). Includes the first anchor's curated id.
@@ -650,15 +662,17 @@ async function resolveLoopPlan(
     ? (firstAnchor.isScheduledAnchor ? firstAnchor.startTimeMs : firstAnchor.endTimeMs + ANCHOR_WARMUP_MS)
     : 0;
 
-  // ANCHOR start (Rule 2): the loop must start at a 1-2am PT window that is BEFORE BOTH
-  // the anchor (so it can take over and hand off cleanly) AND prevEnd (so it overlaps the
-  // still-playing previous loop — no gap). The anchor is often INSIDE the current loop's
-  // span (that's why we regenerate). The later :881 backwards-align still fine-tunes the
-  // exact hand-off landing. (The no-anchor branch overrides this to prevEnd below.)
+  // ANCHOR start: the loop starts at the 1-2am PT window before the first anchor
+  // so it can take over and hand off cleanly — floored at `now` so it never starts
+  // in a PAST window (which would supersede the playing loop mid-show). It MAY
+  // start before prevNaturalEnd (intentional overlap) to cover anchors the still-
+  // playing previous loop missed. Note we no longer clamp the window base to
+  // prevNaturalEnd — that clamp pushed the start past the anchor when the prev
+  // loop outlasts it; the anchor is what the start must precede.
   if (firstAnchor) {
-    startTimeMs = prevWindowMidMs(
-      Math.min(anchorTargetMs, prevNaturalEnd),
-      START_WINDOW_UTC_H[0],
+    startTimeMs = Math.max(
+      nowMs,
+      prevWindowMidMs(anchorTargetMs, START_WINDOW_UTC_H[0]),
     );
   }
 
@@ -673,7 +687,9 @@ async function resolveLoopPlan(
     a.lastPlayedMs = recentPlays.get(a.id)?.lastPlayedMs;
   }
 
-  // Build the pool: all highs + stale half of mediums, curated removed, shuffled.
+  // Build the pool: all highs + as many mediums as needed to reach ~72h, curated
+  // removed, shuffled. UNIQUE shows only — no repeats. The end-window truncation
+  // trims to the nearest 3-4am PT window; loop length flexes with the catalog.
   const pool = selectPool(archives, anchorCuratedIds, rng);
 
   // Apply time-of-day diversity reorder to a segment (keeps repeats from landing
@@ -743,7 +759,10 @@ async function resolveLoopPlan(
   // no gap are unaffected. (Loop 31, 2026-06-25: poured 11.7h, needed 12.5h →
   // 47-min gap; this adds the one missing archive.) Overshoot by part of one
   // archive = a little extra overlap with the previous loop, which is fine.
-  const minPreSpanMs = Math.max(0, fillTargetMs - prevNaturalEnd);
+  // Pour enough pre-anchor content that the recomputed start (target −
+  // preAnchorSpan) lands at/after the loop's start (startTimeMs, floored at now),
+  // not before it — so the aligned start never slips into a past window.
+  const minPreSpanMs = Math.max(0, fillTargetMs - startTimeMs);
   const preItems: EligibleArchive[] = [];
   const postPool: EligibleArchive[] = [];
   let running = startTimeMs;
@@ -1118,6 +1137,16 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
     }
   }
 
+  // Hard floor: the loop must NEVER start in a past window (that would supersede
+  // the currently-playing loop mid-show). The pre-anchor pour is sized so the
+  // aligned start lands at/after now; floor here as a final backstop. Pin to `now`
+  // (NOT prevEnd — a next loop is allowed to start before the prev loop ends, to
+  // overlap and cover anchors the prev loop missed).
+  const nowFloorMs = args.nowMsOverride ?? Date.now();
+  if (startTimeMs < nowFloorMs) {
+    startTimeMs = nowFloorMs;
+  }
+
   // ── MULTI-ANCHOR splice pass (anchors #2…N) ──────────────────────────────
   // Anchor #1 is aligned by the loop-start back-shift above (works because the
   // loop hasn't started). Every LATER anchor is MID-LOOP — audio is already
@@ -1178,10 +1207,19 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
       // skip — better a plain crossfade than a broken/silent anchor.
       const curated = archives.find((a) => a.id === anc.curatedArchiveId);
       if (!curated) { missedLaterCount++; continue; }
-      // Cut math (mirrors splice-loop-anchor.ts): make the hand-back interlude
-      // audible at target − (ttDur − CROSSFADE); the cut archive's audible end =
-      // that + CROSSFADE.
-      const interludeAudibleMs = targetMs - (handbackDurSec - CROSSFADE_SEC) * 1000;
+      // Cut math — what lands EXACTLY on target differs by anchor kind:
+      //   • POST-LIVE (a live DJ just went off): the hand-back INTERLUDE is
+      //     audible at target (endTime+warmup) — "that was so-and-so" — then it
+      //     crossfades into the curated archive ~(ttDur−CROSSFADE) later.
+      //   • SCHEDULED (no live DJ, the show is simply booked to air at a time):
+      //     the ARCHIVE itself must be audible at target (its slot start). The
+      //     hand-back interlude plays BEFORE it, so the interlude is audible at
+      //     target − (ttDur − CROSSFADE) and crossfades into the archive at target.
+      // In both cases the cut archive's audible end = the interlude's audible
+      // start + CROSSFADE (it crossfades into the interlude there).
+      const interludeAudibleMs = anc.isScheduledAnchor
+        ? targetMs - (handbackDurSec - CROSSFADE_SEC) * 1000
+        : targetMs;
       const cutAudibleEndMs = interludeAudibleMs + CROSSFADE_SEC * 1000;
       // Pick the archive to cut short. The one spanning the target is preferred,
       // but it's invalid if it's an anchor archive (can't chop another anchor) or
