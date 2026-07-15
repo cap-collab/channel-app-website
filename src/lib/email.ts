@@ -1912,7 +1912,17 @@ export async function sendResidentRescheduleEmail({
       from: FROM_EMAIL_DJ,
       to,
       subject: `We'd love to have you back on the radio`,
-      html: wrapEmailContent(content, "You're receiving this as a resident on Channel." + signInReminderHtml(signInMethod, signInEmail)),
+      // Wide + tight (matches the weekly NL): 800px column, 12px side / 8px top
+      // padding, so it reads as a plain note rather than a boxed card.
+      html: wrapEmailContent(
+        content,
+        "You're receiving this as a resident on Channel." + signInReminderHtml(signInMethod, signInEmail),
+        undefined,
+        undefined,
+        12,
+        800,
+        8,
+      ),
       headers: getUnsubscribeHeaders("dj"),
     });
 
@@ -2173,9 +2183,16 @@ export async function sendArchiveTrackIdsEmail({
       from: FROM_EMAIL_DJ,
       to,
       subject: "Your track IDs are ready",
+      // Same width/padding as the weekly NL (800px, 12px side / 8px top) so it
+      // reads as a plain note rather than a boxed card.
       html: wrapEmailContent(
         content,
         "You're receiving this because you have a show on Channel." + signInReminderHtml(signInMethod, signInEmail),
+        undefined,
+        undefined,
+        12,
+        800,
+        8,
       ),
       headers: getUnsubscribeHeaders("dj"),
     });
