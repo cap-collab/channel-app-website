@@ -1877,35 +1877,31 @@ export async function sendResidentRescheduleEmail({
     return false;
   }
 
-  const studioUrl = "https://channel-app.com/studio";
-  // Plain-prose layout, matching the track-IDs email (no grey card, dark
-  // underlined links). 14px to match the weekly-NL intro body.
-  const p = "margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #1a1a1a;";
-  const link = "color: #1a1a1a; text-decoration: underline;";
   const greeting = djName === "there" ? "Hi," : `Hi ${djName},`;
 
   // "Your previous show is still available…" — the Channel deep-link only appears
   // when they have a listener-visible show to point at; SoundCloud/YouTube are
-  // Channel's own channel pages (static), so they always show. Tight <br/>-joined
-  // lines so the three links read as one block, not three loose paragraphs.
+  // Channel's own channel pages (static), so they always show. <br/>-joined into
+  // one paragraph so the three links read as one block.
   const channelLine = lastShowSlug
-    ? `Channel: <a href="https://channel-app.com/?archive=${encodeURIComponent(lastShowSlug)}" style="${link}">channel-app.com/?archive=${lastShowSlug}</a><br />`
+    ? `Channel: ${proseLink(`https://channel-app.com/?archive=${encodeURIComponent(lastShowSlug)}`, `channel-app.com/?archive=${lastShowSlug}`)}<br />`
     : "";
-  const backCatalogue = `
-    <p style="${p}">Your previous show is still available to listen and share:<br />
-      ${channelLine}SoundCloud: <a href="https://soundcloud.com/channel-254533657" style="${link}">soundcloud.com/channel-254533657</a><br />
-      YouTube: <a href="https://www.youtube.com/@CHANNELrad-io" style="${link}">youtube.com/@CHANNELrad-io</a>
-    </p>
-  `;
 
-  const content = `
-    <p style="${p}">${greeting}</p>
-    <p style="${p}">It's been a little while since your last show.</p>
-    <p style="${p}">Whenever you're ready, you can schedule your next live show or upload a pre-recorded set from your Studio: <a href="${studioUrl}" style="${link}">channel-app.com/studio</a></p>
-    <p style="${p}">Looking forward to hearing what you've been working on.</p>
-    ${backCatalogue}
-    <p style="${p}">Cap</p>
-  `;
+  // SHARED proseP/proseLink helpers (same as the weekly NL intro) — one source of
+  // truth for the plain-prose style, no per-email copies to drift.
+  const content = [
+    proseP(greeting),
+    proseP("It's been a little while since your last show."),
+    proseP(`Whenever you're ready, you can schedule your next live show or upload a pre-recorded set from your Studio: ${proseLink("https://channel-app.com/studio", "channel-app.com/studio")}`),
+    proseP("Looking forward to hearing what you've been working on."),
+    proseP(
+      `Your previous show is still available to listen and share:<br />` +
+        channelLine +
+        `SoundCloud: ${proseLink("https://soundcloud.com/channel-254533657", "soundcloud.com/channel-254533657")}<br />` +
+        `YouTube: ${proseLink("https://www.youtube.com/@CHANNELrad-io", "youtube.com/@CHANNELrad-io")}`,
+    ),
+    proseP("Cap"),
+  ].join("");
 
   try {
     const { error } = await resend.emails.send({
@@ -2152,8 +2148,6 @@ export async function sendArchiveTrackIdsEmail({
   }
 
   const greeting = djName === "there" ? "Hi," : `Hi ${djName},`;
-  const p = "margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #1a1a1a;";
-  const link = "color: #1a1a1a; text-decoration: underline;";
 
   // Deep-link that plays this show on the homepage — the same URL the on-site
   // Share button copies. When the slug is somehow missing, fall back to the DJ's
@@ -2169,14 +2163,16 @@ export async function sendArchiveTrackIdsEmail({
       ? `channel-app.com/dj/${profileSlug}`
       : "channel-app.com";
 
-  const content = `
-    <p style="${p}">${greeting}</p>
-    <p style="${p}">I've generated track IDs for your latest show. You can review them, edit any track, add missing ones, or make individual tracks private from your Studio.</p>
-    <p style="${p}">Share your show: <a href="${shareUrl}" style="${link}">${shareShort}</a></p>
-    <p style="${p}">Manage track IDs: <a href="https://channel-app.com/studio" style="${link}">channel-app.com/studio</a></p>
-    <p style="${p}">${relationshipHtml}</p>
-    <p style="${p}">Thanks,<br />Cap</p>
-  `;
+  // Uses the SHARED proseP/proseLink helpers (same as the weekly NL) so all
+  // plain-prose emails stay identical — no per-email style copies to drift.
+  const content = [
+    proseP(greeting),
+    proseP("I've generated track IDs for your latest show. You can review them, edit any track, add missing ones, or make individual tracks private from your Studio."),
+    proseP(`Share your show: ${proseLink(shareUrl, shareShort)}`),
+    proseP(`Manage track IDs: ${proseLink("https://channel-app.com/studio", "channel-app.com/studio")}`),
+    proseP(relationshipHtml),
+    proseP("Thanks,<br />Cap"),
+  ].join("");
 
   try {
     const { error } = await resend.emails.send({
