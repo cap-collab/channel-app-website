@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync, unlinkSync, mkdirSync, statSync, rmdirSync
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { chromium } from 'playwright';
-import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import admin from 'firebase-admin';
 
 const PORT = process.env.PORT || 3101;
@@ -119,6 +119,63 @@ const s3 = new S3Client({
   endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: { accessKeyId: R2_ACCESS_KEY, secretAccessKey: R2_SECRET_KEY },
 });
+
+// PUT an object, then READ IT BACK to confirm R2 can actually serve the body
+// before we treat the write as durable. R2 has been observed to accept a clean
+// single-part PUT (valid etag + Content-Length, so HEAD succeeds) yet lose the
+// object body afterward: every GET returns ServiceUnavailable / a Cloudflare
+// 1101. HEAD does NOT catch this (it answers from metadata) — only a GET does.
+// Left unchecked, a corrupt object flows into a "success" callback and Firestore
+// swap, and only surfaces when a listener presses play (dead-air interlude).
+//
+// So: PUT (with explicit ContentLength), then GET a small range and assert the
+// bytes come back AND start with a valid MP4/MP3 container header. On mismatch,
+// retry the whole PUT once (a fresh PUT of identical bytes has been shown to
+// heal the R2-dropped-body case). If it still fails, THROW so the caller fails
+// the job — the previous good URL is preserved rather than overwritten with a
+// silent-audio object.
+async function putObjectVerified({ Bucket, Key, Body, ContentType, CacheControl, ContentDisposition }) {
+  const expectedLen = Body.length;
+  const putParams = { Bucket, Key, Body, ContentLength: expectedLen, ContentType };
+  if (CacheControl) putParams.CacheControl = CacheControl;
+  if (ContentDisposition) putParams.ContentDisposition = ContentDisposition;
+  // Valid start-of-file signatures: MP4/M4A family ('....ftyp'), MP3 ('ID3' tag
+  // or an 0xFFEx frame sync). We only need to know the body is retrievable and
+  // not an error page (a 17-byte 'error code: 1101' fails both size + header).
+  const looksValid = (buf) => {
+    if (buf.length < 4) return false;
+    const ascii = buf.toString('latin1');
+    if (ascii.includes('ftyp')) return true;          // MP4 / M4A
+    if (ascii.startsWith('ID3')) return true;          // MP3 with ID3 tag
+    if ((buf[0] === 0xff) && ((buf[1] & 0xe0) === 0xe0)) return true; // MP3 frame sync
+    return false;
+  };
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    await s3.send(new PutObjectCommand(putParams));
+    try {
+      const got = await s3.send(new GetObjectCommand({ Bucket, Key, Range: 'bytes=0-63' }));
+      const chunks = [];
+      for await (const c of got.Body) chunks.push(Buffer.from(c));
+      const header = Buffer.concat(chunks);
+      // Confirm the full object is the size we wrote (metadata sanity) …
+      const head = await s3.send(new HeadObjectCommand({ Bucket, Key }));
+      if (Number(head.ContentLength) !== expectedLen) {
+        throw new Error(`size mismatch: wrote ${expectedLen}, HEAD reports ${head.ContentLength}`);
+      }
+      // … and that the served bytes are a real media header, not an error body.
+      if (!looksValid(header)) {
+        throw new Error(`unreadable body (got ${header.length}B, header="${header.toString('latin1').replace(/[^\x20-\x7e]/g, '.').slice(0, 32)}")`);
+      }
+      if (attempt > 1) console.log(`[r2-verify] ${Key} healed on retry ${attempt}`);
+      return; // verified serveable
+    } catch (verifyErr) {
+      lastErr = verifyErr;
+      console.error(`[r2-verify] ${Key} PUT verify failed (attempt ${attempt}): ${verifyErr?.message || verifyErr}`);
+    }
+  }
+  throw new Error(`R2 PUT verification failed for ${Key} after 2 attempts: ${lastErr?.message || lastErr}`);
+}
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -319,15 +376,13 @@ app.post('/backfill-soundcloud', authenticate, async (req, res) => {
         recordedAt: job.recordedAt,
         ext: audioResult.format,
       });
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: R2_BUCKET,
-          Key: audioKey,
-          Body: readFileSync(audioResult.path),
-          ContentType: audioContentType,
-          ContentDisposition: contentDispositionFor(audioDownloadName, audioFilename),
-        })
-      );
+      await putObjectVerified({
+        Bucket: R2_BUCKET,
+        Key: audioKey,
+        Body: readFileSync(audioResult.path),
+        ContentType: audioContentType,
+        ContentDisposition: contentDispositionFor(audioDownloadName, audioFilename),
+      });
       updates.soundcloudAudioUrl = `${R2_PUBLIC}/${audioKey}`;
     } else {
       console.log(`[${jobId}][backfill] audio already exists — skipping`);
@@ -538,15 +593,13 @@ async function runJob(job) {
         recordedAt: job.recordedAt,
         ext: audioExt,
       });
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: R2_BUCKET,
-          Key: audioKey,
-          Body: readFileSync(audioResult.path),
-          ContentType: audioContentType,
-          ContentDisposition: contentDispositionFor(audioDownloadName, audioFilename),
-        })
-      );
+      await putObjectVerified({
+        Bucket: R2_BUCKET,
+        Key: audioKey,
+        Body: readFileSync(audioResult.path),
+        ContentType: audioContentType,
+        ContentDisposition: contentDispositionFor(audioDownloadName, audioFilename),
+      });
       updates.soundcloudAudioUrl = `${R2_PUBLIC}/${audioKey}`;
 
       const coverFilename = `${baseNoExt}-cover.jpg`;
@@ -1588,13 +1641,13 @@ app.post('/normalize', authenticate, async (req, res) => {
 
     // --- 7. Upload v2 (normalized, untrimmed) ---
     const v2Key = swapExt(r2Key, v2Suffix);
-    await s3.send(new PutObjectCommand({
+    await putObjectVerified({
       Bucket: bucket,
       Key: v2Key,
       Body: readFileSync(tmpOut),
       ContentType: contentType,
       CacheControl: 'public, max-age=31536000, immutable',
-    }));
+    });
     const v2Url = publicBase ? `${publicBase}/${v2Key}` : null;
     console.log(`[normalize] Uploaded v2: ${v2Key}`);
 
@@ -1635,13 +1688,13 @@ app.post('/normalize', authenticate, async (req, res) => {
         );
         trimmedDurationSec = parseFloat(trimProbe.trim()) || 0;
         trimmedKey = swapExt(r2Key, trimmedSuffix);
-        await s3.send(new PutObjectCommand({
+        await putObjectVerified({
           Bucket: bucket,
           Key: trimmedKey,
           Body: readFileSync(tmpTrimmed),
           ContentType: contentType,
           CacheControl: 'public, max-age=31536000, immutable',
-        }));
+        });
         trimmedUrl = publicBase ? `${publicBase}/${trimmedKey}` : null;
         const kinds = [hasLeading && 'leading-trim', hasTrailing && 'trailing-trim', needsFade && 'fade-out'].filter(Boolean).join('+');
         console.log(`[normalize] Uploaded v2-trimmed (${kinds}): ${trimmedKey} (${trimmedDurationSec.toFixed(1)}s)`);
