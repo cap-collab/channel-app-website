@@ -148,12 +148,12 @@ const DEFAULT_SUBJECT = "Your Weekly Listening";
 // update never re-sends last week's news.
 export const WEEKLY_INTRO = {
   dj: {
-    active: true,
+    active: false,
     subject: "Collectives, Track IDs & Reach",
     build: buildDjIntro,
   },
   listener: {
-    active: true,
+    active: false,
     subject: "Track IDs, Discounts & Your Weekly Picks",
     // No greeting and no links on the listener variant — by design.
     build: buildListenerIntro,
