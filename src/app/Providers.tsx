@@ -12,7 +12,7 @@ import { FilterProvider } from "@/contexts/FilterContext";
 import { HeartNudgeProvider } from "@/contexts/HeartNudgeContext";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { initPostHog, identifyUser } from "@/lib/posthog";
+import { initPostHog, identifyUser, captureEvent } from "@/lib/posthog";
 import { useChunkErrorReload } from "@/hooks/useChunkErrorReload";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -37,6 +37,47 @@ function PostHogIdentify() {
       identifyUser(user.uid, { email: user.email, chatUsername });
     }
   }, [user, chatUsername]);
+
+  return null;
+}
+
+// Fires ONE `signed_in` PostHog event per session per device for any logged-in
+// user — including returning users whose Firebase session was silently restored
+// on load. This replaces the patchwork `email_submitted` events (which only ever
+// fired for OAuth popups + the AuthModal email-form intent, and missed magic-link
+// and password sign-ins entirely). Lives beside PostHogIdentify so it fires once
+// when `user` resolves, regardless of method or landing page.
+//
+// Throttled via localStorage exactly like LastSeenStamp below, because this
+// effect (like onAuthStateChanged) re-fires on tab focus / token refresh — without
+// the guard a single session would emit the event repeatedly. Session-scoped key
+// (no time window) so it counts each account once per device-session, not per nav.
+//
+// `provider` comes from Firebase's user record (reliable even on silent restore);
+// we intentionally do NOT attempt a fine-grained "method" here — a restored
+// session has no fresh sign-in action to read a method from, so a method field
+// would be guesswork. providerId is the honest, always-available signal.
+function SignInEvent() {
+  const { user } = useAuthContext();
+
+  useEffect(() => {
+    const uid = user?.uid;
+    if (!uid) return;
+    try {
+      const key = `signedInEvent:${uid}`;
+      if (window.sessionStorage.getItem(key)) return;
+      window.sessionStorage.setItem(key, "1");
+      // Firebase exposes the sign-in provider on the user record. For email/
+      // password and magic-link this is "password"; OAuth is "google.com" /
+      // "apple.com". Falls back gracefully if unavailable.
+      const provider =
+        user?.providerData?.[0]?.providerId || "unknown";
+      captureEvent("signed_in", { provider });
+    } catch {
+      // sessionStorage unavailable (private mode etc.) — skip; better to miss a
+      // count than to spam the event on every re-render.
+    }
+  }, [user]);
 
   return null;
 }
@@ -118,6 +159,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
       <PostHogIdentify />
+      <SignInEvent />
       <LastSeenStamp />
       <BPMProvider>
         <ScheduleProvider>
