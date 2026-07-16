@@ -123,6 +123,15 @@ export function FieldNotesClient() {
   const [myNotes, setMyNotes] = useState<FieldNoteSerialized[]>([]);  // author's own (any status)
   const [loading, setLoading] = useState(true);
 
+  // Deep link ?play=<noteId> → auto-play that tape + scroll it into view once.
+  // Read straight off the URL (no useSearchParams → no Suspense boundary needed).
+  const [autoPlayId, setAutoPlayId] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const id = new URLSearchParams(window.location.search).get('play');
+    if (id) setAutoPlayId(id);
+  }, []);
+
   // Open to everyone — the feature is only hidden from the menu for non-admins.
   const loadFeed = useCallback(async () => {
     try {
@@ -146,6 +155,14 @@ export function FieldNotesClient() {
   useEffect(() => {
     if (!authLoading) loadFeed();
   }, [authLoading, loadFeed]);
+
+  // Once the deep-linked tape is in the feed, scroll its card into view. The
+  // card itself starts playback (autoPlay prop). Runs once the notes land.
+  useEffect(() => {
+    if (!autoPlayId || loading) return;
+    const el = document.getElementById(`tape-${autoPlayId}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [autoPlayId, loading, notes]);
 
   // A note is "overheard" when it's tied to nothing — no entities and no event.
   const isOverheard = (note: FieldNoteSerialized) =>
@@ -296,20 +313,23 @@ export function FieldNotesClient() {
                     <div key={g.key} className="space-y-2">
                       <EntityHeader group={g} />
                       {g.notes.map((note) => (
-                        <FieldNoteAudioPlayer
-                          key={note.id}
-                          src={note.audioUrl}
-                          createdAt={note.createdAt}
-                          name={note.name}
-                          captions={note.captions}
-                          waveform={note.waveform}
-                          upvotes={note.upvotes || 0}
-                          myVote={note.myVote || 0}
-                          reachedCount={note.reachedCount || 0}
-                          onVote={(value) => handleVote(note.id, value)}
-                          onReply={() => setReplyTo(note)}
-                          onReached={() => handleReached(note.id)}
-                        />
+                        <div key={note.id} id={`tape-${note.id}`}>
+                          <FieldNoteAudioPlayer
+                            noteId={note.id}
+                            src={note.audioUrl}
+                            createdAt={note.createdAt}
+                            name={note.name}
+                            captions={note.captions}
+                            waveform={note.waveform}
+                            upvotes={note.upvotes || 0}
+                            myVote={note.myVote || 0}
+                            reachedCount={note.reachedCount || 0}
+                            autoPlay={autoPlayId === note.id}
+                            onVote={(value) => handleVote(note.id, value)}
+                            onReply={() => setReplyTo(note)}
+                            onReached={() => handleReached(note.id)}
+                          />
+                        </div>
                       ))}
                     </div>
                   ))}
@@ -323,20 +343,23 @@ export function FieldNotesClient() {
                 <h2 className={SECTION_HEADER_CLS}>Overheard</h2>
                 <div className="space-y-2">
                   {overheardNotes.map((note) => (
-                    <FieldNoteAudioPlayer
-                      key={note.id}
-                      src={note.audioUrl}
-                      createdAt={note.createdAt}
-                      name={note.name}
-                      captions={note.captions}
-                      waveform={note.waveform}
-                      upvotes={note.upvotes || 0}
-                      myVote={note.myVote || 0}
-                      reachedCount={note.reachedCount || 0}
-                      onVote={(value) => handleVote(note.id, value)}
-                      onReply={() => setReplyTo(note)}
-                      onReached={() => handleReached(note.id)}
-                    />
+                    <div key={note.id} id={`tape-${note.id}`}>
+                      <FieldNoteAudioPlayer
+                        noteId={note.id}
+                        src={note.audioUrl}
+                        createdAt={note.createdAt}
+                        name={note.name}
+                        captions={note.captions}
+                        waveform={note.waveform}
+                        upvotes={note.upvotes || 0}
+                        myVote={note.myVote || 0}
+                        reachedCount={note.reachedCount || 0}
+                        autoPlay={autoPlayId === note.id}
+                        onVote={(value) => handleVote(note.id, value)}
+                        onReply={() => setReplyTo(note)}
+                        onReached={() => handleReached(note.id)}
+                      />
+                    </div>
                   ))}
                 </div>
               </section>

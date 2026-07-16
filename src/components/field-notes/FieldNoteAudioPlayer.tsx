@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FieldNoteCaption } from '@/types/field-notes';
 
 interface Props {
+  noteId: string;              // this tape's id — used for the share deep link
   src: string;                 // audio OR video URL — we only play the audio track
   createdAt: number;           // unix ms
   name?: string | null;        // admin-given tape name, shown in the header
@@ -12,6 +13,7 @@ interface Props {
   upvotes: number;
   myVote: 1 | -1 | 0;
   reachedCount: number;              // play-throughs (playback passed the 7s mark)
+  autoPlay?: boolean;                // deep-linked (?play=<id>) → start playing on mount
   onVote: (value: 1) => void;        // parent handles auth + API + optimistic state
   onReply: () => void;               // parent opens the voice-reply capture
   onReached?: () => void;            // fired once when playback passes the 7s mark
@@ -30,12 +32,44 @@ function fmtClock(sec: number): string {
 // "Tape Archive" style card (mirrors the DJ-profile recording card): transparent
 // body with the tape's name + a line-style seek player. Self-contained local
 // <audio> so it plays the audio track of an audio OR video file.
-export function FieldNoteAudioPlayer({ src, name, captions, waveform, upvotes, myVote, reachedCount, onVote, onReply, onReached }: Props) {
+export function FieldNoteAudioPlayer({ noteId, src, name, captions, waveform, upvotes, myVote, reachedCount, autoPlay, onVote, onReply, onReached }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const reachedFiredRef = useRef(false);   // fire the play-through count at most once
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [copied, setCopied] = useState(false);
+
+  // Share a deep link to this tape (/tape?play=<id>) — opening it lands on the
+  // tape page and auto-plays this take. Copy first so "copied" feedback shows
+  // regardless of the share-sheet outcome, then open the native share sheet.
+  const handleShare = async () => {
+    if (typeof window === 'undefined') return;
+    const url = `${window.location.origin}/tape?play=${encodeURIComponent(noteId)}`;
+    try {
+      await navigator.clipboard?.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard blocked — share sheet below may still work */
+    }
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ url });
+      } catch {
+        /* user dismissed — the copy above already gave feedback */
+      }
+    }
+  };
+
+  // Deep-linked (?play=<id>) → start this tape once. May be blocked on iOS
+  // (play() outside a gesture chain); the listener still lands on the tape.
+  const autoPlayedRef = useRef(false);
+  useEffect(() => {
+    if (!autoPlay || autoPlayedRef.current) return;
+    autoPlayedRef.current = true;
+    audioRef.current?.play().catch(() => {});
+  }, [autoPlay]);
 
   // Waveform bars for the player line. Use the real per-tape loudness when
   // present; else a stable pseudo-random shape derived from the src so the bar
@@ -179,6 +213,26 @@ export function FieldNoteAudioPlayer({ src, name, captions, waveform, upvotes, m
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m0-14 6 6m-6-6-6 6" />
             </svg>
             {upvotes}
+          </button>
+        </div>
+        {/* Share — deep link to this tape (opens /tape and auto-plays it).
+            Centered. Same icon as the DJ-profile archive card. */}
+        <div className="flex-1 flex justify-center">
+          <button
+            onClick={handleShare}
+            aria-label="Share"
+            title="Share"
+            className={`flex items-center justify-center px-1.5 py-0.5 transition-colors ${copied ? 'text-green-400' : 'text-zinc-500 hover:text-white'}`}
+          >
+            {copied ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            )}
           </button>
         </div>
         <button
