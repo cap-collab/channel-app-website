@@ -62,12 +62,15 @@ export function FieldNoteAudioPlayer({ noteId, src, name, captions, waveform, up
     }
   };
 
-  // Deep-linked (?play=<id>) → start this tape once. May be blocked on iOS
-  // (play() outside a gesture chain); the listener still lands on the tape.
+  // Deep-linked (?play=<id>) → start this tape once, and highlight the card so
+  // the receiver sees which tape the link points at — important on mobile where
+  // autoplay is blocked (play() outside a gesture chain) and nothing moves.
   const autoPlayedRef = useRef(false);
+  const [highlighted, setHighlighted] = useState(false);
   useEffect(() => {
     if (!autoPlay || autoPlayedRef.current) return;
     autoPlayedRef.current = true;
+    setHighlighted(true);
     audioRef.current?.play().catch(() => {});
   }, [autoPlay]);
 
@@ -102,6 +105,7 @@ export function FieldNoteAudioPlayer({ noteId, src, name, captions, waveform, up
   };
 
   const onPlayPause = () => {
+    setHighlighted(false);   // receiver found it and interacted — drop the ring
     const a = audioRef.current;
     if (!a) return;
     if (isPlaying) a.pause();
@@ -123,7 +127,14 @@ export function FieldNoteAudioPlayer({ noteId, src, name, captions, waveform, up
   const showingCaption = isPlaying && !!activeCaption;
 
   return (
-    <div className="border border-[#333] rounded-none overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+    <div
+      className={`rounded-none overflow-hidden transition-shadow duration-700 ${
+        highlighted
+          ? 'border border-white/70 shadow-[0_0_0_2px_rgba(255,255,255,0.35)]'
+          : 'border border-[#333] shadow-none'
+      }`}
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+    >
       {/* Body: the tape's name, a small lowercase label above the player line.
           Hidden while a caption is showing (the caption replaces it). */}
       {name && !showingCaption && (
@@ -229,8 +240,9 @@ export function FieldNoteAudioPlayer({ noteId, src, name, captions, waveform, up
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              /* Same upload/share arrow as the DJ-profile archive card. */
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" />
               </svg>
             )}
           </button>
