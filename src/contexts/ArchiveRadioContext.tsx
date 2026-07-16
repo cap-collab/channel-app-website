@@ -7,6 +7,7 @@ import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { useArchiveRadio } from '@/hooks/useArchiveRadio';
 import { pauseSource } from '@/lib/audio-exclusive';
 import { captureEvent } from '@/lib/posthog';
+import { trackPlayConversion } from '@/lib/gtag';
 import { db } from '@/lib/firebase';
 import { hasActiveOrImminentBroadcastSlot } from '@/hooks/useBroadcastLiveStatus';
 import { collection } from 'firebase/firestore';
@@ -198,6 +199,7 @@ export function ArchiveRadioProvider({ children, enabled }: { children: ReactNod
     if (!wasPlaying && radio.isPlaying) {
       radioStartedAtRef.current = Date.now();
       captureEvent('playback_started', { type: 'radio' });
+      trackPlayConversion();
     } else if (wasPlaying && !radio.isPlaying) {
       const startedAt = radioStartedAtRef.current;
       const sessionDuration = startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0;

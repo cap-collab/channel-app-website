@@ -10,6 +10,7 @@ import { BroadcastSlotSerialized, ROOM_NAME } from '@/types/broadcast';
 import { findActiveDjSlot } from '@/lib/broadcast-utils';
 import Hls from 'hls.js';
 import { captureEvent } from '@/lib/posthog';
+import { trackPlayConversion } from '@/lib/gtag';
 import { registerAudio, pauseOthers } from '@/lib/audio-exclusive';
 
 // HLS stream URL - direct from R2 (bypasses Vercel serverless proxy).
@@ -407,6 +408,7 @@ export function useBroadcastStream(
             setError(null);
             playbackStartedAtRef.current = Date.now();
             captureEvent('playback_started', { type: 'live', protocol: 'webrtc' });
+            trackPlayConversion();
           })
           .catch((err) => {
             console.error('🎵 Audio play error:', err);
@@ -569,6 +571,7 @@ export function useBroadcastStream(
           setIsLoading(false);
           playbackStartedAtRef.current = Date.now();
           captureEvent('playback_started', { type: 'live', protocol: 'native' });
+          trackPlayConversion();
 
         } else if (Hls.isSupported()) {
           console.log('🎵 Using HLS.js');
@@ -599,6 +602,7 @@ export function useBroadcastStream(
               setIsLoading(false);
               playbackStartedAtRef.current = Date.now();
               captureEvent('playback_started', { type: 'live', protocol: 'hls' });
+              trackPlayConversion();
             } catch (err) {
               console.error('🎵 HLS play error:', err);
               setError('Tap to play');

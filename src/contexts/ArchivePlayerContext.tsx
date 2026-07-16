@@ -8,6 +8,7 @@ import { ArchiveSerialized } from '@/types/broadcast';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useBroadcastStreamContext } from '@/contexts/BroadcastStreamContext';
 import { captureEvent } from '@/lib/posthog';
+import { trackPlayConversion } from '@/lib/gtag';
 import { registerAudio, pauseOthers } from '@/lib/audio-exclusive';
 
 function getFirebaseApp() {
@@ -187,6 +188,7 @@ export function ArchivePlayerProvider({ children }: { children: ReactNode }) {
         if (!playbackStartedAtRef.current) {
           playbackStartedAtRef.current = Date.now();
           captureEvent('playback_started', { type: 'archive', protocol: 'native' });
+          trackPlayConversion();
         }
       });
       audio.addEventListener('pause', () => {
