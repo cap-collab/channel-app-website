@@ -50,7 +50,7 @@
     },
     {
       "path": "/api/cron/drain-normalize-queue",
-      "schedule": "3 * * * *"
+      "schedule": "3,18,33,48 * * * *"
     },
     {
       "path": "/api/cron/drain-faststart-queue",
