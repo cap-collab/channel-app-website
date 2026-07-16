@@ -2166,6 +2166,11 @@ export async function sendArchiveTrackIdsEmail({
     proseP(`Share your show: ${proseLink(shareUrl, shareShort)}`),
     proseP(`Manage track IDs: ${proseLink("https://channel-app.com/studio", "channel-app.com/studio")}`),
     proseP(relationshipHtml),
+    proseP(
+      "We are also cross posting all recordings on SoundCloud and YouTube" +
+        `<br />SoundCloud: ${proseLink("https://soundcloud.com/channel-254533657", "soundcloud.com/channel-254533657")}` +
+        `<br />YouTube: ${proseLink("https://youtube.com/@CHANNELrad-io", "youtube.com/@CHANNELrad-io")}`,
+    ),
     proseP("Thanks,<br />Cap"),
   ].join("");
 
