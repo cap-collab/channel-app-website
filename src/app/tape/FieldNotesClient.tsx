@@ -304,8 +304,8 @@ export function FieldNotesClient() {
                           captions={note.captions}
                           waveform={note.waveform}
                           upvotes={note.upvotes || 0}
-                          downvotes={note.downvotes || 0}
                           myVote={note.myVote || 0}
+                          reachedCount={note.reachedCount || 0}
                           onVote={(value) => handleVote(note.id, value)}
                           onReply={() => setReplyTo(note)}
                           onReached={() => handleReached(note.id)}
@@ -331,8 +331,8 @@ export function FieldNotesClient() {
                       captions={note.captions}
                       waveform={note.waveform}
                       upvotes={note.upvotes || 0}
-                      downvotes={note.downvotes || 0}
                       myVote={note.myVote || 0}
+                      reachedCount={note.reachedCount || 0}
                       onVote={(value) => handleVote(note.id, value)}
                       onReply={() => setReplyTo(note)}
                       onReached={() => handleReached(note.id)}

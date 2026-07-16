@@ -10,9 +10,9 @@ interface Props {
   captions?: FieldNoteCaption[] | null;  // line-by-line captions, synced to playback
   waveform?: number[] | null;  // 160 loudness values 0..1 for the player bar (older tapes may have 80)
   upvotes: number;
-  downvotes: number;
   myVote: 1 | -1 | 0;
-  onVote: (value: 1 | -1) => void;   // parent handles auth + API + optimistic state
+  reachedCount: number;              // play-throughs (playback passed the 7s mark)
+  onVote: (value: 1) => void;        // parent handles auth + API + optimistic state
   onReply: () => void;               // parent opens the voice-reply capture
   onReached?: () => void;            // fired once when playback passes the 7s mark
 }
@@ -30,7 +30,7 @@ function fmtClock(sec: number): string {
 // "Tape Archive" style card (mirrors the DJ-profile recording card): transparent
 // body with the tape's name + a line-style seek player. Self-contained local
 // <audio> so it plays the audio track of an audio OR video file.
-export function FieldNoteAudioPlayer({ src, name, captions, waveform, upvotes, downvotes, myVote, onVote, onReply, onReached }: Props) {
+export function FieldNoteAudioPlayer({ src, name, captions, waveform, upvotes, myVote, reachedCount, onVote, onReply, onReached }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const reachedFiredRef = useRef(false);   // fire the play-through count at most once
   const [isPlaying, setIsPlaying] = useState(false);
@@ -160,6 +160,16 @@ export function FieldNoteAudioPlayer({ src, name, captions, waveform, upvotes, d
       {/* Action bar: full black — votes left, voice reply right */}
       <div className="flex items-center justify-between px-3 py-2 bg-black border-t border-[#333]">
         <div className="flex items-center gap-1">
+          {/* Play count — tapes played past the 7s mark. Read-only. */}
+          <span
+            aria-label={`${reachedCount} plays`}
+            className="flex items-center gap-1 px-1.5 py-0.5 font-mono text-xs text-zinc-500"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            {reachedCount}
+          </span>
           <button
             onClick={() => onVote(1)}
             aria-label="Upvote"
@@ -169,16 +179,6 @@ export function FieldNoteAudioPlayer({ src, name, captions, waveform, upvotes, d
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m0-14 6 6m-6-6-6 6" />
             </svg>
             {upvotes}
-          </button>
-          <button
-            onClick={() => onVote(-1)}
-            aria-label="Downvote"
-            className={`flex items-center gap-1 px-1.5 py-0.5 font-mono text-xs transition-colors ${myVote === -1 ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-            <svg className="w-4 h-4" fill={myVote === -1 ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 14 6-6m-6 6-6-6" />
-            </svg>
-            {downvotes}
           </button>
         </div>
         <button
