@@ -128,10 +128,8 @@ export function FieldNoteAudioPlayer({ noteId, src, name, captions, waveform, up
 
   return (
     <div
-      className={`rounded-none overflow-hidden transition-shadow duration-700 ${
-        highlighted
-          ? 'border border-white/70 shadow-[0_0_0_2px_rgba(255,255,255,0.35)]'
-          : 'border border-[#333] shadow-none'
+      className={`rounded-none overflow-hidden border transition-colors duration-500 ${
+        highlighted ? 'border-white' : 'border-[#333]'
       }`}
       style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
     >
