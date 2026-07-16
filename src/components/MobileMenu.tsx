@@ -16,8 +16,24 @@ interface MobileMenuProps {
 
 export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  // Menu/backdrop anchor to the actual bottom of the header, which grows when
+  // the broadcast bar is showing — a fixed top-[60px] gets covered by it.
+  const [headerBottom, setHeaderBottom] = useState(60);
   const router = useRouter();
   const { user, isAuthenticated, signOut, loading } = useAuthContext();
+
+  // Measure the header's bottom edge whenever the menu opens (header height
+  // varies with the broadcast bar). Re-measure on resize while open.
+  useEffect(() => {
+    if (!isOpen) return;
+    const measure = () => {
+      const header = document.querySelector("header");
+      if (header) setHeaderBottom(Math.round(header.getBoundingClientRect().bottom));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [isOpen]);
 
   const handleItemClick = (item: MobileMenuItem) => {
     if (item.onClick) {
@@ -65,12 +81,16 @@ export function MobileMenu({ items, onSignInClick }: MobileMenuProps) {
         <>
           {/* Backdrop - starts below header to not block header clicks */}
           <div
-            className="fixed inset-0 top-[60px] z-[99]"
+            className="fixed inset-x-0 bottom-0 z-[99]"
+            style={{ top: headerBottom }}
             onClick={() => setIsOpen(false)}
           />
 
           {/* Menu - z-[200] to be above everything including backdrop */}
-          <div className="fixed right-4 top-[60px] z-[200] bg-black border border-gray-800 rounded-lg py-1 min-w-[180px]">
+          <div
+            className="fixed right-4 z-[200] bg-black border border-gray-800 rounded-lg py-1 min-w-[180px]"
+            style={{ top: headerBottom }}
+          >
             {items.map((item, index) => {
               // Handle auth item specially
               if (item.type === "auth") {
