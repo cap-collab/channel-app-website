@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // PostHog's SDK always POSTs to trailing-slash paths (/ingest/e/, /ingest/i/v0/e/).
+  // Next.js otherwise answers those with a 308 → /ingest/e redirect, and events sent
+  // via navigator.sendBeacon on page-leave DON'T follow redirects, so they're dropped
+  // (silently undercounting plays). Skip the redirect so /ingest/* proxies straight
+  // through to PostHog with a direct 200.
+  skipTrailingSlashRedirect: true,
   async redirects() {
     return [
       // /radio is the historical URL for the homepage. Google may still hold
