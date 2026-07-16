@@ -10,7 +10,7 @@ import { ShareableArchiveCard } from './ShareableArchiveCard';
 import { useScenesData, resolveArchiveScenes } from '@/hooks/useScenesData';
 import { ScenePillEditor } from './ScenePillEditor';
 import { TEMPOS } from '@/lib/tempo';
-import { parseTrackIds, matchTrackToDj, type TrackId, type DjCandidate } from '@/lib/track-ids';
+import { parseTrackIds, matchTrackToDj, matchTrackToDjStrict, type TrackId, type DjCandidate } from '@/lib/track-ids';
 import { normalizeUsername } from '@/lib/dj-matching';
 import type { SceneSerialized } from '@/types/scenes';
 
@@ -157,6 +157,7 @@ export function ArchivesTab({ onArchiveCountChange }: ArchivesTabProps) {
             value: `name:${username}`,
             kind: 'pending',
             username,
+            chatUsername: data.chatUsername || username, // stored verbatim on the tag
             label: `${data.chatUsername || username} (pending)`,
           });
         });
@@ -678,13 +679,24 @@ function ArchiveCard({
       chatUsername: d.chatUsername as string,
       chatUsernameNormalized: d.username || normalizeUsername(d.chatUsername as string),
     }));
+  // Pending-profile candidates — a much larger, noisier pool, so they're only
+  // auto-matched via matchTrackToDjStrict (artist-side / named-remixer only) as
+  // a FALLBACK after real users, and are also offered in the manual picker.
+  const pendingCandidates: DjCandidate[] = djOptions
+    .filter((d) => d.kind === 'pending' && d.chatUsername)
+    .map((d) => ({
+      chatUsername: d.chatUsername as string,
+      chatUsernameNormalized: d.username || normalizeUsername(d.chatUsername as string),
+    }));
 
   // Generate: parse the paste, then auto-select a matching Channel DJ per row
-  // (admin can edit after). Preserves the existing djUsername on re-generate is
-  // moot — Generate replaces the list from the raw paste.
+  // (admin can edit after). Real users match first (loose rule); if none, fall
+  // back to a STRICT match against the pending pool. Generate replaces the list.
   const handleGenerate = () => {
     const parsed = parseTrackIds(trackIdsRaw).map((t) => {
-      const match = matchTrackToDj(t.text, djCandidates);
+      const match =
+        matchTrackToDj(t.text, djCandidates) ||
+        matchTrackToDjStrict(t.text, pendingCandidates, normalizeUsername);
       return match ? { ...t, djUsername: match } : t;
     });
     setTrackIdsPreview(parsed);
@@ -996,12 +1008,18 @@ function ArchiveCard({
                       <ol className="space-y-1">
                         {trackIdsPreview.map((t, i) => {
                           const q = normalizeUsername(tagQuery);
-                          const matches = q
-                            ? djCandidates.filter((d) =>
+                          // Real users first, then pending profiles (marked), so
+                          // an admin can deliberately credit either.
+                          const pickerPool = [
+                            ...djCandidates.map((d) => ({ ...d, isPending: false })),
+                            ...pendingCandidates.map((d) => ({ ...d, isPending: true })),
+                          ];
+                          const matches = (q
+                            ? pickerPool.filter((d) =>
                                 d.chatUsernameNormalized.includes(q) ||
                                 normalizeUsername(d.chatUsername).includes(q))
-                              .slice(0, 8)
-                            : djCandidates.slice(0, 8);
+                            : pickerPool
+                          ).slice(0, 8);
                           return (
                             <li key={i} className="flex items-start gap-2 text-xs text-gray-300">
                               <span className="text-gray-600 tabular-nums pt-0.5">{i + 1}.</span>
@@ -1059,12 +1077,13 @@ function ArchiveCard({
                                     <div className="max-h-40 overflow-y-auto">
                                       {matches.length > 0 ? matches.map((d) => (
                                         <button
-                                          key={d.chatUsername}
+                                          key={`${d.isPending ? 'p' : 'u'}:${d.chatUsernameNormalized}`}
                                           type="button"
                                           onClick={() => setRowTag(i, d.chatUsername)}
                                           className="block w-full text-left px-2 py-1 rounded text-xs text-gray-300 hover:bg-gray-800"
                                         >
                                           @{d.chatUsername}
+                                          {d.isPending && <span className="ml-1 text-gray-500">(pending)</span>}
                                         </button>
                                       )) : (
                                         <p className="px-2 py-1 text-gray-600">No DJ match</p>

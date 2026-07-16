@@ -268,6 +268,76 @@ export function matchTrackToDj(text: string, djs: DjCandidate[]): string | undef
   return undefined;
 }
 
+// Common words that are ALSO real (pending) DJ handles, but which show up as
+// incidental words in a TRACK TITLE far more often than as a credit. The strict
+// matcher rejects these ONLY when they land on the title side of the dash — on
+// the artist side the same word is a legitimate credit (e.g. "Solar – …").
+const TITLE_STOPWORDS = new Set([
+  'youth', 'pure', 'diva', 'honey', 'fine', 'peach', 'grid', 'dome', 'case',
+  'circle', 'sepia', 'georgia', 'tone', 'amity', 'spectral', 'drone',
+  'collective', 'paradise', 'ofparadise', 'gabriella', 'circus', 'bloom',
+]);
+
+// Tokenize to the same alnum form matchTrackToDj / normalizeUsername use.
+function alnumTokens(s: string): string[] {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+}
+
+/**
+ * Stricter auto-match, used when matching a track against the BROAD pool of
+ * pending DJ profiles (which contains ~2k handles, many of them common words or
+ * substrings of longer artist names). Runs {@link matchTrackToDj}, then keeps
+ * the result ONLY when it looks like a real credit:
+ *
+ *   (a) the handle is the FULL normalized form of a credited artist on the
+ *       artist side of the "Artist – Track" dash (incl. comma/&/feat splits), OR
+ *   (b) the handle names a remixer/feature on the title side (a token-run before
+ *       a remix/version keyword) AND isn't a common title stopword.
+ *
+ * Fragment matches ("Atkins" in "Juan Atkins") and bare title words ("Honey" in
+ * "… – Honey (Dub)") are rejected. Shared by the console auto-select for pending
+ * DJs and the backfill script so both behave identically. `normalize` is the
+ * shared username normalizer (pass normalizeUsername).
+ */
+export function matchTrackToDjStrict(
+  text: string,
+  djs: DjCandidate[],
+  normalize: (name: string) => string,
+): string | undefined {
+  const raw = matchTrackToDj(text, djs);
+  if (!raw) return undefined;
+  const handle = normalize(raw);
+
+  // Split "Artist – Track" on the first " – " / " - " (space-padded so an
+  // internal hyphen like "VC-118A" or "L-Bomb" isn't mistaken for the divider).
+  const dashMatch = text.match(/\s[–-]\s/);
+  const artistSeg = dashMatch ? text.slice(0, dashMatch.index!) : text;
+  const rest = dashMatch ? text.slice(dashMatch.index! + dashMatch[0].length) : '';
+
+  // (a) full credited artist on the artist side — stopwords do NOT apply here.
+  const credited = artistSeg
+    .split(/,|&|feat\.?|ft\.?|featuring|présente|presents|vs\.?|x /i)
+    .map((s) => alnumTokens(s).join(''))
+    .filter(Boolean);
+  if (credited.includes(handle)) return raw;
+
+  // (b) named remixer/feature on the title side — but never a bare title word.
+  if (TITLE_STOPWORDS.has(handle)) return undefined;
+  if (/(remix|rework|edit|version|mix|dub|rezone|reconfiguration|vip|translation)/i.test(rest)) {
+    const restToks = alnumTokens(rest);
+    for (let i = 0; i < restToks.length; i++) {
+      let run = '';
+      for (let j = i; j < restToks.length; j++) {
+        run += restToks[j];
+        if (run.length > handle.length) break;
+        if (run === handle) return raw;
+      }
+    }
+  }
+
+  return undefined;
+}
+
 // Chat trigger: a message asking for the tracklist. Matches "track id",
 // "track ids", "trackid", "track id?", case-insensitive.
 export function isTrackIdRequest(text: string): boolean {
