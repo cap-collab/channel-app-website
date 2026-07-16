@@ -1708,14 +1708,9 @@ export async function sendBroadcast48HourReminderEmail({
     return false;
   }
 
-  // Residents (monthly/quarterly) already know the ropes — drop the
-  // setup/test/share checklist and keep just the show-presentation nudge.
-  const checklistRows = isResident
-    ? `
-            <tr>
-              <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; <strong>Pick a strong image and a good show name.</strong> It's what people see first, and it shapes how your show stands out.</td>
-            </tr>`
-    : `
+  // Same instruction block for everyone — resident vs non-resident only
+  // changes the subject line, not the body.
+  const checklistRows = `
             <tr>
               <td style="padding: 4px 0 4px 16px; font-size: 14px; color: #1a1a1a;">&#8226; <strong>Pick a strong image and a good show name.</strong> It's what people see first, and it shapes how your show stands out.</td>
             </tr>
