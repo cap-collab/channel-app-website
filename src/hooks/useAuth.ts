@@ -18,9 +18,15 @@ import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, googleProvider, appleProvider } from "@/lib/firebase";
 import { getDefaultCity } from "@/lib/city-detection";
 import { normalizeUsername } from "@/lib/dj-matching";
+import { captureAnon, mergeAnonHistory } from "@/lib/merge-anon-history";
 
 const EMAIL_FOR_SIGN_IN_KEY = "emailForSignIn";
 const NOTIFICATIONS_PREF_KEY = "notificationsPref";
+// Magic-link completes in a fresh tab where the anon session is no longer
+// currentUser, so stash the anon identity here to merge after sign-in. Skipped
+// silently if absent (cross-browser Android links) — never blocks sign-in.
+const MERGE_ANON_UID_KEY = "mergeAnonUid";
+const MERGE_ANON_TOKEN_KEY = "mergeAnonIdToken";
 
 // chatUsername and chatUsernameNormalized must always be written together —
 // /dj/<username> looks up by chatUsernameNormalized, so a user with one but not
@@ -170,6 +176,16 @@ export function useAuth() {
               }
             }
 
+            // Fold any anonymous history stashed by sendEmailLink into this
+            // account (same-browser links only; absent → skipped). Non-fatal.
+            const mergeAnonUid = window.localStorage.getItem(MERGE_ANON_UID_KEY);
+            const mergeAnonToken = window.localStorage.getItem(MERGE_ANON_TOKEN_KEY);
+            if (mergeAnonUid && mergeAnonToken) {
+              void mergeAnonHistory({ uid: mergeAnonUid, idToken: mergeAnonToken }, user);
+            }
+            window.localStorage.removeItem(MERGE_ANON_UID_KEY);
+            window.localStorage.removeItem(MERGE_ANON_TOKEN_KEY);
+
             // Clear stored email and preferences
             window.localStorage.removeItem(EMAIL_FOR_SIGN_IN_KEY);
             window.localStorage.removeItem(NOTIFICATIONS_PREF_KEY);
@@ -246,6 +262,9 @@ export function useAuth() {
       return null;
     }
 
+    // Capture the anon session (if any) BEFORE sign-in replaces currentUser, so
+    // its history can be merged into the account below. Non-fatal.
+    const anon = await captureAnon();
     try {
       setState((prev) => ({ ...prev, loading: true, error: null }));
       const result = await signInWithPopup(auth, googleProvider);
@@ -337,6 +356,9 @@ export function useAuth() {
         }
       }
 
+      // Fold any anonymous history into this account (non-fatal, no-op if none).
+      void mergeAnonHistory(anon, user);
+
       setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
       return user;
     } catch (error) {
@@ -357,6 +379,7 @@ export function useAuth() {
       return null;
     }
 
+    const anon = await captureAnon();
     try {
       setState((prev) => ({ ...prev, loading: true, error: null }));
       const result = await signInWithPopup(auth, appleProvider);
@@ -447,6 +470,9 @@ export function useAuth() {
         }
       }
 
+      // Fold any anonymous history into this account (non-fatal, no-op if none).
+      void mergeAnonHistory(anon, user);
+
       setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
       return user;
     } catch (error) {
@@ -479,6 +505,14 @@ export function useAuth() {
       // Store email and notification preference for after sign-in
       window.localStorage.setItem(EMAIL_FOR_SIGN_IN_KEY, email);
       window.localStorage.setItem(NOTIFICATIONS_PREF_KEY, enableNotifications.toString());
+
+      // Stash the current anon identity so its history can be merged when the
+      // link is completed (same browser). captureAnon returns null if not anon.
+      const anon = await captureAnon();
+      if (anon) {
+        window.localStorage.setItem(MERGE_ANON_UID_KEY, anon.uid);
+        window.localStorage.setItem(MERGE_ANON_TOKEN_KEY, anon.idToken);
+      }
 
       setState((prev) => ({ ...prev, loading: false, emailSent: true }));
       return true;
@@ -521,6 +555,7 @@ export function useAuth() {
       return null;
     }
 
+    const anon = await captureAnon();
     try {
       setState((prev) => ({ ...prev, loading: true, error: null }));
       const result = await signInWithEmailAndPassword(auth, email, password);
@@ -564,6 +599,9 @@ export function useAuth() {
         await setDoc(userRef, updateData, { merge: true });
       }
 
+      // Fold any anonymous history into this account (non-fatal, no-op if none).
+      void mergeAnonHistory(anon, user);
+
       setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
       return user;
     } catch (error) {
@@ -597,6 +635,7 @@ export function useAuth() {
       return null;
     }
 
+    const anon = await captureAnon();
     try {
       setState((prev) => ({ ...prev, loading: true, error: null }));
       const result = await createUserWithEmailAndPassword(auth, email, password);
@@ -635,6 +674,9 @@ export function useAuth() {
         }
       }
 
+      // Fold any anonymous history into this brand-new account (non-fatal).
+      void mergeAnonHistory(anon, user);
+
       setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
       return user;
     } catch (error) {
@@ -667,6 +709,7 @@ export function useAuth() {
       return null;
     }
 
+    const anon = await captureAnon();
     try {
       setState((prev) => ({ ...prev, loading: true, error: null }));
       // Try creating a new account first
@@ -704,6 +747,9 @@ export function useAuth() {
           console.error('Failed to reconcile broadcast slots (non-fatal):', err);
         }
       }
+
+      // Fold any anonymous history into this brand-new account (non-fatal).
+      void mergeAnonHistory(anon, user);
 
       setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
       return user;
@@ -750,6 +796,10 @@ export function useAuth() {
           } else {
             await setDoc(userRef, updateData, { merge: true });
           }
+
+          // Existing account: fold the anon history in via server merge (the anon
+          // uid can't be kept here). Non-fatal — never blocks this sign-in.
+          void mergeAnonHistory(anon, user);
 
           setState({ user, loading: false, error: null, emailSent: false, passwordResetSent: false });
           return user;
