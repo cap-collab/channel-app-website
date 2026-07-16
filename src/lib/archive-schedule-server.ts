@@ -446,11 +446,11 @@ interface LoopPlan {
 // ── Loop pool + windowing constants ──
 const CROSSFADE_SEC = 5;
 // Warmup for a LIVE/RESTREAM anchor hand-back: the listener-side audio source
-// switch (live → radio) takes a few seconds, so the post-block interlude is made
+// switch (live → radio) takes a moment, so the post-block interlude is made
 // audible at endTimeMs + warmup. SCHEDULED anchors (broadcastType:'anchor') have
 // no source switch (radio is already playing) and use warmup 0, aligned to start.
-// History: 2s → 4s (2026-06-04 clipping) → 3s (2026-06-11 per Cap).
-const ANCHOR_WARMUP_MS = 3000;
+// History: 2s → 4s (2026-06-04 clipping) → 3s (2026-06-11) → 1s (2026-07-15 per Cap).
+const ANCHOR_WARMUP_MS = 1000;
 // Start window: 1-2am PT. End window: 3-4am PT. Both are wall-clock targets the
 // loop snaps to; loop length flexes (in whole days) to land start in one and end
 // in the other. Expressed as UTC hours-of-day (PDT = UTC-7; ±1h in PST months).
