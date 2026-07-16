@@ -2163,8 +2163,10 @@ export async function sendArchiveTrackIdsEmail({
   const content = [
     proseP(greeting),
     proseP("I've generated track IDs for your latest show. You can review them, edit any track, add missing ones, or make individual tracks private from your Studio."),
-    proseP(`Share your show: ${proseLink(shareUrl, shareShort)}`),
-    proseP(`Manage track IDs: ${proseLink("https://channel-app.com/studio", "channel-app.com/studio")}`),
+    proseP(
+      `Share your show: ${proseLink(shareUrl, shareShort)}` +
+        `<br />Manage track IDs: ${proseLink("https://channel-app.com/studio", "channel-app.com/studio")}`,
+    ),
     proseP(relationshipHtml),
     proseP(
       "We are also cross posting all recordings on SoundCloud and YouTube" +
