@@ -23,6 +23,9 @@ export function SceneClient() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  // Whether personalized recs are on screen (reported by SceneRecommendations).
+  // An anon user already seeing their own recs is NOT nudged to sign in.
+  const [hasPersonalizedRecs, setHasPersonalizedRecs] = useState(false);
   // Measured top offset for the fixed Edit button = sticky <header> height + the
   // search bar's pt-4 (16px), so it lands level with the search bar regardless of
   // whether the broadcast bar inside the header is showing.
@@ -79,6 +82,11 @@ export function SceneClient() {
   //  - there's a ?u= token — that's a weekly-email recipient already looking at
   //    their OWN recs, read-only. Asking them to sign in to see what's on screen
   //    would be nonsense.
+  //  - personalized recs are already on screen — an anon user with history now
+  //    sees their OWN recs (we broadened the fetch to anon users), so nudging
+  //    them to "sign in for your own" is nonsense. Anon users with NO history
+  //    still see the featured grid and ARE nudged (sign-in = value exchange for
+  //    carrying taste across devices).
   //  - it already fired this session.
   //
   // The "fired" flag is set when the TIMER fires, not on close: `showAuthModal`
@@ -87,7 +95,7 @@ export function SceneClient() {
   // fire again afterwards.
   const signedIn = !!user && !user.isAnonymous;
   useEffect(() => {
-    if (loading || signedIn || targetToken) return;
+    if (loading || signedIn || targetToken || hasPersonalizedRecs) return;
     let fired = false;
     try {
       fired = sessionStorage.getItem(SIGNIN_PROMPT_FIRED) === '1';
@@ -101,7 +109,7 @@ export function SceneClient() {
       setShowAuthModal(true);
     }, 5000);
     return () => clearTimeout(t);
-  }, [loading, signedIn, targetToken]);
+  }, [loading, signedIn, targetToken, hasPersonalizedRecs]);
 
   return (
     <div className="min-h-[100dvh] text-white relative flex flex-col">
@@ -156,6 +164,7 @@ export function SceneClient() {
           onAuthRequired={() => setShowAuthModal(true)}
           editMode={editMode}
           onCanEditChange={setCanEdit}
+          onHasPersonalizedRecsChange={setHasPersonalizedRecs}
           targetToken={targetToken}
         />
       </main>

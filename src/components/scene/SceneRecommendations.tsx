@@ -65,11 +65,16 @@ export function SceneRecommendations({
   onAuthRequired,
   editMode,
   onCanEditChange,
+  onHasPersonalizedRecsChange,
   targetToken,
 }: {
   onAuthRequired: () => void;
   editMode: boolean; // owned by SceneClient (button lives in the search row)
   onCanEditChange: (canEdit: boolean) => void;
+  // Reports up to SceneClient whether personalized recs are on screen (sections
+  // or dive-back-in). Drives the sign-in nudge: an anon user already seeing their
+  // own recs should NOT be nudged. Only meaningful once loading has resolved.
+  onHasPersonalizedRecsChange?: (has: boolean) => void;
   // Weekly-email deep-link token (?u=). When present, render THIS recipient's
   // own scene read-only via the public by-uid endpoint — no login required.
   targetToken?: string;
@@ -103,11 +108,15 @@ export function SceneRecommendations({
       setLoading(true);
       setComingUpLoaded(false);
 
-      // Kick off the fast, public coming-up immediately (logged-in own-scene only —
-      // the deep-link and logged-out paths already fetch it without an auth wait).
+      // Kick off the fast, public coming-up immediately (own-scene only — the
+      // deep-link and logged-out paths already fetch it without an auth wait).
       // This lets the "Coming up" section paint before the personalized `me`
       // response (which recomputes it with the city gate + mutes) resolves.
-      if (!targetToken && isAuthenticated && user) {
+      // `user` (not `isAuthenticated`) so ANONYMOUS users with history also get
+      // the personalized path — their anon ID token is accepted by `/me`, which
+      // reads their history subcollections. isAuthenticated (= !isAnonymous) would
+      // wrongly exclude them and leave real captured taste unused.
+      if (!targetToken && user) {
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
         fetch(`/api/recommendations/featured?tz=${encodeURIComponent(tz)}`)
           .then((r) => (r.ok ? (r.json() as Promise<FeaturedResponse>) : null))
@@ -143,7 +152,13 @@ export function SceneRecommendations({
           const data: MeResponse = await res.json();
           if (cancelled) return;
           applyPersonalized(data);
-        } else if (isAuthenticated && user) {
+        } else if (user) {
+          // `user` (incl. anonymous), not `isAuthenticated`: an anon user with
+          // captured history gets personalized recs. `/me` accepts the anon ID
+          // token (verifyIdToken) and reads their history; a no-history anon user
+          // just gets the featured grid back via `startHere` (same as logged-out,
+          // one extra call). Mutating actions (dismiss/follow/edit) stay gated on
+          // isAuthenticated below, so this only broadens what anon users SEE.
           const token = await user.getIdToken();
           const res = await fetch('/api/recommendations/me', {
             method: 'POST',
@@ -197,6 +212,15 @@ export function SceneRecommendations({
   useEffect(() => {
     onCanEditChange(canEdit);
   }, [canEdit, onCanEditChange]);
+
+  // Tell SceneClient whether personalized recs are on screen (drives the sign-in
+  // nudge). Report only once loading resolves so a mid-load empty state doesn't
+  // flap the nudge; the featured-grid ("no-pref") branch reports false.
+  const hasPersonalizedRecs = sections.length > 0 || diveBackIn.length > 0;
+  useEffect(() => {
+    if (loading) return;
+    onHasPersonalizedRecsChange?.(hasPersonalizedRecs);
+  }, [loading, hasPersonalizedRecs, onHasPersonalizedRecsChange]);
 
   // Logged-out / no-preference branch: a "Start here" featured grid with no
   // personalized sections. This drives the shared scene/tempo filter chips (like
