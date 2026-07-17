@@ -463,6 +463,43 @@ const END_WINDOW_UTC_H = [10, 11] as const;  // 3am, 4am PT
 // look-back catches them). 50h comfortably covers a ~48h loop's own playtime.
 const MAX_ANCHOR_HORIZON_MS = 50 * 3600 * 1000;
 
+// An anchor counts as "already covered" by a stored loop only if that loop
+// places its curated archive AND lands it within this tolerance of the slot
+// time. Absorbs crossfade/rounding jitter (a few seconds) but NOT real drift — a
+// mis-placed anchor (e.g. 28 min late) is NOT covered, so the next loop re-anchors
+// it. Used to skip anchors the still-playing loop already handles, so the next
+// loop back-aligns to the first MISSING anchor (not one already on-air on-time).
+const ANCHOR_COVERED_TOLERANCE_MS = 10 * 1000;
+
+// When the currently-playing loop is still the latest stored, ensureNextLoop
+// builds its successor ONLY when there's a real reason to — never eagerly (an
+// eager build back-dates its start to the soonest anchor and supersedes the
+// playing loop, reshuffling daytime audio: the 2026-07-17 incident). Reasons:
+//   • the playing loop ends within NEXT_LOOP_END_LEAD_MS (running low on runway), OR
+//   • a MISSING anchor (not already placed on-target) lands within
+//     NEXT_LOOP_ANCHOR_LOOKAHEAD_MS (a live show the playing loop won't hand off to).
+const NEXT_LOOP_END_LEAD_MS = 28 * 3600 * 1000;
+const NEXT_LOOP_ANCHOR_LOOKAHEAD_MS = 24 * 3600 * 1000;
+
+// Does the stored loop (its items + start) already place this anchor's curated
+// archive audible within tolerance of the anchor's target moment?
+function loopCoversAnchor(
+  loopStartMs: number,
+  loopItems: ScheduleItem[],
+  anchor: LiveBlockBoundary,
+): boolean {
+  if (!anchor.curatedArchiveId) return false;
+  const target = anchor.isScheduledAnchor
+    ? anchor.startTimeMs
+    : anchor.endTimeMs + ANCHOR_WARMUP_MS;
+  for (const it of loopItems) {
+    if (it.kind !== 'archive' || it.archiveId !== anchor.curatedArchiveId) continue;
+    const audibleMs = loopStartMs + it.startOffsetSec * 1000;
+    if (Math.abs(audibleMs - target) <= ANCHOR_COVERED_TOLERANCE_MS) return true;
+  }
+  return false;
+}
+
 // Build the loop's pool: ALL highs + ALL mediums, fully shuffled together
 // (priority order is intentionally random). The curated anchor archive (if any)
 // is removed so it plays only in its pinned post-anchor slot. Every eligible show
@@ -586,11 +623,13 @@ async function resolveLoopPlan(
   const prev = await db.collection(LOOP_COLLECTION).doc(loopDocId(args.loopNumber - 1)).get();
   let prevNaturalEnd = nowMs;
   let prevStart = nowMs;
+  let prevItems: ScheduleItem[] = [];
   if (prev.exists) {
     const data = prev.data() ?? {};
     prevStart = Number(data.startTimeMs ?? 0);
     const totalDurationSec = Number(data.totalDurationSec ?? 0);
     prevNaturalEnd = prevStart + totalDurationSec * 1000;
+    prevItems = Array.isArray(data.items) ? (data.items as ScheduleItem[]) : [];
   }
   const earliestStartMs = Math.max(nowMs, prevNaturalEnd);
 
@@ -639,7 +678,16 @@ async function resolveLoopPlan(
   // (e.g. Carhartt tonight, before tomorrow 1am) stays with the current loop.
   const nextQuietWindowMs = nextWindowMidMs(nowMs, START_WINDOW_UTC_H[0]);
   const inHorizon = anchors.filter(
-    (a) => anchorTarget(a) >= nextQuietWindowMs && a.endTimeMs <= anchorHorizonMs,
+    (a) =>
+      anchorTarget(a) >= nextQuietWindowMs &&
+      a.endTimeMs <= anchorHorizonMs &&
+      // Skip anchors the still-playing previous loop ALREADY places on-target, so
+      // this loop back-aligns to the first MISSING anchor — not one already on-air
+      // on time (that would back-date the start into the past and supersede the
+      // playing loop, reshuffling daytime audio for no reason). The match is per
+      // slot (archiveId + this slot's target), so the SAME show scheduled twice at
+      // different times is only excluded at the occurrence the prev loop covers.
+      !loopCoversAnchor(prevStart, prevItems, a),
   );
   const firstAnchor = inHorizon[0] ?? null;
   const curatedId = firstAnchor?.curatedArchiveId ?? null;
@@ -1441,6 +1489,27 @@ export async function ensureNextLoop(args: { generatedBy?: 'cron' | 'admin' } = 
           }
         }
         return { skipped: 'already-future', loopNumber };
+      }
+
+      // The latest stored loop IS the currently-playing one. Build its successor
+      // ONLY when there's a real reason (see NEXT_LOOP_* constants) — otherwise
+      // skip, leaving the playing loop untouched. An eager build here back-dates
+      // its start to the soonest anchor and supersedes the playing loop mid-day.
+      const endsSoon = endMs - now < NEXT_LOOP_END_LEAD_MS;
+      let hasMissingAnchorSoon = false;
+      if (!endsSoon) {
+        const items: ScheduleItem[] = Array.isArray(data.items) ? (data.items as ScheduleItem[]) : [];
+        const anchorTargetOf = (a: LiveBlockBoundary) =>
+          a.isScheduledAnchor ? a.startTimeMs : a.endTimeMs + ANCHOR_WARMUP_MS;
+        const anchors = await loadAnchors(db, now, NEXT_LOOP_ANCHOR_LOOKAHEAD_MS);
+        hasMissingAnchorSoon = anchors.some((a) => {
+          const target = anchorTargetOf(a);
+          if (target < now || target - now > NEXT_LOOP_ANCHOR_LOOKAHEAD_MS) return false;
+          return !loopCoversAnchor(startTimeMs, items, a);
+        });
+      }
+      if (!endsSoon && !hasMissingAnchorSoon) {
+        return { skipped: 'already-future', loopNumber: Number(data.loopNumber ?? 0) };
       }
     }
   }
