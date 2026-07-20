@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WebhookReceiver, EgressClient } from 'livekit-server-sdk';
-import { SegmentedFileOutput, SegmentedFileProtocol, S3Upload } from '@livekit/protocol';
+import { SegmentedFileOutput, SegmentedFileProtocol, S3Upload, TrackType } from '@livekit/protocol';
 import { getAdminDb, getAdminRtdb } from '@/lib/firebase-admin';
 import { Recording, STATION_ID, ROOM_NAME } from '@/types/broadcast';
 import { extractDJs } from '@/lib/extract-djs';
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     // 3. room_finished → unconditionally clear (room is gone, no one can be publishing)
     // 4. complete-expired-slots cron → also clears RTDB as a periodic safety net
     if (event.event === 'track_published' && event.participant && event.track) {
-      if (event.track.type === 1 /* AUDIO */) {
+      if (event.track.type === TrackType.AUDIO) {
         await updateStreamingStatus(true, event.participant.identity);
       }
     }
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
         const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
         const participants = await roomService.listParticipants(ROOM_NAME);
         const publishing = participants.some(p =>
-          p.tracks.some(t => t.type === 1 /* AUDIO */ && !t.muted)
+          p.tracks.some(t => t.type === TrackType.AUDIO && !t.muted)
         );
         if (!publishing) {
           await updateStreamingStatus(false);
