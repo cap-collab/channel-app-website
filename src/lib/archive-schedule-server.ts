@@ -1148,49 +1148,78 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
   // audible" (CROSSFADE_SEC subtracted between transitions in buildLoop's
   // cumulative pass). So aligning the schedule offset with the anchor moment
   // also aligns the audible fade-in moment — no extra CROSSFADE shift needed.
+  const nowFloorMs = args.nowMsOverride ?? Date.now();
   let startTimeMs = plan.startTimeMs;
-  if (plan.anchor && plan.preAnchorArchiveIds !== null) {
-    let anchorArchiveIdx = -1;
-    if (plan.anchor.curatedArchiveId) {
-      anchorArchiveIdx = result.items.findIndex(
-        (it) => it.kind === 'archive' && it.archiveId === plan.anchor!.curatedArchiveId,
-      );
-    }
-    if (anchorArchiveIdx < 0) {
-      // buildLoop assembly order: [startInt, pa0, int, pa1, int, ..., pa(N-1),
-      // anchorInt, anchorArchive, restInt, rest...]
-      // anchorArchive index = 1 (startInt) + N (pre-anchor archives)
-      //                       + (N-1) (interludes between pre-anchors)
-      //                       + 1 (anchor interlude) = 2N + 1
-      const preLen = plan.preAnchorArchiveIds.length;
-      anchorArchiveIdx = 2 * preLen + 1;
-    }
+  if (plan.anchor && plan.preAnchorArchiveIds !== null && plan.anchor.curatedArchiveId) {
+    const curatedId = plan.anchor.curatedArchiveId;
+    // buildLoop assembly order before the anchor:
+    //   [startInt, pa0, int, pa1, int, ..., pa(N-1), anchorInt, anchorArchive, ...]
+    // Locate the anchor archive BY ID (ground truth) — never positional; a
+    // positional estimate drifts once we start dropping items below.
+    const findAnchorIdx = (): number =>
+      result.items.findIndex((it) => it.kind === 'archive' && it.archiveId === curatedId);
+
+    // Back-compute the loop start so the anchor lands EXACTLY on target. The
+    // schedule's startOffsetSec already encodes audible time (CROSSFADE_SEC
+    // subtracted between transitions), so aligning the offset aligns the fade-in.
+    //   • SCHEDULED anchor → the anchor ARCHIVE is audible at its slot start, no
+    //     warmup (radio already playing). Align the archive item's offset.
+    //   • POST-LIVE anchor → the hand-back INTERLUDE (item before the archive) is
+    //     audible at endTime + warmup (covers the live→radio source switch).
+    const computeStart = (idx: number): number =>
+      plan.anchor!.isScheduledAnchor
+        ? plan.anchor!.startTimeMs - result.items[idx].startOffsetSec * 1000
+        : plan.anchor!.endTimeMs + ANCHOR_WARMUP_MS - result.items[idx - 1].startOffsetSec * 1000;
+
+    let anchorArchiveIdx = findAnchorIdx();
     if (anchorArchiveIdx > 0 && result.items[anchorArchiveIdx - 1].kind === 'interstitial') {
-      if (plan.anchor.isScheduledAnchor) {
-        // SCHEDULED anchor: the anchor RECORDING plays in the loop and must be
-        // audible at its slot startTime, with NO warmup (the radio is already
-        // playing — no live→radio source switch). Align the anchor ARCHIVE item's
-        // own audible offset to startTimeMs. (Same model as splice-loop-anchor.ts.)
-        const anchorArchiveOffset = result.items[anchorArchiveIdx].startOffsetSec;
-        startTimeMs = plan.anchor.startTimeMs - anchorArchiveOffset * 1000;
-      } else {
-        // POST-LIVE anchor (unchanged): the listener-side audio source switch
-        // (live → radio) takes a few seconds, so push the anchor interlude's
-        // audible start to anchor.endTimeMs + warmup so the listener lands at
-        // interlude offset 0 after switching sources, hearing the full interlude
-        // before the normal 5s crossfade into the curated archive.
-        const anchorInterludeOffset = result.items[anchorArchiveIdx - 1].startOffsetSec;
-        startTimeMs = plan.anchor.endTimeMs + ANCHOR_WARMUP_MS - anchorInterludeOffset * 1000;
+      startTimeMs = computeStart(anchorArchiveIdx);
+
+      // Floor WITHOUT displacing the anchor. If the back-computed start lands
+      // before nowFloorMs, the pre-anchor pour is too LONG (the shuffle's real
+      // interlude durations exceeded the avg-interlude estimate the plan sized
+      // against). The old code clamped startTimeMs forward, which slid the anchor
+      // late by the clamp amount (Molly 2026-07-29: 0–55 min late, shuffle-
+      // dependent). Instead, DROP whole pre-anchor filler items — the last
+      // pre-anchor archive (pa(N-1)) plus the interlude before it — which shrinks
+      // the anchor's offset and moves the recomputed start LATER, until it clears
+      // the floor. The anchor stays EXACTLY on target; the loop head (already
+      // playing) is untouched since we drop nearest the anchor. Whole items only.
+      while (startTimeMs < nowFloorMs) {
+        const anchorInterludeIdx = anchorArchiveIdx - 1;   // anchor's hand-in interlude (keep)
+        const lastPreArchiveIdx = anchorInterludeIdx - 1;  // pa(N-1) — drop
+        const interludeBeforeIdx = anchorInterludeIdx - 2; // interlude before pa(N-1) — drop
+        if (
+          interludeBeforeIdx < 1 ||                                   // no droppable pair left
+          result.items[lastPreArchiveIdx]?.kind !== 'archive' ||
+          result.items[interludeBeforeIdx]?.kind !== 'interstitial'
+        ) break; // structure not as expected / nothing to drop — fall through to clamp
+        result.items.splice(interludeBeforeIdx, 2); // remove [interlude, pa(N-1)]
+        reflowOffsets(result.items);
+        anchorArchiveIdx = findAnchorIdx();
+        if (anchorArchiveIdx < 1 || result.items[anchorArchiveIdx - 1].kind !== 'interstitial') break;
+        startTimeMs = computeStart(anchorArchiveIdx);
       }
+    }
+  } else if (plan.anchor && plan.preAnchorArchiveIds !== null) {
+    // Curated-LESS first anchor (a routine live block with no admin post-live
+    // pick): buildLoop placed a RANDOM archive at the anchor slot, so there's no
+    // id to search by — fall back to the positional index (unchanged from the
+    // original two-pass align). This case was never the clamp bug (drop loop not
+    // applied here); the final clamp below still guards the floor.
+    const preLen = plan.preAnchorArchiveIds.length;
+    const anchorArchiveIdx = 2 * preLen + 1; // startInt + N pre-archives + (N-1) interludes + anchorInt
+    if (anchorArchiveIdx > 0 && result.items[anchorArchiveIdx - 1]?.kind === 'interstitial') {
+      startTimeMs = plan.anchor.isScheduledAnchor
+        ? plan.anchor.startTimeMs - result.items[anchorArchiveIdx].startOffsetSec * 1000
+        : plan.anchor.endTimeMs + ANCHOR_WARMUP_MS - result.items[anchorArchiveIdx - 1].startOffsetSec * 1000;
     }
   }
 
-  // Hard floor: the loop must NEVER start in a past window (that would supersede
-  // the currently-playing loop mid-show). The pre-anchor pour is sized so the
-  // aligned start lands at/after now; floor here as a final backstop. Pin to `now`
-  // (NOT prevEnd — a next loop is allowed to start before the prev loop ends, to
-  // overlap and cover anchors the prev loop missed).
-  const nowFloorMs = args.nowMsOverride ?? Date.now();
+  // Final backstop: never start in a past window. The drop loop above keeps the
+  // anchor on target in the normal case; this only fires when the anchor sits
+  // less than ~one archive from the loop head and no droppable filler remains, in
+  // which case residual drift is bounded to < one archive (vs. up to 55 min).
   if (startTimeMs < nowFloorMs) {
     startTimeMs = nowFloorMs;
   }
