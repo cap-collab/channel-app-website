@@ -20,6 +20,7 @@ import type {
   ArchiveScheduleDay,
   Interstitial,
   ScheduleItem,
+  Tempo,
 } from '@/types/broadcast';
 import { normalizeUsername } from '@/lib/dj-matching';
 
@@ -139,6 +140,7 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
       djs,
       artworkUrl: d.showImageUrl,
       sceneSlugs,
+      tempo: (d.tempo as Tempo | undefined) ?? undefined,
     });
   }
 
@@ -337,6 +339,7 @@ function mapArchiveDoc(
     djs,
     artworkUrl: d.showImageUrl,
     sceneSlugs,
+    tempo: (d.tempo as Tempo | undefined) ?? undefined,
   };
 }
 
@@ -1328,6 +1331,7 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
         djs: curated.djs,
         artworkUrl: curated.artworkUrl,
         sceneSlugs: curated.sceneSlugs,
+        tempo: curated.tempo,
       };
       // Cut the chosen archive short, then drop everything between it and the
       // spanning position (those items would push the anchor late), and insert

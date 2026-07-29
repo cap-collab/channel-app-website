@@ -17,6 +17,7 @@ import {
 import type {
   ArchiveRadioLoop,
   ScheduleItem,
+  Tempo,
 } from '@/types/broadcast';
 
 // Minimum lookahead when scheduling the boundary timer; avoids a 0ms timer if
@@ -85,6 +86,7 @@ function deserializeLoop(id: string, data: Record<string, unknown> | undefined):
       sceneSlugs: Array.isArray(r.sceneSlugs)
         ? (r.sceneSlugs as unknown[]).filter((s): s is string => typeof s === 'string')
         : undefined,
+      tempo: (r.tempo as Tempo | undefined) ?? undefined,
     });
   }
   const loopNumber = Number(data.loopNumber ?? Number(id.replace('loop-', '')) ?? 0);

@@ -420,6 +420,11 @@ export interface ScheduleItem {
   // bar/hero don't need to resolve the underlying archive doc to render the
   // scene glyph.
   sceneSlugs?: string[];
+  // Denormalized recording tempo. Same rationale as sceneSlugs: a hidden
+  // scheduled-anchor archive isn't in the client's hero-seed list, so the
+  // radio slide can't resolve its doc — without this the tempo badge goes
+  // blank while scene/DJ/title survive off their denormalized fields.
+  tempo?: Tempo;
 }
 
 export interface ArchiveScheduleDay {

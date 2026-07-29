@@ -1308,6 +1308,10 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
                             stationId: 'channel-main',
                             showImageUrl: radioItem.artworkUrl,
                             sceneIdsOverride: radioItem.sceneSlugs ?? null,
+                            // Denormalized off the loop item so the tempo badge
+                            // survives when the archive doc isn't in the client's
+                            // hero-seed list (hidden scheduled anchors).
+                            tempo: radioItem.tempo ?? null,
                           };
                         })();
                         const radioArchive =

@@ -3,6 +3,7 @@ import type {
   ArchiveScheduleDay,
   Interstitial,
   ScheduleItem,
+  Tempo,
 } from '@/types/broadcast';
 
 export const SCHEDULE_COLLECTION = 'archive-schedule';
@@ -111,6 +112,7 @@ export interface EligibleArchive {
   djs: { name: string; username?: string; photoUrl?: string }[];
   artworkUrl?: string;
   sceneSlugs?: string[];
+  tempo?: Tempo;
   // Wall-clock ms of this archive's most-recent prior play across recent loops.
   // Undefined = never played in the lookback = maximally stale = most preferred.
   // Used to order mediums stalest-first when picking which half goes into a loop,
@@ -245,6 +247,7 @@ export function buildQueue(opts: BuildQueueOptions): BuildQueueResult {
       djs: picked.djs,
       artworkUrl: picked.artworkUrl,
       sceneSlugs: picked.sceneSlugs,
+      tempo: picked.tempo,
     };
     items.push(archiveItem);
     lastOffsetById.set(picked.id, cursor);
@@ -498,6 +501,7 @@ export function buildLoop(opts: BuildLoopOptions): BuildLoopResult {
     djs: a.djs,
     artworkUrl: a.artworkUrl,
     sceneSlugs: a.sceneSlugs,
+    tempo: a.tempo,
   });
 
   // Base pool: every archive once, fully shuffled (priority order is
