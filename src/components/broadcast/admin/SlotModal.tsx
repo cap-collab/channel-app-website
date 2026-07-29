@@ -833,7 +833,13 @@ export function SlotModal({
         const isAnchor = slot.broadcastType === 'anchor';
         const isArchiveTab = isRestream || isAnchor;
         setModalTab(isArchiveTab ? 'archives' : 'new-show');
-        if (isArchiveTab) fetchArchives();
+        // Fetch archives when the archives tab is shown OR when this slot has a
+        // saved post-live archive to display. A live/remote slot opens on the
+        // new-show tab, so without this the archives list stays empty and the
+        // post-live hydration effect (which bails on archives.length === 0) can
+        // never resolve slot.postLiveArchiveId — the picked archive shows blank
+        // even though it IS saved.
+        if (isArchiveTab || slot.postLiveArchiveId) fetchArchives();
         setAnchorOnly(isAnchor);
         // Editing existing slot
         const start = new Date(slot.startTime);
