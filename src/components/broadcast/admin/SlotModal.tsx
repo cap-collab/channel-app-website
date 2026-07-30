@@ -641,15 +641,11 @@ export function SlotModal({
   // on a per-slot ref (not `!postLiveArchive`) means clearing the anchor sticks:
   // after the user clears it, this effect won't re-resolve it from the slot's
   // still-unsaved postLiveArchiveId.
-  useEffect(() => {
-    if (!slot?.id || archives.length === 0) return;
-    if (hydratedPostLiveSlotIdRef.current === slot.id) return;
-    hydratedPostLiveSlotIdRef.current = slot.id;
-    if (slot.postLiveArchiveId) {
-      const match = archives.find(a => a.id === slot.postLiveArchiveId);
-      if (match) setPostLiveArchive(match);
-    }
-  }, [slot, archives]);
+  // NOTE: post-live archive HYDRATION lives in an effect defined AFTER the modal
+  // reset effect (see below), so on any render where both run, React executes it
+  // after the reset (definition order) and its display value wins. Defining it
+  // here (before reset) caused an intermittent race: hydration set the archive,
+  // then the reset effect cleared it on the same render → blank "sometimes".
 
   // Filter archives by search query and date
   const filteredArchives = archives.filter(archive => {
@@ -956,6 +952,22 @@ export function SlotModal({
       }
     }
   }, [isOpen, slot, initialStartTime, initialEndTime]);
+
+  // Hydrate the post-live archive display from slot.postLiveArchiveId, resolving
+  // it against the loaded archives list. Defined AFTER the reset effect above so
+  // that on a shared render (both fire) this runs last and its value survives —
+  // fixes the intermittent "blank sometimes" where the reset cleared a
+  // just-hydrated archive. Guarded per-slot so clearing the pick sticks (won't
+  // re-resolve from the slot's still-unsaved id after the user clears it).
+  useEffect(() => {
+    if (!isOpen || !slot?.id || archives.length === 0) return;
+    if (hydratedPostLiveSlotIdRef.current === slot.id) return;
+    hydratedPostLiveSlotIdRef.current = slot.id;
+    if (slot.postLiveArchiveId) {
+      const match = archives.find(a => a.id === slot.postLiveArchiveId);
+      if (match) setPostLiveArchive(match);
+    }
+  }, [isOpen, slot, archives]);
 
   // Auto-set end date when start date changes (if not overnight)
   useEffect(() => {
