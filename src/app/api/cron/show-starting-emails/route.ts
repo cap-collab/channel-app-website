@@ -222,6 +222,13 @@ export async function GET(request: NextRequest) {
   // primary + real bundle — to this one recipient, while still stamping
   // nothing. Lets an admin see the exact email a given user would receive.
   const previewTo = params.get("previewTo")?.toLowerCase() || undefined;
+  // ?manual=1 (set by the admin "Send now" button via
+  // /api/admin/trigger-go-live-emails) widens the go-live lookback window so
+  // a DJ who started late is still detected as a fresh go-live. The auto
+  // hourly tick keeps the tight 2-min window (so long shows aren't re-blasted
+  // on later ticks); only the manual escape hatch relaxes it. Per-user dedup
+  // (`lastShowStartingEmailAt[showId]`) still prevents double-sending.
+  const manual = params.get("manual") === "1";
 
   if (!isRestApiConfigured()) {
     return NextResponse.json(
@@ -246,15 +253,19 @@ export async function GET(request: NextRequest) {
 
     const metadata: Metadata = await metadataResponse.json();
 
-    // 2. Find shows that just started. A show counts as a fresh go-live
-    // trigger only if it started within the last 30 minutes (small +5 min
-    // future skew so a show starting right at the :01 tick isn't missed).
-    // The cron runs hourly, so this floor means a long show (e.g. 2h) is
-    // only emailed about on its FIRST tick — on later ticks it's "already
-    // live" (>30 min in) and falls out of the live set, so users who only
-    // just started streaming/liking the DJ mid-show don't get a late email.
+    // 2. Find shows that just started. On the auto hourly tick a show counts
+    // as a fresh go-live only if it started within the last 2 minutes (small
+    // +1 min future skew so a show starting right at the :01 tick isn't
+    // missed). This tight floor means a long show (e.g. 2h) is only emailed
+    // about on its FIRST tick — on later ticks it's "already live" and falls
+    // out of the live set, so users who only just started streaming/liking
+    // the DJ mid-show don't get a late email. A manual "Send now" trigger
+    // (?manual=1) widens this to 60 min so a late-starting DJ is still caught.
     const now = new Date();
-    const LIVE_START_LOOKBACK_MS = 2 * 60 * 1000;
+    // Auto tick keeps a tight 2-min lookback; a manual "Send now" trigger
+    // widens to 60 min so a late-starting DJ is still caught (dedup keeps it
+    // safe to send once the window is relaxed).
+    const LIVE_START_LOOKBACK_MS = (manual ? 60 : 2) * 60 * 1000;
     const windowStart = new Date(now.getTime() - LIVE_START_LOOKBACK_MS);
     const windowEnd = new Date(now.getTime() + 1 * 60 * 1000);
     const liveShows: LiveShow[] = [];
@@ -462,7 +473,8 @@ export async function GET(request: NextRequest) {
       // status === 'live' stays true for the whole show, so a long slot would
       // otherwise re-trigger go-live emails every hourly tick for anyone newly
       // engaged mid-show. Gate on start age: only treat a slot as a fresh
-      // go-live if it started within the last 30 min (same floor as metadata).
+      // go-live if it started within the lookback window (2 min auto / 60 min
+      // manual — same floor as metadata).
       const startMs = slotStartMs(slot.data.startTime);
       if (typeof startMs === "number" && startMs < windowStart.getTime()) continue;
       pushBroadcastSlot(slot, liveShows);

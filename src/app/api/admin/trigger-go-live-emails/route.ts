@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://channel-app.com';
   try {
-    const resp = await fetch(`${appUrl}/api/cron/show-starting-emails`, {
+    const resp = await fetch(`${appUrl}/api/cron/show-starting-emails?manual=1`, {
       method: 'GET',
       headers: { 'x-vercel-cron': '1' },
     });
