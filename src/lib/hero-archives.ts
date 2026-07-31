@@ -183,6 +183,10 @@ export async function getHeroArchives(): Promise<HeroSeed> {
           priority: data.priority || 'medium',
           sceneIdsOverride: data.sceneIdsOverride ?? null,
           sceneSlugs: Array.isArray(data.sceneSlugs) ? data.sceneSlugs : undefined,
+          // Seeded archives win over the loop-item fallback in ArchiveHero's
+          // radioArchive chain, so without this the tempo badge goes blank even
+          // when the loop item carries tempo.
+          tempo: data.tempo ?? null,
           // The hero seed feeds ArchiveRadioContext (ArchiveHero → setArchives),
           // which is where the chat "track id" reply resolves the playing show.
           // Omitting this made every reply fall back to "no tracklist yet".
@@ -251,6 +255,8 @@ export async function getHeroArchives(): Promise<HeroSeed> {
             publishedAt: data.publishedAt,
             priority: data.priority || 'medium',
             sceneIdsOverride: data.sceneIdsOverride ?? null,
+            sceneSlugs: Array.isArray(data.sceneSlugs) ? data.sceneSlugs : undefined,
+            tempo: data.tempo ?? null,
             // This IS the archive on the radio right now — the one a listener
             // asks "track id?" about. It must carry its (masked) tracklist.
             trackIds: publicTrackIds(normalizeTrackIds(data.trackIds)),

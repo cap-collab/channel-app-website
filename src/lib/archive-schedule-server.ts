@@ -210,6 +210,7 @@ export async function generateScheduleForDate(args: RunArgs): Promise<RunResult>
     });
     if (it.artworkUrl) obj.artworkUrl = it.artworkUrl;
     if (it.sceneSlugs?.length) obj.sceneSlugs = it.sceneSlugs;
+    if (it.tempo) obj.tempo = it.tempo;
     return obj;
   });
 
@@ -1399,6 +1400,7 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
     });
     if (it.artworkUrl) obj.artworkUrl = it.artworkUrl;
     if (it.sceneSlugs?.length) obj.sceneSlugs = it.sceneSlugs;
+    if (it.tempo) obj.tempo = it.tempo;
     return obj;
   });
 
