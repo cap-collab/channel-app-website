@@ -17,7 +17,7 @@ export const FEATURED_TEMPO_ORDER: Tempo[] = ["downtempo", "uptempo", "very_slow
 export const FEATURED_SCENE_ORDER = ["spiral", "star"];
 
 export interface FeaturedMatrixOpts {
-  // Tempos to drop from the grid (e.g. ["very_fast"] = exclude "Intense").
+  // Tempos to drop from the grid (e.g. ["very_fast"] = exclude "Techno").
   excludeTempos?: Tempo[];
   // Archive ids to skip when filling each cell — so a cell falls through to the
   // NEXT-best archive of that scene×tempo. Used by the weekly email to rotate

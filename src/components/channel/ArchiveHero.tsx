@@ -298,7 +298,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // homepage scene chips: null = "all tempos" (every chip active); the user can
   // uncheck individual tempos. Tempo lives on the archive doc (admin-set).
   const [selectedTempos, setSelectedTempos] = useState<Tempo[] | null>(null);
-  // Seed from a shared `/?uptempo` / `/?very-chill` link (combos with scene,
+  // Seed from a shared `/?uptempo` / `/?ambient` link (combos with scene,
   // e.g. /?spiral&uptempo). Session-only — mirrors the scene seed above. The
   // join() key keeps the effect from refiring on every render.
   const urlTempoKey = urlTempoOverride ? urlTempoOverride.join(',') : '';
@@ -331,7 +331,7 @@ export function ArchiveHero({ archives, featuredArchive, isLive, isRestream, liv
   // The archives matching the active scene/tempo filter, in priority order.
   // Used by the on-ended handler: while a filter is active — whether set by the
   // chips or by a shared link like
-  //   /?archive=<slug>&scene=spiral&tempo=uptempo,intense
+  //   /?archive=<slug>&scene=spiral&tempo=uptempo,techno
   // (which plays <slug> and leaves the filters applied) — playback continues in
   // priority order through the rest of the matching set instead of the default
   // random same-scene/tempo pick. That turns a shared link into a playlist.

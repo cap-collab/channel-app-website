@@ -21,7 +21,7 @@ function migrateSceneSlugs(ids: string[]): string[] {
 }
 
 // Reads scene (`?scene=` or bare `?spiral`/`?star`/`?grid`) and tempo (`?tempo=`
-// or bare `?very-chill`/`?downtempo`/`?uptempo`/`?intense`, raw ids accepted as
+// or bare `?ambient`/`?downtempo`/`?uptempo`/`?techno`, raw ids accepted as
 // aliases) params and pushes the overrides into FilterProvider state. Isolated
 // so we can wrap it in <Suspense> — useSearchParams() otherwise opts every page
 // using <FilterProvider> out of static prerendering.
@@ -47,7 +47,7 @@ function URLSceneSync({
     });
   }
 
-  // Tempo override: explicit `?tempo=uptempo,intense` and/or bare `?uptempo`
+  // Tempo override: explicit `?tempo=uptempo,techno` and/or bare `?uptempo`
   // params. Collect into an ordered, de-duped list; null = no tempo in URL.
   let tempoOverride: Tempo[] | null = null;
   if (searchParams) {
@@ -149,7 +149,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   // so FilterProvider itself stays free of useSearchParams() — otherwise every
   // page under <Providers> would be forced out of static prerendering.
   const [urlSceneOverride, setUrlSceneOverride] = useState<string | null>(null);
-  // `?uptempo` / `?very-chill` etc. — surfaced for the homepage to seed its
+  // `?uptempo` / `?ambient` etc. — surfaced for the homepage to seed its
   // local tempo state. Session-only, no persistence (matches the tempo chips).
   const [urlTempoOverride, setUrlTempoOverride] = useState<Tempo[] | null>(null);
   const hasUrlSceneOverride = urlSceneOverride !== null;

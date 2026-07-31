@@ -5,8 +5,8 @@ import { getCityFromTimezone } from "@/lib/city-detection";
 
 // Public (no auth): the logged-out /scene view.
 //  - "Start here": a fixed 2-col grid — LEFT = spiral scene, RIGHT = star scene,
-//    rows in tempo order downtempo → uptempo → very_slow (Very Chill) →
-//    very_fast (Intense). One archive per scene×tempo cell (highest priority).
+//    rows in tempo order downtempo → uptempo → very_slow (Ambient) →
+//    very_fast (Techno). One archive per scene×tempo cell (highest priority).
 //  - "Coming up": upcoming shows + IRL events for the viewer's city (from their
 //    DEVICE timezone via ?tz=), defaulting to LA when unknown.
 //

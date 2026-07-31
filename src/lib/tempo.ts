@@ -4,10 +4,10 @@ import type { Tempo } from '@/types/broadcast';
 // tempo selector (and any future consumer) reads from here so options stay in
 // sync with the `Tempo` type. Order is slowest → fastest.
 export const TEMPOS: ReadonlyArray<{ id: Tempo; label: string }> = [
-  { id: 'very_slow', label: 'Very Chill' },
+  { id: 'very_slow', label: 'Ambient' },
   { id: 'downtempo', label: 'Downtempo' },
   { id: 'uptempo', label: 'Uptempo' },
-  { id: 'very_fast', label: 'Intense' },
+  { id: 'very_fast', label: 'Techno' },
 ] as const;
 
 // True if `value` is one of the four known tempo ids.
@@ -21,24 +21,33 @@ export function tempoLabel(value: unknown): string | null {
 }
 
 // Primary URL slug per tempo — user-facing wording, kebab-cased, for shareable
-// filter links (e.g. `/?very-chill`, `/?intense`). The raw ids (`very_slow`,
-// `very_fast`, …) are also accepted as aliases via tempoFromUrlSlug.
+// filter links (e.g. `/?ambient`, `/?techno`). The raw ids (`very_slow`,
+// `very_fast`, …) and the pre-rename slugs are also accepted as aliases via
+// tempoFromUrlSlug.
 export const TEMPO_URL_SLUGS: Record<Tempo, string> = {
-  very_slow: 'very-chill',
+  very_slow: 'ambient',
   downtempo: 'downtempo',
   uptempo: 'uptempo',
-  very_fast: 'intense',
+  very_fast: 'techno',
 };
 
-// Every URL slug that maps to a tempo: the primary slugs above plus the raw ids
-// as aliases. Used to scan bare URL params and to strip them on manual toggle.
+// Retired user-facing slugs, kept so links shared before the Ambient/Techno
+// rename keep filtering instead of silently doing nothing.
+const LEGACY_TEMPO_URL_SLUGS: Record<string, Tempo> = {
+  'very-chill': 'very_slow',
+  intense: 'very_fast',
+};
+
+// Every URL slug that maps to a tempo: the primary slugs above, the raw ids,
+// and the legacy slugs. Used to scan bare URL params and to strip them on
+// manual toggle.
 export const TEMPO_URL_SLUG_TO_ID: Record<string, Tempo> = TEMPOS.reduce(
   (acc, t) => {
     acc[TEMPO_URL_SLUGS[t.id]] = t.id; // primary (user-facing wording)
     acc[t.id] = t.id; // alias (raw id)
     return acc;
   },
-  {} as Record<string, Tempo>,
+  { ...LEGACY_TEMPO_URL_SLUGS } as Record<string, Tempo>,
 );
 
 // Resolve a URL slug (primary user-facing slug OR raw-id alias) to a Tempo,

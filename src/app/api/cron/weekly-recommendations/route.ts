@@ -34,7 +34,7 @@ import { Resend } from "resend";
 //   2. In your scene            (engine `discovery`, max 2)
 //   3. Coming up this week      (everything — online + IRL, via buildScenePayload)
 // Always sends; empty personalized sections fall back to the logged-out
-// featured matrix (6 shows, excluding the "Intense"/very_fast tempo).
+// featured matrix (6 shows, excluding the "Techno"/very_fast tempo).
 //
 // Gating: emailNotifications.weeklyRecommendations !== false (default on).
 //
@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Featured fallback matrix, built ONCE (excludes very_fast = "Intense" → 6).
+    // Featured fallback matrix, built ONCE (excludes very_fast = "Techno" → 6).
     const archivesSnap = await db.collection("archives").get();
     const allArchives: ArchiveSerialized[] = archivesSnap.docs.map(
       (d) => ({ id: d.id, ...(d.data() as Omit<ArchiveSerialized, "id">) }) as ArchiveSerialized,
