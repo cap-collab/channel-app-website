@@ -485,21 +485,42 @@ const ANCHOR_COVERED_TOLERANCE_MS = 10 * 1000;
 const NEXT_LOOP_END_LEAD_MS = 28 * 3600 * 1000;
 const NEXT_LOOP_ANCHOR_LOOKAHEAD_MS = 24 * 3600 * 1000;
 
-// Does the stored loop (its items + start) already place this anchor's curated
-// archive audible within tolerance of the anchor's target moment?
+// Does the stored loop (its items + start) already place this anchor on target?
+// "On target" means the item that becomes audible AT the anchor's target moment
+// is the right one — and which item that is differs by anchor kind:
+//   • SCHEDULED anchor → the anchor ARCHIVE itself is audible at target (slot
+//     start): match the archive item's offset.
+//   • POST-LIVE anchor → the hand-back INTERLUDE is audible at target
+//     (endTime + warmup); the archive follows ~(interludeDur − crossfade) later.
+//     So we locate the anchor archive, then check the INTERLUDE immediately before
+//     it (the hand-back) lands on target. Checking the archive's own offset against
+//     target would always read ~(interludeDur − crossfade) off — 30–50s for a
+//     typical 35–55s interlude — well past tolerance → a false "missed", which
+//     made the cron rebuild every tick a post-live anchor was upcoming. Checking
+//     the interlude's position is correct for ANY interlude length.
 function loopCoversAnchor(
   loopStartMs: number,
   loopItems: ScheduleItem[],
   anchor: LiveBlockBoundary,
 ): boolean {
   if (!anchor.curatedArchiveId) return false;
-  const target = anchor.isScheduledAnchor
-    ? anchor.startTimeMs
-    : anchor.endTimeMs + ANCHOR_WARMUP_MS;
-  for (const it of loopItems) {
+  const audibleAt = (i: number) => loopStartMs + loopItems[i].startOffsetSec * 1000;
+  for (let i = 0; i < loopItems.length; i++) {
+    const it = loopItems[i];
     if (it.kind !== 'archive' || it.archiveId !== anchor.curatedArchiveId) continue;
-    const audibleMs = loopStartMs + it.startOffsetSec * 1000;
-    if (Math.abs(audibleMs - target) <= ANCHOR_COVERED_TOLERANCE_MS) return true;
+    if (anchor.isScheduledAnchor) {
+      // Archive must be audible at the slot start.
+      if (Math.abs(audibleAt(i) - anchor.startTimeMs) <= ANCHOR_COVERED_TOLERANCE_MS) return true;
+    } else {
+      // The hand-back interlude immediately before the archive must be audible at
+      // endTime + warmup. Require an interlude to actually precede the archive —
+      // an archive placed WITHOUT a preceding hand-back interlude isn't a real
+      // post-live handoff even if the timing coincides.
+      const prev = loopItems[i - 1];
+      if (prev && prev.kind === 'interstitial') {
+        if (Math.abs(audibleAt(i - 1) - (anchor.endTimeMs + ANCHOR_WARMUP_MS)) <= ANCHOR_COVERED_TOLERANCE_MS) return true;
+      }
+    }
   }
   return false;
 }
