@@ -627,13 +627,11 @@ async function resolveLoopPlan(
   const prev = await db.collection(LOOP_COLLECTION).doc(loopDocId(args.loopNumber - 1)).get();
   let prevNaturalEnd = nowMs;
   let prevStart = nowMs;
-  let prevItems: ScheduleItem[] = [];
   if (prev.exists) {
     const data = prev.data() ?? {};
     prevStart = Number(data.startTimeMs ?? 0);
     const totalDurationSec = Number(data.totalDurationSec ?? 0);
     prevNaturalEnd = prevStart + totalDurationSec * 1000;
-    prevItems = Array.isArray(data.items) ? (data.items as ScheduleItem[]) : [];
   }
   const earliestStartMs = Math.max(nowMs, prevNaturalEnd);
 
@@ -681,25 +679,32 @@ async function resolveLoopPlan(
   // 1am tomorrow and hands them off. An anchor BEFORE the next quiet window
   // (e.g. Carhartt tonight, before tomorrow 1am) stays with the current loop.
   const nextQuietWindowMs = nextWindowMidMs(nowMs, START_WINDOW_UTC_H[0]);
-  const inHorizon = anchors.filter(
-    (a) =>
-      anchorTarget(a) >= nextQuietWindowMs &&
-      a.endTimeMs <= anchorHorizonMs &&
-      // Skip anchors the still-playing previous loop ALREADY places on-target, so
-      // this loop back-aligns to the first MISSING anchor — not one already on-air
-      // on time (that would back-date the start into the past and supersede the
-      // playing loop, reshuffling daytime audio for no reason). The match is per
-      // slot (archiveId + this slot's target), so the SAME show scheduled twice at
-      // different times is only excluded at the occurrence the prev loop covers.
-      !loopCoversAnchor(prevStart, prevItems, a),
-  );
-  const firstAnchor = inHorizon[0] ?? null;
+  // EVERY anchor in this loop's reachable span — target-sorted. Once this loop is
+  // built it BECOMES the on-air loop (loop-number precedence), so it must place
+  // ALL anchors in its span, NOT just the ones the previous loop missed. Placing
+  // only the missed ones silently drops the covered ones when this loop supersedes
+  // the previous (m50 2026-07-31 + Molly 2026-07-29: the new loop was built to
+  // catch a later anchor, excluded an earlier already-covered anchor, then replaced
+  // the loop that covered it — so that anchor vanished on air).
+  const inHorizonAll = anchors
+    .filter((a) => anchorTarget(a) >= nextQuietWindowMs && a.endTimeMs <= anchorHorizonMs)
+    .sort((a, b) => anchorTarget(a) - anchorTarget(b));
+  // firstAnchor = the EARLIEST anchor in span (drives the loop START back-shift).
+  // We do NOT skip already-covered anchors here anymore. The old exclusion existed
+  // to stop the start back-dating into a past window; that concern is now handled
+  // by generateLoop's floor logic, which DROPS pre-anchor filler to keep the start
+  // ≥ now WITHOUT displacing the anchor (see the drop loop there). Picking the
+  // earliest UNCOVERED anchor as the start-driver would strand every covered anchor
+  // before it — the exact m50/Molly drop. prevStart/prevItems + loopCoversAnchor
+  // remain in use only by ensureNextLoop's build-decision guard, not here.
+  const firstAnchor = inHorizonAll[0] ?? null;
   const curatedId = firstAnchor?.curatedArchiveId ?? null;
 
-  // Every anchor's curated archive is kept out of the random pool (anchor-only
-  // in this loop). Includes the first anchor's curated id.
+  // Every anchor's curated archive is kept out of the random pool (anchor-only in
+  // this loop) across ALL in-span anchors, so a carried-forward covered anchor
+  // (e.g. m50) doesn't ALSO echo in the random rotation.
   const anchorCuratedIds = new Set<string>(
-    inHorizon.map((a) => a.curatedArchiveId).filter((id): id is string => !!id),
+    inHorizonAll.map((a) => a.curatedArchiveId).filter((id): id is string => !!id),
   );
 
   // The single alignment TARGET: the wall-clock moment the anchor archive (well,
@@ -845,7 +850,10 @@ async function resolveLoopPlan(
   // forced the loop to ~70h ending at an odd hour instead of the 3-4am window.
   const maxTargetMs = startTimeMs + MAX_ANCHOR_HORIZON_MS;
   const firstTarget = anchorTarget(firstAnchor);
-  const laterAnchors = inHorizon
+  // Place EVERY later anchor in span (inHorizonAll), not just missed ones — a
+  // covered anchor after firstAnchor (e.g. m50) is carried forward so the new
+  // on-air loop hands off to it too.
+  const laterAnchors = inHorizonAll
     .filter((a) => anchorTarget(a) > firstTarget && anchorTarget(a) <= maxTargetMs)
     .sort((a, b) => anchorTarget(a) - anchorTarget(b));
 
