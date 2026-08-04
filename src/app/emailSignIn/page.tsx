@@ -53,6 +53,9 @@ export default function EmailSignInPage() {
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
+        // merge:true — this client-side exists() check can return a false negative
+        // right after the auth swap (stale anon-session cache), and a bare setDoc
+        // would REPLACE the account, dropping djProfile/recordingQuota/chatUsername.
         await setDoc(userRef, {
           email: user.email,
           displayName: user.email?.split("@")[0] || "User",
@@ -66,7 +69,7 @@ export default function EmailSignInPage() {
             watchlistMatch: true,
             engagementGoLive: true,
           },
-        });
+        }, { merge: true });
       } else {
         await setDoc(userRef, { lastSeenAt: serverTimestamp() }, { merge: true });
       }

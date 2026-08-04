@@ -114,6 +114,12 @@ export function useAuth() {
             const userSnap = await getDoc(userRef);
 
             if (!userSnap.exists()) {
+              // merge:true — the exists() check is a CLIENT read and can return a
+              // false negative right after an auth swap (stale anon-session cache
+              // / rules evaluated on the outgoing token). A bare setDoc would then
+              // REPLACE a real account, dropping djProfile, recordingQuota,
+              // chatUsername &c. Merging is identical for a genuinely new doc and
+              // harmless when the check was wrong.
               await setDoc(userRef, {
                 email: user.email,
                 displayName: user.email?.split("@")[0] || "User",
@@ -129,7 +135,7 @@ export function useAuth() {
                   engagementGoLive: true,
                   weeklyRecommendations: true,
                 },
-              });
+              }, { merge: true });
 
               // Reconcile any pending broadcast slots or tips by email
               // (e.g., DJ was approved before creating account)
@@ -276,6 +282,8 @@ export function useAuth() {
 
       if (!userSnap.exists()) {
         // New user - create document with notification preference and DJ username if provided
+        // merge:true — see the emailLink path: a false-negative exists() must not
+        // replace an existing account.
         await setDoc(userRef, {
           email: user.email,
           displayName: user.displayName,
@@ -293,7 +301,7 @@ export function useAuth() {
           },
           // Set chatUsername from DJ broadcast flow if provided (matches iOS app field name)
           ...(djUsername && chatUsernameFields(djUsername)),
-        });
+        }, { merge: true });
 
         // Reconcile any pending broadcast slots or tips by email
         // (e.g., DJ was approved before creating account)
@@ -408,7 +416,7 @@ export function useAuth() {
           },
           // Set chatUsername from DJ broadcast flow if provided (matches iOS app field name)
           ...(djUsername && chatUsernameFields(djUsername)),
-        });
+        }, { merge: true });
 
         // Reconcile any pending broadcast slots or tips by email
         // (e.g., DJ was approved before creating account)
@@ -579,6 +587,7 @@ export function useAuth() {
 
       if (!userSnap.exists()) {
         // First time signing in with password - create user doc
+        // merge:true — a false-negative exists() must not replace a real account.
         await setDoc(userRef, {
           email: user.email,
           displayName: user.email?.split("@")[0] || "User",
@@ -594,7 +603,7 @@ export function useAuth() {
             engagementGoLive: true,
             weeklyRecommendations: true,
           },
-        });
+        }, { merge: true });
       } else {
         await setDoc(userRef, updateData, { merge: true });
       }
@@ -658,7 +667,7 @@ export function useAuth() {
           engagementGoLive: true,
           weeklyRecommendations: true,
         },
-      });
+      }, { merge: true });
 
       // Reconcile any pending broadcast slots or tips by email
       // (e.g., DJ was approved before creating account)
@@ -733,7 +742,7 @@ export function useAuth() {
           engagementGoLive: true,
           weeklyRecommendations: true,
         },
-      });
+      }, { merge: true });
 
       // Reconcile any pending broadcast slots or tips by email
       if (user.email) {
@@ -784,6 +793,7 @@ export function useAuth() {
             updateData.email = user.email;
           }
           if (!userSnap.exists()) {
+            // merge:true — a false-negative exists() must not replace a real account.
             await setDoc(userRef, {
               email: user.email,
               displayName: user.email?.split("@")[0] || "User",
@@ -792,7 +802,7 @@ export function useAuth() {
               ...updateData,
               timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
               irlCity: getDefaultCity(),
-            });
+            }, { merge: true });
           } else {
             await setDoc(userRef, updateData, { merge: true });
           }
