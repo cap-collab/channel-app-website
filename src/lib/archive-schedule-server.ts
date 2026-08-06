@@ -475,13 +475,14 @@ const MAX_ANCHOR_HORIZON_MS = 50 * 3600 * 1000;
 // loop back-aligns to the first MISSING anchor (not one already on-air on-time).
 const ANCHOR_COVERED_TOLERANCE_MS = 10 * 1000;
 
-// When the currently-playing loop is still the latest stored, ensureNextLoop
-// builds its successor ONLY when there's a real reason to — never eagerly (an
-// eager build back-dates its start to the soonest anchor and supersedes the
-// playing loop, reshuffling daytime audio: the 2026-07-17 incident). Reasons:
+// ensureNextLoop builds a successor ONLY when there's a real reason — never
+// eagerly. An eager build back-dates its start to the soonest anchor and
+// supersedes the playing loop, reshuffling daytime audio (2026-07-17). Reasons:
 //   • the playing loop ends within NEXT_LOOP_END_LEAD_MS (running low on runway), OR
 //   • a MISSING anchor (not already placed on-target) lands within
 //     NEXT_LOOP_ANCHOR_LOOKAHEAD_MS (a live show the playing loop won't hand off to).
+// (Plus the unconditional case: nothing playing at all → build one starting NOW.)
+// See memory `project_archive_radio_loops_model` — rules + regression ledger.
 const NEXT_LOOP_END_LEAD_MS = 28 * 3600 * 1000;
 const NEXT_LOOP_ANCHOR_LOOKAHEAD_MS = 24 * 3600 * 1000;
 
@@ -1481,14 +1482,11 @@ export async function generateLoop(args: GenerateLoopArgs): Promise<GenerateLoop
 // stored loop's end is in the future, do nothing. Otherwise generate the next
 // loop. Used by the cron + the listener-side "ending soon" trigger.
 //
-// NEVER regenerates the currently-playing loop. Two paths only:
-//   • latest stored loop is a FUTURE loop → optionally regenerate IT (count-based
-//     self-heal) if new anchors now fall in its span; the playing loop is untouched.
-//   • latest stored loop IS the currently-playing one → generate a brand-new
-//     next loop (maxLoopNumber + 1). An anchor inside the playing loop's span is
-//     picked up by the next loop starting BEFORE it (resolveLoopPlan's look-back),
-//     so it hands off via loop-number precedence without ever rewriting the
-//     playing loop.
+// NEVER rewrites a stored loop — every generation appends maxLoopNumber+1 and
+// takes over at its start via loop-number precedence. (Rewriting a stored loop
+// in place is what caused the 2026-08-05 dead air: loop-60 was written Aug 4
+// starting at loop-59's end, then regenerated in place Aug 5 when an anchor
+// appeared, which recomputed its start to Aug 7 and left 45h of silence.)
 export async function ensureNextLoop(args: { generatedBy?: 'cron' | 'admin' } = {}): Promise<GenerateLoopResult | { skipped: 'already-future'; loopNumber: number }> {
   const db = getAdminDb();
   if (!db) throw new Error('database not configured');
@@ -1501,82 +1499,59 @@ export async function ensureNextLoop(args: { generatedBy?: 'cron' | 'admin' } = 
     .limit(3)
     .get();
 
-  // NEVER touch the currently-playing loop. ensureNextLoop only ever writes a NEW
-  // next loop (N+1). An anchor that falls INSIDE the currently-playing loop is caught
-  // by generating N+1 with a start BEFORE that anchor (resolveLoopPlan's anchor
-  // selection looks back over the previous loop's span) — N+1 then takes over via
-  // loop-number precedence at its start and hands off to the anchor, with the playing
-  // loop left completely untouched (no reshuffle, no mid-show jump).
+  // THE RULE — generate the next loop if and only if one of these holds:
+  //   1. nothing is playing right now (dead air), OR
+  //   2. the loop on air ends in less than 28h, OR
+  //   3. an anchor in the next 28h isn't covered by the loop on air.
+  // Otherwise do nothing. We don't care what happens in 3 days — a loop built
+  // that far ahead only sits there waiting to be invalidated.
+  //
+  // We NEVER rewrite a stored loop. Loops are append-only: every generation
+  // writes maxLoopNumber+1, and the higher number takes over at its start via
+  // loop-number precedence. Regenerating a stored loop in place is what caused
+  // the 2026-08-05 outage — loop-60 was written on Aug 4 starting exactly at
+  // loop-59's end (correct), then on Aug 5 an anchor appeared, the loop was
+  // regenerated in place, the anchor branch recomputed its start to Aug 7, and
+  // the 45h it used to cover became dead air.
+  const playing = latestSnap.docs
+    .map((d) => {
+      const x = d.data();
+      const s = Number(x.startTimeMs ?? 0);
+      return { s, e: s + Number(x.totalDurationSec ?? 0) * 1000, items: x.items, num: Number(x.loopNumber ?? 0) };
+    })
+    .find((l) => l.s <= now && now < l.e);
 
-  if (!latestSnap.empty) {
-    const data = latestSnap.docs[0].data();
-    const startTimeMs = Number(data.startTimeMs ?? 0);
-    const totalDurationSec = Number(data.totalDurationSec ?? 0);
-    const endMs = startTimeMs + totalDurationSec * 1000;
-    if (endMs > now) {
-      // Latest loop hasn't ended yet AND a loop after it would only be
-      // needed if we're inside the last loop. The cron's job is to make sure
-      // there's *always* a loop ready to play after the current one.
-      // So when the latest loop is the *currently playing* one (startTimeMs
-      // <= now < endMs), we still need to generate the next one.
-      const isCurrentlyPlaying = startTimeMs <= now && now < endMs;
-      if (!isCurrentlyPlaying) {
-        // A future loop already exists. Normally idempotent-skip — UNLESS a new
-        // anchor (live block) was scheduled INSIDE this future loop's span after
-        // it was generated. The stored loop, built with no anchor, would play
-        // straight through the live block with no hand-back. Regenerate (force)
-        // so the interlude + curated archive land on the block end. The
-        // currently-playing loop is handled above, so a live listener is never
-        // disrupted. (The cron only ever stores maxLoopNumber+1, so the latest
-        // stored loop is the only future loop to check.)
-        const loopNumber = Number(data.loopNumber ?? 0);
-        const locked = data.locked === true;
-        // Count-based self-heal: regenerate the future loop when MORE anchors fall
-        // inside THIS loop's own span than it was built with. Catches a 2nd (or
-        // Nth) anchor scheduled AFTER the loop was generated — not just the first,
-        // and not gated on planReason. (The old gate skipped any already-anchored
-        // loop, so a newly-added later anchor was silently dropped.)
-        //
-        // CRITICAL: bound the visible-anchor count to the loop's ACTUAL end
-        // (endMs), NOT a fixed 72h horizon. An anchor beyond this loop's end
-        // belongs to the NEXT loop, not this one — counting it would make the
-        // check fire every cron tick forever (visible > aligned can never
-        // converge because that anchor can never fit in this loop).
-        const storedAligned = Number(data.catalogStats?.alignedAnchorCount ?? 0);
-        if (!locked) {
-          const anchors = await loadAnchors(db, startTimeMs, endMs - startTimeMs);
-          const visibleAnchorCount = anchors.filter(
-            (a) => a.endTimeMs > startTimeMs && a.endTimeMs <= endMs,
-          ).length;
-          if (visibleAnchorCount > storedAligned) {
-            return generateLoop({ loopNumber, force: true, generatedBy: args.generatedBy });
-          }
-        }
-        return { skipped: 'already-future', loopNumber };
-      }
+  if (playing) {
+    // Rule 2, the two conditions, at the same level:
+    //   • the loop on air runs out within NEXT_LOOP_END_LEAD_MS, OR
+    //   • an anchor coming up isn't covered by it.
+    // Either one → generate. Neither → do nothing.
+    const endsSoon = playing.e - now < NEXT_LOOP_END_LEAD_MS;
 
-      // The latest stored loop IS the currently-playing one. Build its successor
-      // ONLY when there's a real reason (see NEXT_LOOP_* constants) — otherwise
-      // skip, leaving the playing loop untouched. An eager build here back-dates
-      // its start to the soonest anchor and supersedes the playing loop mid-day.
-      const endsSoon = endMs - now < NEXT_LOOP_END_LEAD_MS;
-      let hasMissingAnchorSoon = false;
-      if (!endsSoon) {
-        const items: ScheduleItem[] = Array.isArray(data.items) ? (data.items as ScheduleItem[]) : [];
-        const anchorTargetOf = (a: LiveBlockBoundary) =>
-          a.isScheduledAnchor ? a.startTimeMs : a.endTimeMs + ANCHOR_WARMUP_MS;
-        const anchors = await loadAnchors(db, now, NEXT_LOOP_ANCHOR_LOOKAHEAD_MS);
-        hasMissingAnchorSoon = anchors.some((a) => {
-          const target = anchorTargetOf(a);
-          if (target < now || target - now > NEXT_LOOP_ANCHOR_LOOKAHEAD_MS) return false;
-          return !loopCoversAnchor(startTimeMs, items, a);
-        });
-      }
-      if (!endsSoon && !hasMissingAnchorSoon) {
-        return { skipped: 'already-future', loopNumber: Number(data.loopNumber ?? 0) };
-      }
+    const items: ScheduleItem[] = Array.isArray(playing.items) ? (playing.items as ScheduleItem[]) : [];
+    const anchorTargetOf = (a: LiveBlockBoundary) =>
+      a.isScheduledAnchor ? a.startTimeMs : a.endTimeMs + ANCHOR_WARMUP_MS;
+    const anchors = await loadAnchors(db, now, NEXT_LOOP_ANCHOR_LOOKAHEAD_MS);
+    const missingAnchorSoon = anchors.some((a) => {
+      const target = anchorTargetOf(a);
+      if (target < now || target - now > NEXT_LOOP_ANCHOR_LOOKAHEAD_MS) return false;
+      return !loopCoversAnchor(playing.s, items, a);
+    });
+
+    if (!endsSoon && !missingAnchorSoon) {
+      return { skipped: 'already-future', loopNumber: playing.num };
     }
+  } else if (!latestSnap.empty) {
+    console.warn(`[ensureNextLoop] DEAD AIR — no loop covers ${new Date(now).toISOString()}`);
   }
+
   const next = (await maxLoopNumber()) + 1;
-  return generateLoop({ loopNumber: next, generatedBy: args.generatedBy });
+  return generateLoop({
+    loopNumber: next,
+    generatedBy: args.generatedBy,
+    // Nothing on air → the loop starts NOW. Without this, resolveLoopPlan picks
+    // the quiet window before the soonest anchor, which can be days out (measured:
+    // 68h) — it would generate a loop and STILL leave the silence in place.
+    ...(playing ? {} : { startTimeMsOverride: now }),
+  });
 }

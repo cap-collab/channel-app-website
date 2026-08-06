@@ -29,6 +29,10 @@ const RESYNC_DRIFT_SEC = 2;
 // When the current loop has less than this remaining, ask the server to make
 // sure the next loop exists. Belt-and-suspenders for the cron.
 const ENSURE_NEXT_LEAD_MS = 6 * 60 * 60 * 1000;
+// localStorage key prefix for "this browser already asked the server to build a
+// successor to loop N". Survives reloads and is shared across tabs, so a page
+// refresh can't buy another ping. See the ensure-next effect.
+const ENSURE_NEXT_STAMP_PREFIX = 'channel:ensureNextPinged:';
 // 5s overlap crossfade. Outgoing fades down while incoming rises. Curves are
 // per-transition (peakTaper for incoming interlude, smoothstep for incoming
 // archive). Schedule offsets are -CROSSFADE_SEC-compressed in
@@ -175,8 +179,13 @@ function resolveCurrent(
     const hit = findCurrentItemInLoop(next, nowMs);
     if (hit) return { loop: next, ...hit };
   }
+  // Last-resort fallback: start a loop from item 0. ONLY legal for a loop that
+  // has ALREADY started — a loop whose startTimeMs is in the future must never
+  // be played early (it would air tomorrow's schedule now, and desync every
+  // listener against the stored timeline). When nothing has started yet there
+  // is genuinely nothing to play; return null and let the caller stay idle.
   for (const loop of [current, next]) {
-    if (loop && loop.items.length > 0) {
+    if (loop && loop.items.length > 0 && loop.startTimeMs <= nowMs) {
       return { loop, index: 0, item: loop.items[0], seekSec: 0 };
     }
   }
@@ -758,13 +767,38 @@ export function useArchiveRadio(opts: { active: boolean }): UseArchiveRadioResul
   }, [currentKey, nextKey, currentLoopStartMs, isPlaying, opts.active]);
 
   // Belt-and-suspenders ensure-next-loop trigger.
+  //
+  // This fires from every listener's browser, so it must be hard to trigger and
+  // hard to repeat. The in-memory ref alone was neither: it is per-tab and resets
+  // on reload, so N listeners (or one person reloading while debugging) each got a
+  // free ping, and every ping can write a new loop server-side. That made a
+  // deleted loop reappear within seconds, repeatedly. The localStorage stamp below
+  // makes "already asked for a successor to loop N" survive reloads and be shared
+  // across tabs in the same browser.
   useEffect(() => {
     if (!opts.active) return;
     if (!currentLoop) return;
     if (nextLoop) return;
+    // Only a loop that is genuinely PLAYING right now may ask for a successor.
+    // Without this, a not-yet-started future loop (or a stale ended one) also
+    // pinged, asking the server to pile another loop on top of a queue that
+    // already reaches days ahead.
+    if (currentLoop.startTimeMs > nowMs) return;
     const remaining = loopEndMs(currentLoop) - nowMs;
     if (remaining > ENSURE_NEXT_LEAD_MS) return;
     if (ensureNextPingedForRef.current === currentLoop.loopNumber) return;
+    const stampKey = `${ENSURE_NEXT_STAMP_PREFIX}${currentLoop.loopNumber}`;
+    try {
+      if (window.localStorage.getItem(stampKey)) {
+        // Another tab (or an earlier page load) already asked for this loop's
+        // successor. Mirror it into the ref so we stop re-checking storage.
+        ensureNextPingedForRef.current = currentLoop.loopNumber;
+        return;
+      }
+      window.localStorage.setItem(stampKey, '1');
+    } catch {
+      // Private mode / storage disabled — fall through to the in-memory guard.
+    }
     ensureNextPingedForRef.current = currentLoop.loopNumber;
     void fetch('/api/admin/archive-radio-loop/ensure-next', { method: 'POST' }).catch((err) => {
       console.warn('[useArchiveRadio] ensure-next ping failed', err);
